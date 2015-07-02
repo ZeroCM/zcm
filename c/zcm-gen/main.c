@@ -31,6 +31,9 @@ int emit_java(zcmgen_t *zcm);
 void setup_python_options(getopt_t *gopt);
 int emit_python(zcmgen_t *zcm);
 
+void setup_js_options(getopt_t *gopt);
+int emit_js(zcmgen_t *zcm);
+
 void setup_lua_options(getopt_t *gopt);
 int emit_lua(zcmgen_t *zcm);
 
@@ -70,6 +73,10 @@ int main(int argc, char *argv[])
     getopt_add_spacer(gopt, "**** Python options ****");
     getopt_add_bool  (gopt, 'p', "python",      0,     "Emit Python code");
     setup_python_options(gopt);
+
+    getopt_add_spacer(gopt, "**** Javascript options ****");
+    getopt_add_bool  (gopt, 's', "js",      0,     "Emit Javascript code");
+    setup_js_options(gopt);
 
     getopt_add_spacer(gopt, "**** Lua options ****");
     getopt_add_bool  (gopt, 'l', "lua",      0,     "Emit Lua code");
@@ -140,6 +147,13 @@ int main(int argc, char *argv[])
         did_something = 1;
         if (emit_python(zcm)) {
             printf("An error occurred while emitting Python code.\n");
+        }
+    }
+
+    if (getopt_get_bool(gopt, "js")) {
+        did_something = 1;
+        if (emit_js(zcm)) {
+            printf("An error occurred while emitting Javascript code.\n");
         }
     }
 
