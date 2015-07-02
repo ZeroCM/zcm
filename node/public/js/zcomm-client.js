@@ -4,15 +4,18 @@ var zcomm = (function(){
     {
         var socket = io();
 
-        var callback = null;
+        // Channel -> Callback
+        var callbacks = {};
+
         socket.on('server-to-client', function(msg){
-            if (callback)
-                callback(msg.channel, msg.data);
+            var chan = msg.channel;
+            if (chan in callbacks)
+                callbacks[chan](chan, msg.data);
         });
 
         return {
             subscribe: function(channel, cb) {
-                callback = cb
+                callbacks[channel] = cb;
             },
             publish: function(channel, data) {
                 var msg = {channel: channel, data: data};

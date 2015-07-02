@@ -1,6 +1,6 @@
 var app = (function(){
 
-     var zc = zcomm.create();
+    var zc = zcomm.create();
 
     $('form').submit(function(e){
         zc.publish('PUB_CHANNEL', $('#m').val());
@@ -8,7 +8,7 @@ var app = (function(){
         return false;
     });
 
-    zc.subscribe('SUB_CHANNEL', function(channel, data){
+    zc.subscribe('FROB_DATA', function(channel, data){
         var t = 'channel='+channel+', data='+data;
         $('#messages').append($('<li>').text(t));
     });

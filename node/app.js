@@ -6,7 +6,7 @@ var zcomm = require('./zcomm').create()
 
 app.use(express.static("public"));
 
-zcomm.subscribe('ALL', function(channel, data) {
+zcomm.subscribe('', function(channel, data) {
     var msg = {channel: channel.toString(), data: data.toString()};
     io.emit('server-to-client', msg);
 });

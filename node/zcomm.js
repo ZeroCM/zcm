@@ -10,17 +10,23 @@ function create() {
     var pub = zmq.socket('pub');
     pub.connect(PUB_ADDR);
 
-    var callback = null;
+    // Channel -> Callback
+    var callbacks = {};
+    var callback_all = null;
 
     sub.on('message', function(channel, data) {
-        if (callback)
-            callback(channel, data);
+        if (channel in callbacks)
+            callbacks[channel](channel, data);
+        if (callback_all)
+            callback_all(channel, data)
     });
 
     return {
         subscribe: function(channel, cb) {
             sub.subscribe(channel);
-            callback = cb;
+            callbacks[channel] = cb;
+            if (channel == '')
+                callback_all = cb
         },
         publish: function(channel, data) {
             pub.send([channel, data]);
