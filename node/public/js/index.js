@@ -3,12 +3,12 @@ var app = (function(){
      var zc = zcomm.create();
 
     $('form').submit(function(e){
-        zc.publish('foobar', $('#m').val());
+        zc.publish('PUB_CHANNEL', $('#m').val());
         $('#m').val('');
         return false;
     });
 
-    zc.subscribe('SOME_CHANNEL', function(channel, data){
+    zc.subscribe('SUB_CHANNEL', function(channel, data){
         var t = 'channel='+channel+', data='+data;
         $('#messages').append($('<li>').text(t));
     });

@@ -12,8 +12,8 @@ zcomm.subscribe('ALL', function(channel, data) {
 });
 
 io.on('connection', function(socket){
-    socket.on('client-to-server', function(data){
-        zcomm.publish('foo', data);
+    socket.on('client-to-server', function(msg){
+        zcomm.publish(msg.channel, msg.data);
     });
 });
 
