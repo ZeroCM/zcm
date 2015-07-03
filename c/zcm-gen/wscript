@@ -4,4 +4,4 @@ def build(ctx):
     ctx.program(target = 'zcm-gen',
                 use = 'default',
                 uselib = 'GLIB',
-                source = ctx.path.ant_glob('*.c'))
+                source = ctx.path.ant_glob('*.c *.cpp'))

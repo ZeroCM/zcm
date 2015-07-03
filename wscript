@@ -7,9 +7,11 @@ out = 'build'
 
 def options(ctx):
     ctx.load('compiler_c')
+    ctx.load('compiler_cxx')
 
 def configure(ctx):
     ctx.load('compiler_c')
+    ctx.load('compiler_cxx')
     ctx.check_cfg(package='glib-2.0', uselib_store='GLIB', args='--cflags --libs', mandatory=True)
 
 def setup_environment(ctx):
