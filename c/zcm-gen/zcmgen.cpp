@@ -101,6 +101,8 @@ ZCMTypename::ZCMTypename(ZCMGen& zcmgen, const string& name)
     const string& thisPackage = zcmgen.package;
     const string& packagePrefix = getopt_get_string(zcmgen.gopt, "package-prefix");
 
+    t.fullname = name;
+
     // package name: everything before the last ".", or "" if there is no "."
     //
     // shortname: everything after the last ".", or everything if

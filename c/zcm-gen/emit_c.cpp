@@ -22,9 +22,9 @@ static inline int imax(int a, int b) { return std::max(a, b); }
 static string dotsToUnderscores(const string& s)
 {
     string ret = s;
-    for (char& c : ret)
-        if (c == '.')
-            c = '_';
+    for (uint i = 0; i < ret.size(); i++)
+        if (ret[i] == '.')
+            ret[i] = '_';
     return ret;
 }
 
@@ -387,7 +387,7 @@ static void emitCArrayLoopsStart(ZCMGen& zcm, FILE *f, ZCMMember& lm, const stri
         char var = 'a' + i;
 
         if (flags & FLAG_EMIT_MALLOCS) {
-            string stars = string(lm.dimensions.size()-1, '*');
+            string stars = string(lm.dimensions.size()-1-i, '*');
             emit(2+i, "%s = (%s%s*) zcm_malloc(sizeof(%s%s) * %s);",
                  makeAccessor(lm, n, i).c_str(),
                  mapTypeName(lm.type.fullname).c_str(),

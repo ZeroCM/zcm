@@ -72,19 +72,26 @@ int main(int argc, char *argv[])
     // getopt_add_bool  (gopt, 0, "csharp",      0,     "Emit C#.NET code");
     // setup_csharp_options(gopt);
 
-    if (!getopt_parse(gopt, argc, argv, 1) || getopt_get_bool(gopt,"help")) {
-        printf("Usage: %s [options] <input files>\n\n", argv[0]);
-        getopt_do_usage(gopt);
-        return 0;
-    }
+    // if (!getopt_parse(gopt, argc, argv, 1) || getopt_get_bool(gopt,"help")) {
+    //     printf("Usage: %s [options] <input files>\n\n", argv[0]);
+    //     getopt_do_usage(gopt);
+    //     return 0;
+    // }
 
     ZCMGen zcm;
     zcm.gopt = gopt;
 
+
+    for (int i = 2; i < argc; i++) {
+        int res = zcm.handleFile(argv[i]);
+        if (res)
+            return res;
+    }
+
     // for (unsigned int i = 0; i < g_ptr_array_size(gopt->extraargs); i++) {
     //     char *path = (char *) g_ptr_array_index(gopt->extraargs, i);
 
-    //     int res = zcmgen_handle_file(zcm, path);
+    //     int res = zcm.handleFile(path);
     //     if (res)
     //         return res;
     // }
@@ -108,12 +115,12 @@ int main(int argc, char *argv[])
         zcm.dump();
     }
 
-    if (getopt_get_bool(gopt, "c")) {
+    //if (getopt_get_bool(gopt, "c")) {
         did_something = 1;
         if (emitC(zcm)) {
             printf("An error occurred while emitting C code.\n");
         }
-    }
+        //}
 
     // if (getopt_get_bool(gopt, "cpp")) {
     //     did_something = 1;
