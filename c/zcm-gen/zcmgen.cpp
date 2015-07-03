@@ -99,7 +99,7 @@ ZCMTypename::ZCMTypename(ZCMGen& zcmgen, const string& name)
     ZCMTypename& t = *this;
 
     const string& thisPackage = zcmgen.package;
-    const string& packagePrefix = getopt_get_string(zcmgen.gopt, "package-prefix");
+    const string& packagePrefix = zcmgen.gopt->getString("package-prefix");
 
     t.fullname = name;
 
@@ -584,7 +584,7 @@ int ZCMGen::handleFile(const string& path)
         return -1;
     }
 
-    if (getopt_get_bool(gopt, "tokenize")) {
+    if (gopt->getBool("tokenize")) {
         int ntok = 0;
         printf("%6s %6s %6s: %s\n", "tok#", "line", "col", "token");
 
@@ -672,7 +672,7 @@ bool ZCMGen::needsGeneration(const string& declaringfile, const string& outfile)
     struct stat instat, outstat;
     int res;
 
-    if (!getopt_get_bool(gopt, "lazy"))
+    if (!gopt->getBool("lazy"))
         return true;
 
     res = stat(declaringfile.c_str(), &instat);

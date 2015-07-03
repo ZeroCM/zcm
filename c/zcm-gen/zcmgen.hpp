@@ -1,5 +1,6 @@
 #pragma once
 #include "Common.hpp"
+#include "GetOpt.hpp"
 
 extern "C" {
 #include "getopt.h"
@@ -102,7 +103,7 @@ struct ZCMStruct
 struct ZCMGen
 {
     string             package; // remembers the last-specified package name, which is prepended to other types.
-    getopt_t          *gopt;
+    GetOpt             *gopt = nullptr;
     vector<ZCMStruct>  structs;
 
     string             comment;

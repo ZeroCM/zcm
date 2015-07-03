@@ -1,13 +1,13 @@
 #include "Common.hpp"
+#include "GetOpt.hpp"
 #include "zcmgen.hpp"
 #include "version.h"
 
 extern "C" {
-#include "getopt.h"
 #include "tokenize.h"
 }
 
-void setupOptionsC(getopt_t *gopt);
+void setupOptionsC(GetOpt& gopt);
 int emitC(ZCMGen& zcm);
 
 /* void setup_java_options(getopt_t *gopt); */
@@ -30,21 +30,20 @@ int emitC(ZCMGen& zcm);
 
 int main(int argc, char *argv[])
 {
-    getopt_t *gopt = getopt_create();
-
-    getopt_add_bool  (gopt, 'h',  "help",     0,    "Show this help");
-    getopt_add_bool  (gopt, 't',  "tokenize", 0,    "Show tokenization");
-    getopt_add_bool  (gopt, 'd',  "debug",    0,    "Show parsed file");
-    getopt_add_bool  (gopt, 0,    "lazy",     0,    "Generate output file only if .zcm is newer");
-    getopt_add_string(gopt, 0,    "package-prefix",     "",
+    GetOpt gopt;
+    gopt.addBool('h',  "help",     0,    "Show this help");
+    gopt.addBool('t',  "tokenize", 0,    "Show tokenization");
+    gopt.addBool('d',  "debug",    0,    "Show parsed file");
+    gopt.addBool(0,    "lazy",     0,    "Generate output file only if .zcm is newer");
+    gopt.addString(0,    "package-prefix",     "",
                       "Add this package name as a prefix to the declared package");
-    getopt_add_bool  (gopt, 0,  "version",    0,    "Show version information and exit");
+    gopt.addBool(0,  "version",    0,    "Show version information and exit");
 
     // we only support portable declarations now.
     // getopt_add_bool  (gopt, 0,    "warn-unsafe", 1, "Warn about unportable declarations");
 
-    getopt_add_spacer(gopt, "**** C options ****");
-    getopt_add_bool  (gopt, 'c', "c",         0,     "Emit C code");
+    gopt.addSpacer("**** C options ****");
+    gopt.addBool('c', "c",         0,     "Emit C code");
     setupOptionsC(gopt);
 
     // getopt_add_spacer(gopt, "**** C++ options ****");
@@ -78,8 +77,7 @@ int main(int argc, char *argv[])
     // }
 
     ZCMGen zcm;
-    zcm.gopt = gopt;
-
+    zcm.gopt = &gopt;
 
     for (int i = 2; i < argc; i++) {
         int res = zcm.handleFile(argv[i]);
@@ -96,7 +94,7 @@ int main(int argc, char *argv[])
     // }
 
     // If "--version" was specified, then show version information and exit.
-    if (getopt_get_bool(gopt, "version")) {
+    if (gopt.getBool("version")) {
       printf("zcm-gen %d.%d.%d\n", ZCM_MAJOR_VERSION, ZCM_MINOR_VERSION,
              ZCM_MICRO_VERSION);
       return 0;
@@ -104,12 +102,12 @@ int main(int argc, char *argv[])
 
     // If "-t" or "--tokenize" was specified, then show tokenization
     // information and exit.
-    if (getopt_get_bool(gopt, "tokenize")) {
+    if (gopt.getBool("tokenize")) {
         return 0;
     }
 
     int did_something = 0;
-    if (getopt_get_bool(gopt, "debug")) {
+    if (gopt.getBool("debug")) {
         did_something = 1;
         zcm.dump();
     }

@@ -7,29 +7,6 @@ enum OptType {
     OPT_STRING_TYPE = 2,
 };
 
-// struct GetOpt
-// {
-//     struct Opt
-//     {
-//         string sname;
-//         string lname;
-//         string svalue;
-
-//         string help;
-//         int    type;
-
-//         bool spacer;
-
-//         // did the user actually specify this option
-//         // (as opposed to a default value)?
-//         bool wasSpecified;
-//     };
-
-//     vector<Opt>                opts;
-//     unordered_map<string, int> lopts; // flag -> opts-index
-//     unordered_map<string, int> sopts; // flag -> opts-index
-//     vector<string>             extraargs;
-
 int GetOpt::parse(int argc, char *argv[], int showErrors)
 {
     bool okay = true;
