@@ -2,17 +2,22 @@
 
 #include <string>
 #include <vector>
+#include <unordered_map>
 #include <algorithm>
 
 #include <cstdint>
+#include <cstdarg>
 #include <cinttypes>
 #include <cstring>
 #include <cassert>
+#include <climits>
+#include <cfloat>
 
 #include <sys/stat.h>
 
 using std::string;
 using std::vector;
+using std::unordered_map;
 
 typedef uint8_t   u8;
 typedef uint16_t  u16;

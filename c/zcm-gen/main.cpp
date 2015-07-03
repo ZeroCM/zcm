@@ -5,7 +5,6 @@
 extern "C" {
 #include "getopt.h"
 #include "tokenize.h"
-//#include <glib.h>
 }
 
 void setupOptionsC(getopt_t *gopt);
