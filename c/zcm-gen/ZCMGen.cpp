@@ -1,4 +1,4 @@
-#include "zcmgen.hpp"
+#include "ZCMGen.hpp"
 
 extern "C" {
 #include "tokenize.h"

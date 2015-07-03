@@ -1,9 +1,9 @@
 #include "Common.hpp"
 #include "GetOpt.hpp"
-#include "zcmgen.hpp"
-#include "version.h"
+#include "ZCMGen.hpp"
 
 extern "C" {
+#include "version.h"
 #include "tokenize.h"
 }
 

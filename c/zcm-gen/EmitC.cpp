@@ -1,7 +1,7 @@
 #include "Common.hpp"
 #include "GetOpt.hpp"
 #include "StringUtil.hpp"
-#include "zcmgen.hpp"
+#include "ZCMGen.hpp"
 
 #define INDENT(n) (4*(n))
 
