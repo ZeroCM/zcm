@@ -69,9 +69,11 @@ static string mapTypeName(const string& t)
 struct Emit
 {
     ZCMGen& zcm;
+    ZCMStruct& lr;
     FILE *f = nullptr;
 
-    Emit(ZCMGen& zcm, const string& fname) : zcm(zcm)
+    Emit(ZCMGen& zcm, ZCMStruct& lr, const string& fname):
+        zcm(zcm), lr(lr)
     {
         f = fopen(fname.c_str(), "w");
     }
@@ -119,11 +121,11 @@ struct Emit
 
 struct EmitHeader : public Emit
 {
-    EmitHeader(ZCMGen& zcm, const string& fname) :
-        Emit{zcm, fname} {}
+    EmitHeader(ZCMGen& zcm, ZCMStruct& lr, const string& fname):
+        Emit{zcm, lr, fname} {}
 
     /** Emit output that is common to every header file **/
-    void emitHeaderTop(ZCMStruct& lr)
+    void emitHeaderTop()
     {
         string tmp_ = dotsToUnderscores(lr.structname.fullname);
         char *tn_ = (char *)tmp_.c_str();
@@ -159,15 +161,15 @@ struct EmitHeader : public Emit
     }
 
     /** Emit header file output specific to a particular type of struct. **/
-    void emitHeaderStruct(ZCMStruct& ls)
+    void emitHeaderStruct()
     {
-        string tn = dotsToUnderscores(ls.structname.fullname);
+        string tn = dotsToUnderscores(lr.structname.fullname);
         string tnUpper = StringUtil::toUpper(tn);
 
         // include header files required by members
-        for (auto& lm : ls.members) {
+        for (auto& lm : lr.members) {
             if (!ZCMGen::isPrimitiveType(lm.type.fullname) &&
-                lm.type.fullname != ls.structname.fullname) {
+                lm.type.fullname != lr.structname.fullname) {
                 string otherTn = dotsToUnderscores(lm.type.fullname);
                 fprintf(f, "#include \"%s%s%s.h\"\n",
                         zcm.gopt->getString("cinclude").c_str(),
@@ -177,23 +179,23 @@ struct EmitHeader : public Emit
         }
 
         // output constants
-        for (auto& lc : ls.constants) {
+        for (auto& lc : lr.constants) {
             assert(ZCMGen::isLegalConstType(lc.type));
             string suffix = (lc.type == "int64_t") ? "LL" : "";
             emitComment(0, lc.comment.c_str());
             emit(0, "#define %s_%s %s%s", tnUpper.c_str(),
                  lc.membername.c_str(), lc.valstr.c_str(), suffix.c_str());
         }
-        if (ls.constants.size() > 0)
+        if (lr.constants.size() > 0)
             emit(0, "");
 
         // define the struct
-        emitComment(0, ls.comment.c_str());
+        emitComment(0, lr.comment.c_str());
         emit(0, "typedef struct _%s %s;", tn.c_str(), tn.c_str());
         emit(0, "struct _%s", tn.c_str());
         emit(0, "{");
 
-        for (auto& lm : ls.members) {
+        for (auto& lm : lr.members) {
             emitComment(1, lm.comment.c_str());
 
             int ndim = lm.dimensions.size();
@@ -218,9 +220,9 @@ struct EmitHeader : public Emit
         emit(0, "");
     }
 
-    void emitHeaderPrototypes(ZCMStruct& ls)
+    void emitHeaderPrototypes()
     {
-        string tmp_ = dotsToUnderscores(ls.structname.fullname);
+        string tmp_ = dotsToUnderscores(lr.structname.fullname);
         char *tn_ = (char *)tmp_.c_str();
 
         emit(0, "/**");
@@ -354,10 +356,10 @@ struct EmitHeader : public Emit
 
 struct EmitSource : public Emit
 {
-    EmitSource(ZCMGen& zcm, const string& fname) :
-        Emit{zcm, fname} {}
+    EmitSource(ZCMGen& zcm, ZCMStruct& lr, const string& fname):
+        Emit{zcm, lr, fname} {}
 
-    void emitIncludes(ZCMStruct& lr)
+    void emitIncludes()
     {
         string tmp_ = dotsToUnderscores(lr.structname.fullname);
         char *tn_ = (char *)tmp_.c_str();
@@ -369,9 +371,9 @@ struct EmitSource : public Emit
         fprintf(f, "\n");
     }
 
-    void emitCStructGetHash(ZCMStruct& ls)
+    void emitCStructGetHash()
     {
-        string tmp_ = dotsToUnderscores(ls.structname.fullname);
+        string tmp_ = dotsToUnderscores(lr.structname.fullname);
         char *tn_ = (char *)tmp_.c_str();
 
         emit(0, "static int __%s_hash_computed;", tn_);
@@ -390,9 +392,9 @@ struct EmitSource : public Emit
         emit(1, "cp.v = (void*)__%s_get_hash;", tn_);
         emit(1, "(void) cp;");
         emit(0, "");
-        emit(1, "int64_t hash = (int64_t)0x%016" PRIx64 "LL", ls.hash);
+        emit(1, "int64_t hash = (int64_t)0x%016" PRIx64 "LL", lr.hash);
 
-        for (auto& lm : ls.members)
+        for (auto& lm : lr.members)
             emit(2, " + __%s_hash_recursive(&cp)", dotsToUnderscores(lm.type.fullname).c_str());
 
         emit(2,";");
@@ -467,9 +469,9 @@ struct EmitSource : public Emit
         }
     }
 
-    void emitCEncodeArray(ZCMStruct& ls)
+    void emitCEncodeArray()
     {
-        string tmp_ = dotsToUnderscores(ls.structname.fullname);
+        string tmp_ = dotsToUnderscores(lr.structname.fullname);
         char *tn_ = (char *)tmp_.c_str();
 
         emit(0,"int __%s_encode_array(void *buf, int offset, int maxlen, const %s *p, int elements)", tn_, tn_);
@@ -478,7 +480,7 @@ struct EmitSource : public Emit
         emit(0,"");
         emit(1,    "for (element = 0; element < elements; element++) {");
         emit(0,"");
-        for (auto& lm : ls.members) {
+        for (auto& lm : lr.members) {
             emitCArrayLoopsStart(lm, "p", FLAG_NONE);
 
             int indent = 2+std::max(0, (int)lm.dimensions.size() - 1);
@@ -497,9 +499,9 @@ struct EmitSource : public Emit
         emit(0,"");
     }
 
-    void emitCEncode(ZCMStruct& ls)
+    void emitCEncode()
     {
-        string tmp_ = dotsToUnderscores(ls.structname.fullname);
+        string tmp_ = dotsToUnderscores(lr.structname.fullname);
         char *tn_ = (char *)tmp_.c_str();
 
         emit(0,"int %s_encode(void *buf, int offset, int maxlen, const %s *p)", tn_, tn_);
@@ -518,9 +520,9 @@ struct EmitSource : public Emit
         emit(0,"");
     }
 
-    void emitCDecodeArray(ZCMStruct& ls)
+    void emitCDecodeArray()
     {
-        string tmp_ = dotsToUnderscores(ls.structname.fullname);
+        string tmp_ = dotsToUnderscores(lr.structname.fullname);
         char *tn_ = (char *)tmp_.c_str();
 
         emit(0,"int __%s_decode_array(const void *buf, int offset, int maxlen, %s *p, int elements)", tn_, tn_);
@@ -529,7 +531,7 @@ struct EmitSource : public Emit
         emit(0,"");
         emit(1,    "for (element = 0; element < elements; element++) {");
         emit(0,"");
-        for (auto& lm : ls.members) {
+        for (auto& lm : lr.members) {
             emitCArrayLoopsStart(lm, "p", lm.isConstantSizeArray() ? FLAG_NONE : FLAG_EMIT_MALLOCS);
 
             int indent = 2+std::max(0, (int)lm.dimensions.size() - 1);
@@ -548,9 +550,9 @@ struct EmitSource : public Emit
         emit(0,"");
     }
 
-    void emitCDecodeArrayCleanup(ZCMStruct& ls)
+    void emitCDecodeArrayCleanup()
     {
-        string tmp_ = dotsToUnderscores(ls.structname.fullname);
+        string tmp_ = dotsToUnderscores(lr.structname.fullname);
         char *tn_ = (char *)tmp_.c_str();
 
         emit(0,"int __%s_decode_array_cleanup(%s *p, int elements)", tn_, tn_);
@@ -558,7 +560,7 @@ struct EmitSource : public Emit
         emit(1,    "int element;");
         emit(1,    "for (element = 0; element < elements; element++) {");
         emit(0,"");
-        for (auto& lm : ls.members) {
+        for (auto& lm : lr.members) {
             emitCArrayLoopsStart(lm, "p", FLAG_NONE);
 
             int indent = 2+std::max(0, (int)lm.dimensions.size() - 1);
@@ -576,9 +578,9 @@ struct EmitSource : public Emit
         emit(0,"");
     }
 
-    void emitCDecode(ZCMStruct& ls)
+    void emitCDecode()
     {
-        string tmp_ = dotsToUnderscores(ls.structname.fullname);
+        string tmp_ = dotsToUnderscores(lr.structname.fullname);
         char *tn_ = (char *)tmp_.c_str();
 
         emit(0,"int %s_decode(const void *buf, int offset, int maxlen, %s *p)", tn_, tn_);
@@ -599,9 +601,9 @@ struct EmitSource : public Emit
         emit(0,"");
     }
 
-    void emitCDecodeCleanup(ZCMStruct& ls)
+    void emitCDecodeCleanup()
     {
-        string tmp_ = dotsToUnderscores(ls.structname.fullname);
+        string tmp_ = dotsToUnderscores(lr.structname.fullname);
         char *tn_ = (char *)tmp_.c_str();
 
         emit(0,"int %s_decode_cleanup(%s *p)", tn_, tn_);
@@ -611,9 +613,9 @@ struct EmitSource : public Emit
         emit(0,"");
     }
 
-    void emitCEncodedArraySize(ZCMStruct& ls)
+    void emitCEncodedArraySize()
     {
-        string tmp_ = dotsToUnderscores(ls.structname.fullname);
+        string tmp_ = dotsToUnderscores(lr.structname.fullname);
         char *tn_ = (char *)tmp_.c_str();
 
         emit(0,"int __%s_encoded_array_size(const %s *p, int elements)", tn_, tn_);
@@ -621,7 +623,7 @@ struct EmitSource : public Emit
         emit(1,"int size = 0, element;");
         emit(1,    "for (element = 0; element < elements; element++) {");
         emit(0,"");
-        for (auto& lm : ls.members) {
+        for (auto& lm : lr.members) {
             emitCArrayLoopsStart(lm, "p", FLAG_NONE);
 
             int indent = 2+std::max(0, (int)lm.dimensions.size() - 1);
@@ -639,9 +641,9 @@ struct EmitSource : public Emit
         emit(0,"");
     }
 
-    void emitCEncodedSize(ZCMStruct& ls)
+    void emitCEncodedSize()
     {
-        string tmp_ = dotsToUnderscores(ls.structname.fullname);
+        string tmp_ = dotsToUnderscores(lr.structname.fullname);
         char *tn_ = (char *)tmp_.c_str();
 
         emit(0,"int %s_encoded_size(const %s *p)", tn_, tn_);
@@ -651,21 +653,21 @@ struct EmitSource : public Emit
         emit(0,"");
     }
 
-    void emitCNumFields(ZCMStruct& ls)
+    void emitCNumFields()
     {
-        string tmp_ = dotsToUnderscores(ls.structname.fullname);
+        string tmp_ = dotsToUnderscores(lr.structname.fullname);
         char *tn_ = (char *)tmp_.c_str();
 
         emit(0,"int %s_num_fields(void)", tn_);
         emit(0,"{");
-        emit(1, "return %d;", (int)ls.members.size());
+        emit(1, "return %d;", (int)lr.members.size());
         emit(0,"}");
         emit(0,"");
     }
 
-    void emitCStructSize(ZCMStruct& ls)
+    void emitCStructSize()
     {
-        string tmp_ = dotsToUnderscores(ls.structname.fullname);
+        string tmp_ = dotsToUnderscores(lr.structname.fullname);
         char *tn_ = (char *)tmp_.c_str();
 
         emit(0,"size_t %s_struct_size(void)", tn_);
@@ -675,9 +677,9 @@ struct EmitSource : public Emit
         emit(0,"");
     }
 
-    void emitCGetField(ZCMStruct& ls)
+    void emitCGetField()
     {
-        string tmp_ = dotsToUnderscores(ls.structname.fullname);
+        string tmp_ = dotsToUnderscores(lr.structname.fullname);
         char *tn_ = (char *)tmp_.c_str();
 
         emit(0,"int %s_get_field(const %s *p, int i, zcm_field_t *f)", tn_, tn_);
@@ -689,11 +691,11 @@ struct EmitSource : public Emit
         emit(1,"switch (i) {");
         emit(1,"");
 
-        int num_fields = ls.members.size();
+        int num_fields = lr.members.size();
         for(int i = 0; i < num_fields; i++) {
             emit(2,"case %d: {", i);
 
-            ZCMMember& m = ls.members[i];
+            ZCMMember& m = lr.members[i];
 
             string typeval;
             if(ZCMGen::isPrimitiveType(m.type.shortname)) {
@@ -740,9 +742,9 @@ struct EmitSource : public Emit
         emit(0,"");
     }
 
-    void emitCGetTypeInfo(ZCMStruct& ls)
+    void emitCGetTypeInfo()
     {
-        string tmp_ = dotsToUnderscores(ls.structname.fullname);
+        string tmp_ = dotsToUnderscores(lr.structname.fullname);
         char *tn_ = (char *)tmp_.c_str();
 
         emit(0,"const zcm_type_info_t *%s_get_type_info(void)", tn_);
@@ -764,7 +766,7 @@ struct EmitSource : public Emit
         emit(0,"}");
     }
 
-    void emitCCloneArray(ZCMStruct& lr)
+    void emitCCloneArray()
     {
         string tmp_ = dotsToUnderscores(lr.structname.fullname);
         char *tn_ = (char *)tmp_.c_str();
@@ -794,7 +796,7 @@ struct EmitSource : public Emit
         emit(0,"");
     }
 
-    void emitCCopy(ZCMStruct& lr)
+    void emitCCopy()
     {
         string tmp_ = dotsToUnderscores(lr.structname.fullname);
         char *tn_ = (char *)tmp_.c_str();
@@ -808,7 +810,7 @@ struct EmitSource : public Emit
         emit(0,"");
     }
 
-    void emitCDestroy(ZCMStruct& lr)
+    void emitCDestroy()
     {
         string tmp_ = dotsToUnderscores(lr.structname.fullname);
         char *tn_ = (char *)tmp_.c_str();
@@ -821,7 +823,7 @@ struct EmitSource : public Emit
         emit(0,"");
     }
 
-    void emitCStructPublish(ZCMStruct& lr)
+    void emitCStructPublish()
     {
         string tmp_ = dotsToUnderscores(lr.structname.fullname);
         char *tn_ = (char *)tmp_.c_str();
@@ -843,7 +845,7 @@ struct EmitSource : public Emit
     }
 
 
-    void emitCStructSubscribe(ZCMStruct& lr)
+    void emitCStructSubscribe()
     {
         string tmp_ = dotsToUnderscores(lr.structname.fullname);
         char *tn_ = (char *)tmp_.c_str();
@@ -920,14 +922,14 @@ struct EmitSource : public Emit
 
 static int emitStructHeader(ZCMGen& zcm, ZCMStruct& lr, const string& fname)
 {
-    EmitHeader E{zcm, fname};
+    EmitHeader E{zcm, lr, fname};
     if (!E.good())
         return -1;
 
     E.emitAutoGeneratedWarning();
-    E.emitHeaderTop(lr);
-    E.emitHeaderStruct(lr);
-    E.emitHeaderPrototypes(lr);
+    E.emitHeaderTop();
+    E.emitHeaderStruct();
+    E.emitHeaderPrototypes();
 
     E.emitHeaderBottom();
     return 0;
@@ -935,38 +937,38 @@ static int emitStructHeader(ZCMGen& zcm, ZCMStruct& lr, const string& fname)
 
 static int emitStructSource(ZCMGen& zcm, ZCMStruct& lr, const string& fname)
 {
-    EmitSource E{zcm, fname};
+    EmitSource E{zcm, lr, fname};
     if (!E.good())
         return -1;
 
     E.emitAutoGeneratedWarning();
-    E.emitIncludes(lr);
+    E.emitIncludes();
 
-    E.emitCStructGetHash(lr);
-    E.emitCEncodeArray(lr);
-    E.emitCEncode(lr);
-    E.emitCEncodedArraySize(lr);
-    E.emitCEncodedSize(lr);
+    E.emitCStructGetHash();
+    E.emitCEncodeArray();
+    E.emitCEncode();
+    E.emitCEncodedArraySize();
+    E.emitCEncodedSize();
 
     if(zcm.gopt->getBool("c-typeinfo")) {
-        E.emitCStructSize(lr);
-        E.emitCNumFields(lr);
-        E.emitCGetField(lr);
-        E.emitCGetTypeInfo(lr);
+        E.emitCStructSize();
+        E.emitCNumFields();
+        E.emitCGetField();
+        E.emitCGetTypeInfo();
     }
 
-    E.emitCDecodeArray(lr);
-    E.emitCDecodeArrayCleanup(lr);
-    E.emitCDecode(lr);
-    E.emitCDecodeCleanup(lr);
+    E.emitCDecodeArray();
+    E.emitCDecodeArrayCleanup();
+    E.emitCDecode();
+    E.emitCDecodeCleanup();
 
-    E.emitCCloneArray(lr);
-    E.emitCCopy(lr);
-    E.emitCDestroy(lr);
+    E.emitCCloneArray();
+    E.emitCCopy();
+    E.emitCDestroy();
 
     if(!zcm.gopt->getBool("c-no-pubsub")) {
-        E.emitCStructPublish(lr);
-        E.emitCStructSubscribe(lr);
+        E.emitCStructPublish();
+        E.emitCStructSubscribe();
     }
 
     return 0;
