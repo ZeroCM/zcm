@@ -957,29 +957,6 @@ static int emitStructSource(ZCMGen& zcm, ZCMStruct& lr, const string& fname)
     return 0;
 }
 
-static int emitStruct(ZCMGen& zcm, ZCMStruct& lr)
-{
-    string tmp_ = dotsToUnderscores(lr.structname.fullname);
-    char *tn_ = (char *)tmp_.c_str();
-
-    string headerName = zcm.gopt->getString("c-hpath") + "/" + string(tn_) + ".h";
-    string cName      = zcm.gopt->getString("c-cpath") + "/" + string(tn_) + ".c";
-
-    // STRUCT H file
-    if (zcm.needsGeneration(lr.zcmfile, headerName)) {
-        if (int ret = emitStructHeader(zcm, lr, headerName))
-            return ret;
-    }
-
-    // STRUCT C file
-    if (zcm.needsGeneration(lr.zcmfile, cName)) {
-        if (int ret = emitStructSource(zcm, lr, cName))
-            return ret;
-    }
-
-    return 0;
-}
-
 void setupOptionsC(GetOpt& gopt)
 {
     gopt.addString(0, "c-cpath",    ".",      "Location for .c files");
@@ -991,11 +968,23 @@ void setupOptionsC(GetOpt& gopt)
 
 int emitC(ZCMGen& zcm)
 {
-    ////////////////////////////////////////////////////////////
-    // STRUCTS
-    for (auto& lr : zcm.structs)
-        if (emitStruct(zcm, lr))
-            return -1;
+    for (auto& lr : zcm.structs) {
+
+        string headerName = zcm.gopt->getString("c-hpath") + "/" + lr.nameUnderscore() + ".h";
+        string cName      = zcm.gopt->getString("c-cpath") + "/" + lr.nameUnderscore() + ".c";
+
+        // STRUCT H file
+        if (zcm.needsGeneration(lr.zcmfile, headerName)) {
+            if (int ret = emitStructHeader(zcm, lr, headerName))
+                return ret;
+        }
+
+        // STRUCT C file
+        if (zcm.needsGeneration(lr.zcmfile, cName)) {
+            if (int ret = emitStructSource(zcm, lr, cName))
+                return ret;
+        }
+    }
 
     return 0;
 }

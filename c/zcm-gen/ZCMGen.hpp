@@ -88,6 +88,32 @@ struct ZCMStruct
     // are attached to that struct.
     string               comment;
 
+
+    //////////////////////////////////////////////////////////////////////////////
+    static inline string dotsToUnderscores(const string& s)
+    {
+        string ret = s;
+        for (uint i = 0; i < ret.size(); i++)
+            if (ret[i] == '.')
+                ret[i] = '_';
+        return ret;
+    }
+    string underscore;
+    bool hasUnderscore = false;
+    const string& nameUnderscore()
+    {
+        if (!hasUnderscore) {
+            hasUnderscore = true;
+            underscore = dotsToUnderscores(structname.fullname);
+        }
+        return underscore;
+    }
+    const char *nameUnderscoreCStr()
+    {
+        return nameUnderscore().c_str();
+    }
+    //////////////////////////////////////////////////////////////////////////////
+
     // Returns the member of a struct by name. Returns NULL on error.
     ZCMMember *findMember(const string& name);
 
