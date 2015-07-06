@@ -1,0 +1,8 @@
+#! /usr/bin/env python
+
+def build(ctx):
+    ctx.program(target = 'zcm-test',
+                includes = '.',
+                use = 'default',
+                linkflags = '-lzmq',
+                source = ctx.path.ant_glob('**/*.c **/*.cpp'))
