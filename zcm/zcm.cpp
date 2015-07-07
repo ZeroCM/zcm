@@ -55,7 +55,7 @@ static void printBytes(const char *buf, size_t len)
 
 static void recvThreadFunc(zcm_t *zcm)
 {
-    const size_t BUFSZ = 1 << 20;
+    const int BUFSZ = 1 << 20;
     char *buf = (char *) malloc(BUFSZ);
     int rc;
 
@@ -105,13 +105,13 @@ void zcm_destroy(zcm_t *zcm)
 
 int zcm_publish(zcm_t *zcm, const char *channel, char *data, size_t len)
 {
-    size_t channel_len = strlen(channel);
+    int channel_len = strlen(channel);
     int rc;
 
     rc = zmq_send(zcm->pubsock, channel, channel_len, ZMQ_SNDMORE);
     assert(rc == channel_len);
     rc = zmq_send(zcm->pubsock, data, len, 0);
-    assert(rc == len);
+    assert(rc == (int)len);
 
     return 0;
 }

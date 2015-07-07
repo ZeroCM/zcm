@@ -5,22 +5,17 @@
 
 static int handler(zcm_t *zcm, const char *channel, char *data, size_t len, void *usr)
 {
-    printf("Inside handler for '%s'!\n", channel);
+    printf("Got message on '%s': %s\n", channel, data);
     return 0;
 }
 
 int main()
 {
     zcm_t *zcm = zcm_create();
-    zcm_subscribe(zcm, "foobar2", handler, NULL);
-
-    char data[] = "Foobar Data";
-
-    usleep(10000);
+    zcm_subscribe(zcm, "foobar", handler, NULL);
 
     while (1) {
-        zcm_publish(zcm, "foobar", data, sizeof(data));
-        usleep(250000);
+        sleep(1000);
     }
 
     return 0;

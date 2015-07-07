@@ -1,0 +1,11 @@
+#! /usr/bin/env python
+
+def build(ctx):
+    ctx.program(target = 'pub',
+                use = 'default zcm',
+                uselib = 'zcm',
+                source = ctx.path.ant_glob('pub.c'))
+    ctx.program(target = 'sub',
+                use = 'default zcm',
+                uselib = 'zcm',
+                source = ctx.path.ant_glob('sub.c'))
