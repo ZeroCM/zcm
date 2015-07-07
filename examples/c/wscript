@@ -12,6 +12,7 @@ def options(ctx):
 def configure(ctx):
     ctx.load('compiler_c')
     ctx.load('compiler_cxx')
+    ctx.find_program('zcm-gen', var='ZCMGEN',  mandatory=True)
 
 def setup_environment(ctx):
     WARNING_FLAGS = ['-Wall', '-Werror', '-Wno-unused-function', '-Wno-format-zero-length']
@@ -25,14 +26,10 @@ def build(ctx):
 
     ctx.program(target = 'pub',
                 use = 'default',
-                includes = '../..',
-                libpath = ctx.path.abspath()+'/../../build/zcm',
                 lib = 'zcm',
                 source = 'pub.c example_t.c')
 
     ctx.program(target = 'sub',
                 use = 'default',
-                includes = '../..',
-                libpath = ctx.path.abspath()+'/../../build/zcm',
                 lib = 'zcm',
                 source = 'sub.c example_t.c')
