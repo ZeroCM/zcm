@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <unistd.h>
 
-static void handler(zcm_recv_buf_t *rbuf, const char *channel, void *usr)
+static void handler(const zcm_recv_buf_t *rbuf, const char *channel, void *usr)
 {
     printf("Got message on '%s': %s\n", channel, rbuf->data);
 }

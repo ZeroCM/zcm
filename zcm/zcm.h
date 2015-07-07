@@ -19,7 +19,7 @@ struct zcm_recv_buf_t
     zcm_t *zcm;
 };
 
-typedef void zcm_callback_t(zcm_recv_buf_t *rbuf, const char *channel, void *usr);
+typedef void zcm_callback_t(const zcm_recv_buf_t *rbuf, const char *channel, void *usr);
 
 zcm_t *zcm_create(void);
 void   zcm_destroy(zcm_t *zcm);

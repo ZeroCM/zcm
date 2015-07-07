@@ -836,7 +836,7 @@ struct EmitSource : public Emit
         emit(0, "          free (buf);");
         emit(0, "          return data_size;");
         emit(0, "      }");
-        emit(0, "      int status = zcm_publish (lc, channel, buf, data_size);");
+        emit(0, "      int status = zcm_publish (lc, channel, (char *)buf, (size_t)data_size);");
         emit(0, "      free (buf);");
         emit(0, "      return status;");
         emit(0, "}");
@@ -853,7 +853,7 @@ struct EmitSource : public Emit
                 "struct _%s_subscription_t {\n"
                 "    %s_handler_t user_handler;\n"
                 "    void *userdata;\n"
-                "    zcm_subscription_t *lc_h;\n"
+                "    //zcm_subscription_t *lc_h;\n"
                 "};\n", tn_, tn_);
         fprintf(f,
                 "static\n"
@@ -863,7 +863,7 @@ struct EmitSource : public Emit
                 "    int status;\n"
                 "    %s p;\n"
                 "    memset(&p, 0, sizeof(%s));\n"
-                "    status = %s_decode (rbuf->data, 0, rbuf->data_size, &p);\n"
+                "    status = %s_decode (rbuf->data, 0, rbuf->len, &p);\n"
                 "    if (status < 0) {\n"
                 "        fprintf (stderr, \"error %%d decoding %s!!!\\n\", status);\n"
                 "        return;\n"
@@ -885,13 +885,13 @@ struct EmitSource : public Emit
                 "                       malloc(sizeof(%s_subscription_t));\n"
                 "    n->user_handler = f;\n"
                 "    n->userdata = userdata;\n"
-                "    n->lc_h = zcm_subscribe (zcm, channel,\n"
+                "/*    n->lc_h = */zcm_subscribe (zcm, channel,\n"
                 "                                 %s_handler_stub, n);\n"
-                "    if (n->lc_h == NULL) {\n"
-                "        fprintf (stderr,\"couldn't reg %s ZCM handler!\\n\");\n"
-                "        free (n);\n"
-                "        return NULL;\n"
-                "    }\n"
+                "//    if (n->lc_h == NULL) {\n"
+                "//        fprintf (stderr,\"couldn't reg %s ZCM handler!\\n\");\n"
+                "//        free (n);\n"
+                "//        return NULL;\n"
+                "//    }\n"
                 "    return n;\n"
                 "}\n\n", tn_, tn_, tn_, tn_, tn_, tn_, tn_, tn_
                 );
@@ -900,19 +900,19 @@ struct EmitSource : public Emit
                 "int %s_subscription_set_queue_capacity (%s_subscription_t* subs,\n"
                 "                              int num_messages)\n"
                 "{\n"
-                "    return zcm_subscription_set_queue_capacity (subs->lc_h, num_messages);\n"
+                "    return 0;//zcm_subscription_set_queue_capacity (subs->lc_h, num_messages);\n"
                 "}\n\n", tn_, tn_);
 
         fprintf(f,
                 "int %s_unsubscribe(zcm_t *zcm, %s_subscription_t* hid)\n"
                 "{\n"
-                "    int status = zcm_unsubscribe (zcm, hid->lc_h);\n"
-                "    if (0 != status) {\n"
-                "        fprintf(stderr,\n"
-                "           \"couldn't unsubscribe %s_handler %%p!\\n\", hid);\n"
-                "        return -1;\n"
-                "    }\n"
-                "    free (hid);\n"
+                "//    int status = zcm_unsubscribe (zcm, hid->lc_h);\n"
+                "//    if (0 != status) {\n"
+                "//        fprintf(stderr,\n"
+                "//           \"couldn't unsubscribe %s_handler %%p!\\n\", hid);\n"
+                "//        return -1;\n"
+                "//    }\n"
+                "//    free (hid);\n"
                 "    return 0;\n"
                 "}\n\n", tn_, tn_, tn_
                 );
