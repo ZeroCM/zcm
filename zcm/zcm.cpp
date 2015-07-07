@@ -75,7 +75,12 @@ static void recvThreadFunc(zcm_t *zcm)
             auto it = zcm->subs.find(channel);
             if (it != zcm->subs.end()) {
                 auto& sub = it->second;
-                sub.cb(zcm, channel.c_str(), buf, rc, sub.usr);
+                zcm_recv_buf_t rbuf;
+                rbuf.data = buf;
+                rbuf.len = rc;
+                rbuf.utime = 0;
+                rbuf.zcm = zcm;
+                sub.cb(&rbuf, channel.c_str(), sub.usr);
             }
         }
     }

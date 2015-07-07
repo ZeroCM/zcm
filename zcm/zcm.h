@@ -6,9 +6,20 @@ extern "C" {
 #endif
 
 #include <stdlib.h>
+#include <stdint.h>
 
 typedef struct zcm zcm_t;
-typedef int zcm_callback_t(zcm_t *zcm, const char *channel, char *data, size_t len, void *usr);
+
+typedef struct zcm_recv_buf_t zcm_recv_buf_t;
+struct zcm_recv_buf_t
+{
+    char *data;
+    size_t len;
+    uint64_t utime;
+    zcm_t *zcm;
+};
+
+typedef void zcm_callback_t(zcm_recv_buf_t *rbuf, const char *channel, void *usr);
 
 zcm_t *zcm_create(void);
 void   zcm_destroy(zcm_t *zcm);
