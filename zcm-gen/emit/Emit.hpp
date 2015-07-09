@@ -6,8 +6,8 @@ int emitC(ZCMGen& zcm);
 /* void setup_java_options(getopt_t *gopt); */
 /* int emit_java(zcmgen_t *zcm); */
 
-/* void setup_python_options(getopt_t *gopt); */
-/* int emit_python(zcmgen_t *zcm); */
+void setupOptionsPython(GetOpt& gopt);
+int emitPython(ZCMGen& zcm);
 
 /* void setup_js_options(getopt_t *gopt); */
 /* int emit_js(zcmgen_t *zcm); */

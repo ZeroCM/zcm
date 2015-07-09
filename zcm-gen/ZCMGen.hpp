@@ -15,8 +15,11 @@ struct ZCMTypename
     string package;   // package name, e.g., "com.foo.prj"
     string shortname; // e.g., "laser"
 
-    void dump();
     ZCMTypename(ZCMGen& zcmgen, const string& lctypename);
+    void dump();
+
+    static bool isSame(const ZCMTypename& a, const ZCMTypename& b)
+    { return a.fullname == b.fullname; }
 };
 
 enum ZCMDimensionMode {
