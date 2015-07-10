@@ -75,10 +75,11 @@ struct EmitStruct : public Emitter
         emitStart(0, "    __slots__ = [");
         for (uint m = 0; m < ls.members.size(); m++) {
             auto& lm = ls.members[m];
-            emitContinue(0, "\"%s\"%s", lm.membername.c_str(),
+            emitContinue("\"%s\"%s", lm.membername.c_str(),
                          (m < ls.members.size()-1) ? ", " : "");
         }
-        emitEnd(0, "]\n");
+        emitEnd("]");
+        emit(0, "");
 
         // CONSTANTS
         for (auto& lc : ls.constants) {
@@ -393,7 +394,7 @@ struct EmitStruct : public Emitter
     void emitPythonEncodeOne()
     {
         emit(1, "def _encode_one(self, buf):");
-        if (ls.members.size() > 0) {
+        if (ls.members.size() == 0) {
             emit(2, "pass");
             return;
         }
@@ -430,7 +431,7 @@ struct EmitStruct : public Emitter
                 bool lastDimFixedLen = (lastDim.mode == ZCM_CONST);
 
                 if (ZCMGen::isPrimitiveType(lm.type.fullname) &&
-                    lm.type.fullname == "string") {
+                    lm.type.fullname != "string") {
                     emitEncodeList(lm, accessor, 2+n, lastDim.size, lastDimFixedLen);
                 } else {
                     if (lastDimFixedLen) {
