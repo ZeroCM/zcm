@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
+#include <unordered_set>
 #include <algorithm>
 
 #include <cstdint>
@@ -18,6 +19,7 @@
 using std::string;
 using std::vector;
 using std::unordered_map;
+using std::unordered_set;
 
 typedef uint8_t   u8;
 typedef uint16_t  u16;

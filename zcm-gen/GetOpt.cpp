@@ -7,7 +7,7 @@ enum OptType {
     OPT_STRING_TYPE = 2,
 };
 
-int GetOpt::parse(int argc, char *argv[], int showErrors)
+bool GetOpt::parse(int argc, char *argv[], int showErrors)
 {
     bool okay = true;
     vector<string> toks;
@@ -44,7 +44,7 @@ int GetOpt::parse(int argc, char *argv[], int showErrors)
     uint i = 0;
     while (i < toks.size()) {
         auto& tok_ = toks[i];
-        char *tok = (char *)&tok_;
+        char *tok = (char*)tok_.c_str();
 
         if (!strncmp(tok,"--", 2)) {
             char *optname = &tok[2];
@@ -205,10 +205,10 @@ void GetOpt::addSpacer(const string& s)
 
 void GetOpt::addBool(char sopt, const string& lname, bool def, const string& help)
 {
-    string sname (1, sopt);
+    string sname = sopt ? string(1, sopt) : "";
 
     Opt o;
-    o.sname = sname;
+    o.sname = sopt ? string(1, sopt) : "";
     o.lname = lname;
     o.svalue = def ? "true" : "false";
     o.type = OPT_BOOL_TYPE;
@@ -227,7 +227,7 @@ void GetOpt::addInt(char sopt, const string& lname, const string& def, const str
 
 void GetOpt::addString(char sopt, const string& lname, const string& def, const string& help)
 {
-    string sname (1, sopt);
+    string sname = sopt ? string(1, sopt) : "";
 
     Opt o;
     o.sname = sname;

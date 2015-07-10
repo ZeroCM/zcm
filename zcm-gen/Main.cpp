@@ -34,9 +34,9 @@ int main(int argc, char *argv[])
     // getopt_add_bool  (gopt, 'j', "java",      0,     "Emit Java code");
     // setup_java_options(gopt);
 
-    // getopt_add_spacer(gopt, "**** Python options ****");
-    // getopt_add_bool  (gopt, 'p', "python",      0,     "Emit Python code");
-    // setup_python_options(gopt);
+    gopt.addSpacer("**** Python options ****");
+    gopt.addBool('p', "python",      0,     "Emit Python code");
+    setupOptionsPython(gopt);
 
     // getopt_add_spacer(gopt, "**** Javascript options ****");
     // getopt_add_bool  (gopt, 's', "js",      0,     "Emit Javascript code");
@@ -50,11 +50,11 @@ int main(int argc, char *argv[])
     // getopt_add_bool  (gopt, 0, "csharp",      0,     "Emit C#.NET code");
     // setup_csharp_options(gopt);
 
-    // if (!getopt_parse(gopt, argc, argv, 1) || getopt_get_bool(gopt,"help")) {
-    //     printf("Usage: %s [options] <input files>\n\n", argv[0]);
-    //     getopt_do_usage(gopt);
-    //     return 0;
-    // }
+    if (!gopt.parse(argc, argv, 1) || gopt.getBool("help")) {
+        printf("Usage: %s [options] <input files>\n\n", argv[0]);
+        gopt.doUsage();
+        return 0;
+    }
 
     ZCMGen zcm;
     zcm.gopt = &gopt;
@@ -92,12 +92,12 @@ int main(int argc, char *argv[])
         zcm.dump();
     }
 
-    //if (getopt_get_bool(gopt, "c")) {
+    if (gopt.getBool("c")) {
         did_something = 1;
         if (emitC(zcm)) {
             printf("An error occurred while emitting C code.\n");
         }
-        //}
+    }
 
     // if (getopt_get_bool(gopt, "cpp")) {
     //     did_something = 1;
@@ -113,12 +113,12 @@ int main(int argc, char *argv[])
     //     }
     // }
 
-    // if (getopt_get_bool(gopt, "python")) {
-    //     did_something = 1;
-    //     if (emit_python(zcm)) {
-    //         printf("An error occurred while emitting Python code.\n");
-    //     }
-    // }
+    if (gopt.getBool("python")) {
+        did_something = 1;
+        if (emitPython(zcm)) {
+            printf("An error occurred while emitting Python code.\n");
+        }
+    }
 
     // if (getopt_get_bool(gopt, "js")) {
     //     did_something = 1;

@@ -1,6 +1,6 @@
 #include "Common.hpp"
 #include "GetOpt.hpp"
-#include "StringUtil.hpp"
+#include "util/StringUtil.hpp"
 #include "ZCMGen.hpp"
 #include "Emitter.hpp"
 

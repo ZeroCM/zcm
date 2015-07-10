@@ -14,6 +14,8 @@ struct Emitter
     void emitContinue(const char *msg, ...);
     void emitEnd(const char *msg, ...);
 
+    void fprintfPass(const char *msg, ...);
+
   private:
     FILE *f = nullptr;
 };

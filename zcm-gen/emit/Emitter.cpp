@@ -54,3 +54,11 @@ void Emitter::emitEnd(const char *msg, ...)
     fprintf(f, "\n");
     va_end(va);
 }
+
+void Emitter::fprintfPass(const char *msg, ...)
+{
+    va_list va;
+    va_start(va, msg);
+    vfprintf(f, msg, va);
+    va_end(va);
+}

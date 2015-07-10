@@ -1,5 +1,8 @@
 #pragma once
-#include "Common.hpp"
+#include <string>
+using std::string;
+#include <vector>
+using std::vector;
 #include <sstream>
 
 namespace StringUtil
@@ -40,11 +43,53 @@ namespace StringUtil
         return v;
     }
 
-    string toUpper(const string& s)
+    static inline string join(const vector<string>& vec, const string& sep)
+    {
+        string ret;
+        for (size_t i = 0; i < vec.size(); i++) {
+            ret += vec[i];
+            if (i != vec.size()-1)
+                ret += sep;
+        }
+        return ret;
+    }
+
+    static inline string join(const vector<string>& vec, char sep)
+    {
+        return join(vec, string(1, sep));
+    }
+
+    static inline string toUpper(const string& s)
     {
         string ret = s;
         for (auto& c : ret)
             c = toupper(c);
         return ret;
+    }
+
+    // Strings leading and trailing whitespace
+    static inline string strip(const string& s)
+    {
+        size_t start = 0;
+        for (; start < s.size(); start++)
+            if (s[start] != ' ' && s[start] != '\t')
+                break;
+
+        // If we've reached the end of the string, its all whitespace
+        if (start == s.size())
+            return "";
+
+        size_t end = s.size();
+        for (; end > 0; end--)
+            if (s[end-1] != ' ' && s[end-1] != '\t')
+                break;
+
+        // We must have found a non-white
+        assert(end != 0);
+
+        // There should be no way that end <= start;
+        assert(start < end);
+
+        return string(s.c_str()+start, end-start);
     }
 }

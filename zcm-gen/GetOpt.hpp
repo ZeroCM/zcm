@@ -24,7 +24,7 @@ struct GetOpt
     unordered_map<string, int> sopts; // flag -> opts-index
     vector<string>             extraargs;
 
-    int parse(int argc, char *argv[], int showErrors);
+    bool parse(int argc, char *argv[], int showErrors);
     void doUsage();
 
     void addSpacer(const string& s);
