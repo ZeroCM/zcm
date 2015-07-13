@@ -23,5 +23,4 @@ def setup_environment(ctx):
 def build(ctx):
     setup_environment(ctx)
     ctx.recurse('zcm-gen')
-    ctx.recurse('zcm')
-    ctx.recurse('c')
+    ctx.recurse('zcm-c')
