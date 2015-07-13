@@ -3,7 +3,7 @@ import zmq
 PUB_ADDR = 'ipc:///tmp/pub';
 SUB_ADDR = 'ipc:///tmp/sub';
 
-class zcomm:
+class ZCM(object):
 
     def __init__(self):
         self.ctx = zmq.Context()
@@ -13,12 +13,12 @@ class zcomm:
         self.sub.connect(SUB_ADDR)
         self.callbacks = {} # maps channels -> callbacks
 
+    def publish(self, channel, data):
+        self.pub.send_multipart([channel, data])
+
     def subscribe(self, channel, callback):
         self.sub.setsockopt(zmq.SUBSCRIBE, channel)
         self.callbacks[channel] = callback
-
-    def publish(self, channel, data):
-        self.pub.send_multipart([channel, data])
 
     def handle(self):
         channel, msg = self.sub.recv_multipart()
@@ -26,7 +26,3 @@ class zcomm:
             self.callbacks[channel](channel, msg)
         elif '' in self.callbacks:
             self.callbacks[''](channel, msg)
-
-    def run(self):
-        while True:
-            self.handle()
