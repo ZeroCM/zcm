@@ -1,12 +1,18 @@
 #include <stdio.h>
+#include <stdbool.h>
 #include <inttypes.h>
 #include <unistd.h>
 #include <zcm/zcm.h>
 #include "example_t.h"
 
+static bool quiet = false;
+
 static void my_handler(const zcm_recv_buf_t *rbuf, const char *channel,
                        const example_t *msg, void *user)
 {
+    if (quiet)
+        return;
+
     printf("Received message on channel \"%s\":\n", channel);
     printf("  timestamp   = %"PRId64"\n", msg->timestamp);
     printf("  position    = (%f, %f, %f)\n",
@@ -24,6 +30,11 @@ static void my_handler(const zcm_recv_buf_t *rbuf, const char *channel,
 
 int main(int argc, char *argv[])
 {
+    if (argc > 1) {
+        if (strcmp(argv[1], "--quiet") == 0)
+            quiet = true;
+    }
+
     zcm_t *zcm = zcm_create();
     if(!zcm)
         return 1;

@@ -33,3 +33,8 @@ def build(ctx):
                 use = 'default',
                 lib = 'zcm',
                 source = 'sub.c example_t.c')
+
+    ctx.program(target = 'sub-idle',
+                use = 'default',
+                lib = 'zcm',
+                source = 'sub-idle.c example_t.c')

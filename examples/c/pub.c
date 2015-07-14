@@ -15,18 +15,14 @@ int main(void)
         .orientation = { 1, 0, 0, 0 },
     };
 
-    int16_t ranges[15];
-    for(int i = 0; i < 15; i++)
-        ranges[i] = i;
-
-    my_data.num_ranges = 15;
-    my_data.ranges = ranges;
+    my_data.num_ranges = 10000;
+    my_data.ranges = calloc(my_data.num_ranges, sizeof(int16_t));
     my_data.name = "example string";
     my_data.enabled = 1;
 
     while (1) {
         example_t_publish(zcm, "EXAMPLE", &my_data);
-        sleep(1);
+        usleep(100);
     }
 
     zcm_destroy(zcm);
