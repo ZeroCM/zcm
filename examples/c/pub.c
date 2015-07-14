@@ -22,7 +22,7 @@ int main(void)
 
     while (1) {
         example_t_publish(zcm, "EXAMPLE", &my_data);
-        usleep(100);
+        usleep(10);
     }
 
     zcm_destroy(zcm);
