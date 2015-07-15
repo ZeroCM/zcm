@@ -30,9 +30,9 @@ int main(int argc, char *argv[])
     // getopt_add_bool  (gopt, 'x', "cpp",         0,     "Emit C++ code");
     // setup_cpp_options(gopt);
 
-    // getopt_add_spacer(gopt, "**** Java options ****");
-    // getopt_add_bool  (gopt, 'j', "java",      0,     "Emit Java code");
-    // setup_java_options(gopt);
+    gopt.addSpacer("**** Java options ****");
+    gopt.addBool('j', "java",      0,     "Emit Java code");
+    setupOptionsJava(gopt);
 
     gopt.addSpacer("**** Python options ****");
     gopt.addBool('p', "python",      0,     "Emit Python code");
@@ -106,12 +106,12 @@ int main(int argc, char *argv[])
     //     }
     // }
 
-    // if (getopt_get_bool(gopt, "java")) {
-    //     did_something = 1;
-    //     if (emit_java(zcm)) {
-    //         perror("An error occurred while emitting Java code.\n");
-    //     }
-    // }
+    if (gopt.getBool("java")) {
+        did_something = 1;
+        if (emitJava(zcm)) {
+            printf("An error occurred while emitting Java code.\n");
+        }
+    }
 
     if (gopt.getBool("python")) {
         did_something = 1;

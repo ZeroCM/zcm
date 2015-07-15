@@ -3,8 +3,8 @@
 void setupOptionsC(GetOpt& gopt);
 int emitC(ZCMGen& zcm);
 
-/* void setup_java_options(getopt_t *gopt); */
-/* int emit_java(zcmgen_t *zcm); */
+void setupOptionsJava(GetOpt& gopt);
+int emitJava(ZCMGen& zcm);
 
 void setupOptionsPython(GetOpt& gopt);
 int emitPython(ZCMGen& zcm);
