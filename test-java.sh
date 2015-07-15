@@ -8,7 +8,7 @@ gen_lcm() {(
     rm -fr /tmp/lcmtypes
     mkdir /tmp/lcmtypes
     cd /tmp/lcmtypes
-    lcm-gen -j $file
+    lcm-gen -j $file >/dev/null
     sed -i 's/lcm/zcm/g' /tmp/lcmtypes/lcmtypes/*
     sed -i 's/LCM/ZCM/g' /tmp/lcmtypes/lcmtypes/*
 )}
@@ -19,7 +19,7 @@ gen_zcm() {(
     rm -fr /tmp/zcmtypes
     mkdir /tmp/zcmtypes
     cd /tmp/zcmtypes
-    $THISDIR/build/zcm-gen/zcm-gen -j $file
+    $THISDIR/build/zcm-gen/zcm-gen -j $file >/dev/null
 )}
 
 ZCMFILES=$(ls test/zcm-gen/*.zcm)

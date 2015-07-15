@@ -384,7 +384,7 @@ struct EmitStruct : public Emitter
             PrimInfo *pinfo = typeTable.find(lm.type.fullname);
 
             int ndims = (int)lm.dimensions.size();
-            if (ndims == 0 || lm.isConstantSizeArray())
+            if (ndims == 0 || !lm.isConstantSizeArray())
                 continue;
 
             emitStart(2, "%s = new ", lm.membername.c_str());
@@ -591,7 +591,7 @@ int emitJava(ZCMGen& zcm)
     // STRUCTS
     for (auto& lr : zcm.structs) {
         string classname = makeFqn(zcm, lr.structname.fullname);
-        string path = jpathPrefix + dotsToSlashes(classname);
+        string path = jpathPrefix + dotsToSlashes(classname) + ".java";
 
         if (!zcm.needsGeneration(lr.zcmfile, path))
             continue;
