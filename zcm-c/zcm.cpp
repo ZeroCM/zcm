@@ -8,6 +8,9 @@
 #include <cctype>
 #include <cstdio>
 
+#include <vector>
+using std::vector;
+
 #include <unordered_map>
 using std::unordered_map;
 
@@ -34,6 +37,7 @@ struct zcm
 
     // The mutex protects all data below it
     std::mutex mut;
+    bool recvThreadStarted = false;
     bool running = true;
     unordered_map<string, Sub> subs;
 
@@ -95,29 +99,60 @@ struct zcm
         return 0;
     }
 
-    void recvThreadFunc()
+    void recvMsgFromSock(const string& channel, void *sock)
     {
         const int BUFSZ = 1 << 20;
         char *buf = (char *) malloc(BUFSZ);
 
-        while (1) {
-            int rc = zmq_recv(subsock, buf, BUFSZ, 0);
-            assert(0 < rc && rc < BUFSZ);
+        int rc = zmq_recv(sock, buf, BUFSZ, 0);
+        assert(0 < rc && rc < BUFSZ);
 
-            // dispatch
+        // Dispatch
+        {
+            std::unique_lock<std::mutex> lk(mut);
+            auto it = subs.find(channel);
+            if (it != subs.end()) {
+                auto& sub = it->second;
+                zcm_recv_buf_t rbuf;
+                rbuf.data = buf;
+                rbuf.len = rc;
+                rbuf.utime = 0;
+                rbuf.zcm = this;
+                sub.cb(&rbuf, channel.c_str(), sub.usr);
+            }
+        }
+    }
+
+    void recvThreadFunc()
+    {
+        while (1) {
+            // Build up a list of poll items
+            vector<zmq_pollitem_t> pitems;
+            vector<string> pchannels;
             {
                 std::unique_lock<std::mutex> lk(mut);
-                if (!running)
-                    break;
-                auto it = subs.find(subchannel);
-                if (it != subs.end()) {
-                    auto& sub = it->second;
-                    zcm_recv_buf_t rbuf;
-                    rbuf.data = buf;
-                    rbuf.len = rc;
-                    rbuf.utime = 0;
-                    rbuf.zcm = this;
-                    sub.cb(&rbuf, subchannel.c_str(), sub.usr);
+                pitems.resize(subsocks.size());
+                int i = 0;
+                for (auto& elt : subsocks) {
+                    auto& channel = elt.first;
+                    auto& sock = elt.second;
+                    auto *p = &pitems[i];
+                    memset(p, 0, sizeof(*p));
+                    p->socket = sock;
+                    p->events = ZMQ_POLLIN;
+                    pchannels.emplace_back(channel);
+                    i++;
+                }
+            }
+
+            int rc = zmq_poll(pitems.data(), pitems.size(), 100);
+            if (!running)
+                break;
+            if (rc >= 0) {
+                for (size_t i = 0; i < pitems.size(); i++) {
+                    auto& p = pitems[i];
+                    if (p.revents != 0)
+                        recvMsgFromSock(pchannels[i], p.socket);
                 }
             }
         }
@@ -126,10 +161,12 @@ struct zcm
     int subscribe(const string& channel, zcm_callback_t *cb, void *usr)
     {
         std::unique_lock<std::mutex> lk(mut);
-        assert(subsocks.size() == 0);
         _getSubSock(channel);
         subs.emplace(channel, Sub{cb, usr});
-        recvThread = std::thread{&zcm::recvThreadFunc, this};
+        if (!recvThreadStarted) {
+            recvThread = std::thread{&zcm::recvThreadFunc, this};
+            recvThreadStarted = true;
+        }
         return 0;
     }
 };

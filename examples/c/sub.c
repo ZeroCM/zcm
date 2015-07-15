@@ -30,16 +30,19 @@ static void my_handler(const zcm_recv_buf_t *rbuf, const char *channel,
 
 int main(int argc, char *argv[])
 {
-    if (argc > 1) {
-        if (strcmp(argv[1], "--quiet") == 0)
+    const char *CHANNEL = "EXAMPLE";
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "--quiet") == 0)
             quiet = true;
+        else
+            CHANNEL = argv[i];
     }
 
     zcm_t *zcm = zcm_create();
     if(!zcm)
         return 1;
 
-    example_t_subscribe(zcm, "EXAMPLE", &my_handler, NULL);
+    example_t_subscribe(zcm, CHANNEL, &my_handler, NULL);
 
     while(1) {
         sleep(1000);

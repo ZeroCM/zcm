@@ -3,8 +3,12 @@
 #include <zcm/zcm.h>
 #include "example_t.h"
 
-int main(void)
+int main(int argc, char *argv[])
 {
+    const char *CHANNEL = "EXAMPLE";
+    if (argc > 1)
+        CHANNEL = argv[1];
+
     zcm_t *zcm = zcm_create();
     if (!zcm)
         return 1;
@@ -21,7 +25,7 @@ int main(void)
     my_data.enabled = 1;
 
     while (1) {
-        example_t_publish(zcm, "EXAMPLE", &my_data);
+        example_t_publish(zcm, CHANNEL, &my_data);
         usleep(10);
     }
 
