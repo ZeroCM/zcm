@@ -2,6 +2,10 @@
 # encoding: utf-8
 
 def build(ctx):
+    ctx.shlib(target     = 'zcmjni',
+              uselib     = 'JAVA',
+              source     = ctx.path.ant_glob('jni/*.c'))
+
     ctx(name       = 'zcm',
         features   = 'javac jar',
         srcdir     = ['zcm'],

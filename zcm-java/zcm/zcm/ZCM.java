@@ -26,6 +26,7 @@ public class ZCM
     static ZCM singleton;
 
     ZCMDataOutputStream encodeBuffer = new ZCMDataOutputStream(new byte[1024]);
+    ZCMJNI zcmjni;
 
     /** Create a new ZCM object, connecting to one or more URLs. If
      * no URL is specified, the environment variable ZCM_DEFAULT_URL is
@@ -34,6 +35,7 @@ public class ZCM
      **/
     public ZCM() throws IOException
     {
+        zcmjni = new ZCMJNI();
     }
 
     /** Retrieve a default instance of ZCM using either the environment
@@ -101,8 +103,7 @@ public class ZCM
         throws IOException
     {
         if (this.closed) throw new IllegalStateException();
-        for (Provider p : providers)
-            p.publish(channel, data, offset, length);
+        zcmjni.publish(channel, data, offset, length);
     }
 
     /** Subscribe to all channels whose name matches the regular
@@ -118,8 +119,7 @@ public class ZCM
         srec.lcsub = sub;
 
         synchronized(this) {
-            for (Provider p : providers)
-                p.subscribe (regex);
+            zcmjni.subscribe(regex, this);
         }
 
         synchronized(subscriptions) {
