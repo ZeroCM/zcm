@@ -241,11 +241,11 @@ public class ZCM
             return;
         }
 
-        zcm.subscribeAll(new SimpleSubscriber());
+        zcm.subscribe("TEST", new SimpleSubscriber());
 
         while (true) {
             try {
-                Thread.sleep(1000);
+                Thread.sleep(100);
                 zcm.publish("TEST", "foobar");
             } catch (Exception ex) {
                 System.err.println("ex: "+ex);

@@ -9,6 +9,14 @@ extern "C" {
 #endif
 /*
  * Class:     zcm_zcm_ZCMJNI
+ * Method:    initializeNative
+ * Signature: ()V
+ */
+JNIEXPORT void JNICALL Java_zcm_zcm_ZCMJNI_initializeNative
+  (JNIEnv *, jobject);
+
+/*
+ * Class:     zcm_zcm_ZCMJNI
  * Method:    publish
  * Signature: (Ljava/lang/String;[BII)I
  */

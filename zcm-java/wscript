@@ -4,6 +4,8 @@
 def build(ctx):
     ctx.shlib(target     = 'zcmjni',
               uselib     = 'JAVA',
+              use        = 'default',
+              lib        = 'zcm',
               source     = ctx.path.ant_glob('jni/*.c'))
 
     ctx(name       = 'zcm',
