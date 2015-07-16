@@ -1,0 +1,8 @@
+#! /usr/bin/env python
+# encoding: utf-8
+
+def build(ctx):
+    ctx.program(target = 'zcm-lspy',
+                use = 'default',
+                lib = 'zcm',
+                source = 'lspy.c')
