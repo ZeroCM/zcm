@@ -2,6 +2,7 @@
 #include <zmq.h>
 
 #include <unistd.h>
+#include <dirent.h>
 
 #include <cstring>
 #include <cassert>
@@ -29,6 +30,19 @@ struct Sub
 {
     zcm_callback_t *cb;
     void *usr;
+    void *sock;
+};
+
+struct SubRegex
+{
+    string channelRegex;
+    zcm_callback_t *cb;
+    void *usr;
+};
+
+struct Pub
+{
+    void *sock;
 };
 
 struct zcm_t
@@ -39,64 +53,96 @@ struct zcm_t
     std::mutex mut;
     bool recvThreadStarted = false;
     bool running = true;
-    unordered_map<string, Sub> subs;
 
     void *ctx;
-    unordered_map<string, void*> subsocks;
-    unordered_map<string, void*> pubsocks;
+    unordered_map<string, Sub> subs;
+    unordered_map<string, Pub> pubs;
 
-    // TEMPORARY
-    string subchannel;
-    void *subsock;
+    vector<SubRegex> subRegex;
 
     zcm_t()
     {
         ctx = zmq_init(ZMQ_IO_THREADS);
     }
 
-    string _getAddress(const string& channel)
+    string getIPCAddress(const string& channel)
     {
         return "ipc:///tmp/zmq-channel-"+channel;
     }
 
-    void *_getSubSock(const string& channel)
+    Sub *findSub(const string& channel)
     {
-        auto it = subsocks.find(channel);
-        if (it != subsocks.end())
-            return it->second;
-        void *sock = zmq_socket(ctx, ZMQ_SUB);
-        string address = _getAddress(channel);
-        zmq_connect(sock, address.c_str());
-        zmq_setsockopt(sock, ZMQ_SUBSCRIBE, "", 0);
-        subsocks[channel] = sock;
-
-        // TEMPORARY
-        subchannel = channel;
-        subsock = sock;
-
-        return sock;
+        auto it = subs.find(channel);
+        if (it != subs.end())
+            return &it->second;
+        else
+            return nullptr;
     }
 
-    void *_getPubSock(const string& channel)
+    Pub *findPub(const string& channel)
     {
-        auto it = pubsocks.find(channel);
-        if (it != pubsocks.end())
-            return it->second;
-        void *sock = zmq_socket(ctx, ZMQ_PUB);
-        string address = _getAddress(channel);
-        zmq_bind(sock, address.c_str());
-        pubsocks[channel] = sock;
-        return sock;
+        auto it = pubs.find(channel);
+        if (it != pubs.end())
+            return &it->second;
+        else
+            return nullptr;
     }
 
     int publish(const string& channel, const char *data, size_t len)
     {
         std::unique_lock<std::mutex> lk(mut);
 
-        void *sock = _getPubSock(channel);
-        int rc = zmq_send(sock, data, len, 0);
+        Pub *pub = findPub(channel);
+        if (!pub) {
+            void *sock = zmq_socket(ctx, ZMQ_PUB);
+            string address = getIPCAddress(channel);
+            zmq_bind(sock, address.c_str());
+            pubs.emplace(channel, Pub{sock});
+            pub = findPub(channel);
+            assert(pub);
+        }
+
+        int rc = zmq_send(pub->sock, data, len, 0);
         assert(rc == (int)len);
         return 0;
+    }
+
+    void searchForRegexSubs()
+    {
+        std::unique_lock<std::mutex> lk(mut);
+
+        // TODO: actually implement regex, or remove it
+        if (subRegex.size() == 0)
+            return;
+        for (auto& r : subRegex) {
+            if (r.channelRegex != ".*") {
+                static bool warned = false;
+                if (!warned) {
+                    fprintf(stderr, "Er: only .* (aka subscribe-all) is implemented\n");
+                    warned = true;
+                }
+            }
+        }
+        SubRegex& srex = subRegex[0];
+
+        const char *prefix = "zmq-channel-";
+        size_t prefixLen = strlen(prefix);
+
+        DIR *d;
+        dirent *ent;
+
+        if (!(d=opendir("/tmp/")))
+            return;
+
+        while ((ent=readdir(d)) != nullptr) {
+            if (strncmp(ent->d_name, prefix, prefixLen) == 0) {
+                string channel(ent->d_name + prefixLen);
+                if (!findSub(channel))
+                    subOneInternal(channel, srex.cb, srex.usr);
+            }
+        }
+
+        closedir(d);
     }
 
     void recvMsgFromSock(const string& channel, void *sock)
@@ -110,15 +156,13 @@ struct zcm_t
         // Dispatch
         {
             std::unique_lock<std::mutex> lk(mut);
-            auto it = subs.find(channel);
-            if (it != subs.end()) {
-                auto& sub = it->second;
+            if (Sub *sub = findSub(channel)) {
                 zcm_recv_buf_t rbuf;
                 rbuf.data = buf;
                 rbuf.len = rc;
                 rbuf.utime = 0;
                 rbuf.zcm = this;
-                sub.cb(&rbuf, channel.c_str(), sub.usr);
+                sub->cb(&rbuf, channel.c_str(), sub->usr);
             }
         }
     }
@@ -126,19 +170,21 @@ struct zcm_t
     void recvThreadFunc()
     {
         while (1) {
+            searchForRegexSubs();
+
             // Build up a list of poll items
             vector<zmq_pollitem_t> pitems;
             vector<string> pchannels;
             {
                 std::unique_lock<std::mutex> lk(mut);
-                pitems.resize(subsocks.size());
+                pitems.resize(subs.size());
                 int i = 0;
-                for (auto& elt : subsocks) {
+                for (auto& elt : subs) {
                     auto& channel = elt.first;
-                    auto& sock = elt.second;
+                    auto& sub = elt.second;
                     auto *p = &pitems[i];
                     memset(p, 0, sizeof(*p));
-                    p->socket = sock;
+                    p->socket = sub.sock;
                     p->events = ZMQ_POLLIN;
                     pchannels.emplace_back(channel);
                     i++;
@@ -158,11 +204,43 @@ struct zcm_t
         }
     }
 
+    static bool isRegexChannel(const string& channel)
+    {
+        // These chars are considered regex
+        auto isRegexChar = [](char c) {
+            return c == '(' || c == ')' || c == '|' ||
+                   c == '.' || c == '*' || c == '+';
+        };
+
+        for (auto& c : channel)
+            if (isRegexChar(c))
+                return true;
+
+        return false;
+    }
+
+    void subOneInternal(const string& channel, zcm_callback_t *cb, void *usr)
+    {
+        assert(!findSub(channel));
+
+        void *sock = zmq_socket(ctx, ZMQ_SUB);
+        string address = getIPCAddress(channel);
+        zmq_connect(sock, address.c_str());
+        zmq_setsockopt(sock, ZMQ_SUBSCRIBE, "", 0);
+
+        subs.emplace(channel, Sub{cb, usr, sock});
+    }
+
     int subscribe(const string& channel, zcm_callback_t *cb, void *usr)
     {
         std::unique_lock<std::mutex> lk(mut);
-        _getSubSock(channel);
-        subs.emplace(channel, Sub{cb, usr});
+
+        if (isRegexChannel(channel)) {
+            subRegex.emplace_back(SubRegex{channel, cb, usr});
+        } else {
+            subOneInternal(channel, cb, usr);
+        }
+
         if (!recvThreadStarted) {
             recvThread = std::thread{&zcm_t::recvThreadFunc, this};
             recvThreadStarted = true;
