@@ -1,5 +1,6 @@
 #pragma once
 
+
 void setupOptionsC(GetOpt& gopt);
 int emitC(ZCMGen& zcm);
 
@@ -18,5 +19,5 @@ int emitPython(ZCMGen& zcm);
 /* void setup_csharp_options(getopt_t *gopt); */
 /* int emit_csharp(zcmgen_t *zcm); */
 
-/* void setup_cpp_options(getopt_t *gopt); */
-/* int emit_cpp(zcmgen_t *zcm); */
+void setupOptionsCpp(GetOpt& gopt);
+int emitCpp(ZCMGen& zcm);

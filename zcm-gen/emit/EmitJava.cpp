@@ -5,37 +5,9 @@
 #include "util/StringUtil.hpp"
 #include "util/FileUtil.hpp"
 
-// #include <stdio.h>
-// #include <stdint.h>
-// #include <stdlib.h>
-// #include <string.h>
-// #ifdef WIN32
-// #define __STDC_FORMAT_MACROS
-// #endif
-// #include <inttypes.h>
-// #include <assert.h>
-
-// #include <sys/stat.h>
-// #include <sys/types.h>
-
-// #include "zcmgen.h"
-
-// #include "getopt.h"
-
-// #ifdef WIN32
-// #include <zcm/windows/WinPorting.h>
-// #endif
-
-
 static string dotsToSlashes(const string& s)
 {
     return StringUtil::replace(s, '.', '/');
-}
-
-static void makeDirsForFile(const string& path)
-{
-    string dir = FileUtil::dirname(path);
-    FileUtil::mkdirWithParents(dir, 0755);
 }
 
 void setupOptionsJava(GetOpt& gopt)
@@ -597,7 +569,7 @@ int emitJava(ZCMGen& zcm)
             continue;
 
         if (jmkdir)
-            makeDirsForFile(path);
+            FileUtil::makeDirsForFile(path);
 
         EmitStruct E{zcm, lr, path};
         if (!E.good()) {
