@@ -241,7 +241,7 @@ public class ZCM
             return;
         }
 
-        zcm.subscribe("TEST", new SimpleSubscriber());
+        zcm.subscribe(".*", new SimpleSubscriber());
 
         while (true) {
             try {
