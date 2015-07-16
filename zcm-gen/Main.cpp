@@ -59,11 +59,9 @@ int main(int argc, char *argv[])
     ZCMGen zcm;
     zcm.gopt = &gopt;
 
-    for (int i = 2; i < argc; i++) {
-        int res = zcm.handleFile(argv[i]);
-        if (res)
+    for (auto& fname : gopt.extraargs)
+        if (int res = zcm.handleFile(fname))
             return res;
-    }
 
     // for (unsigned int i = 0; i < g_ptr_array_size(gopt->extraargs); i++) {
     //     char *path = (char *) g_ptr_array_index(gopt->extraargs, i);
