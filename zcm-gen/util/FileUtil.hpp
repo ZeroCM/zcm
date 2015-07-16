@@ -45,4 +45,9 @@ namespace FileUtil
         free(pathCopy);
         return ret;
     }
+
+    static void makeDirsForFile(const string& path)
+    {
+        mkdirWithParents(dirname(path), 0755);
+    }
 }
