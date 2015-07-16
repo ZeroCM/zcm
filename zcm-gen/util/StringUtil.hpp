@@ -92,4 +92,12 @@ namespace StringUtil
 
         return string(s.c_str()+start, end-start);
     }
+
+    static inline string replace(const string& s, char from, char to)
+    {
+        string ret = s;
+        for (auto& c : ret)
+            if (c == from) c = to;
+        return ret;
+    }
 }

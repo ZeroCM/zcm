@@ -1,0 +1,21 @@
+#! /usr/bin/env python
+# encoding: utf-8
+
+# these variables are mandatory ('/' are converted automatically)
+top = '.'
+out = 'build'
+
+def options(ctx):
+    ctx.load('java')
+
+def configure(ctx):
+    ctx.load('java')
+    ctx.check_java_class('zcm.zcm.ZCM')
+
+def build(ctx):
+    ctx(name       = 'example',
+        features   = 'javac jar',
+        srcdir     = ['example'],
+        outdir     = 'classes',  # path to output (for .class)
+        basedir    = 'classes',  # basedir for jar
+        destfile   = 'example.jar')

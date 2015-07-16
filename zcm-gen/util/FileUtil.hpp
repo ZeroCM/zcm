@@ -1,5 +1,6 @@
 #pragma once
 #include <unistd.h>
+#include <libgen.h>
 #include "StringUtil.hpp"
 
 namespace FileUtil
@@ -33,5 +34,15 @@ namespace FileUtil
                 i++; // skip the '/'
             }
         }
+        mkdir(path.c_str(), mode);
+    }
+
+    static inline string dirname(const string& path)
+    {
+        // TODO: Do this without a malloc
+        char *pathCopy = strdup(path.c_str());
+        string ret = ::dirname(pathCopy);
+        free(pathCopy);
+        return ret;
     }
 }

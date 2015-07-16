@@ -12,6 +12,8 @@ def options(ctx):
 def configure(ctx):
     ctx.load('compiler_c')
     ctx.load('compiler_cxx')
+    ctx.load('java')
+    ctx.check_jni_headers()
 
 def setup_environment(ctx):
     WARNING_FLAGS = ['-Wall', '-Werror', '-Wno-unused-function', '-Wno-format-zero-length']
@@ -24,3 +26,4 @@ def build(ctx):
     setup_environment(ctx)
     ctx.recurse('zcm-gen')
     ctx.recurse('zcm-c')
+    ctx.recurse('zcm-java')
