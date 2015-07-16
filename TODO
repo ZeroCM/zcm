@@ -1,0 +1,7 @@
+TODO
+------------------
+ - Harden the JNI wrapper for the Java Impl
+ - Implement the metadata channel
+ - Create a ZCM transport interface and push all ZMQ into it
+ - Lock down the specific dependencies
+ - Import Type Specification Documentation
