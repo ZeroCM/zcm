@@ -52,6 +52,8 @@ struct zcm_t
     // The mutex protects all data below it
     std::mutex mut;
     bool recvThreadStarted = false;
+    static constexpr int RECVBUFSZ = 1 << 20;
+    char recvbuf[RECVBUFSZ];
     bool running = true;
 
     void *ctx;
@@ -147,18 +149,15 @@ struct zcm_t
 
     void recvMsgFromSock(const string& channel, void *sock)
     {
-        const int BUFSZ = 1 << 20;
-        char *buf = (char *) malloc(BUFSZ);
-
-        int rc = zmq_recv(sock, buf, BUFSZ, 0);
-        assert(0 < rc && rc < BUFSZ);
+        int rc = zmq_recv(sock, recvbuf, RECVBUFSZ, 0);
+        assert(0 < rc && rc < RECVBUFSZ);
 
         // Dispatch
         {
             std::unique_lock<std::mutex> lk(mut);
             if (Sub *sub = findSub(channel)) {
                 zcm_recv_buf_t rbuf;
-                rbuf.data = buf;
+                rbuf.data = recvbuf;
                 rbuf.len = rc;
                 rbuf.utime = 0;
                 rbuf.zcm = this;
