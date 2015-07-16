@@ -14,3 +14,5 @@ def build(ctx):
         outdir     = 'classes',  # path to output (for .class)
         basedir    = 'classes',  # basedir for jar
         destfile   = 'zcm.jar')
+
+    ctx.install_as('${PREFIX}/share/java/zcm.jar', 'zcm.jar')

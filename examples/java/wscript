@@ -10,6 +10,7 @@ def options(ctx):
 
 def configure(ctx):
     ctx.load('java')
+    ctx.check_java_class('zcm.zcm.ZCM')
 
 def build(ctx):
     ctx(name       = 'example',
