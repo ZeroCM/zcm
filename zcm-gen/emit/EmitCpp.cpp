@@ -37,6 +37,11 @@ static string dimSizePrefix(const string& dimSize)
         return "this->";
 }
 
+static string dimSizeAccessor(const string& dimSize)
+{
+    return dimSizePrefix(dimSize) + dimSize;
+}
+
 static bool isDimSizeFixed(const string& dimSize)
 {
     char *eptr;
@@ -269,6 +274,12 @@ struct Emit : public Emitter
         emit(0, "");
     }
 
+    void emitHeaderEnd()
+    {
+        emitPackageNamespaceClose();
+        emit(0, "#endif");
+    }
+
     void emitEncode()
     {
         const char* sn = ls.structname.shortname.c_str();
@@ -329,6 +340,16 @@ struct Emit : public Emitter
         emit(0, "");
     }
 
+    void emitGetTypeName()
+    {
+        auto *sn = ls.structname.shortname.c_str();
+        emit(0, "const char* %s::getTypeName()", sn);
+        emit(0, "{");
+        emit(1,     "return \"%s\";", sn);
+        emit(0, "}");
+        emit(0, "");
+    }
+
     void emitComputeHash()
     {
         const char* sn = ls.structname.shortname.c_str();
@@ -375,316 +396,305 @@ struct Emit : public Emitter
         emit(0, "");
     }
 
+    void _encodeRecursive(ZCMMember& lm, int depth, int extraIndent)
+    {
+        auto& mtn = lm.type.fullname;
+        int indent = extraIndent + 1 + depth;
+        int ndims = (int)lm.dimensions.size();
+        // primitive array
+        if (depth+1 == ndims &&
+            ZCMGen::isPrimitiveType(mtn) && mtn == "string") {
+
+            auto& dim = lm.dimensions[depth];
+            emitStart(indent, "tlen = __%s_encode_array(buf, offset + pos, maxlen - pos, &this->%s",
+                      mtn.c_str(), lm.membername.c_str());
+            for(int i = 0; i < depth; i++)
+                emitContinue("[a%d]", i);
+            emitEnd("[0], %s%s);", dimSizePrefix(dim.size).c_str(), dim.size.c_str());
+
+            emit(indent, "if(tlen < 0) return tlen; else pos += tlen;");
+            return;
+        }
+        if(depth == ndims) {
+            if(mtn == "string") {
+                emitStart(indent, "char* __cstr = (char*) this->%s", lm.membername.c_str());
+                for(int i = 0; i < depth; i++)
+                    emitContinue("[a%d]", i);
+                emitEnd(".c_str();");
+                emit(indent, "tlen = __string_encode_array(buf, offset + pos, maxlen - pos, &__cstr, 1);");
+            } else {
+                emitStart(indent, "tlen = this->%s", lm.membername.c_str());
+                for(int i = 0; i < depth; i++)
+                    emitContinue("[a%d]", i);
+                emitEnd("._encodeNoHash(buf, offset + pos, maxlen - pos);");
+            }
+            emit(indent, "if(tlen < 0) return tlen; else pos += tlen;");
+            return;
+        }
+
+        auto& dim = lm.dimensions[depth];
+        emit(indent, "for (int a%d = 0; a%d < %s%s; a%d++) {",
+             depth, depth, dimSizePrefix(dim.size).c_str(), dim.size.c_str(), depth);
+
+        _encodeRecursive(lm, depth+1, extraIndent);
+
+        emit(indent, "}");
+    }
+
+    void emitEncodeNohash()
+    {
+        const char* sn = ls.structname.shortname.c_str();
+        if(ls.members.size() == 0) {
+            emit(0, "int %s::_encodeNoHash(void *, int, int) const", sn);
+            emit(0, "{");
+            emit(1,     "return 0;");
+            emit(0, "}");
+            emit(0, "");
+            return;
+        }
+        emit(0, "int %s::_encodeNoHash(void *buf, int offset, int maxlen) const", sn);
+        emit(0, "{");
+        emit(1,     "int pos = 0, tlen;");
+        emit(0, "");
+        for (auto& lm : ls.members) {
+
+            auto& mtn = lm.type.fullname;
+            auto *mn = lm.membername.c_str();
+
+            int ndims = (int)lm.dimensions.size();
+            if (ndims == 0) {
+                if (ZCMGen::isPrimitiveType(mtn)) {
+                    if(mtn == "string") {
+                        emit(1, "char* %s_cstr = (char*) this->%s.c_str();", mn, mn);
+                        emit(1, "tlen = __string_encode_array(buf, offset + pos, maxlen - pos, &%s_cstr, 1);", mn);
+                    } else {
+                        emit(1, "tlen = __%s_encode_array(buf, offset + pos, maxlen - pos, &this->%s, 1);",
+                             mtn.c_str(), mn);
+                    }
+                    emit(1, "if(tlen < 0) return tlen; else pos += tlen;");
+                } else {
+                    _encodeRecursive(lm, 0, 0);
+                }
+            } else {
+                auto& lastDim = lm.dimensions[ndims-1];
+
+                // for non-string primitive types with variable size final
+                // dimension, add an optimization to only call the primitive encode
+                // functions only if the final dimension size is non-zero.
+                if (ZCMGen::isPrimitiveType(mtn) && mtn == "string" && !isDimSizeFixed(lastDim.size)) {
+                    emit(1, "if(%s%s > 0) {", dimSizePrefix(lastDim.size).c_str(), lastDim.size.c_str());
+                    _encodeRecursive(lm, 0, 1);
+                    emit(1, "}");
+                } else {
+                    _encodeRecursive(lm, 0, 0);
+                }
+            }
+
+            emit(0,"");
+        }
+        emit(1, "return pos;");
+        emit(0,"}");
+        emit(0,"");
+    }
+
+    void emitEncodedSizeNohash()
+    {
+        const char *sn = ls.structname.shortname.c_str();
+        emit(0, "int %s::_getEncodedSizeNoHash() const", sn);
+        emit(0, "{");
+        if(ls.members.size() == 0) {
+            emit(1,     "return 0;");
+            emit(0,"}");
+            emit(0,"");
+            return;
+        }
+        emit(1,     "int enc_size = 0;");
+        for (auto& lm : ls.members) {
+            auto& mtn = lm.type.fullname;
+            auto *mn = lm.membername.c_str();
+            int ndim = (int)lm.dimensions.size();
+
+            if (ZCMGen::isPrimitiveType(mtn) && mtn == "string") {
+                emitStart(1, "enc_size += ");
+                for(int n = 0; n < ndim-1; n++) {
+                    auto& dim = lm.dimensions[n];
+                    emitContinue("%s%s * ", dimSizePrefix(dim.size).c_str(), dim.size.c_str());
+                }
+                if(ndim > 0) {
+                    auto& dim = lm.dimensions[ndim-1];
+                    emitEnd("__%s_encoded_array_size(NULL, %s%s);",
+                            mtn.c_str(), dimSizePrefix(dim.size).c_str(), dim.size.c_str());
+                } else {
+                    emitEnd("__%s_encoded_array_size(NULL, 1);", mtn.c_str());
+                }
+            } else {
+                for(int n = 0; n < ndim; n++) {
+                    auto& dim = lm.dimensions[n];
+                    emit(1+n, "for (int a%d = 0; a%d < %s%s; a%d++) {",
+                         n, n, dimSizePrefix(dim.size).c_str(), dim.size.c_str(), n);
+                }
+                emitStart(ndim + 1, "enc_size += this->%s", mn);
+                for(int i = 0; i < ndim; i++)
+                    emitContinue("[a%d]", i);
+                if (mtn == "string") {
+                    emitEnd(".size() + 4 + 1;");
+                } else {
+                    emitEnd("._getEncodedSizeNoHash();");
+                }
+                for(int n = ndim-1; n >= 0; n--) {
+                    emit(1 + n, "}");
+                }
+            }
+        }
+        emit(1, "return enc_size;");
+        emit(0,"}");
+        emit(0,"");
+    }
+
+    void _decodeRecursive(ZCMMember& lm, int depth)
+    {
+        auto& mtn = lm.type.fullname;
+        auto *mn = lm.membername.c_str();
+
+        int ndims = (int)lm.dimensions.size();
+        // primitive array
+        if (depth+1 == ndims &&
+            ZCMGen::isPrimitiveType(mtn) && mtn == "string") {
+
+            auto& dim = lm.dimensions[depth];
+            int decodeIndent = 1 + depth;
+            if(!lm.isConstantSizeArray()) {
+                emit(1 + depth, "if(%s) {", dimSizeAccessor(dim.size).c_str());
+                emitStart(2 + depth, "this->%s", mn);
+                for(int i = 0; i < depth; i++)
+                    emitContinue("[a%d]", i);
+                emitEnd(".resize(%s);", dimSizeAccessor(dim.size).c_str());
+                decodeIndent++;
+            }
+
+            emitStart(decodeIndent, "tlen = __%s_decode_array(buf, offset + pos, maxlen - pos, &this->%s", mtn.c_str(), mn);
+            for(int i = 0; i < depth; i++)
+                emitContinue("[a%d]", i);
+            emitEnd("[0], %s);", dimSizeAccessor(dim.size).c_str());
+            emit(decodeIndent, "if(tlen < 0) return tlen; else pos += tlen;");
+            if (!lm.isConstantSizeArray()) {
+                emit(1 + depth, "}");
+            }
+        } else if(depth == ndims) {
+            if (mtn == "string") {
+                emit(1 + depth, "int32_t __elem_len;");
+                emit(1 + depth, "tlen = __int32_t_decode_array(buf, offset + pos, maxlen - pos, &__elem_len, 1);");
+                emit(1 + depth, "if(tlen < 0) return tlen; else pos += tlen;");
+                emit(1 + depth, "if(__elem_len > maxlen - pos) return -1;");
+                emitStart(1 + depth, "this->%s", mn);
+                for(int i = 0; i < depth; i++)
+                    emitContinue("[a%d]", i);
+                emitEnd(".assign(((const char*)buf) + offset + pos, __elem_len -  1);");
+                emit(1 + depth, "pos += __elem_len;");
+            } else {
+                emitStart(1 + depth, "tlen = this->%s", mn);
+                for(int i = 0; i < depth; i++)
+                    emitContinue("[a%d]", i);
+                emitEnd("._decodeNoHash(buf, offset + pos, maxlen - pos);");
+                emit(1 + depth, "if(tlen < 0) return tlen; else pos += tlen;");
+            }
+        } else {
+            auto& dim = lm.dimensions[depth];
+            if(!lm.isConstantSizeArray()) {
+                emitStart(1+depth, "this->%s", mn);
+                for(int i = 0; i < depth; i++) {
+                    emitContinue("[a%d]", i);
+                }
+                emitEnd(".resize(%s);", dimSizeAccessor(dim.size).c_str());
+            }
+            emit(1+depth, "for (int a%d = 0; a%d < %s; a%d++) {",
+                 depth, depth, dimSizeAccessor(dim.size).c_str(), depth);
+
+            _decodeRecursive(lm, depth+1);
+
+            emit(1+depth, "}");
+        }
+    }
+
+    void emitDecodeNohash()
+    {
+        const char* sn = ls.structname.shortname.c_str();
+        if (ls.members.size() == 0) {
+            emit(0, "int %s::_decodeNoHash(const void *, int, int)", sn);
+            emit(0, "{");
+            emit(1,     "return 0;");
+            emit(0, "}");
+            emit(0, "");
+            return;
+        }
+        emit(0, "int %s::_decodeNoHash(const void *buf, int offset, int maxlen)", sn);
+        emit(0, "{");
+        emit(1,     "int pos = 0, tlen;");
+        emit(0, "");
+        for (auto& lm : ls.members) {
+            auto& mtn = lm.type.fullname;
+            auto *mn = lm.membername.c_str();
+
+            int ndims = (int)lm.dimensions.size();
+            if (ndims == 0 && ZCMGen::isPrimitiveType(mtn)) {
+                if(mtn == "string") {
+                    emit(1, "int32_t __%s_len__;", mn);
+                    emit(1, "tlen = __int32_t_decode_array(buf, offset + pos, maxlen - pos, &__%s_len__, 1);", mn);
+                    emit(1, "if(tlen < 0) return tlen; else pos += tlen;");
+                    emit(1, "if(__%s_len__ > maxlen - pos) return -1;", mn);
+                    emit(1, "this->%s.assign(((const char*)buf) + offset + pos, __%s_len__ - 1);", mn, mn);
+                    emit(1, "pos += __%s_len__;", mn);
+                } else {
+                    emit(1, "tlen = __%s_decode_array(buf, offset + pos, maxlen - pos, &this->%s, 1);", mtn.c_str(), mn);
+                    emit(1, "if(tlen < 0) return tlen; else pos += tlen;");
+                }
+            } else {
+                _decodeRecursive(lm, 0);
+            }
+
+            emit(0,"");
+        }
+        emit(1, "return pos;");
+        emit(0, "}");
+        emit(0, "");
+    }
+
+    void emitHeader()
+    {
+        emitHeaderStart();
+        emitEncode();
+        emitDecode();
+        emitEncodedSize();
+        emitGetHash();
+        emitGetTypeName();
+        emitEncodeNohash();
+        emitDecodeNohash();
+        emitEncodedSizeNohash();
+        emitComputeHash();
+        emitHeaderEnd();
+    }
 };
 
-// static void _encode_recursive(zcmgen_t* zcm, FILE* f, zcm_member_t* lm, int depth, int extra_indent)
-// {
-//     int indent = extra_indent + 1 + depth;
-//     // primitive array
-//     if (depth+1 == g_ptr_array_size(lm->dimensions) &&
-//             zcm_is_primitive_type(lm->type->lctypename) &&
-//             strcmp(lm->type->lctypename, "string")) {
-//         zcm_dimension_t *dim = (zcm_dimension_t*) g_ptr_array_index(lm->dimensions, depth);
-//         emit_start(indent, "tlen = __%s_encode_array(buf, offset + pos, maxlen - pos, &this->%s",
-//                 lm->type->lctypename, lm->membername);
-//         for(int i=0; i<depth; i++)
-//             emit_continue("[a%d]", i);
-//         emit_end("[0], %s%s);", dim_size_prefix(dim->size), dim->size);
+int emitCpp(ZCMGen& zcm)
+{
+    // iterate through all defined message types
+    for (auto& ls : zcm.structs) {
+        string tn = dotsToSlashes(ls.structname.fullname);
 
-//         emit(indent, "if(tlen < 0) return tlen; else pos += tlen;");
-//         return;
-//     }
-//     //
-//     if(depth == g_ptr_array_size(lm->dimensions)) {
-//         if(!strcmp(lm->type->lctypename, "string")) {
-//             emit_start(indent, "char* __cstr = (char*) this->%s", lm->membername);
-//             for(int i=0; i<depth; i++)
-//                 emit_continue("[a%d]", i);
-//             emit_end(".c_str();");
-//             emit(indent, "tlen = __string_encode_array(buf, offset + pos, maxlen - pos, &__cstr, 1);");
-//         } else {
-//             emit_start(indent, "tlen = this->%s", lm->membername);
-//             for(int i=0; i<depth; i++)
-//                 emit_continue("[a%d]", i);
-//             emit_end("._encodeNoHash(buf, offset + pos, maxlen - pos);");
-//         }
-//         emit(indent, "if(tlen < 0) return tlen; else pos += tlen;");
-//         return;
-//     }
+        // compute the target filename
+        string hpath = zcm.gopt->getString("cpp-hpath");
+        string headerName = hpath + (hpath.size() > 0 ? "/" : ":") + tn;
 
-//     zcm_dimension_t *dim = (zcm_dimension_t*) g_ptr_array_index(lm->dimensions, depth);
+        // generate code if needed
+        if (zcm.needsGeneration(ls.zcmfile, headerName)) {
+            FileUtil::makeDirsForFile(headerName);
+            Emit E{zcm, ls, headerName};
+            if (!E.good())
+                return -1;
+            E.emitHeader();
 
-//     emit(indent, "for (int a%d = 0; a%d < %s%s; a%d++) {",
-//             depth, depth, dim_size_prefix(dim->size), dim->size, depth);
+        }
+    }
 
-//     _encode_recursive(zcm, f, lm, depth+1, extra_indent);
-
-//     emit(indent, "}");
-// }
-
-// static void emit_encode_nohash(zcmgen_t *zcm, FILE *f, zcm_struct_t *ls)
-// {
-//     const char* sn = ls->structname->shortname;
-//     if(0 == g_ptr_array_size(ls->members)) {
-//         emit(0, "int %s::_encodeNoHash(void *, int, int) const", sn);
-//         emit(0, "{");
-//         emit(1,     "return 0;");
-//         emit(0, "}");
-//         emit(0, "");
-//         return;
-//     }
-//     emit(0, "int %s::_encodeNoHash(void *buf, int offset, int maxlen) const", sn);
-//     emit(0, "{");
-//     emit(1,     "int pos = 0, tlen;");
-//     emit(0, "");
-//     for (unsigned int m = 0; m < g_ptr_array_size(ls->members); m++) {
-//         zcm_member_t *lm = (zcm_member_t *) g_ptr_array_index(ls->members, m);
-//         int num_dims = g_ptr_array_size(lm->dimensions);
-
-//         if (0 == num_dims) {
-//             if (zcm_is_primitive_type(lm->type->lctypename)) {
-//                 if(!strcmp(lm->type->lctypename, "string")) {
-//                     emit(1, "char* %s_cstr = (char*) this->%s.c_str();", lm->membername, lm->membername);
-//                     emit(1, "tlen = __string_encode_array(buf, offset + pos, maxlen - pos, &%s_cstr, 1);",
-//                             lm->membername);
-//                 } else {
-//                 emit(1, "tlen = __%s_encode_array(buf, offset + pos, maxlen - pos, &this->%s, 1);",
-//                     lm->type->lctypename, lm->membername);
-//                 }
-//                 emit(1, "if(tlen < 0) return tlen; else pos += tlen;");
-//           } else {
-//             _encode_recursive(zcm, f, lm, 0, 0);
-//           }
-//         } else {
-//             zcm_dimension_t *last_dim = (zcm_dimension_t*) g_ptr_array_index(lm->dimensions, num_dims - 1);
-
-//             // for non-string primitive types with variable size final
-//             // dimension, add an optimization to only call the primitive encode
-//             // functions only if the final dimension size is non-zero.
-//             if(zcm_is_primitive_type(lm->type->lctypename) &&
-//                     strcmp(lm->type->lctypename, "string") &&
-//                     !is_dim_size_fixed(last_dim->size)) {
-//                 emit(1, "if(%s%s > 0) {", dim_size_prefix(last_dim->size), last_dim->size);
-//                 _encode_recursive(zcm, f, lm, 0, 1);
-//                 emit(1, "}");
-//             } else {
-//                 _encode_recursive(zcm, f, lm, 0, 0);
-//             }
-//         }
-
-//         emit(0,"");
-//     }
-//     emit(1, "return pos;");
-//     emit(0,"}");
-//     emit(0,"");
-// }
-
-// static void emit_encoded_size_nohash(zcmgen_t *zcm, FILE *f, zcm_struct_t *ls)
-// {
-//     const char *sn = ls->structname->shortname;
-//     emit(0, "int %s::_getEncodedSizeNoHash() const", sn);
-//     emit(0, "{");
-//     if(0 == g_ptr_array_size(ls->members)) {
-//         emit(1,     "return 0;");
-//         emit(0,"}");
-//         emit(0,"");
-//         return;
-//     }
-//     emit(1,     "int enc_size = 0;");
-//     for (unsigned int m = 0; m < g_ptr_array_size(ls->members); m++) {
-//         zcm_member_t *lm = (zcm_member_t *) g_ptr_array_index(ls->members, m);
-//         int ndim = g_ptr_array_size(lm->dimensions);
-
-//         if(zcm_is_primitive_type(lm->type->lctypename) &&
-//                 strcmp(lm->type->lctypename, "string")) {
-//             emit_start(1, "enc_size += ");
-//             for(int n=0; n < ndim - 1; n++) {
-//                 zcm_dimension_t *dim = (zcm_dimension_t*) g_ptr_array_index(lm->dimensions, n);
-//                 emit_continue("%s%s * ", dim_size_prefix(dim->size), dim->size);
-//             }
-//             if(ndim > 0) {
-//                 zcm_dimension_t *dim = (zcm_dimension_t*) g_ptr_array_index(lm->dimensions, ndim - 1);
-//                 emit_end("__%s_encoded_array_size(NULL, %s%s);",
-//                         lm->type->lctypename, dim_size_prefix(dim->size), dim->size);
-//             } else {
-//                 emit_end("__%s_encoded_array_size(NULL, 1);", lm->type->lctypename);
-//             }
-//         } else {
-//             for(int n=0; n < ndim; n++) {
-//                 zcm_dimension_t *dim = (zcm_dimension_t*) g_ptr_array_index(lm->dimensions, n);
-//                 emit(1+n, "for (int a%d = 0; a%d < %s%s; a%d++) {",
-//                         n, n, dim_size_prefix(dim->size), dim->size, n);
-//             }
-//             emit_start(ndim + 1, "enc_size += this->%s", lm->membername);
-//             for(int i=0; i<ndim; i++)
-//                 emit_continue("[a%d]", i);
-//             if(!strcmp(lm->type->lctypename, "string")) {
-//                 emit_end(".size() + 4 + 1;");
-//             } else {
-//                 emit_end("._getEncodedSizeNoHash();");
-//             }
-//             for(int n=ndim-1; n >= 0; n--) {
-//                 emit(1 + n, "}");
-//             }
-//         }
-//     }
-//     emit(1, "return enc_size;");
-//     emit(0,"}");
-//     emit(0,"");
-// }
-
-// static void _decode_recursive(zcmgen_t* zcm, FILE* f, zcm_member_t* lm, int depth)
-// {
-//     // primitive array
-//     if (depth+1 == g_ptr_array_size(lm->dimensions) &&
-//         zcm_is_primitive_type(lm->type->lctypename) &&
-//         strcmp(lm->type->lctypename, "string")) {
-//         zcm_dimension_t *dim = (zcm_dimension_t*) g_ptr_array_index(lm->dimensions, depth);
-
-//         int decode_indent = 1 + depth;
-//         if(!zcm_is_constant_size_array(lm)) {
-//             emit(1 + depth, "if(%s%s) {", dim_size_prefix(dim->size), dim->size);
-//             emit_start(2 + depth, "this->%s", lm->membername);
-//             for(int i=0; i<depth; i++)
-//                 emit_continue("[a%d]", i);
-//             emit_end(".resize(%s%s);", dim_size_prefix(dim->size), dim->size);
-//             decode_indent++;
-//         }
-
-//         emit_start(decode_indent, "tlen = __%s_decode_array(buf, offset + pos, maxlen - pos, &this->%s",
-//                 lm->type->lctypename, lm->membername);
-//         for(int i=0; i<depth; i++)
-//             emit_continue("[a%d]", i);
-//         emit_end("[0], %s%s);", dim_size_prefix(dim->size), dim->size);
-//         emit(decode_indent, "if(tlen < 0) return tlen; else pos += tlen;");
-//         if(!zcm_is_constant_size_array(lm)) {
-//             emit(1 + depth, "}");
-//         }
-//     } else if(depth == g_ptr_array_size(lm->dimensions)) {
-//         if(!strcmp(lm->type->lctypename, "string")) {
-//             emit(1 + depth, "int32_t __elem_len;");
-//             emit(1 + depth, "tlen = __int32_t_decode_array(buf, offset + pos, maxlen - pos, &__elem_len, 1);");
-//             emit(1 + depth, "if(tlen < 0) return tlen; else pos += tlen;");
-//             emit(1 + depth, "if(__elem_len > maxlen - pos) return -1;");
-//             emit_start(1 + depth, "this->%s", lm->membername);
-//             for(int i=0; i<depth; i++)
-//                 emit_continue("[a%d]", i);
-//             emit_end(".assign(((const char*)buf) + offset + pos, __elem_len -  1);");
-//             emit(1 + depth, "pos += __elem_len;");
-//         } else {
-//             emit_start(1 + depth, "tlen = this->%s", lm->membername);
-//             for(int i=0; i<depth; i++)
-//                 emit_continue("[a%d]", i);
-//             emit_end("._decodeNoHash(buf, offset + pos, maxlen - pos);");
-//             emit(1 + depth, "if(tlen < 0) return tlen; else pos += tlen;");
-//         }
-//     } else {
-//         zcm_dimension_t *dim = (zcm_dimension_t*) g_ptr_array_index(lm->dimensions, depth);
-
-//         if(!zcm_is_constant_size_array(lm)) {
-//             emit_start(1+depth, "this->%s", lm->membername);
-//             for(int i=0; i<depth; i++) {
-//                 emit_continue("[a%d]", i);
-//             }
-//             emit_end(".resize(%s%s);", dim_size_prefix(dim->size), dim->size);
-//         }
-//         emit(1+depth, "for (int a%d = 0; a%d < %s%s; a%d++) {",
-//                 depth, depth, dim_size_prefix(dim->size), dim->size, depth);
-
-//         _decode_recursive(zcm, f, lm, depth+1);
-
-//         emit(1+depth, "}");
-//     }
-// }
-
-// static void emit_decode_nohash(zcmgen_t *zcm, FILE *f, zcm_struct_t *ls)
-// {
-//     const char* sn = ls->structname->shortname;
-//     if(0 == g_ptr_array_size(ls->members)) {
-//         emit(0, "int %s::_decodeNoHash(const void *, int, int)", sn);
-//         emit(0, "{");
-//         emit(1,     "return 0;");
-//         emit(0, "}");
-//         emit(0, "");
-//         return;
-//     }
-//     emit(0, "int %s::_decodeNoHash(const void *buf, int offset, int maxlen)", sn);
-//     emit(0, "{");
-//     emit(1,     "int pos = 0, tlen;");
-//     emit(0, "");
-//     for (unsigned int m = 0; m < g_ptr_array_size(ls->members); m++) {
-//         zcm_member_t *lm = (zcm_member_t *) g_ptr_array_index(ls->members, m);
-
-//         if (0 == g_ptr_array_size(lm->dimensions) && zcm_is_primitive_type(lm->type->lctypename)) {
-//             if(!strcmp(lm->type->lctypename, "string")) {
-//                 emit(1, "int32_t __%s_len__;", lm->membername);
-//                 emit(1, "tlen = __int32_t_decode_array(buf, offset + pos, maxlen - pos, &__%s_len__, 1);", lm->membername);
-//                 emit(1, "if(tlen < 0) return tlen; else pos += tlen;");
-//                 emit(1, "if(__%s_len__ > maxlen - pos) return -1;", lm->membername);
-//                 emit(1, "this->%s.assign(((const char*)buf) + offset + pos, __%s_len__ - 1);", lm->membername, lm->membername);
-//                 emit(1, "pos += __%s_len__;", lm->membername);
-//             } else {
-//                 emit(1, "tlen = __%s_decode_array(buf, offset + pos, maxlen - pos, &this->%s, 1);", lm->type->lctypename, lm->membername);
-//                 emit(1, "if(tlen < 0) return tlen; else pos += tlen;");
-//             }
-//         } else {
-//             _decode_recursive(zcm, f, lm, 0);
-//         }
-
-//         emit(0,"");
-//     }
-//     emit(1, "return pos;");
-//     emit(0, "}");
-//     emit(0, "");
-// }
-
-// int emit_cpp(zcmgen_t *zcmgen)
-// {
-//     // iterate through all defined message types
-//     for (unsigned int i = 0; i < g_ptr_array_size(zcmgen->structs); i++) {
-//         zcm_struct_t *lr = (zcm_struct_t *) g_ptr_array_index(zcmgen->structs, i);
-
-//         const char *tn = lr->structname->lctypename;
-//         char *tn_ = dots_to_slashes(tn);
-
-//         // compute the target filename
-//         char *header_name = g_strdup_printf("%s%s%s.hpp",
-//                 getopt_get_string(zcmgen->gopt, "cpp-hpath"),
-//                 strlen(getopt_get_string(zcmgen->gopt, "cpp-hpath")) > 0 ? G_DIR_SEPARATOR_S : "",
-//                 tn_);
-
-//         // generate code if needed
-//         if (zcm_needs_generation(zcmgen, lr->zcmfile, header_name)) {
-//             make_dirs_for_file(header_name);
-
-//             FILE *f = fopen(header_name, "w");
-//             if (f == NULL)
-//                 return -1;
-
-//             emit_header_start(zcmgen, f, lr);
-//             emit_encode(zcmgen, f, lr);
-//             emit_decode(zcmgen, f, lr);
-//             emit_encoded_size(zcmgen, f, lr);
-//             emit_get_hash(zcmgen, f, lr);
-//             emit(0, "const char* %s::getTypeName()", lr->structname->shortname);
-//             emit(0, "{");
-//             emit(1,     "return \"%s\";", lr->structname->shortname);
-//             emit(0, "}");
-//             emit(0, "");
-
-//             emit_encode_nohash(zcmgen, f, lr);
-//             emit_decode_nohash(zcmgen, f, lr);
-//             emit_encoded_size_nohash(zcmgen, f, lr);
-//             emit_compute_hash(zcmgen, f, lr);
-
-//             emit_package_namespace_close(zcmgen, f, lr);
-//             emit(0, "#endif");
-
-//             fclose(f);
-//         }
-//         g_free(header_name);
-//         free(tn_);
-//     }
-
-//     return 0;
-// }
+    return 0;
+}
