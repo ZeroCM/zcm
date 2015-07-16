@@ -6,13 +6,13 @@
 
 namespace zcm {
 
-class Subscription;
+struct Subscription;
 struct ReceiveBuffer;
 
 struct ZCM
 {
-    inline LCM();
-    inline ~LCM();
+    inline ZCM();
+    inline ~ZCM();
 
     inline bool good() const;
 
@@ -27,17 +27,15 @@ struct ZCM
             void (Handler::*cb)(const ReceiveBuffer *rbuf, const std::string& channel, const Msg *msg),
             Handler *handler);
 
-    template <class Handler>
-    Subscription *subscribe(const std::string& channel,
-                            void (Handler::*cb)(const ReceiveBuffer* rbuf, const std::string& channel),
-                            Handler* handler);
+    // template <class Handler>
+    // Subscription *subscribe(const std::string& channel,
+    //                         void (Handler::*cb)(const ReceiveBuffer* rbuf, const std::string& channel),
+    //                         Handler* handler);
 
-    inline lcm_t* getUnderlyingLCM();
+    inline zcm_t* getUnderlyingZCM();
 
   private:
-    lcm_t *lcm;
-    bool ownsLcm;
-
+    zcm_t *zcm;
     std::vector<Subscription*> subscriptions;
 };
 

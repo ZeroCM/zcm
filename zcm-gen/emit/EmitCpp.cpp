@@ -108,17 +108,15 @@ struct Emit : public Emitter
     {
         // output namespace declaration
         auto namespaces = StringUtil::split(ls.structname.fullname, '.');
-        for (auto& ns : namespaces)
-            emit(0, "namespace %s\n{", ns.c_str());
+        for (size_t i = 0; i < namespaces.size()-1; i++)
+            emit(0, "namespace %s\n{", namespaces[i].c_str());
     }
 
     void emitPackageNamespaceClose()
     {
         auto namespaces = StringUtil::split(ls.structname.fullname, '.');
-        for (auto& ns : namespaces) {
-            (void)ns;
+        for (size_t i = 0; i < namespaces.size()-1; i++)
             emit(0, "{\n");
-        }
     }
 
     void emitHeaderStart()
@@ -167,7 +165,6 @@ struct Emit : public Emitter
         emitPackageNamespaceStart();
 
         // define the class
-        emit(0, "");
         emitComment(0, ls.comment);
         emit(0, "class %s", sn);
         emit(0, "{");
@@ -354,8 +351,8 @@ struct Emit : public Emitter
     {
         const char* sn = ls.structname.shortname.c_str();
 
-        size_t lastComplexMember = -1;
-        for (size_t m = 0; m < ls.members.size(); m++) {
+        int lastComplexMember = -1;
+        for (int m = 0; m < (int)ls.members.size(); m++) {
             auto& lm = ls.members[m];
             if (!ZCMGen::isPrimitiveType(lm.type.fullname))
                 lastComplexMember = m;
@@ -374,7 +371,7 @@ struct Emit : public Emitter
             emit(0, "");
             emit(1,     "int64_t hash = 0x%016" PRIx64 "LL +", ls.hash);
 
-            for (size_t m = 0; m < ls.members.size(); m++) {
+            for (int m = 0; m < (int)ls.members.size(); m++) {
                 auto& lm = ls.members[m];
                 auto& mtn = lm.type.fullname;
                 string lmTnc = dotsToDoubleColons(mtn);
@@ -403,7 +400,7 @@ struct Emit : public Emitter
         int ndims = (int)lm.dimensions.size();
         // primitive array
         if (depth+1 == ndims &&
-            ZCMGen::isPrimitiveType(mtn) && mtn == "string") {
+            ZCMGen::isPrimitiveType(mtn) && mtn != "string") {
 
             auto& dim = lm.dimensions[depth];
             emitStart(indent, "tlen = __%s_encode_array(buf, offset + pos, maxlen - pos, &this->%s",
@@ -481,7 +478,7 @@ struct Emit : public Emitter
                 // for non-string primitive types with variable size final
                 // dimension, add an optimization to only call the primitive encode
                 // functions only if the final dimension size is non-zero.
-                if (ZCMGen::isPrimitiveType(mtn) && mtn == "string" && !isDimSizeFixed(lastDim.size)) {
+                if (ZCMGen::isPrimitiveType(mtn) && mtn != "string" && !isDimSizeFixed(lastDim.size)) {
                     emit(1, "if(%s%s > 0) {", dimSizePrefix(lastDim.size).c_str(), lastDim.size.c_str());
                     _encodeRecursive(lm, 0, 1);
                     emit(1, "}");
@@ -514,7 +511,7 @@ struct Emit : public Emitter
             auto *mn = lm.membername.c_str();
             int ndim = (int)lm.dimensions.size();
 
-            if (ZCMGen::isPrimitiveType(mtn) && mtn == "string") {
+            if (ZCMGen::isPrimitiveType(mtn) && mtn != "string") {
                 emitStart(1, "enc_size += ");
                 for(int n = 0; n < ndim-1; n++) {
                     auto& dim = lm.dimensions[n];
@@ -559,7 +556,7 @@ struct Emit : public Emitter
         int ndims = (int)lm.dimensions.size();
         // primitive array
         if (depth+1 == ndims &&
-            ZCMGen::isPrimitiveType(mtn) && mtn == "string") {
+            ZCMGen::isPrimitiveType(mtn) && mtn != "string") {
 
             auto& dim = lm.dimensions[depth];
             int decodeIndent = 1 + depth;
@@ -683,7 +680,7 @@ int emitCpp(ZCMGen& zcm)
 
         // compute the target filename
         string hpath = zcm.gopt->getString("cpp-hpath");
-        string headerName = hpath + (hpath.size() > 0 ? "/" : ":") + tn;
+        string headerName = hpath + (hpath.size() > 0 ? "/" : ":") + tn +".hpp";
 
         // generate code if needed
         if (zcm.needsGeneration(ls.zcmfile, headerName)) {

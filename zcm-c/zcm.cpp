@@ -31,7 +31,7 @@ struct Sub
     void *usr;
 };
 
-struct zcm
+struct zcm_t
 {
     std::thread recvThread;
 
@@ -49,7 +49,7 @@ struct zcm
     string subchannel;
     void *subsock;
 
-    zcm()
+    zcm_t()
     {
         ctx = zmq_init(ZMQ_IO_THREADS);
     }
@@ -164,7 +164,7 @@ struct zcm
         _getSubSock(channel);
         subs.emplace(channel, Sub{cb, usr});
         if (!recvThreadStarted) {
-            recvThread = std::thread{&zcm::recvThreadFunc, this};
+            recvThread = std::thread{&zcm_t::recvThreadFunc, this};
             recvThreadStarted = true;
         }
         return 0;

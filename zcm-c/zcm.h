@@ -8,7 +8,7 @@ extern "C" {
 #include <stdlib.h>
 #include <stdint.h>
 
-typedef struct zcm zcm_t;
+typedef struct zcm_t zcm_t;
 
 typedef struct zcm_recv_buf_t zcm_recv_buf_t;
 struct zcm_recv_buf_t
