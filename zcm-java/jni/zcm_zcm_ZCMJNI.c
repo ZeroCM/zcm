@@ -62,27 +62,25 @@ JNIEXPORT jint JNICALL Java_zcm_zcm_ZCMJNI_publish
     jbyte* data = (*env)->GetByteArrayElements(env, dataJ,&isCopy);
 
     assert(offsetJ == 0);
-    zcm_publish(I->zcm, channel, (char*)data, lenJ);
+    int ret = zcm_publish(I->zcm, channel, (char*)data, lenJ);
 
     (*env)->ReleaseStringUTFChars(env, channelJ, channel);
-    return 0;
+    return ret;
 }
 
 static JNIEnv *getEnv(JavaVM *vm)
 {
     JNIEnv *env;
-    // double check it's all ok
+
     int rc = (*vm)->GetEnv(vm, (void **)&env, JNI_VERSION_1_6);
     if (rc == JNI_EDETACHED) {
-        printf("GetEnv: not attached\n");
         if ((*vm)->AttachCurrentThread(vm, (void **)&env, NULL) != 0) {
-            printf("Failed to attach\n");
+            fprintf(stderr, "ZCMJNI: getEnv: Failed to attach Thread in JNI!\n");
         }
-    } else if (rc == JNI_OK) {
-        // ...
     } else if (rc == JNI_EVERSION) {
-        printf("GetEnv: version not supported\n");
+        fprintf(stderr, "ZCMJNI: getEnv: JNI version not supported!\n");
     }
+
     return env;
 }
 
@@ -123,8 +121,8 @@ JNIEXPORT jint JNICALL Java_zcm_zcm_ZCMJNI_subscribe
 
     const char *channel = (*env)->GetStringUTFChars(env, channelJ, 0);
 
-    zcm_subscribe(I->zcm, channel, handler, (void*)I);
+    int ret = zcm_subscribe(I->zcm, channel, handler, (void*)I);
 
     (*env)->ReleaseStringUTFChars(env, channelJ, channel);
-    return 0;
+    return ret;
 }
