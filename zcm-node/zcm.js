@@ -5,6 +5,21 @@
  * suffice in the short-term
  ******************************************************/
 var ffi = require('ffi');
+var ref = require('ref');
+var Struct = require('ref-struct');
+
+// Define some types
+//var int = ref.types.int
+//var IntArray = ArrayType(int)
+var voidRef = ref.refType('void')
+var charRef = ref.refType('char')
+var recvBuf = Struct({
+    zcm:   voidRef,
+    utime: ref.types.ulonglong,
+    len:   ref.types.size_t,
+    data:  charRef,
+});
+var recvBufRef = ref.refType(recvBuf);
 
 var libzcm = new ffi.Library('libzcm', {
     'zcm_create':     ['pointer', []],
@@ -20,6 +35,20 @@ libzcm.zcm_handle_async = function(z) {
     });
 }
 
+function makeDispatcher(cb)
+{
+    return function(rbuf, channel, usr) {
+        // XXX This decoder makes a LOT of assumptions about the underlying machine
+        //     These are not all correct for archs other than x86-64
+        var zcmPtr = ref.readPointer(rbuf, 0);
+        var utime  = ref.readUInt64LE(rbuf, 8);
+        var len    = ref.readUInt64LE(rbuf, 16);
+        var data   = ref.readPointer(rbuf, 24);
+        var dataBuf = ref.reinterpret(data, len);
+        cb(dataBuf.toJSON(), channel);
+    }
+}
+
 exports.create = function() {
     var z = libzcm.zcm_create();
 
@@ -28,7 +57,7 @@ exports.create = function() {
     }
 
     function subscribe(channel, cb) {
-        var funcPtr = ffi.Callback('void', ['pointer', 'string', 'pointer'], cb);
+        var funcPtr = ffi.Callback('void', [recvBufRef, 'string', 'pointer'], makeDispatcher(cb));
         process.on('exit', function() { funcPtr;}); // Force an extra ref to avoid Garbage Collection
         libzcm.zcm_subscribe(z, channel, funcPtr, null);
     }
