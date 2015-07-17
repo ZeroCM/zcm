@@ -19,9 +19,6 @@ int main(int argc, char *argv[])
                       "Add this package name as a prefix to the declared package");
     gopt.addBool(0,  "version",    0,    "Show version information and exit");
 
-    // we only support portable declarations now.
-    // getopt_add_bool  (gopt, 0,    "warn-unsafe", 1, "Warn about unportable declarations");
-
     gopt.addSpacer("**** C options ****");
     gopt.addBool('c', "c",         0,     "Emit C code");
     setupOptionsC(gopt);
@@ -38,17 +35,9 @@ int main(int argc, char *argv[])
     gopt.addBool('p', "python",      0,     "Emit Python code");
     setupOptionsPython(gopt);
 
-    // getopt_add_spacer(gopt, "**** Javascript options ****");
-    // getopt_add_bool  (gopt, 's', "js",      0,     "Emit Javascript code");
-    // setup_js_options(gopt);
-
-    // getopt_add_spacer(gopt, "**** Lua options ****");
-    // getopt_add_bool  (gopt, 'l', "lua",      0,     "Emit Lua code");
-    // setup_lua_options(gopt);
-
-    // getopt_add_spacer(gopt, "**** C#.NET options ****");
-    // getopt_add_bool  (gopt, 0, "csharp",      0,     "Emit C#.NET code");
-    // setup_csharp_options(gopt);
+    gopt.addSpacer("**** Node.js options ****");
+    gopt.addBool('n', "node",      0,     "Emit Node.js code");
+    setupOptionsNode(gopt);
 
     if (!gopt.parse(argc, argv, 1) || gopt.getBool("help")) {
         printf("Usage: %s [options] <input files>\n\n", argv[0]);
@@ -110,26 +99,12 @@ int main(int argc, char *argv[])
         }
     }
 
-    // if (getopt_get_bool(gopt, "js")) {
-    //     did_something = 1;
-    //     if (emit_js(zcm)) {
-    //         printf("An error occurred while emitting Javascript code.\n");
-    //     }
-    // }
-
-    // if (getopt_get_bool(gopt, "lua")) {
-    // 	did_something = 1;
-    // 	if (emit_lua(zcm)) {
-    // 		printf("An error occurred while emitting Lua code.\n");
-    // 	}
-    // }
-
-    // if (getopt_get_bool(gopt, "csharp")) {
-    //     did_something = 1;
-    //     if (emit_csharp(zcm)) {
-    //         printf("An error occurred while emitting C#.NET code.\n");
-    //     }
-    // }
+    if (gopt.getBool("node")) {
+        did_something = 1;
+        if (emitNode(zcm)) {
+            printf("An error occurred while emitting Node.js code.\n");
+        }
+    }
 
     if (did_something == 0) {
         printf("No actions specified. Try --help.\n");
