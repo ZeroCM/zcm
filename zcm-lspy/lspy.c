@@ -16,9 +16,8 @@ int main(int argc, char *argv[])
 
     zcm_subscribe(zcm, ".*", &handler, NULL);
 
-    while(1) {
-        sleep(1000);
-    }
+    while(1)
+        zcm_handle(zcm);
 
     zcm_destroy(zcm);
     return 0;

@@ -208,6 +208,30 @@ struct zcm_t
         return 0;
     }
 
+    int poll(long timeout)
+    {
+        // Build up a list of poll items
+        vector<zmq_pollitem_t> pitems;
+        vector<string> pchannels;
+        {
+            std::unique_lock<std::mutex> lk(mut);
+            pitems.resize(subs.size());
+            int i = 0;
+            for (auto& elt : subs) {
+                auto& channel = elt.first;
+                auto& sub = elt.second;
+                auto *p = &pitems[i];
+                memset(p, 0, sizeof(*p));
+                p->socket = sub.sock;
+                p->events = ZMQ_POLLIN;
+                pchannels.emplace_back(channel);
+                i++;
+            }
+        }
+
+        return zmq_poll(pitems.data(), pitems.size(), timeout);
+    }
+
     static bool isRegexChannel(const string& channel)
     {
         // These chars are considered regex
@@ -276,7 +300,8 @@ int zcm_handle(zcm_t *zcm)
     return zcm->handle();
 }
 
-int zcm_handle_timeout(zcm_t *zcm, uint ms)
+int zcm_poll(zcm_t *zcm, uint ms)
 {
-    return zcm->handleTimeout((long)ms);
+    int rc = zcm->poll((long)ms);
+    return rc;
 }

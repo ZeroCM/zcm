@@ -32,7 +32,11 @@ int    zcm_subscribe(zcm_t *zcm, const char *channel, zcm_callback_t *cb, void *
 //       The thread that calls this function will be the same as the one that
 //       calls the registered callbacks
 int    zcm_handle(zcm_t *zcm);
-int    zcm_handle_timeout(zcm_t *zcm, uint ms);
+
+// Poll the underlying transport for data for up to 'ms' milliseconds
+// Returns the number of waiting messages
+// TODO: Use the standard errno convetions here instea
+int    zcm_poll(zcm_t *zcm, uint ms);
 
 // TODO add APIs to integrate the handle thread directly into the library?
 //      example: zcm_handle_start() and zcm_handle_stop()
