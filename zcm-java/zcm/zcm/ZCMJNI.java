@@ -15,4 +15,7 @@ class ZCMJNI
 
     // This method registers the ZCM object for an upcall to receiveMessage()
     public native int subscribe(String channel, ZCM zcm);
+
+    // This method dispatches the next message (blocking indefinitely)
+    public native int handle();
 }

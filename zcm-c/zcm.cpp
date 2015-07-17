@@ -47,14 +47,10 @@ struct Pub
 
 struct zcm_t
 {
-    std::thread recvThread;
-
     // The mutex protects all data below it
     std::mutex mut;
-    bool recvThreadStarted = false;
     static constexpr int RECVBUFSZ = 1 << 20;
     char recvbuf[RECVBUFSZ];
-    bool running = true;
 
     void *ctx;
     unordered_map<string, Sub> subs;
@@ -166,41 +162,50 @@ struct zcm_t
         }
     }
 
-    void recvThreadFunc()
+    int handleTimeout(long timeout)
     {
-        while (1) {
-            searchForRegexSubs();
+        searchForRegexSubs();
 
-            // Build up a list of poll items
-            vector<zmq_pollitem_t> pitems;
-            vector<string> pchannels;
-            {
-                std::unique_lock<std::mutex> lk(mut);
-                pitems.resize(subs.size());
-                int i = 0;
-                for (auto& elt : subs) {
-                    auto& channel = elt.first;
-                    auto& sub = elt.second;
-                    auto *p = &pitems[i];
-                    memset(p, 0, sizeof(*p));
-                    p->socket = sub.sock;
-                    p->events = ZMQ_POLLIN;
-                    pchannels.emplace_back(channel);
-                    i++;
-                }
-            }
-
-            int rc = zmq_poll(pitems.data(), pitems.size(), 100);
-            if (!running)
-                break;
-            if (rc >= 0) {
-                for (size_t i = 0; i < pitems.size(); i++) {
-                    auto& p = pitems[i];
-                    if (p.revents != 0)
-                        recvMsgFromSock(pchannels[i], p.socket);
-                }
+        // Build up a list of poll items
+        vector<zmq_pollitem_t> pitems;
+        vector<string> pchannels;
+        {
+            std::unique_lock<std::mutex> lk(mut);
+            pitems.resize(subs.size());
+            int i = 0;
+            for (auto& elt : subs) {
+                auto& channel = elt.first;
+                auto& sub = elt.second;
+                auto *p = &pitems[i];
+                memset(p, 0, sizeof(*p));
+                p->socket = sub.sock;
+                p->events = ZMQ_POLLIN;
+                pchannels.emplace_back(channel);
+                i++;
             }
         }
+
+        int rc = zmq_poll(pitems.data(), pitems.size(), timeout);
+        if (rc >= 0) {
+            for (size_t i = 0; i < pitems.size(); i++) {
+                auto& p = pitems[i];
+                if (p.revents != 0)
+                    recvMsgFromSock(pchannels[i], p.socket);
+            }
+        }
+
+        return rc;
+    }
+
+    // TODO: can we get rid of this and go full blocking?
+    int handle()
+    {
+        while (true) {
+            int rc = handleTimeout(100);
+            if (rc >= 0)
+                break;
+        }
+        return 0;
     }
 
     static bool isRegexChannel(const string& channel)
@@ -240,25 +245,11 @@ struct zcm_t
             subOneInternal(channel, cb, usr);
         }
 
-        if (!recvThreadStarted) {
-            recvThread = std::thread{&zcm_t::recvThreadFunc, this};
-            recvThreadStarted = true;
-        }
         return 0;
     }
 };
 
-static void printBytes(const char *buf, size_t len)
-{
-    printf("printBytes:");
-    for (size_t i = 0; i < len; i++) {
-        char c = buf[i];
-        printf(" 0x%02x", c&0xff);
-        if (isalpha(c))
-            printf("(%c)", c);
-    }
-    printf("\n");
-}
+/////////////// C Interface Functions ////////////////
 
 zcm_t *zcm_create(void)
 {
@@ -267,7 +258,7 @@ zcm_t *zcm_create(void)
 
 void zcm_destroy(zcm_t *zcm)
 {
-    // TODO: What is the "correct" method to shut-down ZMQ?
+    if (zcm) delete zcm;
 }
 
 int zcm_publish(zcm_t *zcm, const char *channel, char *data, size_t len)
@@ -278,4 +269,14 @@ int zcm_publish(zcm_t *zcm, const char *channel, char *data, size_t len)
 int zcm_subscribe(zcm_t *zcm, const char *channel, zcm_callback_t *cb, void *usr)
 {
     return zcm->subscribe(channel, cb, usr);
+}
+
+int zcm_handle(zcm_t *zcm)
+{
+    return zcm->handle();
+}
+
+int zcm_handle_timeout(zcm_t *zcm, uint ms)
+{
+    return zcm->handleTimeout((long)ms);
 }
