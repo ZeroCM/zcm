@@ -7,4 +7,6 @@ def build(ctx):
               use = 'default',
               lib = 'zmq',
               source = ctx.path.ant_glob('*.cpp *.c'))
-    ctx.install_files('${PREFIX}/include/zcm', ['zcm.h', 'zcm_coretypes.h', 'zcm-cpp.hpp', 'zcm-cpp-impl.hpp'])
+
+    install_headers = ['zcm.h', 'eventlog.h', 'zcm_coretypes.h', 'zcm-cpp.hpp', 'zcm-cpp-impl.hpp']
+    ctx.install_files('${PREFIX}/include/zcm', install_headers)

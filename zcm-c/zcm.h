@@ -13,10 +13,11 @@ typedef struct zcm_t zcm_t;
 typedef struct zcm_recv_buf_t zcm_recv_buf_t;
 struct zcm_recv_buf_t
 {
-    char *data;
-    size_t len;
-    uint64_t utime;
     zcm_t *zcm;
+
+    uint64_t utime;
+    size_t len; /* TODO make this datalen for consistency */
+    char *data;
 };
 
 typedef void zcm_callback_t(const zcm_recv_buf_t *rbuf, const char *channel, void *usr);
