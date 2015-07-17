@@ -1,5 +1,6 @@
 #pragma once
 
+#include <unistd.h>
 #include <string>
 #include <vector>
 #include "zcm.h"
@@ -15,6 +16,13 @@ struct ZCM
     inline ~ZCM();
 
     inline bool good() const;
+
+    // XXX this is wrong
+    inline int handle()
+    {
+        while (1)
+            usleep(10000000);
+    }
 
     inline int publish(const std::string& channel, const char *data,
                        uint len);

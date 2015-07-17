@@ -6,5 +6,5 @@ def build(ctx):
               includes = '.',
               use = 'default',
               lib = 'zmq',
-              source = ctx.path.ant_glob('zcm.cpp'))
+              source = ctx.path.ant_glob('*.cpp *.c'))
     ctx.install_files('${PREFIX}/include/zcm', ['zcm.h', 'zcm_coretypes.h', 'zcm-cpp.hpp', 'zcm-cpp-impl.hpp'])
