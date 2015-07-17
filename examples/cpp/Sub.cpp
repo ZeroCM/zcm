@@ -40,7 +40,7 @@ int main(int argc, char *argv[])
     zcm.subscribe("EXAMPLE", &Handler::handleMessage, &handlerObject);
 
     while (1)
-        usleep(100000);
+        zcm.handle();
 
     return 0;
 }

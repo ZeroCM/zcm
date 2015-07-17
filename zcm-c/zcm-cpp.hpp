@@ -17,13 +17,7 @@ struct ZCM
     inline ~ZCM();
 
     inline bool good() const;
-
-    // XXX this is wrong
-    inline int handle()
-    {
-        while (1)
-            usleep(10000000);
-    }
+    inline int handle();
 
     inline int publish(const std::string& channel, const char *data,
                        uint len);
