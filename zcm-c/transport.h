@@ -153,13 +153,20 @@ extern "C" {
  *******************************************************************************
  */
 
-typedef struct zcm_trans_t;
+typedef struct zcm_buffer_t zcm_buffer_t;
+typedef struct zcm_trans_t zcm_trans_t;
 typedef struct zcm_trans_methods_t zcm_trans_methods_t;
+
+struct zcm_buffer_t
+{
+    size_t len;
+    char *buf;
+};
 
 struct zcm_trans_t
 {
     zcm_trans_methods_t *vtbl;
-}
+};
 
 struct zcm_trans_methods_t
 {
@@ -168,7 +175,7 @@ struct zcm_trans_methods_t
     zcm_buffer_t *(*sendmsg_start)  (zcm_trans_t *zt, size_t sz, bool wait);
     void          (*sendmsg_finish) (zcm_trans_t *zt);
 
-    int           (*recvmsq_poll)   (zcm_trans_t *zt, int16_t timeout);
+    int           (*recvmsg_poll)   (zcm_trans_t *zt, int16_t timeout);
     zcm_buffer_t *(*recvmsg_start)  (zcm_trans_t *zt);
     void          (*recvmsg_finish) (zcm_trans_t *zt);
 };
