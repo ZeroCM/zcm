@@ -182,28 +182,21 @@ struct EmitModule : public Emitter
                 emitEncodePrimType(indent, "msg."+mn, mtn);
             } else {
                 // For-loop open-braces
-                char v = '_';
+                char v = 'a';
                 for (int i = 0; i < ndims; i++) {
-                    v = 'a'+i;
                     auto sz = dimSizeAccessor(lm.dimensions[i].size);
                     emit(indent+i, "for (var %c = 0; %c < %s; %c++) {", v, v, sz.c_str(), v);
-                    if (i != ndims-1)
-                        emit(indent+i+1, "var %celt = msg.%s;", v, mn.c_str());
+                    string array = (i == 0) ? "msg."+mn : string(1, v-1)+"elt";
+                    emit(indent+i+1, "var %celt = %s[%c];", v, array.c_str(), v);
+                    v++;
                 };
 
-                // For-loop bodies
-                emit(indent+ndims, "var %celt = msg.%s[%c];", v, mn.c_str(), v);
-                //emitDecodePrimType(indent+ndims, "var "+string(1, v)+"elt", mtn);
+                // For-loop body
+                emitEncodePrimType(indent+ndims, string(1, v-1)+"elt", mtn);
 
                 // For-loop close-braces
-                for (int i = ndims-1; i >= 0; i--) {
-                    char nextv = 'a'+i-1;
-                    string array = (i == 0) ? "msg."+mn : string(1, nextv)+"elt";
-                    emitEncodePrimType(indent+i+1, string(1, v)+"elt", mtn);
-                    //emit(indent+i, "    %s.push(%celt);", array.c_str(), v);
+                for (int i = ndims-1; i >= 0; i--)
                     emit(indent+i, "}");
-                    v = nextv;
-                }
             }
         }
         emit(indent, "return W.getBuffer();");
