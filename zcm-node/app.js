@@ -8,9 +8,15 @@ z = zcm.create();
 
 z.subscribe('EXAMPLE', function(data, channel) {
     console.log('Got Message on channel "'+channel+'"');
-    console.log(Example.decode(data));
-    z.publish('FOOBAR', "HI");
-    process.exit(0);
+    var msg = Example.decode(data);
+    console.log(msg);
+    var newdata = Example.encode(msg);
+    console.log(data);
+    console.log(newdata);
+    var newmsg = Example.decode(newdata);
+    console.log(newmsg);
+    z.publish('FOOBAR', newdata);
+    //process.exit(0);
 });
 
 // z.subscribe('MSG', function(data, channel) {

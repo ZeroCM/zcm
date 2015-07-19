@@ -18,6 +18,19 @@ static string dimSizeAccessor(const string& dimSize)
         return "msg."+dimSize;
 }
 
+static int primtypeSize(const string& type)
+{
+    if (type == "double")  return 8;
+    if (type == "float")   return 4;
+    if (type == "int64_t") return 8;
+    if (type == "int32_t") return 4;
+    if (type == "int16_t") return 2;
+    if (type == "int8_t")  return 1;
+    if (type == "boolean") return 1;
+
+    return 0;
+}
+
 struct EmitModule : public Emitter
 {
     ZCMGen& zcm;
@@ -31,7 +44,7 @@ struct EmitModule : public Emitter
         emit(0, "var ref = require('ref');");
         emit(0, "");
         emit(0, "function createReader(data) {");
-        emit(0, "    var buf = new Buffer(data);");
+        emit(0, "    var buf = data;");
         emit(0, "    var offset = 0;");
         emit(0, "    var methods = {");
         emit(0, "        readDouble: function() {");
@@ -79,16 +92,121 @@ struct EmitModule : public Emitter
         emit(0, "    return methods;");
         emit(0, "}");
         emit(0, "");
+        emit(0, "function createWriter(size) {");
+        emit(0, "    var buf = new Buffer(size);");
+        emit(0, "    var offset = 0;");
+        emit(0, "    var methods = {");
+        emit(0, "        writeDouble: function(value) {");
+        emit(0, "            buf.writeDoubleBE(value, offset);");
+        emit(0, "            offset += 8;");
+        emit(0, "        },");
+        emit(0, "        writeFloat: function(value) {");
+        emit(0, "            buf.writeFloatBE(value, offset);");
+        emit(0, "            offset += 4;");
+        emit(0, "        },");
+        emit(0, "        write64: function(value) {");
+        emit(0, "            ref.writeInt64BE(buf, offset, value);");
+        emit(0, "            offset += 8;");
+        emit(0, "        },");
+        emit(0, "        write32: function(value) {");
+        emit(0, "            buf.writeInt32BE(value, offset);");
+        emit(0, "            offset += 4;");
+        emit(0, "        },");
+        emit(0, "        write16: function(value) {");
+        emit(0, "            buf.writeInt16BE(value, offset);");
+        emit(0, "            offset += 2;");
+        emit(0, "        },");
+        emit(0, "        write8: function(value) {");
+        emit(0, "            buf.writeInt8(value, offset);");
+        emit(0, "            offset += 1;");
+        emit(0, "        },");
+        emit(0, "        writeBoolean: function(value) {");
+        emit(0, "            buf.writeInt8(value, offset);");
+        emit(0, "            offset += 1;");
+        emit(0, "        },");
+        emit(0, "        writeString: function(value) {");
+        emit(0, "            methods.write32(value.length+1);");
+        emit(0, "            ref.writeCString(buf, offset, value);");
+        emit(0, "            offset += value.length+1;");
+        emit(0, "        },");
+        emit(0, "        getBuffer: function() {");
+        emit(0, "            return buf;");
+        emit(0, "        },");
+        emit(0, "    };");
+        emit(0, "    return methods;");
+        emit(0, "}");
+        emit(0, "");
     }
 
     void emitEncodedSizeBody(int indent, ZCMStruct& ls)
     {
         // XXX: this is wrong!
-        emit(indent, "return 1024*1024;");
+        //emit(indent, "return 1024*1024;");
+        emit(indent, "return 1024;");
+    }
+
+    void emitEncodePrimType(int indent, const string& rvalue, const string& type)
+    {
+        if (type == "double") {
+            emit(indent, "W.writeDouble(%s);", rvalue.c_str());
+        } else if (type == "float") {
+            emit(indent, "W.writeFloat(%s);", rvalue.c_str());
+        } else if (type == "int64_t") {
+            emit(indent, "W.write64(%s);", rvalue.c_str());
+        } else if (type == "int32_t") {
+            emit(indent, "W.write32(%s);", rvalue.c_str());
+        } else if (type == "int16_t") {
+            emit(indent, "W.write16(%s);", rvalue.c_str());
+        } else if (type == "int8_t") {
+            emit(indent, "W.write8(%s);", rvalue.c_str());
+        } else if (type == "boolean") {
+             emit(indent, "W.writeBoolean(%s);", rvalue.c_str());
+        } else if (type == "string") {
+             emit(indent, "W.writeString(%s);", rvalue.c_str());
+        } else {
+            fprintf(stderr, "Unimpl type '%s' for rvalue='%s'\n", type.c_str(), rvalue.c_str());
+        }
     }
 
     void emitEncodeBody(int indent, ZCMStruct& ls)
     {
+        emit(indent, "var size = %s.encodedSize(msg);", ls.structname.shortname.c_str());
+        emit(indent, "var W = createWriter(size);");
+        // XXX compute and emit the correct hash
+        emit(indent, "W.write64(123456789);");
+        for (auto& lm : ls.members) {
+            auto& mtn = lm.type.fullname;
+            auto& mn = lm.membername;
+            int ndims = (int)lm.dimensions.size();
+            if (ndims == 0) {
+                emitEncodePrimType(indent, "msg."+mn, mtn);
+            } else {
+                // For-loop open-braces
+                char v = '_';
+                for (int i = 0; i < ndims; i++) {
+                    v = 'a'+i;
+                    auto sz = dimSizeAccessor(lm.dimensions[i].size);
+                    emit(indent+i, "for (var %c = 0; %c < %s; %c++) {", v, v, sz.c_str(), v);
+                    if (i != ndims-1)
+                        emit(indent+i+1, "var %celt = msg.%s;", v, mn.c_str());
+                };
+
+                // For-loop bodies
+                emit(indent+ndims, "var %celt = msg.%s[%c];", v, mn.c_str(), v);
+                //emitDecodePrimType(indent+ndims, "var "+string(1, v)+"elt", mtn);
+
+                // For-loop close-braces
+                for (int i = ndims-1; i >= 0; i--) {
+                    char nextv = 'a'+i-1;
+                    string array = (i == 0) ? "msg."+mn : string(1, nextv)+"elt";
+                    emitEncodePrimType(indent+i+1, string(1, v)+"elt", mtn);
+                    //emit(indent+i, "    %s.push(%celt);", array.c_str(), v);
+                    emit(indent+i, "}");
+                    v = nextv;
+                }
+            }
+        }
+        emit(indent, "return W.getBuffer();");
     }
 
     void emitDecodePrimType(int indent, const string& lvalue, const string& type)

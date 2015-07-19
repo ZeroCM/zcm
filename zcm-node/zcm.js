@@ -24,7 +24,7 @@ var recvBufRef = ref.refType(recvBuf);
 var libzcm = new ffi.Library('libzcm', {
     'zcm_create':     ['pointer', []],
     'zcm_destroy':    ['void', ['pointer']],
-    'zcm_publish':    ['int', ['pointer', 'string', 'string', 'int']],
+    'zcm_publish':    ['int', ['pointer', 'string', 'pointer', 'int']],
     'zcm_subscribe':  ['int', ['pointer', 'string', 'pointer', 'pointer']],
     'zcm_handle':     ['int', ['pointer']],
     'zcm_poll':       ['int', ['pointer', 'int']],
@@ -45,7 +45,7 @@ function makeDispatcher(cb)
         var len    = ref.readUInt64LE(rbuf, 16);
         var data   = ref.readPointer(rbuf, 24);
         var dataBuf = ref.reinterpret(data, len);
-        cb(dataBuf.toJSON(), channel);
+        cb(new Buffer(dataBuf), channel);
     }
 }
 
