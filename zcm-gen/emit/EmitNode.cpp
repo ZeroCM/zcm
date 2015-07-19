@@ -81,6 +81,11 @@ struct EmitModule : public Emitter
         emit(0, "");
     }
 
+    void emitEncodedSizeBody(int indent, ZCMStruct& ls)
+    {
+        // XXX: this is wrong!
+        emit(indent, "return 1024*1024;");
+    }
 
     void emitEncodeBody(int indent, ZCMStruct& ls)
     {
@@ -156,7 +161,11 @@ struct EmitModule : public Emitter
     void emitStruct(ZCMStruct& ls)
     {
         // XXX: should we be using fullname here?
-        emit(0, "exports.%s = {", ls.structname.shortname.c_str());
+        auto *sn = ls.structname.shortname.c_str();
+        emit(0, "var %s = {", sn);
+        emit(0, "    encodedSize: function(msg) {");
+        emitEncodedSizeBody(2, ls);
+        emit(0, "    },");
         emit(0, "    encode: function(msg) {");
         emitEncodeBody(2, ls);
         emit(0, "    },");
@@ -164,6 +173,7 @@ struct EmitModule : public Emitter
         emitDecodeBody(2, ls);
         emit(0, "    }");
         emit(0, "}");
+        emit(0, "exports.%s = %s;", sn, sn);
     }
 
     void emitModule()
