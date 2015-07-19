@@ -1,0 +1,83 @@
+#include "transport.h"
+#include <cstdio>
+#include <cassert>
+
+// Define this the class name you want
+//#define ZCM_TRANS_NAME YourClassNameHere
+
+struct ZCM_TRANS_CLASSNAME
+{
+    zcm_trans_methods_t *vtbl;
+
+    /********************** METHODS **********************/
+    size_t getMTU()
+    {
+        // XXX write me
+        assert(0);
+    }
+
+    zcm_buffer_t *sendmsgStart(size_t sz, bool wait)
+    {
+        // XXX write me
+        assert(0);
+    }
+
+    void sendmsgFinish()
+    {
+        // XXX write me
+        assert(0);
+    }
+
+    int recvmsgPoll(int16_t timeout)
+    {
+        // XXX write me
+        assert(0);
+    }
+
+    zcm_buffer_t *recvmsgStart()
+    {
+        // XXX write me
+        assert(0);
+    }
+
+    void recvmsgFinish()
+    {
+        // XXX write me
+        assert(0);
+    }
+
+    /********************** STATICS **********************/
+    static zcm_trans_methods_t methods;
+    static ZCM_TRANS_CLASSNAME *upcast(zcm_trans_t *zt)
+    {
+        assert(zt->vtbl == &methods);
+        return (ZCM_TRANS_CLASSNAME*)zt;
+    }
+
+    static size_t _getMTU(zcm_trans_t *zt)
+    { return upcast(zt)->getMTU(); }
+
+    static zcm_buffer_t *_sendmsgStart(zcm_trans_t *zt, size_t sz, bool wait)
+    { return upcast(zt)->sendmsgStart(sz, wait); }
+
+    static void _sendmsgFinish(zcm_trans_t *zt)
+    { return upcast(zt)->sendmsgFinish(); }
+
+    static int _recvmsgPoll(zcm_trans_t *zt, int16_t timeout)
+    { return upcast(zt)->recvmsgPoll(timeout); }
+
+    static zcm_buffer_t *_recvmsgStart(zcm_trans_t *zt)
+    { return upcast(zt)->recvmsgStart(); }
+
+    static void _recvmsgFinish(zcm_trans_t *zt)
+    { return upcast(zt)->recvmsgFinish(); }
+};
+
+zcm_trans_methods_t ZCM_TRANS_CLASSNAME::methods = {
+    &ZCM_TRANS_CLASSNAME::_getMTU,
+    &ZCM_TRANS_CLASSNAME::_sendmsgStart,
+    &ZCM_TRANS_CLASSNAME::_sendmsgFinish,
+    &ZCM_TRANS_CLASSNAME::_recvmsgPoll,
+    &ZCM_TRANS_CLASSNAME::_recvmsgStart,
+    &ZCM_TRANS_CLASSNAME::_recvmsgFinish,
+};
