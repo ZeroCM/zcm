@@ -1,0 +1,6 @@
+struct multidim_t
+{
+    int8_t rows;
+    int64_t jk;
+    double mat[rows][2][jk];
+}
