@@ -1,25 +1,13 @@
-var zcm = require('./zcm');
+var zcm = require('zcm');
 var zcmtypes = require('./zcmtypes');
 
-var Example = zcmtypes.Example;
-var Msg = zcmtypes.Msg;
+var example_t = zcmtypes.example_t;
+var multidim_t = zcmtypes.multidim_t;
 
 z = zcm.create();
-
 z.subscribe('EXAMPLE', function(data, channel) {
     console.log('Got Message on channel "'+channel+'"');
-    var msg = Example.decode(data);
+    var msg = example_t.decode(data);
     console.log(msg);
-    var newdata = Example.encode(msg);
-    console.log(data);
-    console.log(newdata);
-    var newmsg = Example.decode(newdata);
-    console.log(newmsg);
-    z.publish('FOOBAR', newdata);
-    //process.exit(0);
+    z.publish('FOOBAR', example_t.encode(msg));
 });
-
-// z.subscribe('MSG', function(data, channel) {
-//     console.log('Got Message on channel "'+channel+'"');
-//     console.log(Msg.decode(data));
-// });

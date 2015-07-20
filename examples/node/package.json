@@ -1,0 +1,9 @@
+{
+  "name": "zcm-example",
+  "version": "1.0.0",
+  "description": "",
+  "dependencies": {
+    "zcm": "~1.0.0",
+    "ref": "~1.0.2"
+  }
+}
