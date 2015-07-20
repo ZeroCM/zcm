@@ -28,3 +28,4 @@ def build(ctx):
     ctx.recurse('zcm-lspy')
     ctx.recurse('zcm-c')
     ctx.recurse('zcm-java')
+    ctx.recurse('zcm-node')
