@@ -45,11 +45,11 @@ function makeDispatcher(cb)
         var len    = ref.readUInt64LE(rbuf, 16);
         var data   = ref.readPointer(rbuf, 24);
         var dataBuf = ref.reinterpret(data, len);
-        cb(new Buffer(dataBuf), channel);
+        cb(channel, new Buffer(dataBuf));
     }
 }
 
-exports.create = function() {
+function libzcmTransport(http) {
     var z = libzcm.zcm_create();
 
     function publish(channel, data) {
@@ -68,4 +68,49 @@ exports.create = function() {
         publish: publish,
         subscribe: subscribe
     };
+}
+
+function socketioTransport(http) {
+    var io = require('socket.io')(http);
+
+    // Channel -> Callback
+    var callbacks = {};
+
+    io.on('connection', function(socket){
+        socket.on('client-to-server', function(data){
+            var channel = data.channel;
+            if (channel in callbacks)
+                callbacks[channel](channel, data.msg);
+        });
+    });
+
+    function publish(channel, msg) {
+        io.emit('server-to-client', {
+            channel: channel,
+            msg: msg
+        });
+    }
+
+    function subscribe(channel, cb) {
+        callbacks[channel] = cb;
+    }
+
+    return {
+        publish: publish,
+        subscribe: subscribe
+    };
+}
+
+var transports = {
+    ipc:     libzcmTransport,
+    websock: socketioTransport,
+};
+
+exports.create = function(trans, http) {
+    var transFunc = transports[trans];
+    if (transFunc) {
+        return transFunc(http);
+    } else {
+        console.log('unknown transport for "'+trans+'"');
+    }
 }

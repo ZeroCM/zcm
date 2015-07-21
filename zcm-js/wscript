@@ -15,6 +15,12 @@ def build(ctx):
         source = ctx.path.ant_glob('node/*'),
         target = 'zcm-'+VERSION+'.tgz')
 
-    ctx(rule = 'cp ${SRC} ${TGT}',
-        source = 'client/index.js',
+    def build_client_pkg(task):
+        inp = ' '.join(n.abspath() for n in task.inputs)
+        out = task.outputs[0].abspath()
+        cmd = 'cat %s > %s' % (inp, out)
+        task.exec_command(cmd)
+
+    ctx(rule = build_client_pkg,
+        source = 'client/socket.io.js client/index.js',
         target = 'zcm-client.js')
