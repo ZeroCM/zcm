@@ -7,19 +7,19 @@ var zcm = (function(){
         // Channel -> Callback
         var callbacks = {};
 
-        socket.on('server-to-client', function(msg){
-            var chan = msg.channel;
+        socket.on('server-to-client', function(data){
+            var chan = data.channel;
             if (chan in callbacks)
-                callbacks[chan](chan, msg.data);
+                callbacks[chan](chan, data.msg);
         });
 
         return {
             subscribe: function(channel, cb) {
                 callbacks[channel] = cb;
             },
-            publish: function(channel, data) {
-                var msg = {channel: channel, data: data};
-                socket.emit('client-to-server', msg);
+            publish: function(channel, msg) {
+                var data = {channel: channel, msg: msg};
+                socket.emit('client-to-server', data);
             }
         };
     }

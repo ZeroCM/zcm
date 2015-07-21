@@ -34,7 +34,7 @@ int main(int argc, char *argv[])
 
     while (1) {
         zcm.publish(CHANNEL, &my_data);
-        usleep(100000);
+        usleep(1000*1000);
     }
 
     return 0;

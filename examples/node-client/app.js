@@ -17,7 +17,7 @@ zIPC.subscribe('EXAMPLE', function(channel, data) {
 });
 
 zWebSock.subscribe('FOOBAR', function(channel, msg) {
-    console.log('Got '+channel);
+    zIPC.publish(channel, example_t.encode(msg));
 });
 
 http.listen(3000, function(){
