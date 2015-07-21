@@ -14,3 +14,7 @@ def build(ctx):
         color = 'PINK',
         source = ctx.path.ant_glob('node/*'),
         target = 'zcm-'+VERSION+'.tgz')
+
+    ctx(rule = 'cp ${SRC} ${TGT}',
+        source = 'client/index.js',
+        target = 'zcm-client.js')
