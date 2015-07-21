@@ -12,5 +12,5 @@ def build(ctx):
 
     ctx(rule = build_node_pkg,
         color = 'PINK',
-        source = ctx.path.ant_glob('zcm/*'),
+        source = ctx.path.ant_glob('node/*'),
         target = 'zcm-'+VERSION+'.tgz')

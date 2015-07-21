@@ -1,2 +1,2 @@
 #!/bin/bash
-npm install ../../build/zcm-node/zcm-*.tgz
+npm install ../../build/zcm-js/zcm-*.tgz
