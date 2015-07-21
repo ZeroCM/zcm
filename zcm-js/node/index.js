@@ -101,16 +101,30 @@ function socketioTransport(http) {
     };
 }
 
-var transports = {
-    ipc:     libzcmTransport,
-    websock: socketioTransport,
-};
+function zcm_create(http) {
+    return libzcmTransport();
+}
 
-exports.create = function(trans, http) {
-    var transFunc = transports[trans];
-    if (transFunc) {
-        return transFunc(http);
-    } else {
-        console.log('unknown transport for "'+trans+'"');
+function zcm_connect_client(http, zcmtypes, table)
+{
+    var zIPC = libzcmTransport();
+    var zWebsock = socketioTransport(http);
+
+    for (var channel in table) {
+        var typename = table[channel];
+        var type = zcmtypes[typename];
+        if (!type) {
+            console.log("Unknown type '"+typename+"' in connect_client()");
+            continue;
+        }
+        zIPC.subscribe(channel, function(channel, data) {
+            zWebsock.publish(channel, type.decode(data));
+        });
+        zWebsock.subscribe(channel, function(channel, msg) {
+            zIPC.publish(channel, type.encode(msg));
+        });
     }
 }
+
+exports.create = zcm_create;
+exports.connect_client = zcm_connect_client;
