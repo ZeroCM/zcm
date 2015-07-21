@@ -40,7 +40,6 @@ struct EmitModule : public Emitter
 
     void emitHeader()
     {
-        emit(0, "console.log('Hello from zcmtypes!');");
         emit(0, "var ref = require('ref');");
         emit(0, "");
         emit(0, "function createReader(data) {");
@@ -170,10 +169,11 @@ struct EmitModule : public Emitter
 
     void emitEncodeBody(int indent, ZCMStruct& ls)
     {
-        emit(indent, "var size = %s.encodedSize(msg);", ls.structname.shortname.c_str());
+        auto *sn = ls.structname.shortname.c_str();
+        emit(indent, "var size = %s.encodedSize(msg);", sn);
         emit(indent, "var W = createWriter(size);");
         // XXX compute and emit the correct hash
-        emit(indent, "W.write64(123456789);");
+        emit(indent, "W.write64(%s.__hash);", sn);
         for (auto& lm : ls.members) {
             auto& mtn = lm.type.fullname;
             auto& mn = lm.membername;
@@ -227,8 +227,13 @@ struct EmitModule : public Emitter
 
     void emitDecodeBody(int indent, ZCMStruct& ls)
     {
+        auto *sn = ls.structname.shortname.c_str();
         emit(indent, "var R = createReader(data);");
         emit(indent, "var hash = R.read64();");
+        emit(indent, "if (hash != %s.__hash) {", sn);
+        emit(indent, "    console.log('Err: hash mismatch on %s');", sn);
+        emit(indent, "    return null;");
+        emit(indent, "}");
         emit(indent, "var msg = {}");
         emit(indent, "msg.__type = '%s';", ls.structname.shortname.c_str());
         for (auto& lm : ls.members) {
@@ -269,11 +274,22 @@ struct EmitModule : public Emitter
         emit(indent, "return msg;");
     }
 
+    string computeHash(ZCMStruct& ls)
+    {
+        char buffer[32];
+        uint64_t hash = ls.hash;
+        hash = (hash<<1) + ((hash>>63)&1);
+        snprintf(buffer, sizeof(buffer), "%" PRIu64, hash);
+        return buffer;
+    }
+
     void emitStruct(ZCMStruct& ls)
     {
+        string hash = computeHash(ls);
         // XXX: should we be using fullname here?
         auto *sn = ls.structname.shortname.c_str();
         emit(0, "var %s = {", sn);
+        emit(0, "    __hash: '%s',", hash.c_str());
         emit(0, "    encodedSize: function(msg) {");
         emitEncodedSizeBody(2, ls);
         emit(0, "    },");
