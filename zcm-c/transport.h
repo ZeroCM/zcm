@@ -199,6 +199,8 @@ struct zcm_trans_methods_t
     void          (*recvmsg_enable) (zcm_trans_t *zt, const char *channel, bool enable);
     zcm_recvmsg_t (*recvmsg_start)  (zcm_trans_t *zt);
     void          (*recvmsg_finish) (zcm_trans_t *zt);
+
+    void          (*destory)        (zcm_trans_t *zt);
 };
 
 // Helper functions to make the VTbl dispatch cleaner
@@ -222,6 +224,9 @@ static inline zcm_recvmsg_t zcm_trans_recvmsg_start(zcm_trans_t *zt)
 
 static inline void zcm_trans_recvmsg_finish(zcm_trans_t *zt)
 { return zt->vtbl->recvmsg_finish(zt); }
+
+static inline void zcm_trans_destroy(zcm_trans_t *zt)
+{ return zt->vtbl->destory(zt); }
 
 #ifdef __cplusplus
 }

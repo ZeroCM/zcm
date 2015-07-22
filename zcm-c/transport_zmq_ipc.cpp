@@ -3,7 +3,7 @@
 #include <cassert>
 
 // Define this the class name you want
-//#define ZCM_TRANS_NAME YourClassNameHere
+#define ZCM_TRANS_NAME TransportZmqIpc
 
 struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 {
@@ -102,3 +102,8 @@ zcm_trans_methods_t ZCM_TRANS_CLASSNAME::methods = {
     &ZCM_TRANS_CLASSNAME::_recvmsg_finish,
     &ZCM_TRANS_CLASSNAME::_destroy,
 };
+
+zcm_trans_t *zcm_trans_ipc_create()
+{
+    return new ZCM_TRANS_CLASSNAME();
+}
