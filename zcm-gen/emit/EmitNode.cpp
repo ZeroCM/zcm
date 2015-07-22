@@ -169,6 +169,8 @@ struct EmitModule : public Emitter
 
     void emitEncodeBody(int indent, ZCMStruct& ls)
     {
+        // TODO Verify that the input object has the correct
+        //      fields, types, and data ranges
         auto *sn = ls.structname.shortname.c_str();
         emit(indent, "var size = %s.encodedSize(msg);", sn);
         emit(indent, "var W = createWriter(size);");

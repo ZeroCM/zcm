@@ -1,9 +1,10 @@
 TODO
 ------------------
  - Harden the JNI wrapper for the Java Impl
- - Implement the metadata channel
  - Create a ZCM transport interface and push all ZMQ into it
  - Lock down the specific dependencies
  - Import Type Specification Documentation
  - Integrate the type generation with the build scripting in the
    examples
+ - Verify that JS objects are verified during encoding
+ - Add recursive types in JS
