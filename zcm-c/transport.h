@@ -52,7 +52,7 @@ extern "C" {
  *         Users of this transport should ensure that they never attempt to
  *         send messages larger than the MTU of their chosen transport
  *
- *      zcm_buffer_t* sendmsg_start(zcm_trans_t *zt, size_t sz, bool wait)
+ *      zcm_sendmsg_t sendmsg_start(zcm_trans_t *zt, const char *channel, size_t sz, bool wait)
  *      --------------------------------------------------------------------
  *         The caller to this method initiates a message send operation
  *         The caller provides the *exact* message size and receives a
@@ -68,7 +68,10 @@ extern "C" {
  *         the transport should return NULL. If the transport layer cannot
  *         accept more data it should return NULL unless the 'wait' param
  *         is set to true. In this case, the method is allowed to block
- *         indefinately and must not return NULL (given 'sz <= get_mtu()')
+ *         indefinately and must not return NULL (given 'sz <= get_mtu()').
+ *         The implementation must support channel strings up to ZCM_CHANNEL_MAXLEN.
+ *         This method is allowed to return NULL for any channel names of size
+ *         greater than ZCM_CHANNEL_MAXLEN
  *
  *      void sendmsg_finish(zcm_trans_t *zt)
  *      --------------------------------------------------------------------
@@ -94,7 +97,14 @@ extern "C" {
  *         never return until there is a message available. That is, it
  *         should block indefinately until it can return '1'
  *
- *      zcm_buffer_t *recvmsg_start(zcm_trans_t *zt)
+ *      void recvmsg_enable(zcm_trans_t *zt, const char *channel, bool enable)
+ *      --------------------------------------------------------------------
+ *         This method sets/unsets which messages should be received. For all
+ *         of the channels, this should be called with "" for 'channel'.
+ *         This method is not guarenteed to work concurrently with calls to
+ *         recvmsg_poll() and recvmsg_start().
+ *
+ *      zcm_recvmsg_t recvmsg_start(zcm_trans_t *zt)
  *      --------------------------------------------------------------------
  *         The caller to this method initiates a message recv operation
  *         The transport layer should recieve the next full message and
@@ -145,22 +155,32 @@ extern "C" {
  *     to each. The sendmsg_start() method is designed to support a blocking IO
  *     style when the 'wait' param is used. Otherwise the call never blocks,
  *     opting to return NULL to denote "can't accept more data". The
- *     recvmsg_start() method may block on any call if the caller is not careful.
+ *     recvmsg_start() method may block on any call if the caller is not careful
  *     To discern whether it will block, the user can call recvmsg_poll(). Thus
  *     The caller can use each of these in either a blocking or non-blocking
  *     approach.
  *
- *******************************************************************************
- */
+ ******************************************************************************/
 
-typedef struct zcm_buffer_t zcm_buffer_t;
+#define ZCM_CHANNEL_MAXLEN 32
+
 typedef struct zcm_trans_t zcm_trans_t;
 typedef struct zcm_trans_methods_t zcm_trans_methods_t;
 
-struct zcm_buffer_t
+typedef struct zcm_sendmsg_t zcm_sendmsg_t;
+typedef struct zcm_recvmsg_t zcm_recvmsg_t;
+
+struct zcm_sendmsg_t
 {
-    size_t len;
+    const size_t len;
     char *buf;
+};
+
+struct zcm_recvmsg_t
+{
+    const char *channel;
+    const size_t len;
+    const char *buf;
 };
 
 struct zcm_trans_t
@@ -170,13 +190,14 @@ struct zcm_trans_t
 
 struct zcm_trans_methods_t
 {
-    size_t        (*get_mtu)         (zcm_trans_t *zt);
+    size_t        (*get_mtu)        (zcm_trans_t *zt);
 
-    zcm_buffer_t *(*sendmsg_start)  (zcm_trans_t *zt, size_t sz, bool wait);
+    zcm_sendmsg_t (*sendmsg_start)  (zcm_trans_t *zt, const char *channel, size_t sz, bool wait);
     void          (*sendmsg_finish) (zcm_trans_t *zt);
 
     int           (*recvmsg_poll)   (zcm_trans_t *zt, int16_t timeout);
-    zcm_buffer_t *(*recvmsg_start)  (zcm_trans_t *zt);
+    void          (*recvmsg_enable) (zcm_trans_t *zt, const char *channel, bool enable);
+    zcm_recvmsg_t (*recvmsg_start)  (zcm_trans_t *zt);
     void          (*recvmsg_finish) (zcm_trans_t *zt);
 };
 
@@ -184,8 +205,8 @@ struct zcm_trans_methods_t
 static inline size_t zcm_trans_get_mtu(zcm_trans_t *zt)
 { return zt->vtbl->get_mtu(zt); }
 
-static inline zcm_buffer_t *zcm_trans_sendmsg_start(zcm_trans_t *zt, size_t sz, bool wait)
-{ return zt->vtbl->sendmsg_start(zt, sz, wait); }
+static inline zcm_sendmsg_t zcm_trans_sendmsg_start(zcm_trans_t *zt, const char *channel, size_t sz, bool wait)
+{ return zt->vtbl->sendmsg_start(zt, channel, sz, wait); }
 
 static inline void zcm_trans_sendmsg_finish(zcm_trans_t *zt)
 { return zt->vtbl->sendmsg_finish(zt); }
@@ -193,12 +214,14 @@ static inline void zcm_trans_sendmsg_finish(zcm_trans_t *zt)
 static inline int zcm_trans_recvmsg_poll(zcm_trans_t *zt, int16_t timeout)
 { return zt->vtbl->recvmsg_poll(zt, timeout); }
 
-static inline zcm_buffer_t *zcm_trans_recvmsg_start(zcm_trans_t *zt)
+static inline void zcm_trans_recvmsg_enable(zcm_trans_t *zt, const char *channel, bool enable)
+{ return zt->vtbl->recvmsg_enable(zt, channel, enable); }
+
+static inline zcm_recvmsg_t zcm_trans_recvmsg_start(zcm_trans_t *zt)
 { return zt->vtbl->recvmsg_start(zt); }
 
 static inline void zcm_trans_recvmsg_finish(zcm_trans_t *zt)
 { return zt->vtbl->recvmsg_finish(zt); }
-
 
 #ifdef __cplusplus
 }
