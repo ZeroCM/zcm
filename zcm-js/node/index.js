@@ -24,7 +24,7 @@ var recvBufRef = ref.refType(recvBuf);
 var libzcm = new ffi.Library('libzcm', {
     'zcm_create':     ['pointer', []],
     'zcm_destroy':    ['void', ['pointer']],
-    'zcm_publish':    ['int', ['pointer', 'string', 'string', 'int']],
+    'zcm_publish':    ['int', ['pointer', 'string', 'pointer', 'int']],
     'zcm_subscribe':  ['int', ['pointer', 'string', 'pointer', 'pointer']],
     'zcm_handle':     ['int', ['pointer']],
     'zcm_poll':       ['int', ['pointer', 'int']],
@@ -45,11 +45,11 @@ function makeDispatcher(cb)
         var len    = ref.readUInt64LE(rbuf, 16);
         var data   = ref.readPointer(rbuf, 24);
         var dataBuf = ref.reinterpret(data, len);
-        cb(dataBuf.toJSON(), channel);
+        cb(channel, new Buffer(dataBuf));
     }
 }
 
-exports.create = function() {
+function libzcmTransport(http) {
     var z = libzcm.zcm_create();
 
     function publish(channel, data) {
@@ -69,3 +69,62 @@ exports.create = function() {
         subscribe: subscribe
     };
 }
+
+function socketioTransport(http) {
+    var io = require('socket.io')(http);
+
+    // Channel -> Callback
+    var callbacks = {};
+
+    io.on('connection', function(socket){
+        socket.on('client-to-server', function(data){
+            var channel = data.channel;
+            if (channel in callbacks)
+                callbacks[channel](channel, data.msg);
+        });
+    });
+
+    function publish(channel, msg) {
+        io.emit('server-to-client', {
+            channel: channel,
+            msg: msg
+        });
+    }
+
+    function subscribe(channel, cb) {
+        callbacks[channel] = cb;
+    }
+
+    return {
+        publish: publish,
+        subscribe: subscribe
+    };
+}
+
+function zcm_create(http) {
+    return libzcmTransport();
+}
+
+function zcm_connect_client(http, zcmtypes, table)
+{
+    var zIPC = libzcmTransport();
+    var zWebsock = socketioTransport(http);
+
+    for (var channel in table) {
+        var typename = table[channel];
+        var type = zcmtypes[typename];
+        if (!type) {
+            console.log("Unknown type '"+typename+"' in connect_client()");
+            continue;
+        }
+        zIPC.subscribe(channel, function(channel, data) {
+            zWebsock.publish(channel, type.decode(data));
+        });
+        zWebsock.subscribe(channel, function(channel, msg) {
+            zIPC.publish(channel, type.encode(msg));
+        });
+    }
+}
+
+exports.create = zcm_create;
+exports.connect_client = zcm_connect_client;
