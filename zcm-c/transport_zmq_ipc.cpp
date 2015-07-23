@@ -5,9 +5,10 @@
 #include <dirent.h>
 
 #include <cstdio>
+#include <cstring>
 #include <cassert>
-#include <string>
 
+#include <string>
 #include <vector>
 #include <unordered_map>
 #include <mutex>
@@ -26,6 +27,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
     unordered_map<string, void*> pubsocks;
     unordered_map<string, void*> subsocks;
+    string recvmsgChannel;
+    char recvmsgBuffer[MTU];
 
     ZCM_TRANS_CLASSNAME(/* Add any methods here */)
     {
@@ -55,6 +58,20 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         return sock;
     }
 
+
+    void *subsockFindOrCreate(const string& channel)
+    {
+        auto it = subsocks.find(channel);
+        if (it != subsocks.end())
+            return &it->second;
+        void *sock = zmq_socket(ctx, ZMQ_SUB);
+        string address = getAddress(channel);
+        zmq_connect(sock, address.c_str());
+        zmq_setsockopt(sock, ZMQ_SUBSCRIBE, "", 0);
+        subsocks.emplace(channel, sock);
+        return sock;
+    }
+
     /********************** METHODS **********************/
     size_t get_mtu()
     {
@@ -79,20 +96,48 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
     void recvmsg_enable(const char *channel, bool enable)
     {
-        // XXX write me
-        assert(0);
+        assert(enable && "Disabling is not supported");
+        subsockFindOrCreate(channel);
     }
 
     int recvmsg(zcm_msg_t *msg, int timeout)
     {
-        // XXX write me
-        assert(0);
-    }
+        // Build up a list of poll items
+        vector<zmq_pollitem_t> pitems;
+        vector<string> pchannels;
+        {
+            pitems.resize(subsocks.size());
+            int i = 0;
+            for (auto& elt : subsocks) {
+                auto& channel = elt.first;
+                auto& sock = elt.second;
+                auto *p = &pitems[i];
+                memset(p, 0, sizeof(*p));
+                p->socket = sock;
+                p->events = ZMQ_POLLIN;
+                pchannels.emplace_back(channel);
+                i++;
+            }
+        }
 
-    void destory()
-    {
-        // XXX write me
-        assert(0);
+        timeout = (timeout >= 0) ? timeout : -1;
+        int rc = zmq_poll(pitems.data(), pitems.size(), timeout);
+        if (rc >= 0) {
+            for (size_t i = 0; i < pitems.size(); i++) {
+                auto& p = pitems[i];
+                if (p.revents != 0) {
+                    int rc = zmq_recv(p.socket, recvmsgBuffer, MTU, 0);
+                    assert(0 < rc && rc < MTU);
+                    recvmsgChannel = pchannels[i];
+                    msg->channel = recvmsgChannel.c_str();
+                    msg->len = rc;
+                    msg->buf = recvmsgBuffer;
+                    return ZCM_EOK;
+                }
+            }
+        }
+
+        return ZCM_EAGAIN;
     }
 
     /********************** STATICS **********************/
