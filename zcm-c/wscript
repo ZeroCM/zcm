@@ -5,7 +5,7 @@ def build(ctx):
     ctx.shlib(target = 'zcm',
               includes = '.',
               use = 'default',
-              lib = 'zmq',
+              uselib = 'zmq',
               source = ctx.path.ant_glob('*.cpp *.c'))
 
     install_headers = ['zcm.h', 'eventlog.h', 'zcm_coretypes.h', 'zcm-cpp.hpp', 'zcm-cpp-impl.hpp']
