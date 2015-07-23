@@ -23,7 +23,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         assert(0);
     }
 
-    zcm_sendmsg_t sendmsg_start(const char *channel, size_t sz, bool wait)
+    zcm_sendmsg_t *sendmsg_start(const char *channel, size_t sz, bool wait)
     {
         // XXX write me
         assert(0);
@@ -47,7 +47,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         assert(0);
     }
 
-    zcm_recvmsg_t recvmsg_start()
+    zcm_recvmsg_t *recvmsg_start()
     {
         // XXX write me
         assert(0);
@@ -70,7 +70,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     static size_t _get_mtu(zcm_trans_t *zt)
     { return upcast(zt)->get_mtu(); }
 
-    static zcm_sendmsg_t _sendmsg_start(zcm_trans_t *zt, const char *channel, size_t sz, bool wait)
+    static zcm_sendmsg_t *_sendmsg_start(zcm_trans_t *zt, const char *channel, size_t sz, bool wait)
     { return upcast(zt)->sendmsg_start(channel, sz, wait); }
 
     static void _sendmsg_finish(zcm_trans_t *zt)
@@ -82,7 +82,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     static void _recvmsg_enable(zcm_trans_t *zt, const char *channel, bool enable)
     { return upcast(zt)->recvmsg_enable(channel, enable); }
 
-    static zcm_recvmsg_t _recvmsg_start(zcm_trans_t *zt)
+    static zcm_recvmsg_t *_recvmsg_start(zcm_trans_t *zt)
     { return upcast(zt)->recvmsg_start(); }
 
     static void _recvmsg_finish(zcm_trans_t *zt)

@@ -190,24 +190,24 @@ struct zcm_trans_t
 
 struct zcm_trans_methods_t
 {
-    size_t        (*get_mtu)        (zcm_trans_t *zt);
+    size_t         (*get_mtu)        (zcm_trans_t *zt);
 
-    zcm_sendmsg_t (*sendmsg_start)  (zcm_trans_t *zt, const char *channel, size_t sz, bool wait);
-    void          (*sendmsg_finish) (zcm_trans_t *zt);
+    zcm_sendmsg_t *(*sendmsg_start)  (zcm_trans_t *zt, const char *channel, size_t sz, bool wait);
+    void           (*sendmsg_finish) (zcm_trans_t *zt);
 
-    int           (*recvmsg_poll)   (zcm_trans_t *zt, int16_t timeout);
-    void          (*recvmsg_enable) (zcm_trans_t *zt, const char *channel, bool enable);
-    zcm_recvmsg_t (*recvmsg_start)  (zcm_trans_t *zt);
-    void          (*recvmsg_finish) (zcm_trans_t *zt);
+    int            (*recvmsg_poll)   (zcm_trans_t *zt, int16_t timeout);
+    void           (*recvmsg_enable) (zcm_trans_t *zt, const char *channel, bool enable);
+    zcm_recvmsg_t *(*recvmsg_start)  (zcm_trans_t *zt);
+    void           (*recvmsg_finish) (zcm_trans_t *zt);
 
-    void          (*destory)        (zcm_trans_t *zt);
+    void           (*destory)        (zcm_trans_t *zt);
 };
 
 // Helper functions to make the VTbl dispatch cleaner
 static inline size_t zcm_trans_get_mtu(zcm_trans_t *zt)
 { return zt->vtbl->get_mtu(zt); }
 
-static inline zcm_sendmsg_t zcm_trans_sendmsg_start(zcm_trans_t *zt, const char *channel, size_t sz, bool wait)
+static inline zcm_sendmsg_t *zcm_trans_sendmsg_start(zcm_trans_t *zt, const char *channel, size_t sz, bool wait)
 { return zt->vtbl->sendmsg_start(zt, channel, sz, wait); }
 
 static inline void zcm_trans_sendmsg_finish(zcm_trans_t *zt)
@@ -219,7 +219,7 @@ static inline int zcm_trans_recvmsg_poll(zcm_trans_t *zt, int16_t timeout)
 static inline void zcm_trans_recvmsg_enable(zcm_trans_t *zt, const char *channel, bool enable)
 { return zt->vtbl->recvmsg_enable(zt, channel, enable); }
 
-static inline zcm_recvmsg_t zcm_trans_recvmsg_start(zcm_trans_t *zt)
+static inline zcm_recvmsg_t *zcm_trans_recvmsg_start(zcm_trans_t *zt)
 { return zt->vtbl->recvmsg_start(zt); }
 
 static inline void zcm_trans_recvmsg_finish(zcm_trans_t *zt)

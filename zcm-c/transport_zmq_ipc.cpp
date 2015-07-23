@@ -1,12 +1,25 @@
 #include "transport.h"
+
 #include <cstdio>
 #include <cassert>
+#include <string>
+#include <vector>
+#include <unordered_map>
+#include <mutex>
+#include <thread>
+using namespace std;
 
 // Define this the class name you want
 #define ZCM_TRANS_NAME TransportZmqIpc
+#define MTU (1<<20)
 
 struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 {
+    mutex mut;
+    bool sendmsgRunning = false;
+    string sendChannel;
+    zcm_sendmsg_t sendmsg {0, NULL};
+
     ZCM_TRANS_CLASSNAME(/* Add any methods here */)
     {
         vtbl = &methods;
@@ -14,25 +27,40 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
     ~ZCM_TRANS_CLASSNAME()
     {
+        if (sendmsg.buf != NULL)
+            free(sendmsg.buf);
     }
 
     /********************** METHODS **********************/
     size_t get_mtu()
     {
-        // XXX write me
-        assert(0);
+        return MTU;
     }
 
-    zcm_sendmsg_t sendmsg_start(const char *channel, size_t sz, bool wait)
+    zcm_sendmsg_t *sendmsg_start(const char *channel, size_t sz, bool wait)
     {
-        // XXX write me
-        assert(0);
+        unique_lock<mutex> lk(mut);
+        if (sendmsgRunning)
+            return NULL;
+        sendChannel = channel;
+        if (sendChannel.size() > ZCM_CHANNEL_MAXLEN)
+            return NULL;
+        if (sz > MTU)
+            return NULL;
+
+        if (sendmsg.len < sz) {
+            *(size_t*)&sendmsg.len = sz;
+            sendmsg.buf = (char*)realloc(sendmsg.buf, sz);
+        }
+
+        sendmsgRunning = true;
+        return &sendmsg;
     }
 
     void sendmsg_finish()
     {
-        // XXX write me
-        assert(0);
+        unique_lock<mutex> lk(mut);
+        sendmsgRunning = false;
     }
 
     int recvmsg_poll(int16_t timeout)
@@ -47,7 +75,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         assert(0);
     }
 
-    zcm_recvmsg_t recvmsg_start()
+    zcm_recvmsg_t *recvmsg_start()
     {
         // XXX write me
         assert(0);
@@ -70,7 +98,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     static size_t _get_mtu(zcm_trans_t *zt)
     { return upcast(zt)->get_mtu(); }
 
-    static zcm_sendmsg_t _sendmsg_start(zcm_trans_t *zt, const char *channel, size_t sz, bool wait)
+    static zcm_sendmsg_t *_sendmsg_start(zcm_trans_t *zt, const char *channel, size_t sz, bool wait)
     { return upcast(zt)->sendmsg_start(channel, sz, wait); }
 
     static void _sendmsg_finish(zcm_trans_t *zt)
@@ -82,7 +110,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     static void _recvmsg_enable(zcm_trans_t *zt, const char *channel, bool enable)
     { return upcast(zt)->recvmsg_enable(channel, enable); }
 
-    static zcm_recvmsg_t _recvmsg_start(zcm_trans_t *zt)
+    static zcm_recvmsg_t *_recvmsg_start(zcm_trans_t *zt)
     { return upcast(zt)->recvmsg_start(); }
 
     static void _recvmsg_finish(zcm_trans_t *zt)
