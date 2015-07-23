@@ -1,5 +1,5 @@
 #include "zcm_zcm_ZCMJNI.h"
-#include <zcm/zcm.h>
+#include "zcm.h"
 #include <assert.h>
 
 typedef struct Internal Internal;

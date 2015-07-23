@@ -47,6 +47,6 @@ def build(ctx):
     setup_environment(ctx)
     ctx.recurse('zcm-gen')
     ctx.recurse('zcm-c')
-    ctx.recurse('zcm-lspy')
     ctx.recurse('zcm-java')
     ctx.recurse('zcm-js')
+    #ctx.recurse('zcm-lspy')
