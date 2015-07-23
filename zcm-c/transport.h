@@ -33,6 +33,8 @@
  *******************************************************************************
  * Blocking Transport API:
  *
+ *      TODO: add a create() function api requirement
+ *
  *      size_t getmtu(zcm_trans_t *zt)
  *      --------------------------------------------------------------------
  *         Returns the Maximum Transmission Unit supported by this transport
@@ -71,18 +73,20 @@
  *******************************************************************************
  * Non-Blocking (async) Transport API:
  *
+ *      TODO: add a create() function api requirement
+ *
  *      General Note: None of the methods on this object must be thread-safe.
  *                    This API is designed for single-thread, non-blocking,
  *                    and minimalist transports (such as those found in embedded).
  *
- *      size_t getmtu(zcm_trans_t *zt)
+ *      size_t getmtu(zcm_trans_async_t *zt)
  *      --------------------------------------------------------------------
  *         Returns the Maximum Transmission Unit supported by this transport
  *         The transport is allowed to ignore any message above this size
  *         Users of this transport should ensure that they never attempt to
  *         send messages larger than the MTU of their chosen transport
  *
- *      int sendmsg(zcm_trans_t *zt, zcm_msg_t msg)
+ *      int sendmsg(zcm_trans_async_t *zt, zcm_msg_t msg)
  *      --------------------------------------------------------------------
  *         The caller to this method initiates a message send operation. The
  *         caller must populate the fields of the zcm_msg_t. The channel must
@@ -92,13 +96,17 @@
  *         message due to unavailability, ZCM_EAGAIN should be returned.
  *         On success ZCM_EOK should be returned.
  *
- *      void recvmsg_enable(zcm_trans_t *zt, const char *channel, bool enable)
+ *      void recvmsg_enable(zcm_trans_async_t *zt, const char *channel, bool enable)
  *      --------------------------------------------------------------------
  *         This method will enable/disable the receipt of messages on the particular
  *         channel. For 'all channels', the user should pass NULL for the channel.
  *         NOTE: This method does NOT have to work concurrently with recvmsg()
  *
- *      int recvmsg(zcm_trans_t *zt, zcm_msg_t *msg)
+ *      int update(zcm_trans_async_t *zt)
+ *      --------------------------------------------------------------------
+ *         TODO: fill me in
+ *
+ *      int recvmsg(zcm_trans_async_t *zt, zcm_msg_t *msg)
  *      --------------------------------------------------------------------
  *         The caller to this method initiates a message recv operation. This
  *         methods should *never block*. If a message has been received then
@@ -106,7 +114,7 @@
  *         Only messages 'enable'd with recvmsg_enable() should be received.
  *         NOTE: This method does NOT have to work concurrently with recvmsg_enable()
  *
- *      void destroy(zcm_trans_t *zt)
+ *      void destroy(zcm_trans_async_t *zt)
  *      --------------------------------------------------------------------
  *         Close the transport and cleanup any resources used.
  *
@@ -163,12 +171,12 @@ struct zcm_trans_async_t
 
 struct zcm_trans_async_methods_t
 {
-    size_t  (*get_mtu)(zcm_trans_t *zt);
-    int     (*sendmsg)(zcm_trans_t *zt, zcm_msg_t msg);
-    void    (*recvmsg_enable)(zcm_trans_t *zt, const char *channel, bool enable);
-    int     (*recvmsg)(zcm_trans_t *zt, zcm_msg_t *msg);
-    int     (*update)(zcm_trans_t *zt);
-    void    (*destory)(zcm_trans_t *zt);
+    size_t  (*get_mtu)(zcm_trans_async_t *zt);
+    int     (*sendmsg)(zcm_trans_async_t *zt, zcm_msg_t msg);
+    void    (*recvmsg_enable)(zcm_trans_async_t *zt, const char *channel, bool enable);
+    int     (*recvmsg)(zcm_trans_async_t *zt, zcm_msg_t *msg);
+    int     (*update)(zcm_trans_async_t *zt);
+    void    (*destory)(zcm_trans_async_t *zt);
 };
 
 // Helper functions to make the VTbl dispatch cleaner
