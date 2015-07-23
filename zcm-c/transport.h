@@ -49,19 +49,14 @@
  *         Users of this transport should ensure that they never attempt to
  *         send messages larger than the MTU of their chosen transport
  *
- *      int sendmsg(zcm_trans_t *zt, zcm_msg_t msg, int timeout)
+ *      int sendmsg(zcm_trans_t *zt, zcm_msg_t msg)
  *      --------------------------------------------------------------------
  *         The caller to this method initiates a message send operation. The
  *         caller must populate the fields of the zcm_msg_t. The channel must
  *         be less than ZCM_CHANNEL_MAXLEN and 'len <= get_mtu()', otherwise
  *         this method can return ZCM_EINVALID. On receipt of valid params,
  *         this method should block until the message has been successfully
- *         sent and should return ZCM_EOK. If 'timeout >= 0' then sendmsg()
- *         should return EAGAIN if it is unable to receive a message within
- *         'timeout' milliseconds. NOTE: We do *NOT* require a very accurate
- *         clock for this timeout feature and users should only expect
- *         accuracy within a few milliseconds. Users should *not* attempt
- *         to use this timing mechanism for real-time events.
+ *         sent and should return ZCM_EOK.
  *
  *      void recvmsg_enable(zcm_trans_t *zt, const char *channel, bool enable)
  *      --------------------------------------------------------------------
@@ -82,7 +77,6 @@
  *         clock for this timeout feature and users should only expect
  *         accuracy within a few milliseconds. Users should *not* attempt
  *         to use this timing mechanism for real-time events.
-
  *
  *      void destroy(zcm_trans_t *zt)
  *      --------------------------------------------------------------------
@@ -175,6 +169,7 @@ typedef struct zcm_trans_methods_t zcm_trans_methods_t;
 typedef struct zcm_trans_async_t zcm_trans_async_t;
 typedef struct zcm_trans_async_methods_t zcm_trans_async_methods_t;
 
+// TODO: Discuss the semantics of this datastruct depending on the context (send vs. recv)
 struct zcm_msg_t
 {
     const char *channel;
@@ -190,7 +185,7 @@ struct zcm_trans_t
 struct zcm_trans_methods_t
 {
     size_t  (*get_mtu)(zcm_trans_t *zt);
-    int     (*sendmsg)(zcm_trans_t *zt, zcm_msg_t msg, int timeout);
+    int     (*sendmsg)(zcm_trans_t *zt, zcm_msg_t msg);
     void    (*recvmsg_enable)(zcm_trans_t *zt, const char *channel, bool enable);
     int     (*recvmsg)(zcm_trans_t *zt, zcm_msg_t *msg, int timeout);
     void    (*destory)(zcm_trans_t *zt);
@@ -218,10 +213,10 @@ struct zcm_trans_async_methods_t
 static inline size_t zcm_trans_get_mtu(zcm_trans_t *zt)
 { return zt->vtbl->get_mtu(zt); }
 
-static inline int zcm_trans_sendmsg(zcm_trans_t *zt, zcm_msg_t msg, int timeout)
-{ return zt->vtbl->sendmsg(zt, msg, timeout); }
+static inline int zcm_trans_sendmsg(zcm_trans_t *zt, zcm_msg_t msg)
+{ return zt->vtbl->sendmsg(zt, msg); }
 
-static inline void zcm_trans_recvmsg_enable(zcm_trans_t *zt, const char *channel, bool enable);
+static inline void zcm_trans_recvmsg_enable(zcm_trans_t *zt, const char *channel, bool enable)
 { return zt->vtbl->recvmsg_enable(zt, channel, enable); }
 
 static inline int zcm_trans_recvmsg(zcm_trans_t *zt, zcm_msg_t *msg, int timeout)
@@ -237,7 +232,7 @@ static inline size_t zcm_trans_async_get_mtu(zcm_trans_async_t *zt)
 static inline int zcm_trans_async_sendmsg(zcm_trans_async_t *zt, zcm_msg_t msg)
 { return zt->vtbl->sendmsg(zt, msg); }
 
-static inline void zcm_trans_async_recvmsg_enable(zcm_trans_async_t *zt, const char *channel, bool enable);
+static inline void zcm_trans_async_recvmsg_enable(zcm_trans_async_t *zt, const char *channel, bool enable)
 { return zt->vtbl->recvmsg_enable(zt, channel, enable); }
 
 static inline int zcm_trans_async_recvmsg(zcm_trans_async_t *zt, zcm_msg_t *msg)
@@ -246,7 +241,7 @@ static inline int zcm_trans_async_recvmsg(zcm_trans_async_t *zt, zcm_msg_t *msg)
 static inline int zcm_trans_async_update(zcm_trans_async_t *zt)
 { return zt->vtbl->update(zt); }
 
-static inline void zcm_trans_destory(zcm_trans_t *zt)
+static inline void zcm_trans_async_destory(zcm_trans_async_t *zt)
 { return zt->vtbl->destory(zt); }
 
 #ifdef __cplusplus
