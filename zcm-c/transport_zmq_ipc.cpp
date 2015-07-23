@@ -1,8 +1,13 @@
 #include "transport.h"
+#include <zmq.h>
+
+#include <unistd.h>
+#include <dirent.h>
 
 #include <cstdio>
 #include <cassert>
 #include <string>
+
 #include <vector>
 #include <unordered_map>
 #include <mutex>
@@ -12,16 +17,42 @@ using namespace std;
 // Define this the class name you want
 #define ZCM_TRANS_NAME TransportZmqIpc
 #define MTU (1<<20)
+#define ZMQ_IO_THREADS 1
+#define IPC_ADDR_PREFIX "ipc:///tmp/zcm-channel-zmq-ipc-"
 
 struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 {
+    void *ctx;
+
+    unordered_map<string, void*> pubsocks;
+    unordered_map<string, void*> subsocks;
+
     ZCM_TRANS_CLASSNAME(/* Add any methods here */)
     {
         vtbl = &methods;
+        ctx = zmq_init(ZMQ_IO_THREADS);
     }
 
     ~ZCM_TRANS_CLASSNAME()
     {
+        // TODO shut down ZMQ correctly
+    }
+
+    string getAddress(const string& channel)
+    {
+        return IPC_ADDR_PREFIX+channel;
+    }
+
+    void *pubsockFindOrCreate(const string& channel)
+    {
+        auto it = pubsocks.find(channel);
+        if (it != pubsocks.end())
+            return &it->second;
+        void *sock = zmq_socket(ctx, ZMQ_PUB);
+        string address = getAddress(channel);
+        zmq_bind(sock, address.c_str());
+        pubsocks.emplace(channel, sock);
+        return sock;
     }
 
     /********************** METHODS **********************/
@@ -32,8 +63,18 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
     int sendmsg(zcm_msg_t msg)
     {
-        // XXX write me
-        assert(0);
+        string channel = msg.channel;
+        if (channel.size() > ZCM_CHANNEL_MAXLEN)
+            return ZCM_EINVALID;
+        if (msg.len > MTU)
+            return ZCM_EINVALID;
+
+        void *sock = pubsockFindOrCreate(channel);
+        int rc = zmq_send(sock, msg.buf, msg.len, 0);
+        if (rc == (int)msg.len)
+            return ZCM_EOK;
+        else
+            return ZCM_EUNKNOWN;
     }
 
     void recvmsg_enable(const char *channel, bool enable)
