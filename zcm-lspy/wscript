@@ -3,6 +3,5 @@
 
 def build(ctx):
     ctx.program(target = 'zcm-lspy',
-                use = 'default',
-                lib = 'zcm',
+                use = ['default', 'zcm'],
                 source = 'lspy.c')

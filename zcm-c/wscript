@@ -1,9 +1,9 @@
 #! /usr/bin/env python
+# encoding: utf-8
 
 def build(ctx):
     ctx.env.INCLUDES_zcm = [ctx.path.abspath()]
     ctx.shlib(target = 'zcm',
-              includes = '.',
               use = 'default',
               uselib = 'zmq',
               source = ctx.path.ant_glob('*.cpp *.c'))

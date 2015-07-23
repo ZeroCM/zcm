@@ -2,7 +2,6 @@
 # encoding: utf-8
 
 import waflib
-from waflib.Context import Context
 import waflib.Options
 
 # these variables are mandatory ('/' are converted automatically)
@@ -13,9 +12,9 @@ def options(ctx):
     ctx.load('compiler_c')
     ctx.load('compiler_cxx')
     ctx.add_option('-s', '--symbols', dest='symbols', default=False, action='store_true',
-                   help='Leave the debugging symbols in the resulting object files (auto-enabled for --debug')
+                   help='Leave the debugging symbols in the resulting object files')
     ctx.add_option('-d', '--debug', dest='debug', default=False, action='store_true',
-                   help='Compile all C/C++ code in debug mode: no opts and full symbols')
+                   help='Compile all C/C++ code in debug mode: no optimizations and full symbols')
 
 def configure(ctx):
     ctx.load('compiler_c')
@@ -25,6 +24,8 @@ def configure(ctx):
     ctx.check_cfg(package='libzmq', args='--cflags --libs', uselib_store='zmq')
 
 def setup_environment(ctx):
+    ctx.env.VERSION='1.0.0'
+
     useOptimize = not waflib.Options.options.debug
     useSymbols = waflib.Options.options.debug or waflib.Options.options.symbols
 

@@ -1,9 +1,9 @@
 #! /usr/bin/env python
+# encoding: utf-8
+
 import os
 
 def build(ctx):
-    ### XXX this should come from 'env'
-    VERSION='1.0.0'
 
     def build_node_pkg(task):
         srcdir = os.path.dirname(task.inputs[0].abspath())
@@ -13,7 +13,7 @@ def build(ctx):
     ctx(rule = build_node_pkg,
         color = 'PINK',
         source = ctx.path.ant_glob('node/*'),
-        target = 'zcm-'+VERSION+'.tgz')
+        target = 'zcm-'+ctx.env.VERSION+'.tgz')
 
     def build_client_pkg(task):
         inp = ' '.join(n.abspath() for n in task.inputs)
