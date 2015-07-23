@@ -33,7 +33,14 @@
  *******************************************************************************
  * Blocking Transport API:
  *
- *      TODO: add a create() function api requirement
+ *      zcm_trans_t *create(...)
+ *      --------------------------------------------------------------------
+ *         This method cannot be called from a vtbl, but this documentation
+ *         exists to make all create() methods more uniform. This method
+ *         should construct a concrete zcm_trans_t, set it's vtbl and either
+ *         upcast to zcm_trans_t* or (in C++) let it convert automatically.
+ *         Internally, the vtbl field should be set to the appropriate
+ *         table of function pointers.
  *
  *      size_t getmtu(zcm_trans_t *zt)
  *      --------------------------------------------------------------------
@@ -42,14 +49,19 @@
  *         Users of this transport should ensure that they never attempt to
  *         send messages larger than the MTU of their chosen transport
  *
- *      int sendmsg(zcm_trans_t *zt, zcm_msg_t msg)
+ *      int sendmsg(zcm_trans_t *zt, zcm_msg_t msg, int timeout)
  *      --------------------------------------------------------------------
  *         The caller to this method initiates a message send operation. The
  *         caller must populate the fields of the zcm_msg_t. The channel must
  *         be less than ZCM_CHANNEL_MAXLEN and 'len <= get_mtu()', otherwise
  *         this method can return ZCM_EINVALID. On receipt of valid params,
  *         this method should block until the message has been successfully
- *         sent and should return ZCM_EOK
+ *         sent and should return ZCM_EOK. If 'timeout >= 0' then sendmsg()
+ *         should return EAGAIN if it is unable to receive a message within
+ *         'timeout' milliseconds. NOTE: We do *NOT* require a very accurate
+ *         clock for this timeout feature and users should only expect
+ *         accuracy within a few milliseconds. Users should *not* attempt
+ *         to use this timing mechanism for real-time events.
  *
  *      void recvmsg_enable(zcm_trans_t *zt, const char *channel, bool enable)
  *      --------------------------------------------------------------------
@@ -58,13 +70,19 @@
  *         NOTE: This method should work concurrently and correctly with
  *         recvmsg().
  *
- *      int recvmsg(zcm_trans_t *zt, zcm_msg_t *msg)
+ *      int recvmsg(zcm_trans_t *zt, zcm_msg_t *msg, int timeout)
  *      --------------------------------------------------------------------
  *         The caller to this method initiates a message recv operation. This
  *         methods blocks until it receives a message. It should return ZCM_EOK.
  *         Only messages 'enable'd with recvmsg_enable() should be received.
  *         NOTE: This method should work concurrently and correctly with
- *         recvmsg_enable().
+ *         recvmsg_enable(). If 'timeout >= 0' then sendmsg()
+ *         should return EAGAIN if it is unable to receive a message within
+ *         'timeout' milliseconds. NOTE: We do *NOT* require a very accurate
+ *         clock for this timeout feature and users should only expect
+ *         accuracy within a few milliseconds. Users should *not* attempt
+ *         to use this timing mechanism for real-time events.
+
  *
  *      void destroy(zcm_trans_t *zt)
  *      --------------------------------------------------------------------
@@ -73,11 +91,18 @@
  *******************************************************************************
  * Non-Blocking (async) Transport API:
  *
- *      TODO: add a create() function api requirement
- *
  *      General Note: None of the methods on this object must be thread-safe.
  *                    This API is designed for single-thread, non-blocking,
  *                    and minimalist transports (such as those found in embedded).
+ *
+ *      zcm_trans_t *create(...)
+ *      --------------------------------------------------------------------
+ *         This method cannot be called from a vtbl, but this documentation
+ *         exists to make all create() methods more uniform. This method
+ *         should construct a concrete zcm_trans_t, set it's vtbl and either
+ *         upcast to zcm_trans_t* or (in C++) let it convert automatically.
+ *         Internally, the vtbl field should be set to the appropriate
+ *         table of function pointers.
  *
  *      size_t getmtu(zcm_trans_async_t *zt)
  *      --------------------------------------------------------------------
@@ -102,10 +127,6 @@
  *         channel. For 'all channels', the user should pass NULL for the channel.
  *         NOTE: This method does NOT have to work concurrently with recvmsg()
  *
- *      int update(zcm_trans_async_t *zt)
- *      --------------------------------------------------------------------
- *         TODO: fill me in
- *
  *      int recvmsg(zcm_trans_async_t *zt, zcm_msg_t *msg)
  *      --------------------------------------------------------------------
  *         The caller to this method initiates a message recv operation. This
@@ -113,6 +134,17 @@
  *         EOK should be returned, otherwise it should return EAGAIN.
  *         Only messages 'enable'd with recvmsg_enable() should be received.
  *         NOTE: This method does NOT have to work concurrently with recvmsg_enable()
+ *
+ *      int update(zcm_trans_async_t *zt)
+ *      --------------------------------------------------------------------
+ *         This method is called from the zcm_handle_async() function.
+ *         This method provides a periodicly-running routine that can perform
+ *         updates to the underlying hardware or other general mantainence to
+ *         this transport. This method should *never block*. Again, this
+ *         method is called from zcm_handle_async() and thus runs at the same
+ *         frequency as zcm_handle_async(). Failure to call zcm_handle_async()
+ *         while using an async transport may cause the transport to work
+ *         incorrectly on both message send and recv.
  *
  *      void destroy(zcm_trans_async_t *zt)
  *      --------------------------------------------------------------------
@@ -158,9 +190,9 @@ struct zcm_trans_t
 struct zcm_trans_methods_t
 {
     size_t  (*get_mtu)(zcm_trans_t *zt);
-    int     (*sendmsg)(zcm_trans_t *zt, zcm_msg_t msg);
+    int     (*sendmsg)(zcm_trans_t *zt, zcm_msg_t msg, int timeout);
     void    (*recvmsg_enable)(zcm_trans_t *zt, const char *channel, bool enable);
-    int     (*recvmsg)(zcm_trans_t *zt, zcm_msg_t *msg);
+    int     (*recvmsg)(zcm_trans_t *zt, zcm_msg_t *msg, int timeout);
     void    (*destory)(zcm_trans_t *zt);
 };
 
@@ -179,30 +211,43 @@ struct zcm_trans_async_methods_t
     void    (*destory)(zcm_trans_async_t *zt);
 };
 
+
 // Helper functions to make the VTbl dispatch cleaner
-/* static inline size_t zcm_trans_get_mtu(zcm_trans_t *zt) */
-/* { return zt->vtbl->get_mtu(zt); } */
 
-/* static inline zcm_sendmsg_t *zcm_trans_sendmsg_start(zcm_trans_t *zt, const char *channel, size_t sz, bool wait) */
-/* { return zt->vtbl->sendmsg_start(zt, channel, sz, wait); } */
+// Blocking
+static inline size_t zcm_trans_get_mtu(zcm_trans_t *zt)
+{ return zt->vtbl->get_mtu(zt); }
 
-/* static inline void zcm_trans_sendmsg_finish(zcm_trans_t *zt) */
-/* { return zt->vtbl->sendmsg_finish(zt); } */
+static inline int zcm_trans_sendmsg(zcm_trans_t *zt, zcm_msg_t msg, int timeout)
+{ return zt->vtbl->sendmsg(zt, msg, timeout); }
 
-/* static inline int zcm_trans_recvmsg_poll(zcm_trans_t *zt, int16_t timeout) */
-/* { return zt->vtbl->recvmsg_poll(zt, timeout); } */
+static inline void zcm_trans_recvmsg_enable(zcm_trans_t *zt, const char *channel, bool enable);
+{ return zt->vtbl->recvmsg_enable(zt, channel, enable); }
 
-/* static inline void zcm_trans_recvmsg_enable(zcm_trans_t *zt, const char *channel, bool enable) */
-/* { return zt->vtbl->recvmsg_enable(zt, channel, enable); } */
+static inline int zcm_trans_recvmsg(zcm_trans_t *zt, zcm_msg_t *msg, int timeout)
+{ return zt->vtbl->recvmsg(zt, msg, timeout); }
 
-/* static inline zcm_recvmsg_t *zcm_trans_recvmsg_start(zcm_trans_t *zt) */
-/* { return zt->vtbl->recvmsg_start(zt); } */
+static inline void zcm_trans_destory(zcm_trans_t *zt)
+{ return zt->vtbl->destory(zt); }
 
-/* static inline void zcm_trans_recvmsg_finish(zcm_trans_t *zt) */
-/* { return zt->vtbl->recvmsg_finish(zt); } */
+// Non-blocking
+static inline size_t zcm_trans_async_get_mtu(zcm_trans_async_t *zt)
+{ return zt->vtbl->get_mtu(zt); }
 
-/* static inline void zcm_trans_destroy(zcm_trans_t *zt) */
-/* { return zt->vtbl->destory(zt); } */
+static inline int zcm_trans_async_sendmsg(zcm_trans_async_t *zt, zcm_msg_t msg)
+{ return zt->vtbl->sendmsg(zt, msg); }
+
+static inline void zcm_trans_async_recvmsg_enable(zcm_trans_async_t *zt, const char *channel, bool enable);
+{ return zt->vtbl->recvmsg_enable(zt, channel, enable); }
+
+static inline int zcm_trans_async_recvmsg(zcm_trans_async_t *zt, zcm_msg_t *msg)
+{ return zt->vtbl->recvmsg(zt, msg); }
+
+static inline int zcm_trans_async_update(zcm_trans_async_t *zt)
+{ return zt->vtbl->update(zt); }
+
+static inline void zcm_trans_destory(zcm_trans_t *zt)
+{ return zt->vtbl->destory(zt); }
 
 #ifdef __cplusplus
 }
