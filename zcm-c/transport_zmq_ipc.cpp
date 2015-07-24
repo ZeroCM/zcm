@@ -50,7 +50,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     {
         auto it = pubsocks.find(channel);
         if (it != pubsocks.end())
-            return &it->second;
+            return it->second;
         void *sock = zmq_socket(ctx, ZMQ_PUB);
         string address = getAddress(channel);
         zmq_bind(sock, address.c_str());
@@ -62,7 +62,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     {
         auto it = subsocks.find(channel);
         if (it != subsocks.end())
-            return &it->second;
+            return it->second;
         void *sock = zmq_socket(ctx, ZMQ_SUB);
         string address = getAddress(channel);
         zmq_connect(sock, address.c_str());
@@ -89,7 +89,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         int rc = zmq_send(sock, msg.buf, msg.len, 0);
         if (rc == (int)msg.len)
             return ZCM_EOK;
-        else
+        assert(rc == -1);
+
             return ZCM_EUNKNOWN;
     }
 
@@ -109,7 +110,6 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             int i = 0;
             for (auto& elt : subsocks) {
                 auto& channel = elt.first;
-                printf("recvmsg poll channel: '%s'\n", channel.c_str());
                 auto& sock = elt.second;
                 auto *p = &pitems[i];
                 memset(p, 0, sizeof(*p));
@@ -126,20 +126,17 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             for (size_t i = 0; i < pitems.size(); i++) {
                 auto& p = pitems[i];
                 if (p.revents != 0) {
-                    printf("recvmsg channel: %s\n", pchannels[i].c_str());
                     int rc = zmq_recv(p.socket, recvmsgBuffer, MTU, 0);
                     assert(0 < rc && rc < MTU);
                     recvmsgChannel = pchannels[i];
                     msg->channel = recvmsgChannel.c_str();
                     msg->len = rc;
                     msg->buf = recvmsgBuffer;
-                    printf("Returning EOK\n");
                     return ZCM_EOK;
                 }
             }
         }
 
-        printf("Returning EAGAIN\n");
         return ZCM_EAGAIN;
     }
 

@@ -119,6 +119,7 @@ struct zcm_t
         while (true) {
             zcm_msg_t *msg = sendQueue.top();
             zcm_trans_sendmsg(zt, *msg);
+            //assert(ret == ZCM_EOK);
             sendQueue.pop();
         }
     }
@@ -127,7 +128,7 @@ struct zcm_t
     {
         while (true) {
             zcm_msg_t msg;
-            int rc = zcm_trans_recvmsg(zt, &msg, 1000);
+            int rc = zcm_trans_recvmsg(zt, &msg, 100);
             if (rc == ZCM_EOK)
                 recvQueue.push(msg);
         }
