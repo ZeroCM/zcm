@@ -52,7 +52,7 @@ struct Msg
 
 struct Sub
 {
-    zcm_callback_t *cb;
+    zcm_callback_t *callback;
     void *usr;
 };
 
@@ -61,8 +61,10 @@ struct zcm_t
     zcm_trans_t *zt;
     unordered_map<string, Sub> subs;
 
+    bool started = false;
     thread sendThread;
     thread recvThread;
+    thread handleThread;
 
     static constexpr size_t QUEUE_SIZE = 16;
     ThreadsafeQueue<Msg> sendQueue {QUEUE_SIZE};
@@ -71,13 +73,7 @@ struct zcm_t
     zcm_t()
     {
         zt = zcm_trans_ipc_create();
-        startThreads();
-    }
-
-    void startThreads()
-    {
-        sendThread = thread{&zcm_t::recvThreadFunc, this};
-        recvThread = thread{&zcm_t::sendThreadFunc, this};
+        start();
     }
 
     void recvThreadFunc()
@@ -100,6 +96,32 @@ struct zcm_t
         }
     }
 
+    void dispatchMsg(zcm_msg_t *msg)
+    {
+        auto it = subs.find(msg->channel);
+        assert(it != subs.end());
+        auto& sub = it->second;
+        zcm_recv_buf_t rbuf;
+        rbuf.zcm = this;
+        rbuf.utime = 0;
+        rbuf.len = msg->len;
+        rbuf.data = (char*)msg->buf;
+        sub.callback(&rbuf, msg->channel, sub.usr);
+    }
+
+    void handleOne()
+    {
+        auto& msg = recvQueue.top();
+        dispatchMsg(msg.get());
+        recvQueue.pop();
+    }
+
+    void handleThreadFunc()
+    {
+        while (true)
+            handleOne();
+    }
+
     int publish(const string& channel, const char *data, size_t len)
     {
         if (!sendQueue.hasFreeSpace())
@@ -117,30 +139,33 @@ struct zcm_t
         return 0;
     }
 
-    void dispatchMsg(zcm_msg_t *msg)
-    {
-        auto it = subs.find(msg->channel);
-        if (it != subs.end()) {
-            auto& sub = it->second;
-            zcm_recv_buf_t rbuf;
-            rbuf.zcm = this;
-            rbuf.utime = 0;
-            rbuf.len = msg->len;
-            rbuf.data = (char*)msg->buf;
-            sub.cb(&rbuf, msg->channel, sub.usr);
-        }
-    }
-
     int handle()
     {
-        auto& msg = recvQueue.top();
-        dispatchMsg(msg.get());
-        recvQueue.pop();
+        // TODO: impl
+        while (1)
+            usleep(1000000);
         return 0;
+    }
+
+    // TODO: should this call be thread safe?
+    void start()
+    {
+        assert(!started);
+        started = true;
+
+        sendThread = thread{&zcm_t::recvThreadFunc, this};
+        recvThread = thread{&zcm_t::sendThreadFunc, this};
+        handleThread = thread{&zcm_t::handleThreadFunc, this};
+    }
+
+    void stop()
+    {
+        // TODO: impl
     }
 };
 
 /////////////// C Interface Functions ////////////////
+extern "C" {
 
 zcm_t *zcm_create(void)
 {
@@ -167,7 +192,14 @@ int zcm_handle(zcm_t *zcm)
     return zcm->handle();
 }
 
-int zcm_poll(zcm_t *zcm, uint ms)
+void zcm_start(zcm_t *zcm)
 {
-    assert(0 && "deprecated!");
+    zcm->start();
+}
+
+void zcm_stop(zcm_t *zcm)
+{
+    zcm->stop();
+}
+
 }
