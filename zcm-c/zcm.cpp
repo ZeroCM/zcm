@@ -17,13 +17,16 @@ struct Msg
 {
     zcm_msg_t msg;
 
-    Msg(zcm_msg_t m)
+    // NOTE: copy the provided data into this object
+    Msg(const char *channel, size_t len, const char *buf)
     {
-        msg.channel = strdup(m.channel);
-        msg.len = m.len;
-        msg.buf = (char*)malloc(msg.len);
-        memcpy(msg.buf, m.buf, msg.len);
+        msg.channel = strdup(channel);
+        msg.len = len;
+        msg.buf = (char*)malloc(len);
+        memcpy(msg.buf, buf, len);
     }
+
+    Msg(zcm_msg_t *msg) : Msg(msg->channel, msg->len, msg->buf) {}
 
     ~Msg()
     {
@@ -93,7 +96,7 @@ struct zcm_t
             zcm_msg_t msg;
             int rc = zcm_trans_recvmsg(zt, &msg, 100);
             if (rc == ZCM_EOK)
-                recvQueue.push(msg);
+                recvQueue.push(&msg);
         }
     }
 
@@ -102,11 +105,7 @@ struct zcm_t
         if (!sendQueue.hasFreeSpace())
             return 1;
 
-        zcm_msg_t msg;
-        msg.channel = channel.c_str();
-        msg.len = len;
-        msg.buf = (char*)data;
-        sendQueue.push(msg);
+        sendQueue.push(channel.c_str(), len, data);
         return 0;
     }
 
