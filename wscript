@@ -24,6 +24,7 @@ def configure(ctx):
     ctx.check_cfg(package='libzmq', args='--cflags --libs', uselib_store='zmq')
 
 def setup_environment(ctx):
+    ctx.post_mode = waflib.Build.POST_LAZY
     ctx.env.VERSION='1.0.0'
 
     useOptimize = not waflib.Options.options.debug
@@ -41,12 +42,10 @@ def setup_environment(ctx):
         ctx.env.CFLAGS_default   += SYM_FLAGS
         ctx.env.CXXFLAGS_default += SYM_FLAGS
 
-    ctx.env.INCLUDES_default = [ctx.path.abspath()+'/zcm-c']
-
 def build(ctx):
     setup_environment(ctx)
     ctx.recurse('zcm-gen')
     ctx.recurse('zcm-c')
     ctx.recurse('zcm-java')
     ctx.recurse('zcm-js')
-    #ctx.recurse('zcm-lspy')
+    ctx.recurse('zcm-lspy')

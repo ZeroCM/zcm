@@ -4,6 +4,7 @@
 def build(ctx):
     ctx.env.INCLUDES_zcm = [ctx.path.abspath()]
     ctx.shlib(target = 'zcm',
+              export_includes = '.',
               use = ['default', 'zmq'],
               source = ctx.path.ant_glob('*.cpp *.c'))
 
