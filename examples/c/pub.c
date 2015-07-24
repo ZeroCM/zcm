@@ -26,7 +26,7 @@ int main(int argc, char *argv[])
 
     while (1) {
         example_t_publish(zcm, CHANNEL, &my_data);
-        usleep(10);
+        usleep(20);
     }
 
     zcm_destroy(zcm);

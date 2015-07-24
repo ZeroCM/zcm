@@ -15,7 +15,7 @@ using namespace std;
 #define QUEUE_SIZE 16
 struct MsgQueue
 {
-    zcm_msg_t q[QUEUE_SIZE];
+    zcm_msg_t queue[QUEUE_SIZE];
     size_t front = 0;
     size_t back = 0;
 
@@ -24,7 +24,10 @@ struct MsgQueue
 
     static size_t incIdx(size_t i)
     {
-        return (i+1) % QUEUE_SIZE;
+        size_t nextIdx = i+1;
+        if (nextIdx == QUEUE_SIZE)
+            return 0;
+        return nextIdx;
     }
 
     bool _hasFreeSpaceNoLock()
@@ -55,7 +58,7 @@ struct MsgQueue
         unique_lock<mutex> lk(mut);
         cond.wait(lk, [&](){ return _hasFreeSpaceNoLock(); });
 
-        zcm_msg_t *elt = &q[back];
+        zcm_msg_t *elt = &queue[back];
         elt->channel = strdup(msg.channel);
         elt->len = msg.len;
         elt->buf = (char*)malloc(msg.len);
@@ -70,14 +73,14 @@ struct MsgQueue
         unique_lock<mutex> lk(mut);
         cond.wait(lk, [&](){ return _hasMessageNoLock(); });
 
-        return &q[front];
+        return &queue[front];
     }
 
     void pop()
     {
         unique_lock<mutex> lk(mut);
 
-        zcm_msg_t *elt = &q[front];
+        zcm_msg_t *elt = &queue[front];
         free((void*)elt->channel);
         free((void*)elt->buf);
         front = incIdx(front);
@@ -96,11 +99,11 @@ struct zcm_t
     zcm_trans_t *zt;
     unordered_map<string, Sub> subs;
 
-    thread pubThread;
-    thread subThread;
+    thread sendThread;
+    thread recvThread;
 
-    MsgQueue recvQueue;
     MsgQueue sendQueue;
+    MsgQueue recvQueue;
 
     zcm_t()
     {
@@ -110,21 +113,21 @@ struct zcm_t
 
     void startThreads()
     {
-        pubThread = thread{&zcm_t::pubThreadFunc, this};
-        subThread = thread{&zcm_t::subThreadFunc, this};
+        sendThread = thread{&zcm_t::recvThreadFunc, this};
+        recvThread = thread{&zcm_t::sendThreadFunc, this};
     }
 
-    void pubThreadFunc()
+    void recvThreadFunc()
     {
         while (true) {
             zcm_msg_t *msg = sendQueue.top();
-            zcm_trans_sendmsg(zt, *msg);
-            //assert(ret == ZCM_EOK);
+            int ret = zcm_trans_sendmsg(zt, *msg);
+            assert(ret == ZCM_EOK);
             sendQueue.pop();
         }
     }
 
-    void subThreadFunc()
+    void sendThreadFunc()
     {
         while (true) {
             zcm_msg_t msg;
