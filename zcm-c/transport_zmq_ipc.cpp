@@ -58,7 +58,6 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         return sock;
     }
 
-
     void *subsockFindOrCreate(const string& channel)
     {
         auto it = subsocks.find(channel);
@@ -110,6 +109,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             int i = 0;
             for (auto& elt : subsocks) {
                 auto& channel = elt.first;
+                printf("recvmsg poll channel: '%s'\n", channel.c_str());
                 auto& sock = elt.second;
                 auto *p = &pitems[i];
                 memset(p, 0, sizeof(*p));
@@ -126,17 +126,20 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             for (size_t i = 0; i < pitems.size(); i++) {
                 auto& p = pitems[i];
                 if (p.revents != 0) {
+                    printf("recvmsg channel: %s\n", pchannels[i].c_str());
                     int rc = zmq_recv(p.socket, recvmsgBuffer, MTU, 0);
                     assert(0 < rc && rc < MTU);
                     recvmsgChannel = pchannels[i];
                     msg->channel = recvmsgChannel.c_str();
                     msg->len = rc;
                     msg->buf = recvmsgBuffer;
+                    printf("Returning EOK\n");
                     return ZCM_EOK;
                 }
             }
         }
 
+        printf("Returning EAGAIN\n");
         return ZCM_EAGAIN;
     }
 
@@ -172,7 +175,7 @@ zcm_trans_methods_t ZCM_TRANS_CLASSNAME::methods = {
     &ZCM_TRANS_CLASSNAME::_destroy,
 };
 
-zcm_trans_t *zcm_trans_ipc_create()
+extern "C" zcm_trans_t *zcm_trans_ipc_create()
 {
     return new ZCM_TRANS_CLASSNAME();
 }

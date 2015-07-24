@@ -7,7 +7,7 @@
 extern "C" {
 #endif
 
-zcm_trans_t *zcm_trans_ipc_create()
+zcm_trans_t *zcm_trans_ipc_create(void);
 
 #ifdef __cplusplus
 }
