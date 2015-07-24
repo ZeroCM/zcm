@@ -1,91 +1,50 @@
 #include "zcm.h"
 #include "transport_zmq_ipc.h"
+#include "threadsafe_queue.hpp"
 
 #include <unistd.h>
 #include <cassert>
 #include <cstring>
 
 #include <unordered_map>
-#include <queue>
 #include <condition_variable>
 #include <iostream>
 #include <thread>
 using namespace std;
 
-#define QUEUE_SIZE 16
-struct MsgQueue
+// A C++ class that manages a zcm_msg_t
+struct Msg
 {
-    zcm_msg_t queue[QUEUE_SIZE];
-    size_t front = 0;
-    size_t back = 0;
+    zcm_msg_t msg;
 
-    mutex mut;
-    condition_variable cond;
-
-    static size_t incIdx(size_t i)
+    Msg(zcm_msg_t m)
     {
-        size_t nextIdx = i+1;
-        if (nextIdx == QUEUE_SIZE)
-            return 0;
-        return nextIdx;
+        msg.channel = strdup(m.channel);
+        msg.len = m.len;
+        msg.buf = (char*)malloc(msg.len);
+        memcpy(msg.buf, m.buf, msg.len);
     }
 
-    bool _hasFreeSpaceNoLock()
+    ~Msg()
     {
-        size_t nextBack = incIdx(back);
-        return nextBack != front;
+        if (msg.channel)
+            free((void*)msg.channel);
+        if (msg.buf)
+            free((void*)msg.buf);
+        memset(&msg, 0, sizeof(msg));
     }
 
-    bool hasFreeSpace()
+    zcm_msg_t *get()
     {
-        unique_lock<mutex> lk(mut);
-        return _hasFreeSpaceNoLock();
+        return &msg;
     }
 
-    bool _hasMessageNoLock()
-    {
-        return front != back;
-    }
-
-    bool hasMessage()
-    {
-        unique_lock<mutex> lk(mut);
-        return _hasFreeSpaceNoLock();
-    }
-
-    void push(zcm_msg_t msg)
-    {
-        unique_lock<mutex> lk(mut);
-        cond.wait(lk, [&](){ return _hasFreeSpaceNoLock(); });
-
-        zcm_msg_t *elt = &queue[back];
-        elt->channel = strdup(msg.channel);
-        elt->len = msg.len;
-        elt->buf = (char*)malloc(msg.len);
-        memcpy(elt->buf, msg.buf, msg.len);
-        back = incIdx(back);
-
-        cond.notify_one();
-    }
-
-    zcm_msg_t *top()
-    {
-        unique_lock<mutex> lk(mut);
-        cond.wait(lk, [&](){ return _hasMessageNoLock(); });
-
-        return &queue[front];
-    }
-
-    void pop()
-    {
-        unique_lock<mutex> lk(mut);
-
-        zcm_msg_t *elt = &queue[front];
-        free((void*)elt->channel);
-        free((void*)elt->buf);
-        front = incIdx(front);
-        cond.notify_one();
-    }
+  private:
+    // Disable all copying and moving
+    Msg(const Msg& other) = delete;
+    Msg(Msg&& other) = delete;
+    Msg& operator=(const Msg& other) = delete;
+    Msg& operator=(Msg&& other) = delete;
 };
 
 struct Sub
@@ -102,8 +61,9 @@ struct zcm_t
     thread sendThread;
     thread recvThread;
 
-    MsgQueue sendQueue;
-    MsgQueue recvQueue;
+    static constexpr size_t QUEUE_SIZE = 16;
+    ThreadsafeQueue<Msg> sendQueue {QUEUE_SIZE};
+    ThreadsafeQueue<Msg> recvQueue {QUEUE_SIZE};
 
     zcm_t()
     {
@@ -120,7 +80,7 @@ struct zcm_t
     void recvThreadFunc()
     {
         while (true) {
-            zcm_msg_t *msg = sendQueue.top();
+            zcm_msg_t *msg = sendQueue.top().get();
             int ret = zcm_trans_sendmsg(zt, *msg);
             assert(ret == ZCM_EOK);
             sendQueue.pop();
@@ -174,8 +134,8 @@ struct zcm_t
 
     int handle()
     {
-        zcm_msg_t *msg = recvQueue.top();
-        dispatchMsg(msg);
+        auto& msg = recvQueue.top();
+        dispatchMsg(msg.get());
         recvQueue.pop();
         return 0;
     }
