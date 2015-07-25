@@ -16,6 +16,8 @@
 #include <atomic>
 using namespace std;
 
+#define RECV_TIMEOUT 100
+
 // A C++ class that manages a zcm_msg_t
 struct Msg
 {
@@ -99,7 +101,7 @@ struct zcm_t
         zcm_trans_destroy(zt);
     }
 
-    void recvThreadFunc()
+    void sendThreadFunc()
     {
         while (running) {
             Msg *m = sendQueue.top();
@@ -114,11 +116,11 @@ struct zcm_t
         }
     }
 
-    void sendThreadFunc()
+    void recvThreadFunc()
     {
         while (running) {
             zcm_msg_t msg;
-            int rc = zcm_trans_recvmsg(zt, &msg, 100);
+            int rc = zcm_trans_recvmsg(zt, &msg, RECV_TIMEOUT);
             if (rc == ZCM_EOK) {
                 bool success;
                 do {
@@ -184,7 +186,7 @@ struct zcm_t
 
         if (!sendQueue.hasFreeSpace()) {
             ZCM_DEBUG("sendQueue has no free space");
-            return 1;
+            return -1;
         }
 
         bool success;
@@ -216,13 +218,21 @@ struct zcm_t
     int subscribe(const string& channel, zcm_callback_t *cb, void *usr)
     {
         unique_lock<mutex> lk(submut);
+        int rc;
 
         if (isRegexChannel(channel)) {
-            zcm_trans_recvmsg_enable(zt, NULL, true);
-            subRegex.emplace_back(SubRegex{channel, cb, usr});
+            rc = zcm_trans_recvmsg_enable(zt, NULL, true);
+            if (rc == ZCM_EOK)
+                subRegex.emplace_back(SubRegex{channel, cb, usr});
         } else {
-            zcm_trans_recvmsg_enable(zt, channel.c_str(), true);
-            subs.emplace(channel, Sub{cb, usr});
+            rc = zcm_trans_recvmsg_enable(zt, channel.c_str(), true);
+            if (rc == ZCM_EOK)
+                subs.emplace(channel, Sub{cb, usr});
+        }
+
+        if (rc != ZCM_EOK) {
+            ZCM_DEBUG("zcm_trans_recvmsg_enable() didn't return ZCM_EOK");
+            return -1;
         }
 
         return 0;

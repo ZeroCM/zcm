@@ -33,6 +33,11 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     char recvmsgBuffer[MTU];
     bool recvAllChannels = false;
 
+    // Mutex used to protect 'subsocks' while allowing
+    // recvmsgEnable() and recvmsg() to be called
+    // concurrently
+    mutex mut;
+
     ZCM_TRANS_CLASSNAME()
     {
         vtbl = &methods;
@@ -57,7 +62,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         if (it != pubsocks.end())
             return it->second;
         void *sock = zmq_socket(ctx, ZMQ_PUB);
-        if (sock != nullptr) {
+        if (sock == nullptr) {
             ZCM_DEBUG("failed to create pubsock: %s", zmq_strerror(errno));
             return nullptr;
         }
@@ -78,7 +83,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         if (it != subsocks.end())
             return it->second;
         void *sock = zmq_socket(ctx, ZMQ_SUB);
-        if (sock != nullptr) {
+        if (sock == nullptr) {
             ZCM_DEBUG("failed to create subsock: %s", zmq_strerror(errno));
             return nullptr;
         }
@@ -99,7 +104,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     }
 
     /********************** METHODS **********************/
-    size_t get_mtu()
+    size_t getMtu()
     {
         return MTU;
     }
@@ -123,8 +128,13 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         return ZCM_EUNKNOWN;
     }
 
-    int recvmsg_enable(const char *channel, bool enable)
+    int recvmsgEnable(const char *channel, bool enable)
     {
+        // Mutex used to protect 'subsocks' while allowing
+        // recvmsgEnable() and recvmsg() to be called
+        // concurrently
+        unique_lock<mutex> lk(mut);
+
         assert(enable && "Disabling is not supported");
         if (channel == NULL) {
             recvAllChannels = true;
@@ -162,13 +172,18 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
     int recvmsg(zcm_msg_t *msg, int timeout)
     {
-        if (recvAllChannels)
-            scanForNewChannels();
-
         // Build up a list of poll items
         vector<zmq_pollitem_t> pitems;
         vector<string> pchannels;
         {
+            // Mutex used to protect 'subsocks' while allowing
+            // recvmsgEnable() and recvmsg() to be called
+            // concurrently
+            unique_lock<mutex> lk(mut);
+
+            if (recvAllChannels)
+                scanForNewChannels();
+
             pitems.resize(subsocks.size());
             int i = 0;
             for (auto& elt : subsocks) {
@@ -216,14 +231,14 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         return (ZCM_TRANS_CLASSNAME*)zt;
     }
 
-    static size_t _get_mtu(zcm_trans_t *zt)
-    { return cast(zt)->get_mtu(); }
+    static size_t _getMtu(zcm_trans_t *zt)
+    { return cast(zt)->getMtu(); }
 
     static int _sendmsg(zcm_trans_t *zt, zcm_msg_t msg)
     { return cast(zt)->sendmsg(msg); }
 
-    static int _recvmsg_enable(zcm_trans_t *zt, const char *channel, bool enable)
-    { return cast(zt)->recvmsg_enable(channel, enable); }
+    static int _recvmsgEnable(zcm_trans_t *zt, const char *channel, bool enable)
+    { return cast(zt)->recvmsgEnable(channel, enable); }
 
     static int _recvmsg(zcm_trans_t *zt, zcm_msg_t *msg, int timeout)
     { return cast(zt)->recvmsg(msg, timeout); }
@@ -233,9 +248,9 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 };
 
 zcm_trans_methods_t ZCM_TRANS_CLASSNAME::methods = {
-    &ZCM_TRANS_CLASSNAME::_get_mtu,
+    &ZCM_TRANS_CLASSNAME::_getMtu,
     &ZCM_TRANS_CLASSNAME::_sendmsg,
-    &ZCM_TRANS_CLASSNAME::_recvmsg_enable,
+    &ZCM_TRANS_CLASSNAME::_recvmsgEnable,
     &ZCM_TRANS_CLASSNAME::_recvmsg,
     &ZCM_TRANS_CLASSNAME::_destroy,
 };
