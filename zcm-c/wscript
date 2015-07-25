@@ -2,7 +2,6 @@
 # encoding: utf-8
 
 def build(ctx):
-    ctx.env.INCLUDES_zcm = [ctx.path.abspath()]
     ctx.shlib(target = 'zcm',
               export_includes = '.',
               use = ['default', 'zmq'],

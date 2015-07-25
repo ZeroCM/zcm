@@ -2,7 +2,6 @@
 # encoding: utf-8
 
 import waflib
-import waflib.Options
 
 # these variables are mandatory ('/' are converted automatically)
 top = '.'
@@ -24,7 +23,6 @@ def configure(ctx):
     ctx.check_cfg(package='libzmq', args='--cflags --libs', uselib_store='zmq')
 
 def setup_environment(ctx):
-    ctx.post_mode = waflib.Build.POST_LAZY
     ctx.env.VERSION='1.0.0'
 
     useOptimize = not waflib.Options.options.debug
