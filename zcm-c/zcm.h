@@ -8,6 +8,7 @@ extern "C" {
 #include <stdlib.h>
 #include <stdint.h>
 
+typedef struct zcm_trans_t zcm_trans_t;
 typedef struct zcm_t zcm_t;
 
 typedef struct zcm_recv_buf_t zcm_recv_buf_t;
@@ -22,7 +23,9 @@ struct zcm_recv_buf_t
 
 typedef void zcm_callback_t(const zcm_recv_buf_t *rbuf, const char *channel, void *usr);
 
-zcm_t *zcm_create(void);
+zcm_t *zcm_create(const char *transport);
+zcm_t *zcm_create_trans(zcm_trans_t *zt);
+
 void   zcm_destroy(zcm_t *zcm);
 
 int    zcm_publish(zcm_t *zcm, const char *channel, char *data, size_t len);
@@ -33,13 +36,8 @@ int    zcm_subscribe(zcm_t *zcm, const char *channel, zcm_callback_t *cb, void *
 //       calls the registered callbacks
 int    zcm_handle(zcm_t *zcm);
 
-// Poll the underlying transport for data for up to 'ms' milliseconds
-// Returns the number of waiting messages
-// TODO: Use the standard errno convetions here instea
-int    zcm_poll(zcm_t *zcm, uint ms);
-
-// TODO add APIs to integrate the handle thread directly into the library?
-//      example: zcm_handle_start() and zcm_handle_stop()
+void   zcm_start(zcm_t *zcm);
+void   zcm_stop(zcm_t *zcm);
 
 #ifdef __cplusplus
 }

@@ -1,235 +1,201 @@
 #include "zcm.h"
-#include <zmq.h>
+#include "transport_zmq_ipc.h"
+#include "threadsafe_queue.hpp"
+#include "debug.hpp"
 
 #include <unistd.h>
-#include <dirent.h>
-
-#include <cstring>
 #include <cassert>
-#include <cctype>
-#include <cstdio>
-
-#include <vector>
-using std::vector;
+#include <cstring>
 
 #include <unordered_map>
-using std::unordered_map;
-
-#include <string>
-using std::string;
-
-#include <mutex>
-#include <thread>
+#include <vector>
 #include <iostream>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+#include <atomic>
+using namespace std;
 
-#define METADATA_PUB_ADDR "ipc:///tmp/zcm-metadata-pub"
-#define METADATA_SUB_ADDR "ipc:///tmp/zcm-metadata-sub"
-#define ZMQ_IO_THREADS 1
+#define RECV_TIMEOUT 100
+
+// A C++ class that manages a zcm_msg_t
+struct Msg
+{
+    zcm_msg_t msg;
+
+    // NOTE: copy the provided data into this object
+    Msg(const char *channel, size_t len, const char *buf)
+    {
+        msg.channel = strdup(channel);
+        msg.len = len;
+        msg.buf = (char*)malloc(len);
+        memcpy(msg.buf, buf, len);
+    }
+
+    Msg(zcm_msg_t *msg) : Msg(msg->channel, msg->len, msg->buf) {}
+
+    ~Msg()
+    {
+        if (msg.channel)
+            free((void*)msg.channel);
+        if (msg.buf)
+            free((void*)msg.buf);
+        memset(&msg, 0, sizeof(msg));
+    }
+
+    zcm_msg_t *get()
+    {
+        return &msg;
+    }
+
+  private:
+    // Disable all copying and moving
+    Msg(const Msg& other) = delete;
+    Msg(Msg&& other) = delete;
+    Msg& operator=(const Msg& other) = delete;
+    Msg& operator=(Msg&& other) = delete;
+};
 
 struct Sub
 {
-    zcm_callback_t *cb;
+    zcm_callback_t *callback;
     void *usr;
-    void *sock;
 };
 
 struct SubRegex
 {
     string channelRegex;
-    zcm_callback_t *cb;
+    zcm_callback_t *callback;
     void *usr;
-};
-
-struct Pub
-{
-    void *sock;
 };
 
 struct zcm_t
 {
-    // The mutex protects all data below it
-    std::mutex mut;
-    static constexpr int RECVBUFSZ = 1 << 20;
-    char recvbuf[RECVBUFSZ];
-
-    void *ctx;
+    zcm_trans_t *zt;
     unordered_map<string, Sub> subs;
-    unordered_map<string, Pub> pubs;
-
     vector<SubRegex> subRegex;
 
-    zcm_t()
+    bool started = false;
+    std::atomic<bool> running {true};
+
+    thread sendThread;
+    thread recvThread;
+    thread handleThread;
+
+    static constexpr size_t QUEUE_SIZE = 16;
+    ThreadsafeQueue<Msg> sendQueue {QUEUE_SIZE};
+    ThreadsafeQueue<Msg> recvQueue {QUEUE_SIZE};
+
+    mutex pubmut;
+    mutex submut;
+
+    zcm_t(zcm_trans_t *zt_)
     {
-        ctx = zmq_init(ZMQ_IO_THREADS);
+        zt = zt_;
+        start();
     }
 
-    string getIPCAddress(const string& channel)
+    ~zcm_t()
     {
-        return "ipc:///tmp/zmq-channel-"+channel;
+        stop();
+        zcm_trans_destroy(zt);
     }
 
-    Sub *findSub(const string& channel)
+    void sendThreadFunc()
     {
-        auto it = subs.find(channel);
-        if (it != subs.end())
-            return &it->second;
-        else
-            return nullptr;
-    }
-
-    Pub *findPub(const string& channel)
-    {
-        auto it = pubs.find(channel);
-        if (it != pubs.end())
-            return &it->second;
-        else
-            return nullptr;
-    }
-
-    int publish(const string& channel, const char *data, size_t len)
-    {
-        std::unique_lock<std::mutex> lk(mut);
-
-        Pub *pub = findPub(channel);
-        if (!pub) {
-            void *sock = zmq_socket(ctx, ZMQ_PUB);
-            string address = getIPCAddress(channel);
-            zmq_bind(sock, address.c_str());
-            pubs.emplace(channel, Pub{sock});
-            pub = findPub(channel);
-            assert(pub);
+        while (running) {
+            Msg *m = sendQueue.top();
+            // If the Queue was forcibly woken-up, recheck the
+            // running condition, and then retry.
+            if (m == nullptr)
+                continue;
+            zcm_msg_t *msg = m->get();
+            int ret = zcm_trans_sendmsg(zt, *msg);
+            assert(ret == ZCM_EOK);
+            sendQueue.pop();
         }
-
-        int rc = zmq_send(pub->sock, data, len, 0);
-        assert(rc == (int)len);
-        return 0;
     }
 
-    void searchForRegexSubs()
+    void recvThreadFunc()
     {
-        std::unique_lock<std::mutex> lk(mut);
+        while (running) {
+            zcm_msg_t msg;
+            int rc = zcm_trans_recvmsg(zt, &msg, RECV_TIMEOUT);
+            if (rc == ZCM_EOK) {
+                bool success;
+                do {
+                    success = recvQueue.push(&msg);
+                } while(!success);
+            }
+        }
+    }
 
-        // TODO: actually implement regex, or remove it
-        if (subRegex.size() == 0)
-            return;
-        for (auto& r : subRegex) {
-            if (r.channelRegex != ".*") {
-                static bool warned = false;
-                if (!warned) {
-                    fprintf(stderr, "Er: only .* (aka subscribe-all) is implemented\n");
-                    warned = true;
+    void dispatchMsg(zcm_msg_t *msg)
+    {
+        zcm_recv_buf_t rbuf;
+        rbuf.zcm = this;
+        rbuf.utime = 0;
+        rbuf.len = msg->len;
+        rbuf.data = (char*)msg->buf;
+
+        // Note: We use a lock on dispatch to ensure there is not
+        // a race on modifying and reading the 'subs' and
+        // 'subRegex' containers. This means users cannot call
+        // zcm_subscribe or zcm_unsubscribe from a callback without
+        // deadlocking.
+        {
+            unique_lock<mutex> lk(submut);
+
+            // dispatch to a non regex channel
+            auto it = subs.find(msg->channel);
+            if (it != subs.end()) {
+                auto& sub = it->second;
+                sub.callback(&rbuf, msg->channel, sub.usr);
+            }
+
+            // dispatch to any regex channels
+            for (auto& sreg : subRegex) {
+                if (sreg.channelRegex == ".*") {
+                    sreg.callback(&rbuf, msg->channel, sreg.usr);
+                } else {
+                    ZCM_DEBUG("ZCM only supports the '.*' regex (aka subscribe-all)");
                 }
             }
         }
-        SubRegex& srex = subRegex[0];
-
-        const char *prefix = "zmq-channel-";
-        size_t prefixLen = strlen(prefix);
-
-        DIR *d;
-        dirent *ent;
-
-        if (!(d=opendir("/tmp/")))
-            return;
-
-        while ((ent=readdir(d)) != nullptr) {
-            if (strncmp(ent->d_name, prefix, prefixLen) == 0) {
-                string channel(ent->d_name + prefixLen);
-                if (!findSub(channel))
-                    subOneInternal(channel, srex.cb, srex.usr);
-            }
-        }
-
-        closedir(d);
     }
 
-    void recvMsgFromSock(const string& channel, void *sock)
+    void handleThreadFunc()
     {
-        int rc = zmq_recv(sock, recvbuf, RECVBUFSZ, 0);
-        assert(0 < rc && rc < RECVBUFSZ);
-
-        // Dispatch
-        {
-            std::unique_lock<std::mutex> lk(mut);
-            if (Sub *sub = findSub(channel)) {
-                zcm_recv_buf_t rbuf;
-                rbuf.data = recvbuf;
-                rbuf.len = rc;
-                rbuf.utime = 0;
-                rbuf.zcm = this;
-                sub->cb(&rbuf, channel.c_str(), sub->usr);
-            }
+        while (running) {
+            Msg *m = recvQueue.top();
+            // If the Queue was forcibly woken-up, recheck the
+            // running condition, and then retry.
+            if (m == nullptr)
+                continue;
+            dispatchMsg(m->get());
+            recvQueue.pop();
         }
     }
 
-    int handleTimeout(long timeout)
+    // Note: We use a lock on publish() to make sure it can be
+    // called concurrently. Without the lock, there is a potential
+    // race to block on sendQueue.push()
+    int publish(const string& channel, const char *data, size_t len)
     {
-        searchForRegexSubs();
+        unique_lock<mutex> lk(pubmut);
 
-        // Build up a list of poll items
-        vector<zmq_pollitem_t> pitems;
-        vector<string> pchannels;
-        {
-            std::unique_lock<std::mutex> lk(mut);
-            pitems.resize(subs.size());
-            int i = 0;
-            for (auto& elt : subs) {
-                auto& channel = elt.first;
-                auto& sub = elt.second;
-                auto *p = &pitems[i];
-                memset(p, 0, sizeof(*p));
-                p->socket = sub.sock;
-                p->events = ZMQ_POLLIN;
-                pchannels.emplace_back(channel);
-                i++;
-            }
+        // TODO: publish should allow dropping of old messages
+        if (!sendQueue.hasFreeSpace()) {
+            ZCM_DEBUG("sendQueue has no free space");
+            return -1;
         }
 
-        int rc = zmq_poll(pitems.data(), pitems.size(), timeout);
-        if (rc >= 0) {
-            for (size_t i = 0; i < pitems.size(); i++) {
-                auto& p = pitems[i];
-                if (p.revents != 0)
-                    recvMsgFromSock(pchannels[i], p.socket);
-            }
-        }
+        bool success;
+        do {
+            success = sendQueue.push(channel.c_str(), len, data);
+        } while(!success);
 
-        return rc;
-    }
-
-    // TODO: can we get rid of this and go full blocking?
-    int handle()
-    {
-        while (true) {
-            int rc = handleTimeout(100);
-            if (rc >= 0)
-                break;
-        }
         return 0;
-    }
-
-    int poll(long timeout)
-    {
-        // Build up a list of poll items
-        vector<zmq_pollitem_t> pitems;
-        vector<string> pchannels;
-        {
-            std::unique_lock<std::mutex> lk(mut);
-            pitems.resize(subs.size());
-            int i = 0;
-            for (auto& elt : subs) {
-                auto& channel = elt.first;
-                auto& sub = elt.second;
-                auto *p = &pitems[i];
-                memset(p, 0, sizeof(*p));
-                p->socket = sub.sock;
-                p->events = ZMQ_POLLIN;
-                pchannels.emplace_back(channel);
-                i++;
-            }
-        }
-
-        return zmq_poll(pitems.data(), pitems.size(), timeout);
     }
 
     static bool isRegexChannel(const string& channel)
@@ -247,37 +213,81 @@ struct zcm_t
         return false;
     }
 
-    void subOneInternal(const string& channel, zcm_callback_t *cb, void *usr)
-    {
-        assert(!findSub(channel));
-
-        void *sock = zmq_socket(ctx, ZMQ_SUB);
-        string address = getIPCAddress(channel);
-        zmq_connect(sock, address.c_str());
-        zmq_setsockopt(sock, ZMQ_SUBSCRIBE, "", 0);
-
-        subs.emplace(channel, Sub{cb, usr, sock});
-    }
-
+    // Note: We use a lock on subscribe() to make sure it can be
+    // called concurrently. Without the lock, there is a race
+    // on modifying and reading the 'subs' and 'subRegex' containers
     int subscribe(const string& channel, zcm_callback_t *cb, void *usr)
     {
-        std::unique_lock<std::mutex> lk(mut);
+        unique_lock<mutex> lk(submut);
+        int rc;
 
         if (isRegexChannel(channel)) {
-            subRegex.emplace_back(SubRegex{channel, cb, usr});
+            rc = zcm_trans_recvmsg_enable(zt, NULL, true);
+            if (rc == ZCM_EOK)
+                subRegex.emplace_back(SubRegex{channel, cb, usr});
         } else {
-            subOneInternal(channel, cb, usr);
+            rc = zcm_trans_recvmsg_enable(zt, channel.c_str(), true);
+            if (rc == ZCM_EOK)
+                subs.emplace(channel, Sub{cb, usr});
+        }
+
+        if (rc != ZCM_EOK) {
+            ZCM_DEBUG("zcm_trans_recvmsg_enable() didn't return ZCM_EOK");
+            return -1;
         }
 
         return 0;
     }
+
+    int handle()
+    {
+        // TODO: impl
+        while (1)
+            usleep(1000000);
+        return 0;
+    }
+
+    // TODO: should this call be thread safe?
+    void start()
+    {
+        assert(!started);
+        started = true;
+
+        sendThread = thread{&zcm_t::recvThreadFunc, this};
+        recvThread = thread{&zcm_t::sendThreadFunc, this};
+        handleThread = thread{&zcm_t::handleThreadFunc, this};
+    }
+
+    void stop()
+    {
+        if (running && started) {
+            running = false;
+            sendQueue.forceWakeups();
+            recvQueue.forceWakeups();
+            handleThread.join();
+            recvThread.join();
+            sendThread.join();
+        }
+    }
 };
 
 /////////////// C Interface Functions ////////////////
+extern "C" {
 
-zcm_t *zcm_create(void)
+zcm_t *zcm_create(const char *transport)
 {
-    return new zcm_t();
+    zcm_trans_t *zt = zcm_trans_builtin_create(transport);
+    if (zt == NULL) {
+        ZCM_DEBUG("could't find built-in transport named '%s'\n", transport);
+        return NULL;
+    }
+
+    return new zcm_t(zt);
+}
+
+zcm_t *zcm_create_trans(zcm_trans_t *zt)
+{
+    return new zcm_t(zt);
 }
 
 void zcm_destroy(zcm_t *zcm)
@@ -300,8 +310,14 @@ int zcm_handle(zcm_t *zcm)
     return zcm->handle();
 }
 
-int zcm_poll(zcm_t *zcm, uint ms)
+void zcm_start(zcm_t *zcm)
 {
-    int rc = zcm->poll((long)ms);
-    return rc;
+    zcm->start();
+}
+
+void zcm_stop(zcm_t *zcm)
+{
+    zcm->stop();
+}
+
 }

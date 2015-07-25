@@ -9,8 +9,6 @@ var ref = require('ref');
 var Struct = require('ref-struct');
 
 // Define some types
-//var int = ref.types.int
-//var IntArray = ArrayType(int)
 var voidRef = ref.refType('void')
 var charRef = ref.refType('char')
 var recvBuf = Struct({
@@ -22,18 +20,13 @@ var recvBuf = Struct({
 var recvBufRef = ref.refType(recvBuf);
 
 var libzcm = new ffi.Library('libzcm', {
-    'zcm_create':     ['pointer', []],
+    'zcm_create':     ['pointer', ['string']],
     'zcm_destroy':    ['void', ['pointer']],
     'zcm_publish':    ['int', ['pointer', 'string', 'pointer', 'int']],
     'zcm_subscribe':  ['int', ['pointer', 'string', 'pointer', 'pointer']],
-    'zcm_handle':     ['int', ['pointer']],
-    'zcm_poll':       ['int', ['pointer', 'int']],
-})
-libzcm.zcm_handle_async = function(z) {
-    libzcm.zcm_handle.async(z, function(err, res) {
-        libzcm.zcm_handle_async(z);
-    });
-}
+    'zcm_start':      ['void', ['pointer']],
+    'zcm_stop':       ['void', ['pointer']],
+});
 
 function makeDispatcher(cb)
 {
@@ -49,8 +42,12 @@ function makeDispatcher(cb)
     }
 }
 
-function libzcmTransport(http) {
-    var z = libzcm.zcm_create();
+function libzcmTransport(transport) {
+    var z = libzcm.zcm_create(transport);
+    if (z.isNull()) {
+        console.log("Err: Failed to create transport '"+transport+"'");
+        return {};
+    }
 
     function publish(channel, data) {
         libzcm.zcm_publish.async(z, channel, data, data.length, function(err, res){});
@@ -61,8 +58,6 @@ function libzcmTransport(http) {
         process.on('exit', function() { funcPtr;}); // Force an extra ref to avoid Garbage Collection
         libzcm.zcm_subscribe(z, channel, funcPtr, null);
     }
-
-    libzcm.zcm_handle_async(z);
 
     return {
         publish: publish,
@@ -101,13 +96,13 @@ function socketioTransport(http) {
     };
 }
 
-function zcm_create(http) {
-    return libzcmTransport();
+function zcm_create(transport) {
+    return libzcmTransport(transport);
 }
 
 function zcm_connect_client(http, zcmtypes, table)
 {
-    var zIPC = libzcmTransport();
+    var zIPC = libzcmTransport('ipc');
     var zWebsock = socketioTransport(http);
 
     for (var channel in table) {

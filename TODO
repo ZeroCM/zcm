@@ -1,7 +1,6 @@
 TODO
 ------------------
  - Harden the JNI wrapper for the Java Impl
- - Create a ZCM transport interface and push all ZMQ into it
  - Lock down the specific dependencies
  - Import Type Specification Documentation
  - Integrate the type generation with the build scripting in the

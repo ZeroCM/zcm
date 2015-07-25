@@ -38,7 +38,7 @@ int main(int argc, char *argv[])
             CHANNEL = argv[i];
     }
 
-    zcm_t *zcm = zcm_create();
+    zcm_t *zcm = zcm_create("ipc");
     if(!zcm)
         return 1;
 

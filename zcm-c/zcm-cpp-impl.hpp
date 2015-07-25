@@ -6,14 +6,15 @@
 
 // =============== implementation ===============
 
-inline ZCM::ZCM()
+inline ZCM::ZCM(const std::string& transport)
 {
-    zcm = zcm_create();
+    zcm = zcm_create(transport.c_str());
 }
 
 inline ZCM::~ZCM()
 {
-    zcm_destroy(zcm);
+    if (zcm != nullptr)
+        zcm_destroy(zcm);
     zcm = nullptr;
 }
 
