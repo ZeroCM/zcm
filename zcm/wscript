@@ -18,3 +18,4 @@ def build(ctx):
     ctx.recurse('transport');
     ctx.recurse('cpp');
     ctx.recurse('java');
+    ctx.recurse('js');
