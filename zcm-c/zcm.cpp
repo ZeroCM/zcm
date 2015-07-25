@@ -96,6 +96,7 @@ struct zcm_t
     ~zcm_t()
     {
         stop();
+        zcm_trans_destroy(zt);
     }
 
     void recvThreadFunc()

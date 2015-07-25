@@ -58,12 +58,12 @@
  *         this method should block until the message has been successfully
  *         sent and should return ZCM_EOK.
  *
- *      void recvmsg_enable(zcm_trans_t *zt, const char *channel, bool enable)
+ *      int recvmsg_enable(zcm_trans_t *zt, const char *channel, bool enable)
  *      --------------------------------------------------------------------
  *         This method will enable/disable the receipt of messages on the particular
  *         channel. For 'all channels', the user should pass NULL for the channel.
  *         NOTE: This method should work concurrently and correctly with
- *         recvmsg().
+ *         recvmsg(). On success, this method should return ZCM_EOK
  *
  *      int recvmsg(zcm_trans_t *zt, zcm_msg_t *msg, int timeout)
  *      --------------------------------------------------------------------
@@ -115,11 +115,12 @@
  *         message due to unavailability, ZCM_EAGAIN should be returned.
  *         On success ZCM_EOK should be returned.
  *
- *      void recvmsg_enable(zcm_trans_async_t *zt, const char *channel, bool enable)
+ *      int recvmsg_enable(zcm_trans_async_t *zt, const char *channel, bool enable)
  *      --------------------------------------------------------------------
  *         This method will enable/disable the receipt of messages on the particular
  *         channel. For 'all channels', the user should pass NULL for the channel.
- *         NOTE: This method does NOT have to work concurrently with recvmsg()
+ *         NOTE: This method does NOT have to work concurrently with recvmsg().
+ *         On success, this method should return ZCM_EOK
  *
  *      int recvmsg(zcm_trans_async_t *zt, zcm_msg_t *msg)
  *      --------------------------------------------------------------------
@@ -159,6 +160,7 @@ extern "C" {
 #define ZCM_EOK       0
 #define ZCM_EINVALID  1
 #define ZCM_EAGAIN    2
+#define ZCM_ECONNECT  3
 #define ZCM_EUNKNOWN  255
 
 typedef struct zcm_msg_t zcm_msg_t;
@@ -186,9 +188,9 @@ struct zcm_trans_methods_t
 {
     size_t  (*get_mtu)(zcm_trans_t *zt);
     int     (*sendmsg)(zcm_trans_t *zt, zcm_msg_t msg);
-    void    (*recvmsg_enable)(zcm_trans_t *zt, const char *channel, bool enable);
+    int     (*recvmsg_enable)(zcm_trans_t *zt, const char *channel, bool enable);
     int     (*recvmsg)(zcm_trans_t *zt, zcm_msg_t *msg, int timeout);
-    void    (*destory)(zcm_trans_t *zt);
+    void    (*destroy)(zcm_trans_t *zt);
 };
 
 struct zcm_trans_async_t
@@ -200,10 +202,10 @@ struct zcm_trans_async_methods_t
 {
     size_t  (*get_mtu)(zcm_trans_async_t *zt);
     int     (*sendmsg)(zcm_trans_async_t *zt, zcm_msg_t msg);
-    void    (*recvmsg_enable)(zcm_trans_async_t *zt, const char *channel, bool enable);
+    int     (*recvmsg_enable)(zcm_trans_async_t *zt, const char *channel, bool enable);
     int     (*recvmsg)(zcm_trans_async_t *zt, zcm_msg_t *msg);
     int     (*update)(zcm_trans_async_t *zt);
-    void    (*destory)(zcm_trans_async_t *zt);
+    void    (*destroy)(zcm_trans_async_t *zt);
 };
 
 
@@ -216,14 +218,14 @@ static inline size_t zcm_trans_get_mtu(zcm_trans_t *zt)
 static inline int zcm_trans_sendmsg(zcm_trans_t *zt, zcm_msg_t msg)
 { return zt->vtbl->sendmsg(zt, msg); }
 
-static inline void zcm_trans_recvmsg_enable(zcm_trans_t *zt, const char *channel, bool enable)
+static inline int zcm_trans_recvmsg_enable(zcm_trans_t *zt, const char *channel, bool enable)
 { return zt->vtbl->recvmsg_enable(zt, channel, enable); }
 
 static inline int zcm_trans_recvmsg(zcm_trans_t *zt, zcm_msg_t *msg, int timeout)
 { return zt->vtbl->recvmsg(zt, msg, timeout); }
 
-static inline void zcm_trans_destory(zcm_trans_t *zt)
-{ return zt->vtbl->destory(zt); }
+static inline void zcm_trans_destroy(zcm_trans_t *zt)
+{ return zt->vtbl->destroy(zt); }
 
 // Non-blocking
 static inline size_t zcm_trans_async_get_mtu(zcm_trans_async_t *zt)
@@ -232,7 +234,7 @@ static inline size_t zcm_trans_async_get_mtu(zcm_trans_async_t *zt)
 static inline int zcm_trans_async_sendmsg(zcm_trans_async_t *zt, zcm_msg_t msg)
 { return zt->vtbl->sendmsg(zt, msg); }
 
-static inline void zcm_trans_async_recvmsg_enable(zcm_trans_async_t *zt, const char *channel, bool enable)
+static inline int zcm_trans_async_recvmsg_enable(zcm_trans_async_t *zt, const char *channel, bool enable)
 { return zt->vtbl->recvmsg_enable(zt, channel, enable); }
 
 static inline int zcm_trans_async_recvmsg(zcm_trans_async_t *zt, zcm_msg_t *msg)
@@ -241,8 +243,8 @@ static inline int zcm_trans_async_recvmsg(zcm_trans_async_t *zt, zcm_msg_t *msg)
 static inline int zcm_trans_async_update(zcm_trans_async_t *zt)
 { return zt->vtbl->update(zt); }
 
-static inline void zcm_trans_async_destory(zcm_trans_async_t *zt)
-{ return zt->vtbl->destory(zt); }
+static inline void zcm_trans_async_destroy(zcm_trans_async_t *zt)
+{ return zt->vtbl->destroy(zt); }
 
 #ifdef __cplusplus
 }
