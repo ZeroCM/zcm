@@ -15,6 +15,7 @@ class ThreadsafeQueue
 
     std::mutex mut;
     std::condition_variable cond;
+    int wakeupNum = 0;
 
   public:
     ThreadsafeQueue(size_t size) : queue(size) {}
@@ -33,21 +34,42 @@ class ThreadsafeQueue
     }
 
     // Wait for hasFreeSpace() and then push the new element
+    // Returns true if the value was pushed, otherwise it
+    // was forcibly awoken by forceWakeups()
     template<class... Args>
-    void push(Args&&... args)
+    bool push(Args&&... args)
     {
         std::unique_lock<std::mutex> lk(mut);
-        cond.wait(lk, [&](){ return queue.hasFreeSpace(); });
+        int localWakeupNum = wakeupNum;
+        cond.wait(lk, [&](){
+            return localWakeupNum < wakeupNum ||
+                   queue.hasFreeSpace();
+        });
+        if (localWakeupNum < wakeupNum)
+            return false;
         queue.push(std::forward<Args>(args)...);
         cond.notify_one();
+        return true;
     }
 
     // Wait for hasMessage() and then return the top element
-    Element& top()
+    // Always returns a valid Element* except when is was
+    // forcibly awoken by forceWakeups(). In such a case
+    // nullptr is returned to the user
+    Element *top()
     {
         std::unique_lock<std::mutex> lk(mut);
-        cond.wait(lk, [&](){ return queue.hasMessage(); });
-        return queue.top();
+        int localWakeupNum = wakeupNum;
+        cond.wait(lk, [&](){
+            return localWakeupNum < wakeupNum ||
+                   queue.hasMessage();
+        });
+        if (localWakeupNum < wakeupNum) {
+            return nullptr;
+        } else {
+            Element& elt = queue.top();
+            return &elt;
+        }
     }
 
     // Requires that hasMessage() == true
@@ -56,5 +78,14 @@ class ThreadsafeQueue
         std::unique_lock<std::mutex> lk(mut);
         queue.pop();
         cond.notify_one();
+    }
+
+    // Force all blocked threads to wakeup and return from
+    // whichever methods are blocking them
+    void forceWakeups()
+    {
+        std::unique_lock<std::mutex> lk(mut);
+        wakeupNum++;
+        cond.notify_all();
     }
 };

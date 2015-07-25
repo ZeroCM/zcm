@@ -13,6 +13,7 @@
 #include <thread>
 #include <mutex>
 #include <condition_variable>
+#include <atomic>
 using namespace std;
 
 // A C++ class that manages a zcm_msg_t
@@ -73,6 +74,8 @@ struct zcm_t
     vector<SubRegex> subRegex;
 
     bool started = false;
+    std::atomic<bool> running {true};
+
     thread sendThread;
     thread recvThread;
     thread handleThread;
@@ -90,10 +93,20 @@ struct zcm_t
         start();
     }
 
+    ~zcm_t()
+    {
+        stop();
+    }
+
     void recvThreadFunc()
     {
-        while (true) {
-            zcm_msg_t *msg = sendQueue.top().get();
+        while (running) {
+            Msg *m = sendQueue.top();
+            // If the Queue was forcibly woken-up, recheck the
+            // running condition, and then retry.
+            if (m == nullptr)
+                continue;
+            zcm_msg_t *msg = m->get();
             int ret = zcm_trans_sendmsg(zt, *msg);
             assert(ret == ZCM_EOK);
             sendQueue.pop();
@@ -102,11 +115,15 @@ struct zcm_t
 
     void sendThreadFunc()
     {
-        while (true) {
+        while (running) {
             zcm_msg_t msg;
             int rc = zcm_trans_recvmsg(zt, &msg, 100);
-            if (rc == ZCM_EOK)
-                recvQueue.push(&msg);
+            if (rc == ZCM_EOK) {
+                bool success;
+                do {
+                    success = recvQueue.push(&msg);
+                } while(!success);
+            }
         }
     }
 
@@ -146,9 +163,13 @@ struct zcm_t
 
     void handleThreadFunc()
     {
-        while (true) {
-            auto& msg = recvQueue.top();
-            dispatchMsg(msg.get());
+        while (running) {
+            Msg *m = recvQueue.top();
+            // If the Queue was forcibly woken-up, recheck the
+            // running condition, and then retry.
+            if (m == nullptr)
+                continue;
+            dispatchMsg(m->get());
             recvQueue.pop();
         }
     }
@@ -165,7 +186,11 @@ struct zcm_t
             return 1;
         }
 
-        sendQueue.push(channel.c_str(), len, data);
+        bool success;
+        do {
+            success = sendQueue.push(channel.c_str(), len, data);
+        } while(!success);
+
         return 0;
     }
 
@@ -223,7 +248,14 @@ struct zcm_t
 
     void stop()
     {
-        // TODO: impl
+        if (running && started) {
+            running = false;
+            sendQueue.forceWakeups();
+            recvQueue.forceWakeups();
+            handleThread.join();
+            recvThread.join();
+            sendThread.join();
+        }
     }
 };
 
