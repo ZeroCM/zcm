@@ -184,6 +184,7 @@ struct zcm_t
     {
         unique_lock<mutex> lk(pubmut);
 
+        // TODO: publish should allow dropping of old messages
         if (!sendQueue.hasFreeSpace()) {
             ZCM_DEBUG("sendQueue has no free space");
             return -1;
