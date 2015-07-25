@@ -1,6 +1,7 @@
 #include "zcm.h"
 #include "transport_zmq_ipc.h"
 #include "threadsafe_queue.hpp"
+#include "debug.hpp"
 
 #include <unistd.h>
 #include <cassert>
@@ -137,7 +138,7 @@ struct zcm_t
                 if (sreg.channelRegex == ".*") {
                     sreg.callback(&rbuf, msg->channel, sreg.usr);
                 } else {
-                    printf("ERR: ZCM only supports the '.*' regex (aka subscribe-all)\n");
+                    ZCM_DEBUG("ZCM only supports the '.*' regex (aka subscribe-all)");
                 }
             }
         }
@@ -159,8 +160,10 @@ struct zcm_t
     {
         unique_lock<mutex> lk(pubmut);
 
-        if (!sendQueue.hasFreeSpace())
+        if (!sendQueue.hasFreeSpace()) {
+            ZCM_DEBUG("sendQueue has no free space");
             return 1;
+        }
 
         sendQueue.push(channel.c_str(), len, data);
         return 0;
