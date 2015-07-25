@@ -8,9 +8,10 @@
 
 #include <unordered_map>
 #include <vector>
-#include <condition_variable>
 #include <iostream>
 #include <thread>
+#include <mutex>
+#include <condition_variable>
 using namespace std;
 
 // A C++ class that manages a zcm_msg_t
@@ -79,6 +80,9 @@ struct zcm_t
     ThreadsafeQueue<Msg> sendQueue {QUEUE_SIZE};
     ThreadsafeQueue<Msg> recvQueue {QUEUE_SIZE};
 
+    mutex pubmut;
+    mutex submut;
+
     zcm_t()
     {
         zt = zcm_trans_ipc_create();
@@ -113,38 +117,48 @@ struct zcm_t
         rbuf.len = msg->len;
         rbuf.data = (char*)msg->buf;
 
-        // dispatch to a non regex channel
-        auto it = subs.find(msg->channel);
-        if (it != subs.end()) {
-            auto& sub = it->second;
-            sub.callback(&rbuf, msg->channel, sub.usr);
-        }
+        // Note: We use a lock on dispatch to ensure there is not
+        // a race on modifying and reading the 'subs' and
+        // 'subRegex' containers. This means users cannot call
+        // zcm_subscribe or zcm_unsubscribe from a callback without
+        // deadlocking.
+        {
+            unique_lock<mutex> lk(submut);
 
-        // dispatch to any regex channels
-        for (auto& sreg : subRegex) {
-            if (sreg.channelRegex == ".*") {
-                sreg.callback(&rbuf, msg->channel, sreg.usr);
-            } else {
-                printf("ERR: ZCM only supports the '.*' regex (aka subscribe-all)\n");
+            // dispatch to a non regex channel
+            auto it = subs.find(msg->channel);
+            if (it != subs.end()) {
+                auto& sub = it->second;
+                sub.callback(&rbuf, msg->channel, sub.usr);
+            }
+
+            // dispatch to any regex channels
+            for (auto& sreg : subRegex) {
+                if (sreg.channelRegex == ".*") {
+                    sreg.callback(&rbuf, msg->channel, sreg.usr);
+                } else {
+                    printf("ERR: ZCM only supports the '.*' regex (aka subscribe-all)\n");
+                }
             }
         }
     }
 
-    void handleOne()
-    {
-        auto& msg = recvQueue.top();
-        dispatchMsg(msg.get());
-        recvQueue.pop();
-    }
-
     void handleThreadFunc()
     {
-        while (true)
-            handleOne();
+        while (true) {
+            auto& msg = recvQueue.top();
+            dispatchMsg(msg.get());
+            recvQueue.pop();
+        }
     }
 
+    // Note: We use a lock on publish() to make sure it can be
+    // called concurrently. Without the lock, there is a potential
+    // race to block on sendQueue.push()
     int publish(const string& channel, const char *data, size_t len)
     {
+        unique_lock<mutex> lk(pubmut);
+
         if (!sendQueue.hasFreeSpace())
             return 1;
 
@@ -167,8 +181,13 @@ struct zcm_t
         return false;
     }
 
+    // Note: We use a lock on subscribe() to make sure it can be
+    // called concurrently. Without the lock, there is a race
+    // on modifying and reading the 'subs' and 'subRegex' containers
     int subscribe(const string& channel, zcm_callback_t *cb, void *usr)
     {
+        unique_lock<mutex> lk(submut);
+
         if (isRegexChannel(channel)) {
             zcm_trans_recvmsg_enable(zt, NULL, true);
             subRegex.emplace_back(SubRegex{channel, cb, usr});
