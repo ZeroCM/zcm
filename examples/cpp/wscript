@@ -33,3 +33,8 @@ def build(ctx):
                 use = 'default',
                 lib = 'zcm',
                 source = 'Sub.cpp')
+
+    ctx.program(target = 'inproc',
+                use = 'default',
+                lib = 'zcm',
+                source = 'Inproc.cpp')

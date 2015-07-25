@@ -22,10 +22,14 @@ using namespace std;
 #define ZMQ_IO_THREADS 1
 #define NAME_PREFIX "zcm-channel-zmq-ipc-"
 #define IPC_ADDR_PREFIX "ipc:///tmp/" NAME_PREFIX
+#define INPROC_ADDR_PREFIX "inproc://"
+
+enum Type { IPC, INPROC, };
 
 struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 {
     void *ctx;
+    Type type;
 
     unordered_map<string, void*> pubsocks;
     unordered_map<string, void*> subsocks;
@@ -38,11 +42,12 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     // concurrently
     mutex mut;
 
-    ZCM_TRANS_CLASSNAME()
+    ZCM_TRANS_CLASSNAME(Type type_)
     {
         vtbl = &methods;
         ctx = zmq_init(ZMQ_IO_THREADS);
         assert(ctx != nullptr);
+        type = type_;
     }
 
     ~ZCM_TRANS_CLASSNAME()
@@ -52,7 +57,13 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
     string getAddress(const string& channel)
     {
-        return IPC_ADDR_PREFIX+channel;
+        switch (type) {
+            case IPC:
+                return IPC_ADDR_PREFIX+channel;
+            case INPROC:
+                return INPROC_ADDR_PREFIX+channel;
+        }
+        assert(0 && "unreachable");
     }
 
     // May return null if it cannot create a new pubsock
@@ -146,7 +157,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         return ZCM_EOK;
     }
 
-    void scanForNewChannels()
+    void ipcScanForNewChannels()
     {
         const char *prefix = NAME_PREFIX;
         size_t prefixLen = strlen(NAME_PREFIX);
@@ -170,6 +181,20 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         closedir(d);
     }
 
+    // XXX This only works for channels within this instance! Creating another
+    //     ZCM instance using 'inproc' will cause this scan to miss some channels!
+    //     Need to implement a better technique. Should sse a globally shared datastruct.
+    void inprocScanForNewChannels()
+    {
+        for (auto& elt : pubsocks) {
+            auto& channel = elt.first;
+            void *sock = subsockFindOrCreate(channel);
+            if (sock == nullptr) {
+                ZCM_DEBUG("failed to open subsock in scanForNewChannels()");
+            }
+        }
+    }
+
     int recvmsg(zcm_msg_t *msg, int timeout)
     {
         // Build up a list of poll items
@@ -181,8 +206,12 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             // concurrently
             unique_lock<mutex> lk(mut);
 
-            if (recvAllChannels)
-                scanForNewChannels();
+            if (recvAllChannels) {
+                switch (type) {
+                    case IPC: ipcScanForNewChannels();
+                    case INPROC: inprocScanForNewChannels();
+                }
+            }
 
             pitems.resize(subsocks.size());
             int i = 0;
@@ -257,5 +286,10 @@ zcm_trans_methods_t ZCM_TRANS_CLASSNAME::methods = {
 
 extern "C" zcm_trans_t *zcm_trans_ipc_create()
 {
-    return new ZCM_TRANS_CLASSNAME();
+    return new ZCM_TRANS_CLASSNAME(IPC);
+}
+
+extern "C" zcm_trans_t *zcm_trans_inproc_create()
+{
+    return new ZCM_TRANS_CLASSNAME(INPROC);
 }
