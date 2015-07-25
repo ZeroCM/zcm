@@ -19,7 +19,8 @@ using namespace std;
 #define ZCM_TRANS_NAME TransportZmqIpc
 #define MTU (1<<20)
 #define ZMQ_IO_THREADS 1
-#define IPC_ADDR_PREFIX "ipc:///tmp/zcm-channel-zmq-ipc-"
+#define NAME_PREFIX "zcm-channel-zmq-ipc-"
+#define IPC_ADDR_PREFIX "ipc:///tmp/" NAME_PREFIX
 
 struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 {
@@ -29,6 +30,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     unordered_map<string, void*> subsocks;
     string recvmsgChannel;
     char recvmsgBuffer[MTU];
+    bool recvAllChannels = false;
 
     ZCM_TRANS_CLASSNAME(/* Add any methods here */)
     {
@@ -97,11 +99,40 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     void recvmsg_enable(const char *channel, bool enable)
     {
         assert(enable && "Disabling is not supported");
+        if (channel == NULL) {
+            recvAllChannels = true;
+            return;
+        }
         subsockFindOrCreate(channel);
+    }
+
+    void scanForNewChannels()
+    {
+        const char *prefix = NAME_PREFIX;
+        size_t prefixLen = strlen(NAME_PREFIX);
+
+        DIR *d;
+        dirent *ent;
+
+        if (!(d=opendir("/tmp/")))
+            return;
+
+        while ((ent=readdir(d)) != nullptr) {
+            if (strncmp(ent->d_name, prefix, prefixLen) == 0) {
+                string channel(ent->d_name + prefixLen);
+                void *sock = subsockFindOrCreate(channel);
+                (void)sock;
+            }
+        }
+
+        closedir(d);
     }
 
     int recvmsg(zcm_msg_t *msg, int timeout)
     {
+        if (recvAllChannels)
+            scanForNewChannels();
+
         // Build up a list of poll items
         vector<zmq_pollitem_t> pitems;
         vector<string> pchannels;

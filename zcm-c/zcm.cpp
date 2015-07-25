@@ -7,6 +7,7 @@
 #include <cstring>
 
 #include <unordered_map>
+#include <vector>
 #include <condition_variable>
 #include <iostream>
 #include <thread>
@@ -56,10 +57,18 @@ struct Sub
     void *usr;
 };
 
+struct SubRegex
+{
+    string channelRegex;
+    zcm_callback_t *callback;
+    void *usr;
+};
+
 struct zcm_t
 {
     zcm_trans_t *zt;
     unordered_map<string, Sub> subs;
+    vector<SubRegex> subRegex;
 
     bool started = false;
     thread sendThread;
@@ -98,15 +107,27 @@ struct zcm_t
 
     void dispatchMsg(zcm_msg_t *msg)
     {
-        auto it = subs.find(msg->channel);
-        assert(it != subs.end());
-        auto& sub = it->second;
         zcm_recv_buf_t rbuf;
         rbuf.zcm = this;
         rbuf.utime = 0;
         rbuf.len = msg->len;
         rbuf.data = (char*)msg->buf;
-        sub.callback(&rbuf, msg->channel, sub.usr);
+
+        // dispatch to a non regex channel
+        auto it = subs.find(msg->channel);
+        if (it != subs.end()) {
+            auto& sub = it->second;
+            sub.callback(&rbuf, msg->channel, sub.usr);
+        }
+
+        // dispatch to any regex channels
+        for (auto& sreg : subRegex) {
+            if (sreg.channelRegex == ".*") {
+                sreg.callback(&rbuf, msg->channel, sreg.usr);
+            } else {
+                printf("ERR: ZCM only supports the '.*' regex (aka subscribe-all)\n");
+            }
+        }
     }
 
     void handleOne()
@@ -131,11 +152,31 @@ struct zcm_t
         return 0;
     }
 
+    static bool isRegexChannel(const string& channel)
+    {
+        // These chars are considered regex
+        auto isRegexChar = [](char c) {
+            return c == '(' || c == ')' || c == '|' ||
+                   c == '.' || c == '*' || c == '+';
+        };
+
+        for (auto& c : channel)
+            if (isRegexChar(c))
+                return true;
+
+        return false;
+    }
 
     int subscribe(const string& channel, zcm_callback_t *cb, void *usr)
     {
-        zcm_trans_recvmsg_enable(zt, channel.c_str(), true);
-        subs.emplace(channel, Sub{cb, usr});
+        if (isRegexChannel(channel)) {
+            zcm_trans_recvmsg_enable(zt, NULL, true);
+            subRegex.emplace_back(SubRegex{channel, cb, usr});
+        } else {
+            zcm_trans_recvmsg_enable(zt, channel.c_str(), true);
+            subs.emplace(channel, Sub{cb, usr});
+        }
+
         return 0;
     }
 
