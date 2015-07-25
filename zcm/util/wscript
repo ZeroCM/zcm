@@ -1,0 +1,7 @@
+#! /usr/bin/env python
+# encoding: utf-8
+
+def build(ctx):
+    install_headers = ['eventlog.h', 'ioutils.h', 'debug.hpp',
+                       'queue.hpp', 'threadsafe_queue.hpp']
+    ctx.install_files('${PREFIX}/include/zcm/util', install_headers)

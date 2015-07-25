@@ -1,0 +1,6 @@
+#! /usr/bin/env python
+# encoding: utf-8
+
+def build(ctx):
+    install_headers = ['zcm-cpp.hpp', 'zcm-cpp-impl.hpp'];
+    ctx.install_files('${PREFIX}/include/zcm/cpp', install_headers)
