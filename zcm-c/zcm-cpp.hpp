@@ -13,7 +13,7 @@ struct ReceiveBuffer;
 
 struct ZCM
 {
-    inline ZCM();
+    inline ZCM(const std::string& transport="ipc");
     inline ~ZCM();
 
     inline bool good() const;

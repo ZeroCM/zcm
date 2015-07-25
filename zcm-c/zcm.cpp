@@ -91,7 +91,7 @@ struct zcm_t
 
     zcm_t(zcm_trans_t *zt_)
     {
-        this->zt = zt;
+        zt = zt_;
         start();
     }
 
