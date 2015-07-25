@@ -1,0 +1,7 @@
+#! /usr/bin/env python
+# encoding: utf-8
+
+def build(ctx):
+    install_headers = ['zcm_zcm_ZCMJNI.h']
+    ctx.install_files('${PREFIX}/include/zcm/java/jni', install_headers)
+

@@ -17,3 +17,4 @@ def build(ctx):
     ctx.recurse('util');
     ctx.recurse('transport');
     ctx.recurse('cpp');
+    ctx.recurse('java');
