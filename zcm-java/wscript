@@ -3,13 +3,10 @@
 
 def build(ctx):
     ctx.shlib(target     = 'zcmjni',
-              uselib     = 'JAVA',
-              use        = 'default',
-              lib        = 'zcm',
+              use        = ['default', 'zcm', 'JAVA'],
               source     = ctx.path.ant_glob('jni/*.c'))
 
-    ctx(name       = 'zcm',
-        features   = 'javac jar',
+    ctx(features   = 'javac jar',
         srcdir     = ['zcm'],
         outdir     = 'classes',  # path to output (for .class)
         basedir    = 'classes',  # basedir for jar

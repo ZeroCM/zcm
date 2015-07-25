@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <unistd.h>
-#include <zcm/zcm.h>
+#include "zcm.h"
 
 static void handler(const zcm_recv_buf_t *rbuf, const char *channel,
                     void *ser)
