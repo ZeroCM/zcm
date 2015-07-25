@@ -10,7 +10,7 @@ static void handler(const zcm_recv_buf_t *rbuf, const char *channel,
 
 int main(int argc, char *argv[])
 {
-    zcm_t *zcm = zcm_create();
+    zcm_t *zcm = zcm_create("ipc");
     if(!zcm)
         return 1;
 

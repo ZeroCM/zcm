@@ -41,7 +41,7 @@ JNIEXPORT void JNICALL Java_zcm_zcm_ZCMJNI_initializeNative
     Internal *I = calloc(1, sizeof(Internal));
     int rc = (*env)->GetJavaVM(env, &I->jvm);
     assert(rc == 0);
-    I->zcm = zcm_create();
+    I->zcm = zcm_create("ipc");
     setNativePtr(env, self, I);
 }
 

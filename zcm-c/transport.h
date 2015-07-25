@@ -153,6 +153,7 @@ extern "C" {
 
 #include <stdlib.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 #define ZCM_CHANNEL_MAXLEN 32
 
@@ -208,7 +209,6 @@ struct zcm_trans_async_methods_t
     void    (*destroy)(zcm_trans_async_t *zt);
 };
 
-
 // Helper functions to make the VTbl dispatch cleaner
 
 // Blocking
@@ -245,6 +245,10 @@ static inline int zcm_trans_async_update(zcm_trans_async_t *zt)
 
 static inline void zcm_trans_async_destroy(zcm_trans_async_t *zt)
 { return zt->vtbl->destroy(zt); }
+
+
+zcm_trans_t *zcm_trans_builtin_create(const char *transport);
+
 
 #ifdef __cplusplus
 }
