@@ -1,5 +1,6 @@
 #include "zcm/transport.h"
 #include "zcm/util/debug.hpp"
+#include "zcm/transport/transport_zmq_local.h"
 #include <zmq.h>
 
 #include <unistd.h>
@@ -284,12 +285,12 @@ zcm_trans_methods_t ZCM_TRANS_CLASSNAME::methods = {
     &ZCM_TRANS_CLASSNAME::_destroy,
 };
 
-extern "C" zcm_trans_t *zcm_trans_ipc_create()
+zcm_trans_t *zcm_trans_ipc_create(zcm_url_t *url)
 {
     return new ZCM_TRANS_CLASSNAME(IPC);
 }
 
-extern "C" zcm_trans_t *zcm_trans_inproc_create()
+zcm_trans_t *zcm_trans_inproc_create(zcm_url_t *url)
 {
     return new ZCM_TRANS_CLASSNAME(INPROC);
 }

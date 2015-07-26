@@ -1,4 +1,4 @@
-#include "transport.h"
+#include "transport_serial.h"
 #include "debug.hpp"
 
 #include <unistd.h>
@@ -12,6 +12,7 @@
 #include <cstring>
 
 #include <string>
+#include <unordered_map>
 using namespace std;
 
 // Define this the class name you want
@@ -134,16 +135,48 @@ bool Serial::baudIsValid(int baud)
 struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 {
     Serial ser;
+    unordered_map<string, string> options;
 
-    ZCM_TRANS_CLASSNAME()
+    string *findOption(const string& s)
+    {
+        auto it = options.find(s);
+        if (it == options.end()) return nullptr;
+        return &it->second;
+    }
+
+    ZCM_TRANS_CLASSNAME(zcm_url_t *url)
     {
         vtbl = &methods;
-        ser.open("/dev/pts/17", 115200);
+
+        // build 'options'
+        auto *opts = zcm_url_opts(url);
+        for (size_t i = 0; i < opts->numopts; i++)
+            options[opts->name[i]] = opts->value[i];
+
+        auto *baudStr = findOption("baud");
+        if (!baudStr) {
+            ZCM_DEBUG("requires a 'baud' argument");
+            return;
+        }
+
+        int baud = atoi(baudStr->c_str());
+        if (baud == 0) {
+            ZCM_DEBUG("expected integer argument for 'baud'");
+            return;
+        }
+
+        auto address = zcm_url_address(url);
+        ser.open(address, baud);
     }
 
     ~ZCM_TRANS_CLASSNAME()
     {
         // TODO shutdown serial
+    }
+
+    bool good()
+    {
+        return ser.isOpen();
     }
 
     /********************** METHODS **********************/
@@ -264,7 +297,12 @@ zcm_trans_methods_t ZCM_TRANS_CLASSNAME::methods = {
     &ZCM_TRANS_CLASSNAME::_destroy,
 };
 
-extern "C" zcm_trans_t *zcm_trans_serial_create()
+zcm_trans_t *zcm_trans_serial_create(zcm_url_t *url)
 {
-    return new ZCM_TRANS_CLASSNAME();
+    auto *trans = new ZCM_TRANS_CLASSNAME(url);
+    if (trans->good())
+        return trans;
+
+    delete trans;
+    return nullptr;
 }
