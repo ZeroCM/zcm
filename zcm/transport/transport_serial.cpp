@@ -17,6 +17,7 @@ using namespace std;
 // Define this the class name you want
 #define ZCM_TRANS_CLASSNAME TransportSerial
 #define MTU (1<<20)
+#define ESCAPE_CHAR 0xcc
 
 struct Serial
 {
@@ -137,7 +138,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     ZCM_TRANS_CLASSNAME()
     {
         vtbl = &methods;
-        ser.open("/dev/pts/14", 115200);
+        ser.open("/dev/pts/17", 115200);
     }
 
     ~ZCM_TRANS_CLASSNAME()
@@ -159,13 +160,59 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         if (msg.len > MTU)
             return ZCM_EINVALID;
 
-        uint64_t magic = 0x123456789abcdefULL;
-        uint32_t len   = (uint32_t)msg.len;
+        char buffer[1024];
+        size_t index = 0;
+        uint8_t sum;  // TODO introduce better checksum
 
-        ser.write((char*)&magic, sizeof(magic));
-        ser.write((char*)&len, sizeof(len));
-        ser.write(channel.c_str(), channel.size()+1);
-        ser.write(msg.buf, len);
+        auto writeBytes = [&](const char *data, size_t len) {
+            for (size_t i = 0; i < len; i++) {
+                // Less than 2 bytes of buffer left? Flush it.
+                if (index >= sizeof(buffer)-1) {
+                    ser.write(buffer, index);
+                    index = 0;
+                }
+                char c = data[i];
+                sum += (uint8_t)c;
+                // Escape byte?
+                if (c == ESCAPE_CHAR) {
+                    buffer[index++] = c;
+                    buffer[index++] = 0x00;
+                } else {
+                    buffer[index++] = c;
+                }
+            }
+        };
+
+        auto finish = [&]() {
+            if (index != 0) {
+                ser.write(buffer, index);
+                index = 0;
+            }
+            ser.write((char*)&sum, 1);
+        };
+
+        // Sync bytes are two Escape Chars
+        buffer[index++] = ESCAPE_CHAR;
+        buffer[index++] = ESCAPE_CHAR;
+
+        // Length of the channel (1 byte) due to ZCM_CHANNEL_MAXLEN
+        // being less than 256
+        static_assert(ZCM_CHANNEL_MAXLEN < (1<<8),
+                      "Expected channel length to fit in one byte");
+        buffer[index++] = (uint8_t)channel.size();
+
+        // Length of the data (32-bits): Big Endian
+        static_assert(MTU < (1ULL<<32),
+                      "Expected data length to fit in 32-bits");
+        uint32_t len = (uint32_t)msg.len;
+        buffer[index++] = (len>>24)&0xff;
+        buffer[index++] = (len>>16)&0xff;
+        buffer[index++] = (len>>8)&0xff;
+        buffer[index++] = (len>>0)&0xff;
+
+        writeBytes(channel.c_str(), channel.size());
+        writeBytes(msg.buf, msg.len);
+        finish();
 
         return ZCM_EOK;
     }
