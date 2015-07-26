@@ -1,5 +1,5 @@
-#include "transport.h"
-#include "util/debug.hpp"
+#include "zcm/transport.h"
+#include "zcm/util/debug.hpp"
 #include <zmq.h>
 
 #include <unistd.h>

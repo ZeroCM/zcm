@@ -1,5 +1,5 @@
-#include "transport.h"
-#include "transport/transport_zmq_local.h"
+#include "zcm/transport.h"
+#include "zcm/transport/transport_zmq_local.h"
 
 #include <string.h>
 #include <stdio.h>

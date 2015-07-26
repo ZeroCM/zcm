@@ -4,8 +4,8 @@
 #include <string>
 #include <vector>
 
-#include "zcm.h"
-#include "util/eventlog.h"
+#include "zcm/zcm.h"
+#include "zcm/util/eventlog.h"
 
 namespace zcm {
 
