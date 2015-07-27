@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <string>
-#include <zcm/cpp/zcm.hpp>
+#include <zcm/zcm-cpp.hpp>
 #include "example_t.hpp"
 using std::string;
 

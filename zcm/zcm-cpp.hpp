@@ -91,7 +91,7 @@ struct LogFile
 };
 
 #define __zcm_cpp_impl_ok__
-#include "zcm-impl.hpp"
+#include "zcm-cpp-impl.hpp"
 #undef __zcm_cpp_impl_ok__
 
 }

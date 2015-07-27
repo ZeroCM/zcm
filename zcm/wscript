@@ -12,12 +12,11 @@ def build(ctx):
               use = ['default', 'zmq'],
               source = ctx.path.ant_glob(['*.cpp', '*.c',
                                           'util/*.c', 'util/*.cpp',
-                                          'transport/*.c', 'transport/*.cpp',
-                                          'cpp/*.c', 'cpp/*.cpp']))
+                                          'transport/*.c', 'transport/*.cpp']))
 
-    install_headers = ['zcm.h', 'zcm_coretypes.h', 'transport.h', 'eventlog.h']
-    ctx.install_files('${PREFIX}/include/zcm', install_headers)
+    ctx.install_files('${PREFIX}/include/zcm',
+                      ['zcm.h', 'zcm_coretypes.h', 'transport.h', 'eventlog.h',
+                       'zcm-cpp.hpp', 'zcm-cpp-impl.hpp'])
 
-    ctx.recurse('cpp');
     ctx.recurse('java');
     ctx.recurse('js');
