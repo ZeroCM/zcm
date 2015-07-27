@@ -7,8 +7,8 @@ class ZCMJNI
     }
 
     private long nativePtr = 0;
-    private native void initializeNative();
-    public ZCMJNI() { initializeNative(); }
+    private native void initializeNative(String url);
+    public ZCMJNI(String url) { initializeNative(url); }
 
     // This method publishes the provided data on the requested channel
     public native int publish(String channel, byte[] data, int offset, int length);

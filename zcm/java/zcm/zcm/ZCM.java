@@ -45,13 +45,12 @@ public class ZCM
     RecvThread recvThread;
 
     /** Create a new ZCM object, connecting to one or more URLs. If
-     * no URL is specified, the environment variable ZCM_DEFAULT_URL is
-     * used. If that environment variable is not defined, then the
-     * default URL is used.
+     * no URL is specified, "ipc" is used.
      **/
-    public ZCM() throws IOException
+    public ZCM() throws IOException { this("ipc"); }
+    public ZCM(String url) throws IOException
     {
-        zcmjni = new ZCMJNI();
+        zcmjni = new ZCMJNI(url);
         recvThread = new RecvThread(this);
         recvThread.start();
     }
