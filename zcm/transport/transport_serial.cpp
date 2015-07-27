@@ -1,4 +1,5 @@
 #include "zcm/transport/transport_serial.h"
+#include "zcm/util/lockfile.h"
 #include "zcm/util/debug.hpp"
 
 #include <unistd.h>
@@ -31,7 +32,7 @@ struct Serial
     Serial(){}
     ~Serial() { close(); }
 
-    bool open(const std::string& port, int baud);
+    bool open(const string& port, int baud);
     bool isOpen() { return fd > 0; };
     void close();
 
@@ -45,13 +46,20 @@ struct Serial
     Serial& operator=(Serial&&) = delete;
 
   private:
+    string port;
     int fd = -1;
 };
 
-bool Serial::open(const std::string& port, int baud)
+bool Serial::open(const string& port_, int baud)
 {
     if (!baudIsValid(baud))
         return false;
+
+    if (!lockfile_trylock(port_.c_str())) {
+        ZCM_DEBUG("failed to create lock file, refusing to open serial device (%s)", port_.c_str());
+        return false;
+    }
+    this->port = port_;
 
     int flags = O_RDWR | O_NOCTTY | O_SYNC;
     fd = ::open(port.c_str(), flags, 0);
@@ -95,14 +103,35 @@ bool Serial::open(const std::string& port, int baud)
     return true;
 
  fail:
+    // Close the port if it was opened
+    if (fd > 0) {
+        const int saved_errno = errno;
+        int result;
+        do {
+            result = ::close(fd);
+        } while (result == -1 && errno == EINTR);
+        errno = saved_errno;
+    }
     this->fd = -1;
+    // Unlock the lock file
+    if (port != "") {
+        lockfile_unlock(port.c_str());
+    }
+    this->port = "";
+
     return false;
 }
 
 void Serial::close()
 {
-    if (isOpen())
+    if (isOpen()) {
+        ZCM_DEBUG("Closing!\n");
         ::close(fd);
+    }
+    if (port != "") {
+        lockfile_unlock(port.c_str());
+        port = "";
+    }
 }
 
 int Serial::write(const u8 *buf, size_t sz)
@@ -234,8 +263,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
                 sum += c;
                 // Escape byte?
                 if (c == ESCAPE_CHAR) {
+                    buffer[index++] = ESCAPE_CHAR;
                     buffer[index++] = c;
-                    buffer[index++] = 0x00;
                 } else {
                     buffer[index++] = c;
                 }
