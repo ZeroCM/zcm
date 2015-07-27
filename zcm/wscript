@@ -15,11 +15,9 @@ def build(ctx):
                                           'transport/*.c', 'transport/*.cpp',
                                           'cpp/*.c', 'cpp/*.cpp']))
 
-    install_headers = ['zcm.h', 'zcm_coretypes.h', 'transport.h']
+    install_headers = ['zcm.h', 'zcm_coretypes.h', 'transport.h', 'eventlog.h']
     ctx.install_files('${PREFIX}/include/zcm', install_headers)
 
-    ctx.recurse('util');
-    ctx.recurse('transport');
     ctx.recurse('cpp');
     ctx.recurse('java');
     ctx.recurse('js');

@@ -5,7 +5,7 @@
 #include <vector>
 
 #include "zcm/zcm.h"
-#include "zcm/util/eventlog.h"
+#include "zcm/eventlog.h"
 
 namespace zcm {
 

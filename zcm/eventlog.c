@@ -1,4 +1,4 @@
-#include "zcm/util/eventlog.h"
+#include "zcm/eventlog.h"
 #include "zcm/util/ioutils.h"
 #include <assert.h>
 #include <string.h>

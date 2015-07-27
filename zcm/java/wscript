@@ -14,5 +14,3 @@ def build(ctx):
         destfile   = 'zcm.jar')
 
     ctx.install_as('${PREFIX}/share/java/zcm.jar', 'zcm.jar')
-
-    ctx.recurse('jni');
