@@ -1,0 +1,17 @@
+#! /usr/bin/env python
+# encoding: utf-8
+from waflib import Utils
+
+def build(ctx):
+    ctx(name       = 'zcmtoolsjar',
+        features   = 'javac jar',
+        use        = 'zcmjar',
+        srcdir     = ['zcm'],
+        outdir     = 'classes',  # path to output (for .class)
+        basedir    = 'classes',  # basedir for jar
+        destfile   = 'zcm-tools.jar')
+
+    ctx.install_as('${PREFIX}/share/java/zcm-tools.jar', 'zcm-tools.jar')
+    ctx.install_as('${PREFIX}/bin/zcm-spy', 'zcm-spy', chmod=Utils.O755)
+    ctx.install_as('${PREFIX}/bin/zcm-logplayer-gui', 'zcm-logplayer-gui', chmod=Utils.O755)
+    ctx.install_as('${PREFIX}/bin/zcm-logger', 'zcm-logger', chmod=Utils.O755)

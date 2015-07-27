@@ -42,6 +42,6 @@ def setup_environment(ctx):
 
 def build(ctx):
     setup_environment(ctx)
-    ctx.recurse('gen')
     ctx.recurse('zcm')
-    ctx.recurse('zcm-lspy')
+    ctx.recurse('gen')
+    ctx.recurse('tools')
