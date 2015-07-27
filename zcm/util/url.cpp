@@ -1,5 +1,5 @@
-#include "url.h"
-#include "debug.hpp"
+#include "zcm/util/url.h"
+#include "zcm/util/debug.hpp"
 
 #include <cassert>
 #include <string>

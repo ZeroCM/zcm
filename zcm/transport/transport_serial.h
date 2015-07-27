@@ -1,8 +1,8 @@
 #ifndef _ZCM_TRANS_SERIAL_H
 #define _ZCM_TRANS_SERIAL_H
 
-#include "transport.h"
-#include "url.h"
+#include "zcm/transport.h"
+#include "zcm/util/url.h"
 
 #ifdef __cplusplus
 extern "C" {

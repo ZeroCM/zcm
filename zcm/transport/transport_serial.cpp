@@ -1,5 +1,5 @@
-#include "transport_serial.h"
-#include "debug.hpp"
+#include "zcm/transport/transport_serial.h"
+#include "zcm/util/debug.hpp"
 
 #include <unistd.h>
 #include <fcntl.h>
