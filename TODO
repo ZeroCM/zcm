@@ -7,3 +7,6 @@ TODO
    examples
  - Verify that JS objects are verified during encoding
  - Add recursive types in JS
+ - Noted a few bugs with zcm-gen
+   - the -p option still generated a java file
+   - there is no --npath for node destination path
