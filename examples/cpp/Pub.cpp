@@ -1,5 +1,5 @@
 #include <unistd.h>
-#include <zcm/cpp/zcm-cpp.hpp>
+#include <zcm/cpp/zcm.hpp>
 #include "example_t.hpp"
 
 int main(int argc, char *argv[])
