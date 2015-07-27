@@ -1,6 +1,6 @@
 #pragma once
 
-#include "queue.hpp"
+#include "zcm/util/queue.hpp"
 
 #include <mutex>
 #include <condition_variable>

@@ -3,8 +3,9 @@
 #include <unistd.h>
 #include <string>
 #include <vector>
-#include "zcm.h"
-#include "eventlog.h"
+
+#include "zcm/zcm.h"
+#include "zcm/eventlog.h"
 
 namespace zcm {
 

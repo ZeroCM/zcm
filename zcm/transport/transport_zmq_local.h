@@ -1,7 +1,7 @@
 #ifndef _ZCM_TRANS_ZMQ_LOCAL_H
 #define _ZCM_TRANS_ZMQ_LOCAL_H
 
-#include "transport.h"
+#include "zcm/transport.h"
 
 #ifdef __cplusplus
 extern "C" {

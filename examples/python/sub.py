@@ -1,5 +1,5 @@
 import sys
-sys.path.append('../../zcm-python')
+sys.path.append('../../zcm/python')
 
 import zcm
 import time

@@ -1,5 +1,5 @@
-#include "eventlog.h"
-#include "ioutils.h"
+#include "zcm/eventlog.h"
+#include "zcm/util/ioutils.h"
 #include <assert.h>
 #include <string.h>
 

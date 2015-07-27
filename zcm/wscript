@@ -1,0 +1,22 @@
+#! /usr/bin/env python
+# encoding: utf-8
+
+def build(ctx):
+    ctx.shlib(target = 'zcm',
+              # Note: Had to make the include path one level up so that includes
+              #       within this directory structure would match the structure
+              #       of the installed files. Includes should be written as:
+              #       #include "zcm/file.h".
+              includes = '..',
+              export_includes = '..',
+              use = ['default', 'zmq'],
+              source = ctx.path.ant_glob(['*.cpp', '*.c',
+                                          'util/*.c', 'util/*.cpp',
+                                          'transport/*.c', 'transport/*.cpp']))
+
+    ctx.install_files('${PREFIX}/include/zcm',
+                      ['zcm.h', 'zcm_coretypes.h', 'transport.h', 'eventlog.h',
+                       'zcm-cpp.hpp', 'zcm-cpp-impl.hpp'])
+
+    ctx.recurse('java');
+    ctx.recurse('js');

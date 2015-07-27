@@ -1,7 +1,8 @@
-#include "zcm.h"
-#include "transport_zmq_local.h"
-#include "threadsafe_queue.hpp"
-#include "debug.hpp"
+#include "zcm/zcm.h"
+#include "zcm/transport.h"
+#include "zcm/transport/transport_zmq_local.h"
+#include "zcm/util/threadsafe_queue.hpp"
+#include "zcm/util/debug.hpp"
 
 #include <unistd.h>
 #include <cassert>

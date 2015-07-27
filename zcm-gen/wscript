@@ -1,8 +1,0 @@
-#! /usr/bin/env python
-# encoding: utf-8
-
-def build(ctx):
-    ctx.program(target = 'zcm-gen',
-                includes = '.',
-                use = 'default',
-                source = ctx.path.ant_glob('*.c *.cpp **/*.cpp'))

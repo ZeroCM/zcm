@@ -6,7 +6,8 @@ def build(ctx):
               use        = ['default', 'zcm', 'JAVA'],
               source     = ctx.path.ant_glob('jni/*.c'))
 
-    ctx(features   = 'javac jar',
+    ctx(name       = 'zcmjar',
+        features   = 'javac jar',
         srcdir     = ['zcm'],
         outdir     = 'classes',  # path to output (for .class)
         basedir    = 'classes',  # basedir for jar

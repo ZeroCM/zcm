@@ -1,4 +1,4 @@
-#include "debug.hpp"
+#include "zcm/util/debug.hpp"
 
 #ifdef ZCM_DEBUG_ENV_ENABLE
 bool ZCM_DEBUG_ENABLED;
