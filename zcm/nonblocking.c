@@ -1,5 +1,5 @@
 #include "zcm/transport.h"
-#include "zcm/zcm_nonblocking.h"
+#include "zcm/nonblocking.h"
 #include "zcm/util/debug.h"
 
 #include <string.h>
@@ -55,7 +55,7 @@ int zcm_nonblocking_publish(zcm_nonblocking_t *z, const char *channel, char *dat
 
 int zcm_nonblocking_subscribe(zcm_nonblocking_t *z, const char *channel, zcm_callback_t *cb, void *usr)
 {
-    int ret = zcm_trans_nonblock_enable(z->trans, channel, true);
+    int ret = zcm_trans_nonblock_recvmsg_enable(z->trans, channel, true);
     if (ret != ZCM_EOK)
         return ret;
 

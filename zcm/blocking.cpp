@@ -1,5 +1,5 @@
 #include "zcm/zcm.h"
-#include "zcm/zcm_blocking.h"
+#include "zcm/blocking.h"
 #include "zcm/transport.h"
 #include "zcm/util/threadsafe_queue.hpp"
 #include "zcm/util/debug.h"
