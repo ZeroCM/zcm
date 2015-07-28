@@ -75,7 +75,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
                 return lockfile_trylock(lockfileName.c_str());
             } break;
             case INPROC: {
-                // unimpl for INPROC currently
+                // TODO: unimpl for INPROC currently
                 return true;
             } break;
         }
@@ -167,6 +167,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         // concurrently
         unique_lock<mutex> lk(mut);
 
+        // XXX: Implement disabling
         assert(enable && "Disabling is not supported");
         if (channel == NULL) {
             recvAllChannels = true;
@@ -194,7 +195,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
                 string channel(ent->d_name + prefixLen);
                 void *sock = subsockFindOrCreate(channel);
                 if (sock == nullptr) {
-                    ZCM_DEBUG("failed to open subsock in scanForNewChannels()");
+                    ZCM_DEBUG("failed to open subsock in scanForNewChannels(%s)", channel.c_str());
                 }
             }
         }
@@ -211,7 +212,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             auto& channel = elt.first;
             void *sock = subsockFindOrCreate(channel);
             if (sock == nullptr) {
-                ZCM_DEBUG("failed to open subsock in scanForNewChannels()");
+                ZCM_DEBUG("failed to open subsock in scanForNewChannels(%s)", channel.c_str());
             }
         }
     }
@@ -250,6 +251,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
         timeout = (timeout >= 0) ? timeout : -1;
         int rc = zmq_poll(pitems.data(), pitems.size(), timeout);
+        // XXX: implement error handling, don't just assert
         assert(rc != -1);
         if (rc >= 0) {
             for (size_t i = 0; i < pitems.size(); i++) {
@@ -258,6 +260,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
                     int rc = zmq_recv(p.socket, recvmsgBuffer, MTU, 0);
                     if (rc == -1) {
                         ZCM_DEBUG("zmq_recv failed with: %s", zmq_strerror(errno));
+                        // XXX: implement error handling, don't just assert
                         assert(0 && "unexpected codepath");
                     }
                     assert(0 < rc && rc < MTU);
@@ -265,6 +268,17 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
                     msg->channel = recvmsgChannel.c_str();
                     msg->len = rc;
                     msg->buf = recvmsgBuffer;
+
+                    // Note: This is probably fine and there probably isn't an elegant
+                    //       way to improve this, but we could technically have more than
+                    //       one socket with a message ready, but because our API is set
+                    //       up to only handle one message at a time, we don't read all
+                    //       the messages that are ready, only the first. You could
+                    //       imagine a case where one channel was at a very high freq
+                    //       and getting interpreted first could shadow a low freq message
+                    //       on a resource constrained system, though perhaps that's just
+                    //       and indicator that you need to optimize your code or do less.
+
                     return ZCM_EOK;
                 }
             }

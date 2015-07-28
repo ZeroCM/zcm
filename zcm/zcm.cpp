@@ -126,6 +126,8 @@ struct zcm_t
                 bool success;
                 do {
                     success = recvQueue.push(&msg);
+                    // XXX: I believe this could deadlock if the recvQueue gets
+                    //      forcefully woken up (makes push always return false)
                 } while(!success);
             }
         }
@@ -159,6 +161,7 @@ struct zcm_t
                 if (sreg.channelRegex == ".*") {
                     sreg.callback(&rbuf, msg->channel, sreg.usr);
                 } else {
+                    // TODO: Implement more regex
                     ZCM_DEBUG("ZCM only supports the '.*' regex (aka subscribe-all)");
                 }
             }
@@ -194,6 +197,8 @@ struct zcm_t
         bool success;
         do {
             success = sendQueue.push(channel.c_str(), len, data);
+            // XXX: I believe this could deadlock if the sendQueue gets
+            //      forcefully woken up (makes push always return false)
         } while(!success);
 
         return 0;

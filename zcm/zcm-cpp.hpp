@@ -14,6 +14,7 @@ struct ReceiveBuffer;
 
 struct ZCM
 {
+    // TODO: update to match new url based zcm_create
     inline ZCM(const std::string& transport="ipc");
     inline ~ZCM();
 
@@ -36,6 +37,8 @@ struct ZCM
                             void (Handler::*cb)(const ReceiveBuffer* rbuf, const std::string& channel),
                             Handler* handler);
 
+    // TODO: add unsubscribe
+
     inline zcm_t* getUnderlyingZCM();
 
   private:
@@ -45,6 +48,8 @@ struct ZCM
 
 struct ReceiveBuffer
 {
+    // TODO: is there a reason to have the ZCM pointer in here? It seems like it is always
+    //       set to nullptr
     ZCM     *zcm;
 
     uint64_t utime;

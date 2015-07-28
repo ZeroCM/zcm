@@ -8,6 +8,7 @@
 #include <sstream>
 using namespace std;
 
+// TODO: this probably belongs more in a string util like file
 static vector<string> split(const string& str, char delimiter)
 {
     vector<string> v;

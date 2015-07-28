@@ -33,6 +33,8 @@
  *******************************************************************************
  * Blocking Transport API:
  *
+ *      TODO: update this documentation with reference to zcm_url_t and a bit
+ *            on parsing semantics of the input string
  *      zcm_trans_t *create(...)
  *      --------------------------------------------------------------------
  *         This method cannot be called from a vtbl, but this documentation
@@ -71,7 +73,7 @@
  *         methods blocks until it receives a message. It should return ZCM_EOK.
  *         Only messages 'enable'd with recvmsg_enable() should be received.
  *         NOTE: This method should work concurrently and correctly with
- *         recvmsg_enable(). If 'timeout >= 0' then sendmsg()
+ *         recvmsg_enable(). If 'timeout >= 0' then recvmsg()
  *         should return EAGAIN if it is unable to receive a message within
  *         'timeout' milliseconds. NOTE: We do *NOT* require a very accurate
  *         clock for this timeout feature and users should only expect
