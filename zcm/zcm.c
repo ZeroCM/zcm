@@ -26,29 +26,24 @@ int zcm_init(zcm_t *zcm, const char *url)
     zcm_url_t *u = zcm_url_create(url);
     const char *protocol = zcm_url_protocol(u);
 
-    zcm_transport_t *trans = zcm_transport_find(protocol);
-    if (trans) {
-        switch (trans->type) {
-            case ZCM_TRANS_BLOCK: {
-                zcm_trans_t *tr = trans->blocking(u);
-                if (tr) {
+    zcm_trans_create_func *creator = zcm_transport_find(protocol);
+    if (creator) {
+        zcm_trans_t *trans = creator(u);
+        if (trans) {
+            switch (trans->trans_type) {
+                case ZCM_TRANS_BLOCK: {
                     zcm->type = ZCM_BLOCKING;
-                    zcm->impl = zcm_blocking_create(zcm, tr);
+                    zcm->impl = zcm_blocking_create(zcm, trans);
                     ret = 1;
-                } else {
-                    ZCM_DEBUG("failed to create transport for '%s'", url);
-                }
-            } break;
-            case ZCM_TRANS_NONBLOCK: {
-                zcm_trans_nonblock_t *tr = trans->nonblocking(u);
-                if (tr) {
+                } break;
+                case ZCM_TRANS_NONBLOCK: {
                     zcm->type = ZCM_NONBLOCKING;
-                    zcm->impl = zcm_nonblocking_create(zcm, tr);
+                    zcm->impl = zcm_nonblocking_create(zcm, trans);
                     ret = 1;
-                } else {
-                    ZCM_DEBUG("failed to create transport for '%s'", url);
-                }
-            } break;
+                } break;
+            }
+        } else {
+            ZCM_DEBUG("failed to create transport for '%s'", url);
         }
     } else {
         ZCM_DEBUG("failed to find transport for '%s'", url);

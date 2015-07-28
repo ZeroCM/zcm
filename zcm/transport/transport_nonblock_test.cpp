@@ -13,7 +13,7 @@ using u16 = uint16_t;
 using u32 = uint32_t;
 using u64 = uint64_t;
 
-struct ZCM_TRANS_CLASSNAME : public zcm_trans_nonblock_t
+struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 {
     char channel[33];
     char message[MTU];
@@ -22,6 +22,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_nonblock_t
 
     ZCM_TRANS_CLASSNAME(zcm_url_t *url)
     {
+        trans_type = ZCM_TRANS_NONBLOCK;
         vtbl = &methods;
     }
 
@@ -54,7 +55,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_nonblock_t
         return ZCM_EOK;
     }
 
-    int recvmsg(zcm_msg_t *msg)
+    int recvmsg(zcm_msg_t *msg, int timeout)
     {
         if (!used)
             return ZCM_EAGAIN;
@@ -73,34 +74,34 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_nonblock_t
     }
 
     /********************** STATICS **********************/
-    static zcm_trans_nonblock_methods_t methods;
-    static ZCM_TRANS_CLASSNAME *cast(zcm_trans_nonblock_t *zt)
+    static zcm_trans_methods_t methods;
+    static ZCM_TRANS_CLASSNAME *cast(zcm_trans_t *zt)
     {
         assert(zt->vtbl == &methods);
         return (ZCM_TRANS_CLASSNAME*)zt;
     }
 
-    static size_t _getMtu(zcm_trans_nonblock_t *zt)
+    static size_t _getMtu(zcm_trans_t *zt)
     { return cast(zt)->getMtu(); }
 
-    static int _sendmsg(zcm_trans_nonblock_t *zt, zcm_msg_t msg)
+    static int _sendmsg(zcm_trans_t *zt, zcm_msg_t msg)
     { return cast(zt)->sendmsg(msg); }
 
-    static int _recvmsgEnable(zcm_trans_nonblock_t *zt, const char *channel, bool enable)
+    static int _recvmsgEnable(zcm_trans_t *zt, const char *channel, bool enable)
     { return cast(zt)->recvmsgEnable(channel, enable); }
 
-    static int _recvmsg(zcm_trans_nonblock_t *zt, zcm_msg_t *msg)
-    { return cast(zt)->recvmsg(msg); }
+    static int _recvmsg(zcm_trans_t *zt, zcm_msg_t *msg, int timeout)
+    { return cast(zt)->recvmsg(msg, timeout); }
 
-    static int _update(zcm_trans_nonblock_t *zt)
+    static int _update(zcm_trans_t *zt)
     { return cast(zt)->update(); }
 
-    static void _destroy(zcm_trans_nonblock_t *zt)
+    static void _destroy(zcm_trans_t *zt)
     { delete cast(zt); }
 };
 
 
-zcm_trans_nonblock_methods_t ZCM_TRANS_CLASSNAME::methods = {
+zcm_trans_methods_t ZCM_TRANS_CLASSNAME::methods = {
     &ZCM_TRANS_CLASSNAME::_getMtu,
     &ZCM_TRANS_CLASSNAME::_sendmsg,
     &ZCM_TRANS_CLASSNAME::_recvmsgEnable,
@@ -109,12 +110,12 @@ zcm_trans_nonblock_methods_t ZCM_TRANS_CLASSNAME::methods = {
     &ZCM_TRANS_CLASSNAME::_destroy,
 };
 
-static zcm_trans_nonblock_t *create(zcm_url_t *url)
+static zcm_trans_t *create(zcm_url_t *url)
 {
     return new ZCM_TRANS_CLASSNAME(url);
 }
 
 // Register this transport with ZCM
 static struct Register { Register() {
-    zcm_transport_nonblock_register("nonblock-test", "Test impl for non-block transport", create);
+    zcm_transport_register("nonblock-test", "Test impl for non-block transport", create);
 }} reg;
