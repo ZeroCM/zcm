@@ -1,29 +1,42 @@
 #include "zcm/transport.h"
-#include "zcm/transport/transport_zmq_local.h"
-#include "zcm/transport/transport_serial.h"
-#include "zcm/util/url.h"
-
 #include <string.h>
-#include <stdio.h>
 
-zcm_trans_t *zcm_trans_builtin_create(const char *url)
+#define ZCM_TRANSPORTS_MAX 128
+static const char *t_name[ZCM_TRANSPORTS_MAX];
+static const char *t_desc[ZCM_TRANSPORTS_MAX];
+static zcm_trans_create_func *t_creator[ZCM_TRANSPORTS_MAX];
+static size_t t_index = 0;
+
+bool zcm_transport_register(const char *name, const char *desc, zcm_trans_create_func *creator)
 {
-    if (url == NULL)
-        return NULL;
+    if (t_index >= ZCM_TRANSPORTS_MAX)
+        return false;
 
-    zcm_url_t *u = zcm_url_create(url);
-    const char *protocol = zcm_url_protocol(u);
-    //const char *address = zcm_url_address(u);
+    // Does this name already exist?
+    for (size_t i = 0; i < t_index; i++)
+        if (strcmp(t_name[i], name) == 0)
+            return false;
 
-    zcm_trans_t *ret = NULL;
-    if (strcmp(protocol, "ipc") == 0) {
-        ret = zcm_trans_ipc_create(u);
-    } else if (strcmp(protocol, "inproc") == 0) {
-        ret = zcm_trans_inproc_create(u);
-    } else if (strcmp(protocol, "serial") == 0) {
-        ret = zcm_trans_serial_create(u);
+    t_name[t_index] = name;
+    t_desc[t_index] = desc;
+    t_creator[t_index] = creator;
+    t_index++;
+    return true;
+}
+
+zcm_trans_create_func *zcm_transport_find(const char *name)
+{
+    for (size_t i = 0; i < t_index; i++)
+        if (strcmp(t_name[i], name) == 0)
+            return t_creator[i];
+    return NULL;
+}
+
+void zcm_transport_help(FILE *f)
+{
+    fprintf(f, "Transport Name       Description\n");
+    fprintf(f, "-------------------------------------------------------------------------------------\n");
+    for (size_t i = 0; i < t_index; i++) {
+        fprintf(f, "%-20s %s\n", t_name[i], t_desc[i]);
     }
-
-    zcm_url_destroy(u);
-    return ret;
 }

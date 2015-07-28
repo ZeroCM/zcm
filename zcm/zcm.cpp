@@ -1,6 +1,5 @@
 #include "zcm/zcm.h"
 #include "zcm/transport.h"
-#include "zcm/transport/transport_zmq_local.h"
 #include "zcm/util/threadsafe_queue.hpp"
 #include "zcm/util/debug.hpp"
 
@@ -276,20 +275,25 @@ struct zcm_t
 /////////////// C Interface Functions ////////////////
 extern "C" {
 
-zcm_t *zcm_create(const char *transport)
+zcm_t *zcm_create(const char *url)
 {
-    zcm_trans_t *zt = zcm_trans_builtin_create(transport);
-    if (zt == NULL) {
-        ZCM_DEBUG("could't find built-in transport named '%s'\n", transport);
-        return NULL;
+    zcm_url_t *u = zcm_url_create(url);
+    const char *protocol = zcm_url_protocol(u);
+
+    zcm_t *ret = NULL;
+    if (auto *tc = zcm_transport_find(protocol)) {
+        auto *transport = tc(u);
+        if (transport) {
+            ret = new zcm_t(transport);
+        } else {
+            ZCM_DEBUG("failed to create transport for '%s'", url);
+        }
+    } else {
+        ZCM_DEBUG("failed to find transport for '%s'", url);
     }
 
-    return new zcm_t(zt);
-}
-
-zcm_t *zcm_create_trans(zcm_trans_t *zt)
-{
-    return new zcm_t(zt);
+    zcm_url_destroy(u);
+    return ret;
 }
 
 void zcm_destroy(zcm_t *zcm)

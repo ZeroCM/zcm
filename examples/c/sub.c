@@ -3,6 +3,7 @@
 #include <inttypes.h>
 #include <unistd.h>
 #include <zcm/zcm.h>
+#include <zcm/transport.h>
 #include "example_t.h"
 
 static bool quiet = false;
@@ -30,19 +31,20 @@ static void my_handler(const zcm_recv_buf_t *rbuf, const char *channel,
 
 int main(int argc, char *argv[])
 {
-    const char *CHANNEL = "EXAMPLE";
     for (int i = 1; i < argc; i++) {
-        if (strcmp(argv[i], "--quiet") == 0)
+        if (strcmp(argv[i], "-h") == 0) {
+            zcm_transport_help(stdout);
+            return 0;
+        } else if (strcmp(argv[i], "--quiet") == 0) {
             quiet = true;
-        else
-            CHANNEL = argv[i];
+        }
     }
 
     zcm_t *zcm = zcm_create("ipc");
     if(!zcm)
         return 1;
 
-    example_t_subscribe(zcm, CHANNEL, &my_handler, NULL);
+    example_t_subscribe(zcm, "EXAMPLE", &my_handler, NULL);
 
     while(1)
         zcm_handle(zcm);
