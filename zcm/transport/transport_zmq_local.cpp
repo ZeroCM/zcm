@@ -1,5 +1,6 @@
 #include "zcm/transport.h"
 #include "zcm/util/debug.hpp"
+#include "zcm/util/lockfile.h"
 #include "zcm/transport/transport_zmq_local.h"
 #include <zmq.h>
 
@@ -67,12 +68,32 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         assert(0 && "unreachable");
     }
 
+    bool acquirePubLockfile(const string& channel)
+    {
+        switch (type) {
+            case IPC: {
+                string lockfileName = IPC_ADDR_PREFIX+channel;
+                return lockfile_trylock(lockfileName.c_str());
+            } break;
+            case INPROC: {
+                // unimpl for INPROC currently
+                return true;
+            } break;
+        }
+        assert(0 && "unreachable");
+    }
+
     // May return null if it cannot create a new pubsock
     void *pubsockFindOrCreate(const string& channel)
     {
         auto it = pubsocks.find(channel);
         if (it != pubsocks.end())
             return it->second;
+        // Before we create a pubsock, we need to acquire the lock file for this
+        if (!acquirePubLockfile(channel)) {
+            ZCM_DEBUG("failed to acquire publish lock on %s, are you attempting multiple publishers?", channel.c_str());
+            return nullptr;
+        }
         void *sock = zmq_socket(ctx, ZMQ_PUB);
         if (sock == nullptr) {
             ZCM_DEBUG("failed to create pubsock: %s", zmq_strerror(errno));

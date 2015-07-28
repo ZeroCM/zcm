@@ -112,7 +112,8 @@ struct zcm_t
                 continue;
             zcm_msg_t *msg = m->get();
             int ret = zcm_trans_sendmsg(zt, *msg);
-            assert(ret == ZCM_EOK);
+            if (ret != ZCM_EOK)
+                ZCM_DEBUG("zcm_trans_sendmsg() failed to return EOK.. dropping the msg!");
             sendQueue.pop();
         }
     }
