@@ -4,31 +4,37 @@
 #include "zcm/util/debug.h"
 #include <assert.h>
 
-enum zcm_type { BLOCKING, NONBLOCKING };
-struct zcm_t
-{
-    enum zcm_type type;
-    union {
-        zcm_blocking_t    *blocking;
-        zcm_nonblocking_t *nonblocking;
-    };
-};
-
 zcm_t *zcm_create(const char *url)
 {
+    zcm_t *z = malloc(sizeof(zcm_t));
+    if (!zcm_init(z, url)) {
+        free(z);
+        return NULL;
+    }
+    return z;
+}
+
+void zcm_destroy(zcm_t *zcm)
+{
+    zcm_cleanup(zcm);
+    free(zcm);
+}
+
+int zcm_init(zcm_t *zcm, const char *url)
+{
+    int ret = 0;
     zcm_url_t *u = zcm_url_create(url);
     const char *protocol = zcm_url_protocol(u);
 
-    zcm_t *ret = NULL;
     zcm_transport_t *trans = zcm_transport_find(protocol);
     if (trans) {
-        ret = malloc(sizeof(zcm_t));
         switch (trans->type) {
             case ZCM_TRANS_BLOCK: {
                 zcm_trans_t *tr = trans->blocking(u);
                 if (tr) {
-                    ret->type = BLOCKING;
-                    ret->blocking = zcm_blocking_create(ret, tr);
+                    zcm->type = ZCM_BLOCKING;
+                    zcm->impl = zcm_blocking_create(zcm, tr);
+                    ret = 1;
                 } else {
                     ZCM_DEBUG("failed to create transport for '%s'", url);
                 }
@@ -36,8 +42,9 @@ zcm_t *zcm_create(const char *url)
             case ZCM_TRANS_NONBLOCK: {
                 zcm_trans_nonblock_t *tr = trans->nonblocking(u);
                 if (tr) {
-                    ret->type = NONBLOCKING;
-                    ret->nonblocking = zcm_nonblocking_create(ret, tr);
+                    zcm->type = ZCM_NONBLOCKING;
+                    zcm->impl = zcm_nonblocking_create(zcm, tr);
+                    ret = 1;
                 } else {
                     ZCM_DEBUG("failed to create transport for '%s'", url);
                 }
@@ -51,22 +58,21 @@ zcm_t *zcm_create(const char *url)
     return ret;
 }
 
-void zcm_destroy(zcm_t *zcm)
+void zcm_cleanup(zcm_t *zcm)
 {
     if (zcm) {
         switch (zcm->type) {
-            case BLOCKING:    zcm_blocking_destroy   (zcm->blocking);    break;
-            case NONBLOCKING: zcm_nonblocking_destroy(zcm->nonblocking); break;
+            case ZCM_BLOCKING:    zcm_blocking_destroy   (zcm->impl); break;
+            case ZCM_NONBLOCKING: zcm_nonblocking_destroy(zcm->impl); break;
         }
-        free(zcm);
     }
 }
 
 int zcm_publish(zcm_t *zcm, const char *channel, char *data, size_t len)
 {
     switch (zcm->type) {
-        case BLOCKING:    return zcm_blocking_publish   (zcm->blocking,    channel, data, len); break;
-        case NONBLOCKING: return zcm_nonblocking_publish(zcm->nonblocking, channel, data, len); break;
+        case ZCM_BLOCKING:    return zcm_blocking_publish   (zcm->impl, channel, data, len); break;
+        case ZCM_NONBLOCKING: return zcm_nonblocking_publish(zcm->impl, channel, data, len); break;
     }
     assert(0 && "unreachable");
 }
@@ -74,8 +80,8 @@ int zcm_publish(zcm_t *zcm, const char *channel, char *data, size_t len)
 int zcm_subscribe(zcm_t *zcm, const char *channel, zcm_callback_t *cb, void *usr)
 {
     switch (zcm->type) {
-        case BLOCKING:    return zcm_blocking_subscribe   (zcm->blocking,    channel, cb, usr); break;
-        case NONBLOCKING: return zcm_nonblocking_subscribe(zcm->nonblocking, channel, cb, usr); break;
+        case ZCM_BLOCKING:    return zcm_blocking_subscribe   (zcm->impl, channel, cb, usr); break;
+        case ZCM_NONBLOCKING: return zcm_nonblocking_subscribe(zcm->impl, channel, cb, usr); break;
     }
     assert(0 && "unreachable");
 }
@@ -83,16 +89,16 @@ int zcm_subscribe(zcm_t *zcm, const char *channel, zcm_callback_t *cb, void *usr
 void zcm_become(zcm_t *zcm)
 {
     switch (zcm->type) {
-        case BLOCKING:    return zcm_blocking_become(zcm->blocking); break;
-        case NONBLOCKING: assert(0 && "Cannot become() on a nonblocking ZCM interface"); break;
+        case ZCM_BLOCKING:    return zcm_blocking_become(zcm->impl); break;
+        case ZCM_NONBLOCKING: assert(0 && "Cannot become() on a nonblocking ZCM interface"); break;
     }
 }
 
 int zcm_handle_nonblock(zcm_t *zcm)
 {
     switch (zcm->type) {
-        case BLOCKING:    assert(0 && "Cannot handle_nonblock() on a blocking ZCM interface"); break;
-        case NONBLOCKING: return zcm_nonblocking_handle_nonblock(zcm->nonblocking); break;
+        case ZCM_BLOCKING:    assert(0 && "Cannot handle_nonblock() on a blocking ZCM interface"); break;
+        case ZCM_NONBLOCKING: return zcm_nonblocking_handle_nonblock(zcm->impl); break;
     }
     assert(0 && "unreachable");
 }

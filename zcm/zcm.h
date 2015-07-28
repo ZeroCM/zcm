@@ -10,6 +10,12 @@ extern "C" {
 #include <stdbool.h>
 
 typedef struct zcm_t zcm_t;
+enum zcm_type { ZCM_BLOCKING, ZCM_NONBLOCKING };
+struct zcm_t
+{
+    enum zcm_type type;
+    void *impl;
+};
 
 typedef struct zcm_recv_buf_t zcm_recv_buf_t;
 struct zcm_recv_buf_t
@@ -26,7 +32,10 @@ typedef void zcm_callback_t(const zcm_recv_buf_t *rbuf, const char *channel, voi
 zcm_t *zcm_create(const char *url);
 void   zcm_destroy(zcm_t *zcm);
 
-// TODO: document return codes
+// Returns 1 on success, and 0 on failure
+int    zcm_init(zcm_t *zcm, const char *url);
+void   zcm_cleanup(zcm_t *zcm);
+
 int    zcm_publish(zcm_t *zcm, const char *channel, char *data, size_t len);
 int    zcm_subscribe(zcm_t *zcm, const char *channel, zcm_callback_t *cb, void *usr);
 // TODO: add an unsubscribe
