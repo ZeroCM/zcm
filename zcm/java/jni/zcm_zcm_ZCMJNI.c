@@ -33,9 +33,9 @@ static void setNativePtr(JNIEnv *env, jobject self, Internal *zcm)
 /*
  * Class:     zcm_zcm_ZCMJNI
  * Method:    initializeNative
- * Signature: (Ljava/lang/String;)V
+ * Signature: (Ljava/lang/String;)Z
  */
-JNIEXPORT void JNICALL Java_zcm_zcm_ZCMJNI_initializeNative
+JNIEXPORT jboolean JNICALL Java_zcm_zcm_ZCMJNI_initializeNative
 (JNIEnv *env, jobject self, jstring urlJ)
 {
     Internal *I = calloc(1, sizeof(Internal));
@@ -47,6 +47,8 @@ JNIEXPORT void JNICALL Java_zcm_zcm_ZCMJNI_initializeNative
     (*env)->ReleaseStringUTFChars(env, urlJ, url);
 
     setNativePtr(env, self, I);
+
+    return I->zcm ? 1 : 0;
 }
 
 /*
