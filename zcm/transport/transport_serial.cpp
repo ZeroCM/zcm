@@ -1,4 +1,4 @@
-#include "zcm/transport/transport_serial.h"
+#include "zcm/transport.h"
 #include "zcm/util/lockfile.h"
 #include "zcm/util/debug.hpp"
 
@@ -451,7 +451,7 @@ zcm_trans_methods_t ZCM_TRANS_CLASSNAME::methods = {
     &ZCM_TRANS_CLASSNAME::_destroy,
 };
 
-zcm_trans_t *zcm_trans_serial_create(zcm_url_t *url)
+static zcm_trans_t *create(zcm_url_t *url)
 {
     auto *trans = new ZCM_TRANS_CLASSNAME(url);
     if (trans->good())
@@ -460,3 +460,8 @@ zcm_trans_t *zcm_trans_serial_create(zcm_url_t *url)
     delete trans;
     return nullptr;
 }
+
+// Register this transport with ZCM
+static struct Register { Register() {
+    zcm_transport_register("serial", "Transfer data via a serial connection (e.g. 'serial:///dev/ttyUSB0?baud=115200')", create);
+}} reg;

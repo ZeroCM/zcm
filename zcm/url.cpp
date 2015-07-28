@@ -1,4 +1,4 @@
-#include "zcm/util/url.h"
+#include "zcm/url.h"
 #include "zcm/util/debug.hpp"
 
 #include <cassert>

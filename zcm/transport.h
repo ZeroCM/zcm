@@ -152,8 +152,10 @@ extern "C" {
 #endif
 
 #include <stdlib.h>
+#include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include "zcm/url.h"
 
 #define ZCM_CHANNEL_MAXLEN 32
 
@@ -246,9 +248,13 @@ static inline int zcm_trans_async_update(zcm_trans_async_t *zt)
 static inline void zcm_trans_async_destroy(zcm_trans_async_t *zt)
 { return zt->vtbl->destroy(zt); }
 
+// Functions that create zcm_trans_t should conform to this type signature
+typedef zcm_trans_t *(zcm_trans_create_func)(zcm_url_t *url);
 
-zcm_trans_t *zcm_trans_builtin_create(const char *url);
-
+bool zcm_transport_register(const char *name, const char *desc,
+                            zcm_trans_create_func *creator);
+zcm_trans_create_func *zcm_transport_find(const char *name);
+void zcm_transport_list(FILE *f);
 
 #ifdef __cplusplus
 }
