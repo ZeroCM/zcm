@@ -23,10 +23,11 @@ int main(int argc, char *argv[])
     my_data.orientation[2] = 0;
     my_data.orientation[3] = 0;
 
+    //my_data.num_ranges = 100000;
     my_data.num_ranges = 15;
     my_data.ranges.resize(my_data.num_ranges);
     for(int i = 0; i < my_data.num_ranges; i++)
-        my_data.ranges[i] = i;
+        my_data.ranges[i] = i%20000;
 
     my_data.name = "example string";
     my_data.enabled = true;

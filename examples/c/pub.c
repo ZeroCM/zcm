@@ -1,13 +1,17 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <zcm/zcm.h>
+#include <zcm/transport.h>
 #include "example_t.h"
 
 int main(int argc, char *argv[])
 {
-    const char *CHANNEL = "EXAMPLE";
-    if (argc > 1)
-        CHANNEL = argv[1];
+    if (argc > 1) {
+        if (strcmp(argv[1], "-h") == 0) {
+            zcm_transport_help(stdout);
+            return 0;
+        }
+    }
 
     zcm_t *zcm = zcm_create("ipc");
     if (!zcm)
@@ -25,7 +29,7 @@ int main(int argc, char *argv[])
     my_data.enabled = 1;
 
     while (1) {
-        example_t_publish(zcm, CHANNEL, &my_data);
+        example_t_publish(zcm, "EXAMPLE", &my_data);
         usleep(20);
     }
 

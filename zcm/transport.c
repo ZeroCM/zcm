@@ -32,7 +32,7 @@ zcm_trans_create_func *zcm_transport_find(const char *name)
     return NULL;
 }
 
-void zcm_transport_list(FILE *f)
+void zcm_transport_help(FILE *f)
 {
     fprintf(f, "Transport Name       Description\n");
     fprintf(f, "-------------------------------------------------------------------------------------\n");

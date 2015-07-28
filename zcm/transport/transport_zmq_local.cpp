@@ -317,6 +317,6 @@ static zcm_trans_t *createInproc(zcm_url_t *url)
 
 // Register this transport with ZCM
 static struct Register { Register() {
-    zcm_transport_register("ipc",    "Transfer data via Inter-process Communication", createIpc);
-    zcm_transport_register("inproc", "Transfer data via Internal process memory",     createInproc);
+    zcm_transport_register("ipc",    "Transfer data via Inter-process Communication (e.g. 'ipc')", createIpc);
+    zcm_transport_register("inproc", "Transfer data via Internal process memory (e.g. 'inproc')",  createInproc);
 }} reg;

@@ -254,7 +254,7 @@ typedef zcm_trans_t *(zcm_trans_create_func)(zcm_url_t *url);
 bool zcm_transport_register(const char *name, const char *desc,
                             zcm_trans_create_func *creator);
 zcm_trans_create_func *zcm_transport_find(const char *name);
-void zcm_transport_list(FILE *f);
+void zcm_transport_help(FILE *f);
 
 #ifdef __cplusplus
 }
