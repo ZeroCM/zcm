@@ -27,7 +27,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_nonblock_t
 
     ~ZCM_TRANS_CLASSNAME()
     {
-        // TODO shutdown serial
+        // TODO shutdown
     }
 
     /********************** METHODS **********************/

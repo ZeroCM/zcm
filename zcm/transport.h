@@ -62,6 +62,11 @@
  *      --------------------------------------------------------------------
  *         This method will enable/disable the receipt of messages on the particular
  *         channel. For 'all channels', the user should pass NULL for the channel.
+ *         This method is like a "suggestion", the transport is allowed to "enable"
+ *         more channels without concern. This method only sets the "minimum set"
+ *         of channels that the user expects to receive. It exists to provide the
+ *         transport layer more information for optimization purposes (e.g. the
+ *         transport may decide to send each channel over a different endpoint).
  *         NOTE: This method should work concurrently and correctly with
  *         recvmsg(). On success, this method should return ZCM_EOK
  *
@@ -69,7 +74,8 @@
  *      --------------------------------------------------------------------
  *         The caller to this method initiates a message recv operation. This
  *         methods blocks until it receives a message. It should return ZCM_EOK.
- *         Only messages 'enable'd with recvmsg_enable() should be received.
+ *         Messages that have been 'enable'd with recvmsg_enable() *must* be received.
+ *         Extra messages can also be received; the 'enable'd channels sets a minimum set.
  *         NOTE: This method should work concurrently and correctly with
  *         recvmsg_enable(). If 'timeout >= 0' then recvmsg()
  *         should return EAGAIN if it is unable to receive a message within
@@ -119,6 +125,11 @@
  *      --------------------------------------------------------------------
  *         This method will enable/disable the receipt of messages on the particular
  *         channel. For 'all channels', the user should pass NULL for the channel.
+ *         This method is like a "suggestion", the transport is allowed to "enable"
+ *         more channels without concern. This method only sets the "minimum set"
+ *         of channels that the user expects to receive. It exists to provide the
+ *         transport layer more information for optimization purposes (e.g. the
+ *         transport may decide to send each channel over a different endpoint).
  *         NOTE: This method does NOT have to work concurrently with recvmsg().
  *         On success, this method should return ZCM_EOK
  *
@@ -127,7 +138,8 @@
  *         The caller to this method initiates a message recv operation. This
  *         methods should *never block*. If a message has been received then
  *         EOK should be returned, otherwise it should return EAGAIN.
- *         Only messages 'enable'd with recvmsg_enable() should be received.
+ *         Messages that have been 'enable'd with recvmsg_enable() *must* be received.
+ *         Extra messages can also be received; the 'enable'd channels sets a minimum set.
  *         NOTE: This method does NOT have to work concurrently with recvmsg_enable()
  *
  *      int update(zcm_trans_nonblock_t *zt)

@@ -4,7 +4,9 @@
 
 #include <string.h>
 
-#define MAX_SUBS 16
+// TODO remove malloc for preallocated mem and linked-lists
+#define ZCM_NONBLOCK_SUBS_MAX 16
+
 typedef struct sub sub_t;
 struct sub
 {
@@ -20,14 +22,16 @@ struct zcm_nonblocking
 
     // TODO speed this up
     size_t nsubs;
-    sub_t subs[MAX_SUBS];
+    sub_t subs[ZCM_NONBLOCK_SUBS_MAX];
 };
 
 zcm_nonblocking_t *zcm_nonblocking_create(zcm_t *zcm, zcm_trans_nonblock_t *trans)
 {
-    zcm_nonblocking_t *z = calloc(1, sizeof(zcm_nonblocking_t));
+    zcm_nonblocking_t *z = malloc(sizeof(zcm_nonblocking_t));
+    if (!z) return NULL;
     z->zcm = zcm;
     z->trans = trans;
+    z->nsubs = 0;
     return z;
 }
 
@@ -51,7 +55,13 @@ int zcm_nonblocking_publish(zcm_nonblocking_t *z, const char *channel, char *dat
 
 int zcm_nonblocking_subscribe(zcm_nonblocking_t *z, const char *channel, zcm_callback_t *cb, void *usr)
 {
+    int ret = zcm_trans_nonblock_enable(z->trans, channel, true);
+    if (ret != ZCM_EOK)
+        return ret;
+
     size_t i = z->nsubs;
+    if (i >= ZCM_NONBLOCK_SUBS_MAX)
+        return ZCM_EINVALID;
     strcpy(z->subs[i].channel, channel);
     z->subs[i].cb = cb;
     z->subs[i].usr = usr;
@@ -77,21 +87,16 @@ static void dispatch_message(zcm_nonblocking_t *z, zcm_msg_t *msg)
 
 int zcm_nonblocking_handle_nonblock(zcm_nonblocking_t *z)
 {
-    int dispatched = 0;
+    int ret;
+    zcm_msg_t msg;
 
     // Perform any required traansport-level updates
     zcm_trans_nonblock_update(z->trans);
 
     // Try to receive a messages from the transport and dispatch them
-    int ret;
-    zcm_msg_t msg;
-    while (1) {
-        ret = zcm_trans_nonblock_recvmsg(z->trans, &msg);
-        if (ret != ZCM_EOK)
-            break;
-        dispatch_message(z, &msg);
-        dispatched = 1;
-    }
+    if ((ret=zcm_trans_nonblock_recvmsg(z->trans, &msg)) != ZCM_EOK)
+        return ret;
+    dispatch_message(z, &msg);
 
-    return dispatched;
+    return ZCM_EOK;
 }
