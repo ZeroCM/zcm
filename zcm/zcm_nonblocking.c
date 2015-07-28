@@ -1,3 +1,4 @@
+#include "zcm/transport.h"
 #include "zcm/zcm_nonblocking.h"
 #include "zcm/util/debug.h"
 
@@ -7,7 +8,7 @@
 typedef struct sub sub_t;
 struct sub
 {
-    char channel[32];
+    char channel[ZCM_CHANNEL_MAXLEN+1];
     zcm_callback_t *cb;
     void *usr;
 };
@@ -57,4 +58,40 @@ int zcm_nonblocking_subscribe(zcm_nonblocking_t *z, const char *channel, zcm_cal
     z->nsubs++;
 
     return -1;
+}
+
+static void dispatch_message(zcm_nonblocking_t *z, zcm_msg_t *msg)
+{
+    for (size_t i = 0; i < z->nsubs; i++) {
+        if (strcmp(z->subs[i].channel, msg->channel) == 0) {
+            zcm_recv_buf_t rbuf;
+            rbuf.zcm = z->zcm;
+            rbuf.utime = 0;
+            rbuf.len = msg->len;
+            rbuf.data = (char*)msg->buf;
+            sub_t *s = &z->subs[i];
+            s->cb(&rbuf, msg->channel, s->usr);
+        }
+    }
+}
+
+int zcm_nonblocking_handle_nonblock(zcm_nonblocking_t *z)
+{
+    int dispatched = 0;
+
+    // Perform any required traansport-level updates
+    zcm_trans_nonblock_update(z->trans);
+
+    // Try to receive a messages from the transport and dispatch them
+    int ret;
+    zcm_msg_t msg;
+    while (1) {
+        ret = zcm_trans_nonblock_recvmsg(z->trans, &msg);
+        if (ret != ZCM_EOK)
+            break;
+        dispatch_message(z, &msg);
+        dispatched = 1;
+    }
+
+    return dispatched;
 }

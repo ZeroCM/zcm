@@ -87,3 +87,12 @@ void zcm_become(zcm_t *zcm)
         case NONBLOCKING: assert(0 && "Cannot become() on a nonblocking ZCM interface"); break;
     }
 }
+
+int zcm_handle_nonblock(zcm_t *zcm)
+{
+    switch (zcm->type) {
+        case BLOCKING:    assert(0 && "Cannot handle_nonblock() on a blocking ZCM interface"); break;
+        case NONBLOCKING: return zcm_nonblocking_handle_nonblock(zcm->nonblocking); break;
+    }
+    assert(0 && "unreachable");
+}

@@ -1,6 +1,8 @@
 #include "zcm/transport.h"
 #include "zcm/util/debug.h"
+
 #include <cassert>
+#include <cstring>
 
 // Define this the class name you want
 #define ZCM_TRANS_CLASSNAME TransportNonblockTest
@@ -13,6 +15,10 @@ using u64 = uint64_t;
 
 struct ZCM_TRANS_CLASSNAME : public zcm_trans_nonblock_t
 {
+    char channel[33];
+    char message[MTU];
+    size_t messageSize;
+    bool used = false;
 
     ZCM_TRANS_CLASSNAME(zcm_url_t *url)
     {
@@ -32,23 +38,38 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_nonblock_t
 
     int sendmsg(zcm_msg_t msg)
     {
-        ZCM_DEBUG("sendmsg");
-        return ZCM_EINVALID;
+        if (used)
+            return ZCM_EAGAIN;
+
+        strcpy(channel, msg.channel);
+        memcpy(message, msg.buf, msg.len);
+        messageSize = msg.len;
+        used = true;
+
+        return ZCM_EOK;
     }
 
     int recvmsgEnable(const char *channel, bool enable)
     {
-        return ZCM_EINVALID;
+        return ZCM_EOK;
     }
 
     int recvmsg(zcm_msg_t *msg)
     {
-        return ZCM_EINVALID;
+        if (!used)
+            return ZCM_EAGAIN;
+
+        msg->channel = channel;
+        msg->len = messageSize;
+        msg->buf = message;
+        used = false;
+        return ZCM_EOK;
+
     }
 
     int update()
     {
-        return ZCM_EINVALID;
+        return ZCM_EOK;
     }
 
     /********************** STATICS **********************/
