@@ -4,6 +4,7 @@
   "description": "",
   "dependencies": {
     "zcm": "~1.0.0",
-    "ref": "~1.0.2"
+    "ref": "~1.0.2",
+    "sleep": "~2.0.0"
   }
 }

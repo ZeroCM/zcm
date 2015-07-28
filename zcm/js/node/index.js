@@ -98,6 +98,8 @@ function socketioTransport(http) {
 
 function zcm_create(transport) {
     transport = transport || 'ipc';
+    // NOTE: this is a hack to keep the program alive
+    setInterval(function(){}, 100000);
     return libzcmTransport(transport);
 }
 

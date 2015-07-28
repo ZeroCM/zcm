@@ -1,2 +1,6 @@
 #!/bin/bash
-npm install ../../build/zcm-js/zcm-*.tgz
+if [ "$1" == "local" ]; then
+    cp ../../zcm/js/node/index.js node_modules/zcm/.
+else
+    npm install ../../build/zcm/js/zcm-*.tgz
+fi
