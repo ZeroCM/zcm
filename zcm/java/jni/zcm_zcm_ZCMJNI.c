@@ -1,6 +1,7 @@
 #include "zcm/java/jni/zcm_zcm_ZCMJNI.h"
 #include "zcm/zcm.h"
 #include <assert.h>
+#include <stdbool.h>
 
 typedef struct Internal Internal;
 struct Internal
@@ -74,27 +75,26 @@ JNIEXPORT jint JNICALL Java_zcm_zcm_ZCMJNI_publish
     return ret;
 }
 
-static JNIEnv *getEnv(JavaVM *vm)
+static void handler(const zcm_recv_buf_t *rbuf, const char *channel, void *usr)
 {
+    Internal *I = (Internal *)usr;
+    jobject self = I->self;
+
+    bool isAttached = false;
+    JavaVM *vm = I->jvm;
     JNIEnv *env;
 
     int rc = (*vm)->GetEnv(vm, (void **)&env, JNI_VERSION_1_6);
     if (rc == JNI_EDETACHED) {
         if ((*vm)->AttachCurrentThread(vm, (void **)&env, NULL) != 0) {
             fprintf(stderr, "ZCMJNI: getEnv: Failed to attach Thread in JNI!\n");
+        } else {
+            isAttached = true;
         }
     } else if (rc == JNI_EVERSION) {
         fprintf(stderr, "ZCMJNI: getEnv: JNI version not supported!\n");
     }
 
-    return env;
-}
-
-static void handler(const zcm_recv_buf_t *rbuf, const char *channel, void *usr)
-{
-    Internal *I = (Internal *)usr;
-    jobject self = I->self;
-    JNIEnv *env = getEnv(I->jvm);
 
     jstring channelJ = (*env)->NewStringUTF(env, channel);
 
@@ -111,6 +111,13 @@ static void handler(const zcm_recv_buf_t *rbuf, const char *channel, void *usr)
 
     (*env)->CallVoidMethod(env, self, receiveMessage,
                            channelJ, dataJ, offsetJ, lenJ);
+
+    // NOTE: if we attached this thread to dispatch up to java, we need to make sure
+    //       that we detach before returning so the references get freed.
+    //       Forgetting to do this step can cause references to be lost and memory to be leaked,
+    //       ultimately crashing the entire process due to Out-of-Memory.
+    if (isAttached)
+        (*vm)->DetachCurrentThread(vm);
 }
 
 /*
