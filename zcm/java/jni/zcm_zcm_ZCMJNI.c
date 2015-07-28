@@ -139,17 +139,3 @@ JNIEXPORT jint JNICALL Java_zcm_zcm_ZCMJNI_subscribe
     (*env)->ReleaseStringUTFChars(env, channelJ, channel);
     return ret;
 }
-
-/*
- * Class:     zcm_zcm_ZCMJNI
- * Method:    handle
- * Signature: ()I
- */
-JNIEXPORT jint JNICALL Java_zcm_zcm_ZCMJNI_handle
-(JNIEnv *env, jobject self)
-{
-    Internal *I = getNativePtr(env, self);
-    assert(I);
-    int rc = zcm_handle(I->zcm);
-    return rc;
-}

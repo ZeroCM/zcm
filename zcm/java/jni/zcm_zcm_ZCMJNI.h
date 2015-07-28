@@ -31,14 +31,6 @@ JNIEXPORT jint JNICALL Java_zcm_zcm_ZCMJNI_publish
 JNIEXPORT jint JNICALL Java_zcm_zcm_ZCMJNI_subscribe
   (JNIEnv *, jobject, jstring, jobject);
 
-/*
- * Class:     zcm_zcm_ZCMJNI
- * Method:    handle
- * Signature: ()I
- */
-JNIEXPORT jint JNICALL Java_zcm_zcm_ZCMJNI_handle
-  (JNIEnv *, jobject);
-
 #ifdef __cplusplus
 }
 #endif
