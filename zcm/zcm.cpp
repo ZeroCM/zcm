@@ -253,6 +253,13 @@ struct zcm_t
         return 0;
     }
 
+    void become()
+    {
+        // This is a hack, we should use this thread for something productive
+        while (1)
+            usleep(1000*1000);
+    }
+
     // TODO: should this call be thread safe?
     void start()
     {
@@ -316,9 +323,9 @@ int zcm_subscribe(zcm_t *zcm, const char *channel, zcm_callback_t *cb, void *usr
     return zcm->subscribe(channel, cb, usr);
 }
 
-int zcm_handle(zcm_t *zcm)
+void zcm_become(zcm_t *zcm)
 {
-    return zcm->handle();
+    zcm->become();
 }
 
 void zcm_start(zcm_t *zcm)

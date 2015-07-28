@@ -31,11 +31,7 @@ int    zcm_publish(zcm_t *zcm, const char *channel, char *data, size_t len);
 int    zcm_subscribe(zcm_t *zcm, const char *channel, zcm_callback_t *cb, void *usr);
 // TODO: add an unsubscribe
 
-// NOTE: This call waits for the next message and dispatches to the callbacks
-//       The thread that calls this function will be the same as the one that
-//       calls the registered callbacks
-int    zcm_handle(zcm_t *zcm);
-
+void   zcm_become(zcm_t *zcm);
 void   zcm_start(zcm_t *zcm);
 void   zcm_stop(zcm_t *zcm);
 

@@ -46,9 +46,7 @@ int main(int argc, char *argv[])
 
     example_t_subscribe(zcm, "EXAMPLE", &my_handler, NULL);
 
-    while(1)
-        zcm_handle(zcm);
-
+    zcm_become(zcm);
     zcm_destroy(zcm);
     return 0;
 }
