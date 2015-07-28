@@ -247,7 +247,7 @@ static inline void zcm_trans_async_destroy(zcm_trans_async_t *zt)
 { return zt->vtbl->destroy(zt); }
 
 
-zcm_trans_t *zcm_trans_builtin_create(const char *transport);
+zcm_trans_t *zcm_trans_builtin_create(const char *url);
 
 
 #ifdef __cplusplus

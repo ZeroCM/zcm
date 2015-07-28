@@ -37,7 +37,7 @@ public class Spy
 
     JButton clearButton = new JButton("Clear");
 
-    public Spy() throws IOException
+    public Spy(String url) throws IOException
     {
         jf = new JFrame("ZCM Spy");
         jdp = new JDesktopPane();
@@ -74,7 +74,7 @@ public class Spy
         jif.setVisible(true);
         jdp.add(jif);
 
-        zcm = new ZCM();
+        zcm = new ZCM(url);
         zcm.subscribeAll(new MySubscriber());
 
         new HzThread().start();
@@ -454,17 +454,31 @@ public class Spy
             System.err.println("         The Sun JRE is recommended.");
         }
 
+        String zcmurl = "ipc";
         for(int optind=0; optind<args.length; optind++) {
             String c = args[optind];
             if(c.equals("-h") || c.equals("--help")) {
                 usage();
+            } else if(c.equals("-l") || c.equals("--zcm-url") || c.startsWith("--zcm-url=")) {
+                String optarg = null;
+                if(c.startsWith("--zcm-url=")) {
+                    optarg=c.substring(10);
+                } else if(optind < args.length) {
+                    optind++;
+                    optarg = args[optind];
+                }
+                if(null == optarg) {
+                    usage();
+                } else {
+                    zcmurl = optarg;
+                }
             } else {
                 usage();
             }
         }
 
         try {
-            new Spy();
+            new Spy(zcmurl);
         } catch (IOException ex) {
             System.out.println(ex);
         }

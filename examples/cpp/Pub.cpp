@@ -4,11 +4,10 @@
 
 int main(int argc, char *argv[])
 {
-    const char *CHANNEL = "EXAMPLE";
-    if (argc > 1)
-        CHANNEL = argv[1];
+    const char *URL = "ipc";
+    if (argc > 1) URL = argv[1];
 
-    zcm::ZCM zcm;
+    zcm::ZCM zcm {URL};
     if (!zcm.good())
         return 1;
 
@@ -33,7 +32,7 @@ int main(int argc, char *argv[])
     my_data.enabled = true;
 
     while (1) {
-        zcm.publish(CHANNEL, &my_data);
+        zcm.publish("EXAMPLE", &my_data);
         usleep(1000*1000);
     }
 

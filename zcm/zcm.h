@@ -23,7 +23,7 @@ struct zcm_recv_buf_t
 
 typedef void zcm_callback_t(const zcm_recv_buf_t *rbuf, const char *channel, void *usr);
 
-zcm_t *zcm_create(const char *transport);
+zcm_t *zcm_create(const char *url);
 zcm_t *zcm_create_trans(zcm_trans_t *zt);
 
 void   zcm_destroy(zcm_t *zcm);

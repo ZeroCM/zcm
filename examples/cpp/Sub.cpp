@@ -32,7 +32,10 @@ class Handler
 
 int main(int argc, char *argv[])
 {
-    zcm::ZCM zcm;
+    const char *URL = "ipc";
+    if (argc > 1) URL = argv[1];
+
+    zcm::ZCM zcm {URL};
     if (!zcm.good())
         return 1;
 

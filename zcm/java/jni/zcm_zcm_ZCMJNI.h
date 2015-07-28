@@ -10,10 +10,10 @@ extern "C" {
 /*
  * Class:     zcm_zcm_ZCMJNI
  * Method:    initializeNative
- * Signature: ()V
+ * Signature: (Ljava/lang/String;)Z
  */
-JNIEXPORT void JNICALL Java_zcm_zcm_ZCMJNI_initializeNative
-  (JNIEnv *, jobject);
+JNIEXPORT jboolean JNICALL Java_zcm_zcm_ZCMJNI_initializeNative
+  (JNIEnv *, jobject, jstring);
 
 /*
  * Class:     zcm_zcm_ZCMJNI
