@@ -1,5 +1,5 @@
 #include "zcm/util/lockfile.h"
-#include "zcm/util/debug.hpp"
+#include "zcm/util/debug.h"
 
 #include <sys/types.h>
 #include <sys/stat.h>

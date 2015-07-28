@@ -35,6 +35,10 @@ void   zcm_become(zcm_t *zcm);
 //void   zcm_start(zcm_t *zcm);
 //void   zcm_stop(zcm_t *zcm);
 
+// Should be used if and only if a nonblock transport
+// is also being used. Internally, this condition is checked.
+void   zcm_handle_non_block(zcm_t *zcm);
+
 #ifdef __cplusplus
 }
 #endif

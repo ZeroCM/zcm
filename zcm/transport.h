@@ -250,10 +250,26 @@ static inline void zcm_trans_nonblock_destroy(zcm_trans_nonblock_t *zt)
 
 // Functions that create zcm_trans_t should conform to this type signature
 typedef zcm_trans_t *(zcm_trans_create_func)(zcm_url_t *url);
+typedef zcm_trans_nonblock_t *(zcm_trans_nonblock_create_func)(zcm_url_t *url);
+
+enum zcm_transport_type { ZCM_TRANS_BLOCK, ZCM_TRANS_NONBLOCK };
+typedef struct zcm_transport zcm_transport_t;
+struct zcm_transport
+{
+    enum zcm_transport_type type;
+    union {
+        zcm_trans_create_func          *blocking;
+        zcm_trans_nonblock_create_func *nonblocking;
+    };
+};
 
 bool zcm_transport_register(const char *name, const char *desc,
                             zcm_trans_create_func *creator);
-zcm_trans_create_func *zcm_transport_find(const char *name);
+
+bool zcm_transport_nonblock_register(const char *name, const char *desc,
+                                     zcm_trans_nonblock_create_func *creator);
+
+zcm_transport_t *zcm_transport_find(const char *name);
 void zcm_transport_help(FILE *f);
 
 #ifdef __cplusplus
