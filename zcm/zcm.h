@@ -32,8 +32,8 @@ int    zcm_subscribe(zcm_t *zcm, const char *channel, zcm_callback_t *cb, void *
 // TODO: add an unsubscribe
 
 void   zcm_become(zcm_t *zcm);
-void   zcm_start(zcm_t *zcm);
-void   zcm_stop(zcm_t *zcm);
+//void   zcm_start(zcm_t *zcm);
+//void   zcm_stop(zcm_t *zcm);
 
 #ifdef __cplusplus
 }

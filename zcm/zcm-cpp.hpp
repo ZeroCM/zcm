@@ -19,7 +19,7 @@ struct ZCM
     inline ~ZCM();
 
     inline bool good() const;
-    inline int handle();
+    inline void become();
 
     inline int publish(const std::string& channel, const char *data,
                        uint len);
