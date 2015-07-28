@@ -17,6 +17,11 @@
 #include <mutex>
 using namespace std;
 
+// TODO: This transport layer needs to be "hardened" to handle
+// all of the possible errors and corner cases. Currently, it
+// should work fine in most cases, but it might fail on some
+// rare cases...
+
 // Define this the class name you want
 #define ZCM_TRANS_CLASSNAME TransportSerial
 #define MTU (1<<20)
