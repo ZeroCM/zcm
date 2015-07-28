@@ -33,9 +33,7 @@
  *******************************************************************************
  * Blocking Transport API:
  *
- *      TODO: update this documentation with reference to zcm_url_t and a bit
- *            on parsing semantics of the input string
- *      zcm_trans_t *create(...)
+ *      zcm_trans_t *create(zcm_url_t *url)
  *      --------------------------------------------------------------------
  *         This method cannot be called from a vtbl, but this documentation
  *         exists to make all create() methods more uniform. This method
@@ -85,13 +83,13 @@
  *         Close the transport and cleanup any resources used.
  *
  *******************************************************************************
- * Non-Blocking (async) Transport API:
+ * Non-Blocking Transport API:
  *
  *      General Note: None of the methods on this object must be thread-safe.
  *                    This API is designed for single-thread, non-blocking,
  *                    and minimalist transports (such as those found in embedded).
  *
- *      zcm_trans_t *create(...)
+ *      zcm_trans_nonblock_t *create(zcm_url_t *url)
  *      --------------------------------------------------------------------
  *         This method cannot be called from a vtbl, but this documentation
  *         exists to make all create() methods more uniform. This method
@@ -100,14 +98,14 @@
  *         Internally, the vtbl field should be set to the appropriate
  *         table of function pointers.
  *
- *      size_t getmtu(zcm_trans_async_t *zt)
+ *      size_t getmtu(zcm_trans_nonblock_t *zt)
  *      --------------------------------------------------------------------
  *         Returns the Maximum Transmission Unit supported by this transport
  *         The transport is allowed to ignore any message above this size
  *         Users of this transport should ensure that they never attempt to
  *         send messages larger than the MTU of their chosen transport
  *
- *      int sendmsg(zcm_trans_async_t *zt, zcm_msg_t msg)
+ *      int sendmsg(zcm_trans_nonblock_t *zt, zcm_msg_t msg)
  *      --------------------------------------------------------------------
  *         The caller to this method initiates a message send operation. The
  *         caller must populate the fields of the zcm_msg_t. The channel must
@@ -117,14 +115,14 @@
  *         message due to unavailability, ZCM_EAGAIN should be returned.
  *         On success ZCM_EOK should be returned.
  *
- *      int recvmsg_enable(zcm_trans_async_t *zt, const char *channel, bool enable)
+ *      int recvmsg_enable(zcm_trans_nonblock_t *zt, const char *channel, bool enable)
  *      --------------------------------------------------------------------
  *         This method will enable/disable the receipt of messages on the particular
  *         channel. For 'all channels', the user should pass NULL for the channel.
  *         NOTE: This method does NOT have to work concurrently with recvmsg().
  *         On success, this method should return ZCM_EOK
  *
- *      int recvmsg(zcm_trans_async_t *zt, zcm_msg_t *msg)
+ *      int recvmsg(zcm_trans_nonblock_t *zt, zcm_msg_t *msg)
  *      --------------------------------------------------------------------
  *         The caller to this method initiates a message recv operation. This
  *         methods should *never block*. If a message has been received then
@@ -132,18 +130,18 @@
  *         Only messages 'enable'd with recvmsg_enable() should be received.
  *         NOTE: This method does NOT have to work concurrently with recvmsg_enable()
  *
- *      int update(zcm_trans_async_t *zt)
+ *      int update(zcm_trans_nonblock_t *zt)
  *      --------------------------------------------------------------------
- *         This method is called from the zcm_handle_async() function.
+ *         This method is called from the zcm_handle_nonblock() function.
  *         This method provides a periodicly-running routine that can perform
  *         updates to the underlying hardware or other general mantainence to
  *         this transport. This method should *never block*. Again, this
- *         method is called from zcm_handle_async() and thus runs at the same
- *         frequency as zcm_handle_async(). Failure to call zcm_handle_async()
- *         while using an async transport may cause the transport to work
+ *         method is called from zcm_handle_nonblock() and thus runs at the same
+ *         frequency as zcm_handle_nonblock(). Failure to call zcm_handle_nonblock()
+ *         while using an nonblock transport may cause the transport to work
  *         incorrectly on both message send and recv.
  *
- *      void destroy(zcm_trans_async_t *zt)
+ *      void destroy(zcm_trans_nonblock_t *zt)
  *      --------------------------------------------------------------------
  *         Close the transport and cleanup any resources used.
  *
@@ -173,8 +171,8 @@ typedef struct zcm_msg_t zcm_msg_t;
 typedef struct zcm_trans_t zcm_trans_t;
 typedef struct zcm_trans_methods_t zcm_trans_methods_t;
 
-typedef struct zcm_trans_async_t zcm_trans_async_t;
-typedef struct zcm_trans_async_methods_t zcm_trans_async_methods_t;
+typedef struct zcm_trans_nonblock_t zcm_trans_nonblock_t;
+typedef struct zcm_trans_nonblock_methods_t zcm_trans_nonblock_methods_t;
 
 // TODO: Discuss the semantics of this datastruct depending on the context (send vs. recv)
 struct zcm_msg_t
@@ -198,19 +196,19 @@ struct zcm_trans_methods_t
     void    (*destroy)(zcm_trans_t *zt);
 };
 
-struct zcm_trans_async_t
+struct zcm_trans_nonblock_t
 {
-    zcm_trans_async_methods_t *vtbl;
+    zcm_trans_nonblock_methods_t *vtbl;
 };
 
-struct zcm_trans_async_methods_t
+struct zcm_trans_nonblock_methods_t
 {
-    size_t  (*get_mtu)(zcm_trans_async_t *zt);
-    int     (*sendmsg)(zcm_trans_async_t *zt, zcm_msg_t msg);
-    int     (*recvmsg_enable)(zcm_trans_async_t *zt, const char *channel, bool enable);
-    int     (*recvmsg)(zcm_trans_async_t *zt, zcm_msg_t *msg);
-    int     (*update)(zcm_trans_async_t *zt);
-    void    (*destroy)(zcm_trans_async_t *zt);
+    size_t  (*get_mtu)(zcm_trans_nonblock_t *zt);
+    int     (*sendmsg)(zcm_trans_nonblock_t *zt, zcm_msg_t msg);
+    int     (*recvmsg_enable)(zcm_trans_nonblock_t *zt, const char *channel, bool enable);
+    int     (*recvmsg)(zcm_trans_nonblock_t *zt, zcm_msg_t *msg);
+    int     (*update)(zcm_trans_nonblock_t *zt);
+    void    (*destroy)(zcm_trans_nonblock_t *zt);
 };
 
 // Helper functions to make the VTbl dispatch cleaner
@@ -232,22 +230,22 @@ static inline void zcm_trans_destroy(zcm_trans_t *zt)
 { return zt->vtbl->destroy(zt); }
 
 // Non-blocking
-static inline size_t zcm_trans_async_get_mtu(zcm_trans_async_t *zt)
+static inline size_t zcm_trans_nonblock_get_mtu(zcm_trans_nonblock_t *zt)
 { return zt->vtbl->get_mtu(zt); }
 
-static inline int zcm_trans_async_sendmsg(zcm_trans_async_t *zt, zcm_msg_t msg)
+static inline int zcm_trans_nonblock_sendmsg(zcm_trans_nonblock_t *zt, zcm_msg_t msg)
 { return zt->vtbl->sendmsg(zt, msg); }
 
-static inline int zcm_trans_async_recvmsg_enable(zcm_trans_async_t *zt, const char *channel, bool enable)
+static inline int zcm_trans_nonblock_recvmsg_enable(zcm_trans_nonblock_t *zt, const char *channel, bool enable)
 { return zt->vtbl->recvmsg_enable(zt, channel, enable); }
 
-static inline int zcm_trans_async_recvmsg(zcm_trans_async_t *zt, zcm_msg_t *msg)
+static inline int zcm_trans_nonblock_recvmsg(zcm_trans_nonblock_t *zt, zcm_msg_t *msg)
 { return zt->vtbl->recvmsg(zt, msg); }
 
-static inline int zcm_trans_async_update(zcm_trans_async_t *zt)
+static inline int zcm_trans_nonblock_update(zcm_trans_nonblock_t *zt)
 { return zt->vtbl->update(zt); }
 
-static inline void zcm_trans_async_destroy(zcm_trans_async_t *zt)
+static inline void zcm_trans_nonblock_destroy(zcm_trans_nonblock_t *zt)
 { return zt->vtbl->destroy(zt); }
 
 // Functions that create zcm_trans_t should conform to this type signature
