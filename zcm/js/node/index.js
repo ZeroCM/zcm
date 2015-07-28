@@ -97,6 +97,7 @@ function socketioTransport(http) {
 }
 
 function zcm_create(transport) {
+    transport = transport || 'ipc';
     return libzcmTransport(transport);
 }
 
