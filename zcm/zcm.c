@@ -14,6 +14,16 @@ zcm_t *zcm_create(const char *url)
     return z;
 }
 
+zcm_t *zcm_create_trans(zcm_trans_t *zt)
+{
+    zcm_t *z = malloc(sizeof(zcm_t));
+    if (!zcm_init_trans(z, zt)) {
+        free(z);
+        return NULL;
+    }
+    return z;
+}
+
 void zcm_destroy(zcm_t *zcm)
 {
     zcm_cleanup(zcm);
@@ -30,18 +40,7 @@ int zcm_init(zcm_t *zcm, const char *url)
     if (creator) {
         zcm_trans_t *trans = creator(u);
         if (trans) {
-            switch (trans->trans_type) {
-                case ZCM_BLOCKING: {
-                    zcm->type = ZCM_BLOCKING;
-                    zcm->impl = zcm_blocking_create(zcm, trans);
-                    ret = 1;
-                } break;
-                case ZCM_NONBLOCKING: {
-                    zcm->type = ZCM_NONBLOCKING;
-                    zcm->impl = zcm_nonblocking_create(zcm, trans);
-                    ret = 1;
-                } break;
-            }
+            ret = zcm_init_trans(zcm, trans);
         } else {
             ZCM_DEBUG("failed to create transport for '%s'", url);
         }
@@ -51,6 +50,23 @@ int zcm_init(zcm_t *zcm, const char *url)
 
     zcm_url_destroy(u);
     return ret;
+}
+
+int zcm_init_trans(zcm_t *zcm, zcm_trans_t *zt)
+{
+    switch (zt->trans_type) {
+        case ZCM_BLOCKING: {
+            zcm->type = ZCM_BLOCKING;
+            zcm->impl = zcm_blocking_create(zcm, zt);
+            return 1;
+        } break;
+        case ZCM_NONBLOCKING: {
+            zcm->type = ZCM_NONBLOCKING;
+            zcm->impl = zcm_nonblocking_create(zcm, zt);
+            return 1;
+        } break;
+    }
+    return 0;
 }
 
 void zcm_cleanup(zcm_t *zcm)
