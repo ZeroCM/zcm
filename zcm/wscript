@@ -16,7 +16,7 @@ def build(ctx):
 
     ## Collect files for Embedded
     ctx(rule = 'tar cfz ${TGT} ${SRC}',
-        source = 'zcm.h zcm_coretypes.h transport.h nonblocking.h nonblocking.c',
+        source = 'zcm.h zcm.c zcm_coretypes.h transport.h nonblocking.h nonblocking.c',
         target = 'zcm-embed.tar.gz')
 
     ctx.add_post_fun(exec_test_embedded)
@@ -35,5 +35,5 @@ def exec_test_embedded(ctx):
     embed_tarball = ctx.path.get_bld().abspath()+'/zcm/zcm-embed.tar.gz'
     print "TEST-EMBED: Attempting to build embedded code (zcm-embed.tar.gz) in C89 mode"
     print "----------------------------------------------------------------------------"
-    ret = ctx.exec_command('rm -rf {0} && mkdir {0} && cd {0} && tar xf {1} && cc -std=c89 -I. -c zcm/*.c'.format(testdir, embed_tarball))
+    ret = ctx.exec_command('rm -rf {0} && mkdir {0} && cd {0} && tar xf {1} && cc -std=c89 -I. -DZCM_EMBEDDED -c zcm/*.c'.format(testdir, embed_tarball))
     print "TEST-EMBED:", ('Success' if ret == 0 else 'Failure')
