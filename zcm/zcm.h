@@ -35,7 +35,7 @@ zcm_t *zcm_create(const char *url);
 zcm_t *zcm_create_trans(zcm_trans_t *zt);
 void   zcm_destroy(zcm_t *zcm);
 
-// Returns 1 on success, and 0 on failure
+/* Returns 1 on success, and 0 on failure */
 int    zcm_init(zcm_t *zcm, const char *url);
 int    zcm_init_trans(zcm_t *zcm, zcm_trans_t *zt);
 void   zcm_cleanup(zcm_t *zcm);
@@ -45,11 +45,11 @@ int    zcm_subscribe(zcm_t *zcm, const char *channel, zcm_callback_t *cb, void *
 // TODO: add an unsubscribe
 
 void   zcm_become(zcm_t *zcm);
-//void   zcm_start(zcm_t *zcm);
-//void   zcm_stop(zcm_t *zcm);
+/* void   zcm_start(zcm_t *zcm); */
+/* void   zcm_stop(zcm_t *zcm); */
 
-// Note: Should be used if and only if a nonblock transport is also being used. Internally, this condition is checked.
-// Returns 1 if a message was dispatched, and 0 otherwise
+/* Note: Should be used if and only if a nonblock transport is also being used. Internally, this condition is checked. */
+/* Returns 1 if a message was dispatched, and 0 otherwise */
 int    zcm_handle_nonblock(zcm_t *zcm);
 
 #ifdef __cplusplus

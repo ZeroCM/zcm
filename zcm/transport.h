@@ -180,11 +180,17 @@ extern "C" {
 #include <stdint.h>
 #include <stdbool.h>
 #include "zcm/zcm.h"
-#include "zcm/url.h"
+
+/* Only define inline for C99 builds or better */
+#if __STDC_VERSION >= 199901L
+# define INLINE inline
+#else
+# define INLINE
+#endif
 
 #define ZCM_CHANNEL_MAXLEN 32
 
-// Return codes
+/* Return codes */
 #define ZCM_EOK       0
 #define ZCM_EINVALID  1
 #define ZCM_EAGAIN    2
@@ -195,7 +201,7 @@ typedef struct zcm_msg_t zcm_msg_t;
 typedef struct zcm_trans_methods_t zcm_trans_methods_t;
 
 
-// TODO: Discuss the semantics of this datastruct depending on the context (send vs. recv)
+/* TODO: Discuss the semantics of this datastruct depending on the context (send vs. recv) */
 struct zcm_msg_t
 {
     const char *channel;
@@ -219,31 +225,24 @@ struct zcm_trans_methods_t
     void    (*destroy)(zcm_trans_t *zt);
 };
 
-// Helper functions to make the VTbl dispatch cleaner
-
-static inline size_t zcm_trans_get_mtu(zcm_trans_t *zt)
+/* Helper functions to make the VTbl dispatch cleaner */
+static INLINE size_t zcm_trans_get_mtu(zcm_trans_t *zt)
 { return zt->vtbl->get_mtu(zt); }
 
-static inline int zcm_trans_sendmsg(zcm_trans_t *zt, zcm_msg_t msg)
+static INLINE int zcm_trans_sendmsg(zcm_trans_t *zt, zcm_msg_t msg)
 { return zt->vtbl->sendmsg(zt, msg); }
 
-static inline int zcm_trans_recvmsg_enable(zcm_trans_t *zt, const char *channel, bool enable)
+static INLINE int zcm_trans_recvmsg_enable(zcm_trans_t *zt, const char *channel, bool enable)
 { return zt->vtbl->recvmsg_enable(zt, channel, enable); }
 
-static inline int zcm_trans_recvmsg(zcm_trans_t *zt, zcm_msg_t *msg, int timeout)
+static INLINE int zcm_trans_recvmsg(zcm_trans_t *zt, zcm_msg_t *msg, int timeout)
 { return zt->vtbl->recvmsg(zt, msg, timeout); }
 
-static inline int zcm_trans_update(zcm_trans_t *zt)
+static INLINE int zcm_trans_update(zcm_trans_t *zt)
 { return zt->vtbl->update(zt); }
 
-static inline void zcm_trans_destroy(zcm_trans_t *zt)
+static INLINE void zcm_trans_destroy(zcm_trans_t *zt)
 { return zt->vtbl->destroy(zt); }
-
-// Functions that create zcm_trans_t should conform to this type signature
-typedef zcm_trans_t *(zcm_trans_create_func)(zcm_url_t *url);
-bool zcm_transport_register(const char *name, const char *desc, zcm_trans_create_func *creator);
-zcm_trans_create_func *zcm_transport_find(const char *name);
-void zcm_transport_help(FILE *f);
 
 #ifdef __cplusplus
 }

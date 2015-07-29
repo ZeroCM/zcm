@@ -1,4 +1,4 @@
-#include "zcm/transport.h"
+#include "zcm/transport_registrar.h"
 #include <string.h>
 
 #define ZCM_TRANSPORTS_MAX 128

@@ -15,7 +15,7 @@ void   zcm_nonblocking_destroy(zcm_nonblocking_t *zcm);
 int    zcm_nonblocking_publish(zcm_nonblocking_t *zcm, const char *channel, char *data, size_t len);
 int    zcm_nonblocking_subscribe(zcm_nonblocking_t *zcm, const char *channel, zcm_callback_t *cb, void *usr);
 
-// Returns 1 if a message was dispatched, and 0 otherwise
+/* Returns 1 if a message was dispatched, and 0 otherwise */
 int zcm_nonblocking_handle_nonblock(zcm_nonblocking_t *zcm);
 
 #ifdef __cplusplus

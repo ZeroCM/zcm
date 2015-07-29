@@ -1,10 +1,9 @@
 #include "zcm/transport.h"
 #include "zcm/nonblocking.h"
-#include "zcm/util/debug.h"
 
 #include <string.h>
 
-// TODO remove malloc for preallocated mem and linked-lists
+/* TODO remove malloc for preallocated mem and linked-lists */
 #define ZCM_NONBLOCK_SUBS_MAX 16
 
 typedef struct sub sub_t;
@@ -20,14 +19,16 @@ struct zcm_nonblocking
     zcm_t *zcm;
     zcm_trans_t *trans;
 
-    // TODO speed this up
+    /* TODO speed this up */
     size_t nsubs;
     sub_t subs[ZCM_NONBLOCK_SUBS_MAX];
 };
 
 zcm_nonblocking_t *zcm_nonblocking_create(zcm_t *zcm, zcm_trans_t *trans)
 {
-    zcm_nonblocking_t *z = malloc(sizeof(zcm_nonblocking_t));
+    zcm_nonblocking_t *z;
+
+    z = malloc(sizeof(zcm_nonblocking_t));
     if (!z) return NULL;
     z->zcm = zcm;
     z->trans = trans;
@@ -47,6 +48,7 @@ void zcm_nonblocking_destroy(zcm_nonblocking_t *z)
 int zcm_nonblocking_publish(zcm_nonblocking_t *z, const char *channel, char *data, size_t len)
 {
     zcm_msg_t msg;
+
     msg.channel = channel;
     msg.len = len;
     msg.buf = data;
@@ -55,11 +57,14 @@ int zcm_nonblocking_publish(zcm_nonblocking_t *z, const char *channel, char *dat
 
 int zcm_nonblocking_subscribe(zcm_nonblocking_t *z, const char *channel, zcm_callback_t *cb, void *usr)
 {
-    int ret = zcm_trans_recvmsg_enable(z->trans, channel, true);
+    int ret;
+    size_t i;
+
+    ret = zcm_trans_recvmsg_enable(z->trans, channel, true);
     if (ret != ZCM_EOK)
         return ret;
 
-    size_t i = z->nsubs;
+    i = z->nsubs;
     if (i >= ZCM_NONBLOCK_SUBS_MAX)
         return ZCM_EINVALID;
     strcpy(z->subs[i].channel, channel);
@@ -72,15 +77,18 @@ int zcm_nonblocking_subscribe(zcm_nonblocking_t *z, const char *channel, zcm_cal
 
 static void dispatch_message(zcm_nonblocking_t *z, zcm_msg_t *msg)
 {
-    for (size_t i = 0; i < z->nsubs; i++) {
+    zcm_recv_buf_t rbuf;
+    sub_t *sub;
+    size_t i;
+
+    for (i = 0; i < z->nsubs; i++) {
         if (strcmp(z->subs[i].channel, msg->channel) == 0) {
-            zcm_recv_buf_t rbuf;
             rbuf.zcm = z->zcm;
             rbuf.utime = 0;
             rbuf.len = msg->len;
             rbuf.data = (char*)msg->buf;
-            sub_t *s = &z->subs[i];
-            s->cb(&rbuf, msg->channel, s->usr);
+            sub = &z->subs[i];
+            sub->cb(&rbuf, msg->channel, sub->usr);
         }
     }
 }
@@ -90,10 +98,10 @@ int zcm_nonblocking_handle_nonblock(zcm_nonblocking_t *z)
     int ret;
     zcm_msg_t msg;
 
-    // Perform any required traansport-level updates
+    /* Perform any required traansport-level updates */
     zcm_trans_update(z->trans);
 
-    // Try to receive a messages from the transport and dispatch them
+    /* Try to receive a messages from the transport and dispatch them */
     if ((ret=zcm_trans_recvmsg(z->trans, &msg, 0)) != ZCM_EOK)
         return ret;
     dispatch_message(z, &msg);

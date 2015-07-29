@@ -1,6 +1,7 @@
 #include "zcm/zcm.h"
 #include "zcm/blocking.h"
 #include "zcm/nonblocking.h"
+#include "zcm/transport_registrar.h"
 #include "zcm/util/debug.h"
 #include <assert.h>
 

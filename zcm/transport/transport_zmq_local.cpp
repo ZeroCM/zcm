@@ -1,4 +1,5 @@
 #include "zcm/transport.h"
+#include "zcm/transport_registrar.h"
 #include "zcm/util/debug.h"
 #include "zcm/util/lockfile.h"
 #include <zmq.h>

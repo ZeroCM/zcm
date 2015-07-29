@@ -14,8 +14,13 @@ def build(ctx):
                                           'util/*.c', 'util/*.cpp',
                                           'transport/*.c', 'transport/*.cpp']))
 
+    ## Collect files for Embedded
+    ctx(rule = 'tar cfz ${TGT} ${SRC}',
+        source = 'zcm.h zcm_coretypes.h transport.h nonblocking.h nonblocking.c',
+        target = 'zcm-embed.tar.gz')
+
     ctx.install_files('${PREFIX}/include/zcm',
-                      ['zcm.h', 'zcm_coretypes.h', 'transport.h', 'url.h', 'eventlog.h',
+                      ['zcm.h', 'zcm_coretypes.h', 'transport.h', 'transport_registrar.h', 'url.h', 'eventlog.h',
                        'zcm-cpp.hpp', 'zcm-cpp-impl.hpp'])
 
     ctx.recurse('java');
