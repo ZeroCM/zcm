@@ -2,6 +2,7 @@
 # encoding: utf-8
 
 import waflib
+from waflib.Errors import ConfigurationError
 
 # these variables are mandatory ('/' are converted automatically)
 top = '.'
@@ -21,9 +22,18 @@ def configure(ctx):
     ctx.load('java')
     ctx.check_cfg(package='zcm', args='--cflags --libs', uselib_store='zcm')
 
-    # There actually should be a way to pull the zcm.jar file out of pkg-config and stuff it
-    # into the uselib_store, but I don't know a great way to do it at this point.
-    ctx.check_java_class('zcm.zcm.ZCM')
+    # Using check_cfg to track down the jar so we can 'use' it when compiling java
+    # unfortunately, check_cfg doesn't assign uselib variables like we'd like
+    ctx.check_cfg(package='zcm', variables='classpath', uselib_store='zcm')
+    ctx.env.CLASSPATH_zcmjar = ctx.env.zcm_classpath
+    if not ctx.env.CLASSPATH_zcmjar:
+        raise ConfigurationError('Failed to find zcm.jar')
+    else:
+        ctx.msg('Checking for zcm.jar', ctx.env.CLASSPATH_zcmjar);
+
+    ctx.check_java_class('zcm.zcm.ZCM', ctx.env.CLASSPATH_zcmjar)
+
+    ctx.find_program('zcm-gen', var='ZCMGEN')
 
 def setup_environment(ctx):
     useOptimize = not waflib.Options.options.debug
@@ -41,8 +51,12 @@ def setup_environment(ctx):
         ctx.env.CFLAGS_default   += SYM_FLAGS
         ctx.env.CXXFLAGS_default += SYM_FLAGS
 
+    ctx.env.ENVIRONMENT_SETUP = True
+
 def build(ctx):
-    setup_environment(ctx)
+    if not ctx.env.ENVIRONMENT_SETUP:
+        setup_environment(ctx)
+
     ctx.recurse('c')
     ctx.recurse('cpp')
     ctx.recurse('java')

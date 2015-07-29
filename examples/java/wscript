@@ -4,6 +4,7 @@
 def build(ctx):
     ctx(name       = 'example',
         features   = 'javac jar',
+        use        = 'zcmjar',
         srcdir     = ['example'],
         outdir     = 'classes',  # path to output (for .class)
         basedir    = 'classes',  # basedir for jar

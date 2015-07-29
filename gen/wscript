@@ -1,6 +1,10 @@
 #! /usr/bin/env python
 # encoding: utf-8
 
+def configure(ctx):
+    ctx.env.ZCMGEN = ctx.path.get_bld().abspath() + '/zcm-gen'
+    ctx.msg('Declaring zcm-gen binary', ctx.env.ZCMGEN)
+
 def build(ctx):
     ctx.program(target = 'zcm-gen',
                 includes = '.', # need this because some files under emit include up to base dir

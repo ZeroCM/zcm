@@ -22,6 +22,8 @@ def configure(ctx):
     ctx.check_jni_headers()
     ctx.check_cfg(package='libzmq', args='--cflags --libs', uselib_store='zmq')
 
+    ctx.recurse('gen');
+
 def setup_environment(ctx):
     ctx.post_mode = waflib.Build.POST_LAZY
     ctx.env.VERSION='1.0.0'
@@ -41,8 +43,12 @@ def setup_environment(ctx):
         ctx.env.CFLAGS_default   += SYM_FLAGS
         ctx.env.CXXFLAGS_default += SYM_FLAGS
 
+    ctx.env.ENVIRONMENT_SETUP = True
+
 def build(ctx):
-    setup_environment(ctx)
+    if not ctx.env.ENVIRONMENT_SETUP:
+        setup_environment(ctx)
+
     ctx.recurse('zcm')
     ctx.recurse('gen')
     ctx.recurse('config')
