@@ -3,13 +3,11 @@
 
 def build(ctx):
     ctx.program(target = 'pub',
-                use = 'default',
-                lib = 'zcm',
+                use = 'default zcm',
                 source = 'pub.c example_t.c',
                 install_path = None)
 
     ctx.program(target = 'sub',
-                use = 'default',
-                lib = 'zcm',
+                use = 'default zcm',
                 source = 'sub.c example_t.c',
                 install_path = None)

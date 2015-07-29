@@ -3,19 +3,16 @@
 
 def build(ctx):
     ctx.program(target = 'pub',
-                use = 'default',
-                lib = 'zcm',
+                use = 'default zcm',
                 source = 'Pub.cpp',
                 install_path = None)
 
     ctx.program(target = 'sub',
-                use = 'default',
-                lib = 'zcm',
+                use = 'default zcm',
                 source = 'Sub.cpp',
                 install_path = None)
 
     ctx.program(target = 'inproc',
-                use = 'default',
-                lib = 'zcm',
+                use = 'default zcm',
                 source = 'Inproc.cpp',
                 install_path = None)
