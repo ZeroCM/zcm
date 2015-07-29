@@ -42,7 +42,7 @@ void   zcm_cleanup(zcm_t *zcm);
 
 int    zcm_publish(zcm_t *zcm, const char *channel, char *data, size_t len);
 int    zcm_subscribe(zcm_t *zcm, const char *channel, zcm_callback_t *cb, void *usr);
-// TODO: add an unsubscribe
+/* TODO: add an unsubscribe */
 
 void   zcm_become(zcm_t *zcm);
 /* void   zcm_start(zcm_t *zcm); */

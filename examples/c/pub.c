@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <zcm/zcm.h>
 #include <zcm/transport.h>
+#include <zcm/transport_registrar.h>
 #include "example_t.h"
 
 int main(int argc, char *argv[])

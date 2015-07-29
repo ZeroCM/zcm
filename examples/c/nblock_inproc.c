@@ -3,6 +3,7 @@
 #include <inttypes.h>
 #include <zcm/zcm.h>
 #include <zcm/transport.h>
+#include <zcm/transport_registrar.h>
 #include "example_t.h"
 
 static void my_handler(const zcm_recv_buf_t *rbuf, const char *channel,
