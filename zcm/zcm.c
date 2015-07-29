@@ -31,12 +31,12 @@ int zcm_init(zcm_t *zcm, const char *url)
         zcm_trans_t *trans = creator(u);
         if (trans) {
             switch (trans->trans_type) {
-                case ZCM_TRANS_BLOCK: {
+                case ZCM_BLOCKING: {
                     zcm->type = ZCM_BLOCKING;
                     zcm->impl = zcm_blocking_create(zcm, trans);
                     ret = 1;
                 } break;
-                case ZCM_TRANS_NONBLOCK: {
+                case ZCM_NONBLOCKING: {
                     zcm->type = ZCM_NONBLOCKING;
                     zcm->impl = zcm_nonblocking_create(zcm, trans);
                     ret = 1;

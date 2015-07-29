@@ -45,7 +45,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
     ZCM_TRANS_CLASSNAME(Type type_)
     {
-        trans_type = ZCM_TRANS_BLOCK;
+        trans_type = ZCM_BLOCKING;
         vtbl = &methods;
 
         ctx = zmq_init(ZMQ_IO_THREADS);

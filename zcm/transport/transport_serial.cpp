@@ -206,7 +206,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
     ZCM_TRANS_CLASSNAME(zcm_url_t *url)
     {
-        trans_type = ZCM_TRANS_BLOCK;
+        trans_type = ZCM_BLOCKING;
         vtbl = &methods;
 
         // build 'options'

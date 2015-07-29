@@ -22,7 +22,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
     ZCM_TRANS_CLASSNAME(zcm_url_t *url)
     {
-        trans_type = ZCM_TRANS_NONBLOCK;
+        trans_type = ZCM_NONBLOCKING;
         vtbl = &methods;
     }
 

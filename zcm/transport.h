@@ -33,8 +33,8 @@
  *     IMPORTANT: Although there is only a single zcm_trans_t* type, it actually
  *     represents two different semantic modes (blocking and non-blocking).
  *     An implementation must up-front decide and commit-to one of the two types
- *     This distinction is specified by setting the zcm_trans_t 'type' field to
- *     either ZCM_TRANS_BLOCK or ZCM_TRANS_NONBLOCK
+ *     This distinction is specified by setting the zcm_trans_t 'trans_type'
+ *     field to either ZCM_BLOCKING or ZCM_NONBLOCKING
  *
  *******************************************************************************
  * Blocking Transport API (ZCM_TRANS_BLOCK):
@@ -179,6 +179,7 @@ extern "C" {
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include "zcm/zcm.h"
 #include "zcm/url.h"
 
 #define ZCM_CHANNEL_MAXLEN 32
@@ -191,8 +192,6 @@ extern "C" {
 #define ZCM_EUNKNOWN  255
 
 typedef struct zcm_msg_t zcm_msg_t;
-
-typedef struct zcm_trans_t zcm_trans_t;
 typedef struct zcm_trans_methods_t zcm_trans_methods_t;
 
 
@@ -204,10 +203,9 @@ struct zcm_msg_t
     char *buf;
 };
 
-
 struct zcm_trans_t
 {
-    enum zcm_trans_type { ZCM_TRANS_BLOCK, ZCM_TRANS_NONBLOCK } trans_type;
+    enum zcm_type trans_type;
     zcm_trans_methods_t *vtbl;
 };
 

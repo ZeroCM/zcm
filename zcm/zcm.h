@@ -9,6 +9,8 @@ extern "C" {
 #include <stdint.h>
 #include <stdbool.h>
 
+typedef struct zcm_trans_t zcm_trans_t;
+
 typedef struct zcm_t zcm_t;
 enum zcm_type { ZCM_BLOCKING, ZCM_NONBLOCKING };
 struct zcm_t
@@ -30,10 +32,12 @@ struct zcm_recv_buf_t
 typedef void zcm_callback_t(const zcm_recv_buf_t *rbuf, const char *channel, void *usr);
 
 zcm_t *zcm_create(const char *url);
+zcm_t *zcm_create_trans(zcm_trans_t *zt);
 void   zcm_destroy(zcm_t *zcm);
 
 // Returns 1 on success, and 0 on failure
 int    zcm_init(zcm_t *zcm, const char *url);
+int    zcm_init_trans(zcm_t *zcm, zcm_trans_t *zt);
 void   zcm_cleanup(zcm_t *zcm);
 
 int    zcm_publish(zcm_t *zcm, const char *channel, char *data, size_t len);
