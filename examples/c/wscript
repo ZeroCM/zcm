@@ -11,3 +11,8 @@ def build(ctx):
                 use = 'default zcm',
                 source = 'sub.c example_t.c',
                 install_path = None)
+
+    ctx.program(target = 'nblock-inproc',
+                use = 'default zcm',
+                source = 'nblock_inproc.c example_t.c',
+                install_path = None)

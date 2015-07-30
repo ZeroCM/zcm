@@ -1,4 +1,4 @@
-#include "zcm/transport.h"
+#include "zcm/transport_registrar.h"
 #include <string.h>
 
 #define ZCM_TRANSPORTS_MAX 128
@@ -21,6 +21,7 @@ bool zcm_transport_register(const char *name, const char *desc, zcm_trans_create
     t_desc[t_index] = desc;
     t_creator[t_index] = creator;
     t_index++;
+
     return true;
 }
 
@@ -34,9 +35,10 @@ zcm_trans_create_func *zcm_transport_find(const char *name)
 
 void zcm_transport_help(FILE *f)
 {
-    fprintf(f, "Transport Name       Description\n");
+    fprintf(f, "Transport Name       Type            Description\n");
     fprintf(f, "-------------------------------------------------------------------------------------\n");
     for (size_t i = 0; i < t_index; i++) {
-        fprintf(f, "%-20s %s\n", t_name[i], t_desc[i]);
+        const char *type = "UNKNOWN";
+        fprintf(f, "%-20s %-15s %s\n", t_name[i], type, t_desc[i]);
     }
 }

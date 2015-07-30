@@ -1,5 +1,6 @@
 #include "zcm/transport.h"
-#include "zcm/util/debug.hpp"
+#include "zcm/transport_registrar.h"
+#include "zcm/util/debug.h"
 #include "zcm/util/lockfile.h"
 #include <zmq.h>
 
@@ -45,7 +46,9 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
     ZCM_TRANS_CLASSNAME(Type type_)
     {
+        trans_type = ZCM_BLOCKING;
         vtbl = &methods;
+
         ctx = zmq_init(ZMQ_IO_THREADS);
         assert(ctx != nullptr);
         type = type_;
@@ -316,6 +319,7 @@ zcm_trans_methods_t ZCM_TRANS_CLASSNAME::methods = {
     &ZCM_TRANS_CLASSNAME::_sendmsg,
     &ZCM_TRANS_CLASSNAME::_recvmsgEnable,
     &ZCM_TRANS_CLASSNAME::_recvmsg,
+    NULL, // update
     &ZCM_TRANS_CLASSNAME::_destroy,
 };
 

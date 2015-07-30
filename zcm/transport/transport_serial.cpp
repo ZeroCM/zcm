@@ -1,6 +1,7 @@
 #include "zcm/transport.h"
+#include "zcm/transport_registrar.h"
 #include "zcm/util/lockfile.h"
-#include "zcm/util/debug.hpp"
+#include "zcm/util/debug.h"
 
 #include <unistd.h>
 #include <fcntl.h>
@@ -206,6 +207,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
     ZCM_TRANS_CLASSNAME(zcm_url_t *url)
     {
+        trans_type = ZCM_BLOCKING;
         vtbl = &methods;
 
         // build 'options'
@@ -448,6 +450,7 @@ zcm_trans_methods_t ZCM_TRANS_CLASSNAME::methods = {
     &ZCM_TRANS_CLASSNAME::_sendmsg,
     &ZCM_TRANS_CLASSNAME::_recvmsgEnable,
     &ZCM_TRANS_CLASSNAME::_recvmsg,
+    NULL, // update
     &ZCM_TRANS_CLASSNAME::_destroy,
 };
 

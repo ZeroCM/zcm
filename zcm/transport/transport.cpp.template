@@ -28,13 +28,19 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         assert(0);
     }
 
-    void recvmsg_enable(const char *channel, bool enable)
+    int recvmsg_enable(const char *channel, bool enable)
     {
         // XXX write me
         assert(0);
     }
 
     int recvmsg(zcm_msg_t *msg, int timeout)
+    {
+        // XXX write me
+        assert(0);
+    }
+
+    void update()
     {
         // XXX write me
         assert(0);
@@ -60,11 +66,14 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     static int _sendmsg(zcm_trans_t *zt, zcm_msg_t msg)
     { return cast(zt)->sendmsg(msg); }
 
-    static void _recvmsg_enable(zcm_trans_t *zt, const char *channel, bool enable)
+    static int _recvmsg_enable(zcm_trans_t *zt, const char *channel, bool enable)
     { return cast(zt)->recvmsg_enable(channel, enable); }
 
     static int _recvmsg(zcm_trans_t *zt, zcm_msg_t *msg, int timeout)
     { return cast(zt)->recvmsg(msg, timeout); }
+
+    static int _update(zcm_trans_t *zt)
+    { return cast(zt)->update(); }
 
     static void _destroy(zcm_trans_t *zt)
     { delete cast(zt); }
@@ -75,6 +84,7 @@ zcm_trans_methods_t ZCM_TRANS_CLASSNAME::methods = {
     &ZCM_TRANS_CLASSNAME::_sendmsg,
     &ZCM_TRANS_CLASSNAME::_recvmsg_enable,
     &ZCM_TRANS_CLASSNAME::_recvmsg,
+    &ZCM_TRANS_CLASSNAME::_update,
     &ZCM_TRANS_CLASSNAME::_destroy,
 };
 

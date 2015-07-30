@@ -1,4 +1,6 @@
-#pragma once
+#ifndef _ZCM_DEBUG_H
+#define _ZCM_DEBUG_H
+
 #include <stdlib.h>
 
 #define ZCM_DEBUG_ENV_ENABLE
@@ -14,4 +16,6 @@ extern bool ZCM_DEBUG_ENABLED;
     }} while(0)
 #else
 # define ZCM_DEBUG(...)
+#endif
+
 #endif

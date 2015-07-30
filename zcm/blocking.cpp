@@ -1,7 +1,8 @@
 #include "zcm/zcm.h"
+#include "zcm/blocking.h"
 #include "zcm/transport.h"
 #include "zcm/util/threadsafe_queue.hpp"
-#include "zcm/util/debug.hpp"
+#include "zcm/util/debug.h"
 
 #include <unistd.h>
 #include <cassert>
@@ -69,8 +70,9 @@ struct SubRegex
     void *usr;
 };
 
-struct zcm_t
+struct zcm_blocking
 {
+    zcm_t *z;
     zcm_trans_t *zt;
     unordered_map<string, Sub> subs;
     vector<SubRegex> subRegex;
@@ -89,13 +91,13 @@ struct zcm_t
     mutex pubmut;
     mutex submut;
 
-    zcm_t(zcm_trans_t *zt_)
+    zcm_blocking(zcm_t *z, zcm_trans_t *zt_)
     {
         zt = zt_;
         start();
     }
 
-    ~zcm_t()
+    ~zcm_blocking()
     {
         stop();
         zcm_trans_destroy(zt);
@@ -136,7 +138,7 @@ struct zcm_t
     void dispatchMsg(zcm_msg_t *msg)
     {
         zcm_recv_buf_t rbuf;
-        rbuf.zcm = this;
+        rbuf.zcm = z;
         rbuf.utime = 0;
         rbuf.len = msg->len;
         rbuf.data = (char*)msg->buf;
@@ -253,15 +255,22 @@ struct zcm_t
         return 0;
     }
 
+    void become()
+    {
+        // This is a hack, we should use this thread for something productive
+        while (1)
+            usleep(1000*1000);
+    }
+
     // TODO: should this call be thread safe?
     void start()
     {
         assert(!started);
         started = true;
 
-        sendThread = thread{&zcm_t::recvThreadFunc, this};
-        recvThread = thread{&zcm_t::sendThreadFunc, this};
-        handleThread = thread{&zcm_t::handleThreadFunc, this};
+        sendThread = thread{&zcm_blocking::recvThreadFunc, this};
+        recvThread = thread{&zcm_blocking::sendThreadFunc, this};
+        handleThread = thread{&zcm_blocking::handleThreadFunc, this};
     }
 
     void stop()
@@ -280,55 +289,29 @@ struct zcm_t
 /////////////// C Interface Functions ////////////////
 extern "C" {
 
-zcm_t *zcm_create(const char *url)
+zcm_blocking_t *zcm_blocking_create(zcm_t *z, zcm_trans_t *trans)
 {
-    zcm_url_t *u = zcm_url_create(url);
-    const char *protocol = zcm_url_protocol(u);
-
-    zcm_t *ret = NULL;
-    if (auto *tc = zcm_transport_find(protocol)) {
-        auto *transport = tc(u);
-        if (transport) {
-            ret = new zcm_t(transport);
-        } else {
-            ZCM_DEBUG("failed to create transport for '%s'", url);
-        }
-    } else {
-        ZCM_DEBUG("failed to find transport for '%s'", url);
-    }
-
-    zcm_url_destroy(u);
-    return ret;
+    return new zcm_blocking_t(z, trans);
 }
 
-void zcm_destroy(zcm_t *zcm)
+void zcm_blocking_destroy(zcm_blocking_t *zcm)
 {
     if (zcm) delete zcm;
 }
 
-int zcm_publish(zcm_t *zcm, const char *channel, char *data, size_t len)
+int zcm_blocking_publish(zcm_blocking_t *zcm, const char *channel, char *data, size_t len)
 {
     return zcm->publish(channel, data, len);
 }
 
-int zcm_subscribe(zcm_t *zcm, const char *channel, zcm_callback_t *cb, void *usr)
+int zcm_blocking_subscribe(zcm_blocking_t *zcm, const char *channel, zcm_callback_t *cb, void *usr)
 {
     return zcm->subscribe(channel, cb, usr);
 }
 
-int zcm_handle(zcm_t *zcm)
+void zcm_blocking_become(zcm_blocking_t *zcm)
 {
-    return zcm->handle();
-}
-
-void zcm_start(zcm_t *zcm)
-{
-    zcm->start();
-}
-
-void zcm_stop(zcm_t *zcm)
-{
-    zcm->stop();
+    zcm->become();
 }
 
 }

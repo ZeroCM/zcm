@@ -41,9 +41,7 @@ int main(int argc, char *argv[])
 
     Handler handlerObject;
     zcm.subscribe("EXAMPLE", &Handler::handleMessage, &handlerObject);
-
-    while (1)
-        zcm.handle();
+    zcm.become();
 
     return 0;
 }

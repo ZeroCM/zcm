@@ -23,9 +23,9 @@ inline bool ZCM::good() const
     return zcm != nullptr;
 }
 
-inline int ZCM::handle()
+inline void ZCM::become()
 {
-    return zcm_handle(zcm);
+    zcm_become(zcm);
 }
 
 inline int ZCM::publish(const std::string& channel, const char *data,

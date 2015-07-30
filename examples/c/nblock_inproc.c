@@ -1,19 +1,16 @@
 #include <stdio.h>
-#include <stdbool.h>
-#include <inttypes.h>
 #include <unistd.h>
+#include <inttypes.h>
 #include <zcm/zcm.h>
 #include <zcm/transport.h>
 #include <zcm/transport_registrar.h>
 #include "example_t.h"
 
-static bool quiet = false;
-
 static void my_handler(const zcm_recv_buf_t *rbuf, const char *channel,
                        const example_t *msg, void *user)
 {
-    if (quiet)
-        return;
+    /* /\* if (quiet) */
+    /*     return; */
 
     printf("Received message on channel \"%s\":\n", channel);
     printf("  timestamp   = %"PRId64"\n", msg->timestamp);
@@ -32,22 +29,36 @@ static void my_handler(const zcm_recv_buf_t *rbuf, const char *channel,
 
 int main(int argc, char *argv[])
 {
-    for (int i = 1; i < argc; i++) {
-        if (strcmp(argv[i], "-h") == 0) {
+    if (argc > 1) {
+        if (strcmp(argv[1], "-h") == 0) {
             zcm_transport_help(stdout);
             return 0;
-        } else if (strcmp(argv[i], "--quiet") == 0) {
-            quiet = true;
         }
     }
 
-    zcm_t *zcm = zcm_create("ipc");
-    if(!zcm)
+    zcm_t zcm;
+    if (!zcm_init(&zcm, "nonblock-test"))
         return 1;
 
-    example_t_subscribe(zcm, "EXAMPLE", &my_handler, NULL);
+    example_t_subscribe(&zcm, "EXAMPLE", &my_handler, NULL);
 
-    zcm_become(zcm);
-    zcm_destroy(zcm);
+    example_t my_data = {
+        .timestamp = 0,
+        .position = { 1, 2, 3 },
+        .orientation = { 1, 0, 0, 0 },
+    };
+
+    my_data.num_ranges = 15;
+    my_data.ranges = calloc(my_data.num_ranges, sizeof(int16_t));
+    my_data.name = "example string";
+    my_data.enabled = 1;
+
+    while (1) {
+        example_t_publish(&zcm, "EXAMPLE", &my_data);
+        usleep(100000);
+        zcm_handle_nonblock(&zcm);
+    }
+
+    zcm_cleanup(&zcm);
     return 0;
 }

@@ -16,21 +16,6 @@ public class ZCM
         ZCMSubscriber lcsub;
     }
 
-    static class RecvThread extends Thread
-    {
-        ZCM zcm;
-        RecvThread(ZCM zcm)
-        {
-            this.zcm = zcm;
-        }
-
-        public void run()
-        {
-            while (true)
-                zcm.zcmjni.handle();
-        }
-    }
-
     ArrayList<SubscriptionRecord> subscriptions = new ArrayList<SubscriptionRecord>();
     ArrayList<Provider> providers = new ArrayList<Provider>();
 
@@ -42,7 +27,6 @@ public class ZCM
 
     ZCMDataOutputStream encodeBuffer = new ZCMDataOutputStream(new byte[1024]);
     ZCMJNI zcmjni;
-    RecvThread recvThread;
 
     /** Create a new ZCM object, connecting to one or more URLs. If
      * no URL is specified, "ipc" is used.
@@ -51,8 +35,6 @@ public class ZCM
     public ZCM(String url) throws IOException
     {
         zcmjni = new ZCMJNI(url);
-        recvThread = new RecvThread(this);
-        recvThread.start();
     }
 
     /** Retrieve a default instance of ZCM using either the environment
