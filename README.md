@@ -2,10 +2,16 @@
 
 ZCM is a micro-framework for mesaage-passing and data-marshalling, designed originally
 for robotics systems where high-bandwidth and low latency are critical and the variance in
-compute platformes is large. ZCM provides a publish/subscribe message passing model and
-automatic marshalling/unmarshalling code generation with bindings for applications in a
-variety of programming languages. ZCM also reamins transport agnostic and defines only
-a transport interface so that it can run on anything from a high-end linux compute cluster
+compute platforms is large.
+
+ZCM provides a publish/subscribe message-passing model and automatic marshalling/unmarshalling
+code generation with bindings for a variety of programming languages. This message-type design
+respects language-specific coding idioms insofar as possible.
+
+ZCM is transport-agnostic. There is no single built-in transport backend. Every transport is
+first-class. This is achieved by defining strict blocking and non-blocking transport APIs. As
+long as a transport implementation conforms to this API, it should work flawlessly with ZCM.
+This design allows ZCM to work well on anything from a high-end posix-based compute cluster
 to a low-end real-time embedded-system with no operating system.
 
 ZCM is a derivation of the LCM project created in 2006 by the MIT DARPA Urban Challenge
@@ -16,9 +22,9 @@ agnosticism. LCM is designed competely around UDP Multicast. This trasport makes
 of sense for LAN connected compute clusters (such the original 2006 MIT DGC Vechicle).
 However, there are many other applications that are interesting targets for ZCM messaging.
 These include, local system messaging (IPC), multi-threaded messaging (in-procees),
-embedded-system periphials (UART, I2C, etc), web browser applications (Web Sockets).
+embedded-system periphials (UART, I2C, etc), and web applications (Web Sockets).
 By refusing to make hard assumptions about the transport layer, ZCM opens the door
-to a wide set of use-cases that we never possible or practical with LCM.
+to a wide set of use-cases that were never possible or practical with LCM.
 
 # Quick Links
 
@@ -39,6 +45,7 @@ to a wide set of use-cases that we never possible or practical with LCM.
 
 * Platforms:
   * GNU/Linux
+  * Web browsers supporting the Websocket API
   * Any C89 capable embedded system
 * Languages
   * C89 or greater
@@ -46,6 +53,7 @@ to a wide set of use-cases that we never possible or practical with LCM.
   * Java
   * MATLAB (using Java)
   * Python
+  * NodeJS and Client-side Javascript
 
 ## Roadmap
 
