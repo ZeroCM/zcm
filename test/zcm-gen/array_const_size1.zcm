@@ -1,0 +1,11 @@
+struct array_const_size1 {
+    int8_t  i8[1];
+    int16_t i16[2];
+    int32_t i32[3];
+    int64_t i64[4];
+    float   f[5];
+    double  d[6];
+    string  s[7];
+    boolean bl[8];
+    byte    b[9];
+}

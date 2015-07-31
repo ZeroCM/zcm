@@ -48,6 +48,4 @@ for f in $ZCMFILES; do
     bname=${name%.*}
     gen_zcm $THISDIR/$f
     compare $bname
-    # diff /tmp/lcmtypes/$bname.h /tmp/zcmtypes/$bname.h
-    # diff /tmp/lcmtypes/$bname.c /tmp/zcmtypes/$bname.c
 done
