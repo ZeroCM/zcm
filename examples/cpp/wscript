@@ -16,3 +16,8 @@ def build(ctx):
                 use = 'default zcm',
                 source = 'Inproc.cpp',
                 install_path = None)
+
+    ctx.program(target = 'serial',
+                use = 'default zcm',
+                source = 'Serial.cpp',
+                install_path = None)
