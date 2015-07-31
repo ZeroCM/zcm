@@ -53,6 +53,3 @@ def build(ctx):
     ctx.recurse('gen')
     ctx.recurse('config')
     ctx.recurse('tools')
-
-    ctx.add_group()
-    ctx.recurse('examples')

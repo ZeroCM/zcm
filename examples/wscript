@@ -60,6 +60,7 @@ def build(ctx):
     if not ctx.env.ENVIRONMENT_SETUP:
         setup_environment(ctx)
 
+    ctx.recurse('types')
     ctx.recurse('c')
     ctx.recurse('cpp')
     ctx.recurse('java')

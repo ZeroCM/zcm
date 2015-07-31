@@ -151,8 +151,8 @@ struct EmitHeader : public Emit
                 lm.type.fullname != lr.structname.fullname) {
                 string otherTn = dotsToUnderscores(lm.type.fullname);
                 emit(0, "#include \"%s%s%s.h\"",
-                     zcm.gopt->getString("cinclude").c_str(),
-                     zcm.gopt->getString("cinclude").size()>0 ? "/" : "",
+                     zcm.gopt->getString("c-include").c_str(),
+                     zcm.gopt->getString("c-include").size()>0 ? "/" : "",
                      otherTn.c_str());
             }
         }
@@ -344,8 +344,8 @@ struct EmitSource : public Emit
         char *tn_ = (char *)tmp_.c_str();
         emit(0, "#include <string.h>");
         emit(0, "#include \"%s%s%s.h\"",
-                zcm.gopt->getString("cinclude").c_str(),
-                zcm.gopt->getString("cinclude").size()>0 ? "/" : "",
+                zcm.gopt->getString("c-include").c_str(),
+                zcm.gopt->getString("c-include").size()>0 ? "/" : "",
                 tn_);
         emit(0, "");
     }
@@ -948,7 +948,7 @@ void setupOptionsC(GetOpt& gopt)
 {
     gopt.addString(0, "c-cpath",    ".",      "Location for .c files");
     gopt.addString(0, "c-hpath",    ".",      "Location for .h files");
-    gopt.addString(0, "cinclude",   "",       "Generated #include lines reference this folder");
+    gopt.addString(0, "c-include",   "",       "Generated #include lines reference this folder");
     gopt.addBool(0, "c-no-pubsub",   0,     "Do not generate _publish and _subscribe functions");
     gopt.addBool(0, "c-typeinfo",   0,      "Generate typeinfo functions for each type");
 }
