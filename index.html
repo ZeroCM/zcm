@@ -1,0 +1,146 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <title>Zcm by ZeroCM</title>
+
+    <link rel="stylesheet" href="stylesheets/styles.css">
+    <link rel="stylesheet" href="stylesheets/github-light.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+    <div class="wrapper">
+      <header>
+        <h1>Zcm</h1>
+        <p>Zero Communications and Marshalling</p>
+
+        <p class="view"><a href="https://github.com/ZeroCM/zcm">View the Project on GitHub <small>ZeroCM/zcm</small></a></p>
+
+
+        <ul>
+          <li><a href="https://github.com/ZeroCM/zcm/zipball/master">Download <strong>ZIP File</strong></a></li>
+          <li><a href="https://github.com/ZeroCM/zcm/tarball/master">Download <strong>TAR Ball</strong></a></li>
+          <li><a href="https://github.com/ZeroCM/zcm">View On <strong>GitHub</strong></a></li>
+        </ul>
+      </header>
+      <section>
+        <h1>
+<a id="zero-communications-and-marshalling-zcm" class="anchor" href="#zero-communications-and-marshalling-zcm" aria-hidden="true"><span class="octicon octicon-link"></span></a>Zero Communications and Marshalling (ZCM)</h1>
+
+<p>ZCM is a micro-framework for mesaage-passing and data-marshalling, designed originally
+for robotics systems where high-bandwidth and low latency are critical and the variance in
+compute platforms is large.</p>
+
+<p>ZCM provides a publish/subscribe message-passing model and automatic marshalling/unmarshalling
+code generation with bindings for a variety of programming languages. This message-type design
+respects language-specific coding idioms insofar as possible.</p>
+
+<p>ZCM is transport-agnostic. There is no single built-in transport backend. Every transport is
+first-class. This is achieved by defining strict blocking and non-blocking transport APIs. As
+long as a transport implementation conforms to this API, it should work flawlessly with ZCM.
+This design allows ZCM to work well on anything from a high-end posix-based compute cluster
+to a low-end real-time embedded-system with no operating system.</p>
+
+<p>ZCM is a derivation of the LCM project created in 2006 by the MIT DARPA Urban Challenge
+team. The core message-type system, publish/subscribe APIs, and basic tools are ported
+directly from LCM and remain about 99% compatible. While there are a handful of subtle
+differences between the two, the core distinguishing feature is ZCM's transport
+agnosticism. LCM is designed competely around UDP Multicast. This trasport makes a lot
+of sense for LAN connected compute clusters (such the original 2006 MIT DGC Vechicle).
+However, there are many other applications that are interesting targets for ZCM messaging.
+These include, local system messaging (IPC), multi-threaded messaging (in-procees),
+embedded-system periphials (UART, I2C, etc), and web applications (Web Sockets).
+By refusing to make hard assumptions about the transport layer, ZCM opens the door
+to a wide set of use-cases that were never possible or practical with LCM.</p>
+
+<h1>
+<a id="quick-links" class="anchor" href="#quick-links" aria-hidden="true"><span class="octicon octicon-link"></span></a>Quick Links</h1>
+
+<ul>
+<li><a href="">ZCM downloads</a></li>
+<li><a href="">Website and documentation</a></li>
+</ul>
+
+<h1>
+<a id="features" class="anchor" href="#features" aria-hidden="true"><span class="octicon octicon-link"></span></a>Features</h1>
+
+<ul>
+<li>Type-safe message marshalling</li>
+<li>A useful suite of tools for logging, log-playback, real-time message inspection (spy)</li>
+<li>A wide set of built-in transports incl. UDP Multicast, IPC, In-Process, and Serial</li>
+<li>An easy-to-use and well-defined interface for building custom transports</li>
+<li>Strong support for embedded uses. The core embedded code is compliant C89.</li>
+<li>Only one true dependency: A reasonably modern C++11 compiler for the non-embedded code.</li>
+<li>Some of the transports are built-on top of ZeroMQ, but this dependency is opt-in.</li>
+</ul>
+
+<h2>
+<a id="supported-platforms-and-languages" class="anchor" href="#supported-platforms-and-languages" aria-hidden="true"><span class="octicon octicon-link"></span></a>Supported platforms and languages</h2>
+
+<ul>
+<li>Platforms:
+
+<ul>
+<li>GNU/Linux</li>
+<li>Web browsers supporting the Websocket API</li>
+<li>Any C89 capable embedded system</li>
+</ul>
+</li>
+<li>Languages
+
+<ul>
+<li>C89 or greater</li>
+<li>C++</li>
+<li>Java</li>
+<li>MATLAB (using Java)</li>
+<li>Python</li>
+<li>NodeJS and Client-side Javascript</li>
+</ul>
+</li>
+</ul>
+
+<h2>
+<a id="roadmap" class="anchor" href="#roadmap" aria-hidden="true"><span class="octicon octicon-link"></span></a>Roadmap</h2>
+
+<ul>
+<li><p>Port LCM UDP Multicast to achieve full backwards compatibility</p></li>
+<li>
+<p>Platform Support:</p>
+
+<ul>
+<li>OS X</li>
+<li>Windows</li>
+<li>Any POSIX-1.2001 system (e.g., Cygwin, Solaris, BSD, etc.)</li>
+</ul>
+</li>
+<li>
+<p>Consider porting the rest of the LCM languages</p>
+
+<ul>
+<li>C#</li>
+<li>Lua</li>
+</ul>
+</li>
+<li><p>Explore alternative messaging types using ZCM Types, such as those found in ZeroMQ</p></li>
+</ul>
+
+<h2>
+<a id="subtle-differences-to-lcm" class="anchor" href="#subtle-differences-to-lcm" aria-hidden="true"><span class="octicon octicon-link"></span></a>Subtle differences to LCM</h2>
+
+<ul>
+<li>TODO</li>
+</ul>
+      </section>
+      <footer>
+        <p>This project is maintained by <a href="https://github.com/ZeroCM">ZeroCM</a></p>
+        <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></small></p>
+      </footer>
+    </div>
+    <script src="javascripts/scale.fix.js"></script>
+    
+  </body>
+</html>
