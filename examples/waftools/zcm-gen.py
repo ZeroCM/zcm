@@ -14,29 +14,39 @@ def configure(ctx):
 # keywords:
 #   name:         identifier for uselib linking (e.g. c/c++ builds may simply add 'name'
 #                 to their 'use' list to get proper include path and library linking)
-#                 (default = 'zcmtypes')
+#                 default = 'zcmtypes' (though it is encouraged to name it something more unique
+#                                       to avoid library naming conflicts)
 #   source:       list of zcmtype source files to be interpreted
 #   lang:         list of languages for which zcmtypes should be generated, options are:
 #                 ['c', 'cpp', 'java', 'python', 'nodejs']
 @conf
 def zcmgen(ctx, **kw):
-    ctx(source = kw['source'],
-        lang = kw['lang'])
+    tg = ctx(source = kw['source'],
+             lang = kw['lang'])
 
     uselib_name = 'zcmtypes'
     if 'name' in kw:
         uselib_name = kw['name']
 
-    ctx(name            = uselib_name,
-        export_includes = ctx.path.get_bld().abspath() + '/..')
+    #ctx.add_group()
+#
+    #if 'c' in kw['lang']:
+        #ctx.stlib(name            = uselib_name + '_c',
+                  #target          = uselib_name,
+                  #use             = ['default', 'zcm'],
+                  #includes        = os.path.dirname(ctx.path.get_bld().abspath()),
+                  #export_includes = os.path.dirname(ctx.path.get_bld().abspath()),
+                  #source          = [src.change_ext('.c').abspath() for src in tg.source])
 
 @extension('.zcm')
 def process_zcmtypes(self, node):
-    self.create_task('zcmgen', node)
+    tsk = self.create_task('zcmgen', node)
 
 class zcmgen(Task.Task):
-    color = 'PINK'
-    quiet = False
+    color   = 'PINK'
+    quiet   = False
+    ext_in  = ['.zcm']
+    ext_out = ['.c', '.h', '.hpp']
 
     ## This method processes the inputs and determines the outputs that will be generated
     ## when the zcm-gen program is run
@@ -45,10 +55,10 @@ class zcmgen(Task.Task):
         inp = self.inputs[0]
 
         if 'c' in gen.lang:
-            self.outputs.append(inp.change_ext(ext='.h'))
-            self.outputs.append(inp.change_ext(ext='.c'))
+            self.set_outputs(inp.change_ext(ext='.h'))
+            self.set_outputs(inp.change_ext(ext='.c'))
         if 'cpp' in gen.lang:
-            self.outputs.append(inp.change_ext(ext='.hpp'))
+            self.set_outputs(inp.change_ext(ext='.hpp'))
         #if 'java' in gen.lang and getattr(gen, 'javapkg', None):
             #pathparts = inp.abspath().split('/')
             #dirparts = '/'.join(pathparts[:-1])
