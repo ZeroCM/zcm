@@ -1,14 +1,15 @@
 #!/usr/bin/env python
 import os
 from waflib import Task
-from waflib.TaskGen import extension, feature
+from waflib.TaskGen import extension, feature, before_method
 from waflib.Configure import conf
 
 def configure(ctx):
     # find program leaves the program itself in an array (probably for if there are multiple),
     # but we only expect / want one
-    ctx.find_program('zcm-gen', var='ZCMGEN', mandatory=True)
-    ctx.env.ZCMGEN = ctx.env.ZCMGEN[0]
+    if not getattr(ctx.env, 'ZCMGEN', []):
+        ctx.find_program('zcm-gen', var='ZCMGEN', mandatory=True)
+        ctx.env.ZCMGEN = ctx.env.ZCMGEN[0]
 
 # Context method used to set up proper include paths and simplify user code for zcmtype builds
 # keywords:
@@ -28,15 +29,15 @@ def zcmgen(ctx, **kw):
     if 'name' in kw:
         uselib_name = kw['name']
 
-    #ctx.add_group()
-#
-    #if 'c' in kw['lang']:
-        #ctx.stlib(name            = uselib_name + '_c',
-                  #target          = uselib_name,
-                  #use             = ['default', 'zcm'],
-                  #includes        = os.path.dirname(ctx.path.get_bld().abspath()),
-                  #export_includes = os.path.dirname(ctx.path.get_bld().abspath()),
-                  #source          = [src.change_ext('.c').abspath() for src in tg.source])
+    ctx.add_group()
+
+    if 'c' in kw['lang']:
+        ctx.stlib(name            = uselib_name + '_c',
+                  target          = uselib_name,
+                  use             = ['default', 'zcm'],
+                  includes        = os.path.dirname(ctx.path.get_bld().abspath()),
+                  export_includes = os.path.dirname(ctx.path.get_bld().abspath()),
+                  source          = [src.change_ext('.c') for src in tg.source])
 
 @extension('.zcm')
 def process_zcmtypes(self, node):
