@@ -47,12 +47,14 @@ def configure(ctx):
 #   TODO: Python and NodeJS
 #
 # Note on running the output java classes:
-#   Because of the way that java's CLASSPATH works, even though waf will link the appropriate .jar
-#   files for the build, their location is not maintained in the output .jar. This means that to
-#   run a java program compiled in this manner, the final output .jar AND the zcmtype .jar MUST be
+#   Because of the way that java's CLASSPATH works, even though waf will link the appropriate jar
+#   files for the build, their location is not maintained in the output jar. This means that to
+#   run a java program compiled in this manner, the final output jar AND the zcmtype jar MUST be
 #   in the CLASSPATH. Indeed, this waf build system will even be able to find the primary zcm.jar
 #   if it is not in the CLASSPATH and will be able to build without issue, but any attempt to run
-#   the output java classes without having zcm.jar in the CLASSPATH will fail.
+#   the output java classes without having zcm.jar in the CLASSPATH will fail. The zcmtype jar
+#   will be called ${name}.jar and will be located in the mirrored build path to wherever the
+#   waf zcmgen tool was invoked.
 @conf
 def zcmgen(ctx, **kw):
     uselib_name = 'zcmtypes'
@@ -62,6 +64,9 @@ def zcmgen(ctx, **kw):
     javapkg_name = 'zcmtypes'
     if 'javapkg' in kw:
         javapkg_name = kw['javapkg']
+
+    if 'lang' not in kw:
+        raise WafError('zcmgen requires keword argument: "lang"')
 
     tg = ctx(source  = kw['source'],
              lang    = kw['lang'],
@@ -128,6 +133,10 @@ class zcmgen(Task.Task):
             outp = '/'.join([dirparts, 'java', java_pkgpath, nameparts])
             outp_node = gen.path.find_or_declare(outp)
             self.outputs.append(outp_node)
+
+        if not self.outputs:
+            raise WafError('No ZCMtypes generated, ensure a valid lang is specified')
+
         return super(zcmgen, self).runnable_status()
 
     ## This method is responsible for producing the files in the self.outputs list
@@ -144,20 +153,14 @@ class zcmgen(Task.Task):
         #       is returned by one of the commands. Technically, we could run a single
         #       zcm-gen call using the union all all these arguments, but it's cleaner
         #       to keep them separate unless we think of a good reason to merge them
+        langs = {}
         if 'c' in gen.lang:
-            ret = self.exec_command('%s --c %s --c-cpath %s --c-hpath %s --c-include %s' % \
-                                    (zcmgen, zcmfile, bld, bld, inc))
-            if ret is not 0:
-                return ret
-
+            langs['c'] = '--c --c-cpath %s --c-hpath %s --c-include %s' % (bld, bld, inc)
         if 'cpp' in gen.lang:
-            ret = self.exec_command('%s --cpp %s --cpp-hpath %s --cpp-include %s' % \
-                                    (zcmgen, zcmfile, bld, inc))
-            if ret is not 0:
-                return ret
-
+            langs['cpp'] = '--cpp --cpp-hpath %s --cpp-include %s' % (bld, inc)
         if 'java' in gen.lang:
-            ret = self.exec_command('%s --java %s --jpath %s --jdefaultpkg "%s"' % \
-                                    (zcmgen, zcmfile, bld + '/java', gen.javapkg))
-            if ret is not 0:
-                return ret
+            langs['java'] = '--java --jpath %s --jdefaultpkg %s' % (bld + '/java', gen.javapkg)
+
+        # no need to check if langs is empty here, already handled in runnable_status()
+        return self.exec_command('%s %s %s' % \
+                                 (zcmgen, zcmfile, ' '.join([langs[lang] for lang in langs])))
