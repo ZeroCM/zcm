@@ -1,0 +1,7 @@
+struct a {
+    int32_t val;
+}
+
+struct nested1 {
+    a A;
+}
