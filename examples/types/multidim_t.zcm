@@ -1,6 +1,6 @@
 struct multidim_t
 {
     int8_t rows;
-    int64_t jk;
+    int32_t jk; // Unfortunately, java cannot use a long as an array dimension
     double mat[rows][2][jk];
 }

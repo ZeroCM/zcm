@@ -19,7 +19,7 @@ gen_zcm() {(
     rm -fr /tmp/zcmtypes
     mkdir /tmp/zcmtypes
     cd /tmp/zcmtypes
-    $THISDIR/build/zcm-gen/zcm-gen -p $file
+    $THISDIR/build/gen/zcm-gen -p $file
 )}
 
 ZCMFILES=$(ls test/zcm-gen/*.zcm)

@@ -5,7 +5,7 @@
 #include <zcm/zcm.h>
 #include <zcm/transport.h>
 #include <zcm/transport_registrar.h>
-#include "example_t.h"
+#include "types/example_t.h"
 
 static bool quiet = false;
 

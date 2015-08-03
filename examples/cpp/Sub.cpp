@@ -2,7 +2,7 @@
 #include <unistd.h>
 #include <string>
 #include <zcm/zcm-cpp.hpp>
-#include "example_t.hpp"
+#include "types/example_t.hpp"
 using std::string;
 
 class Handler
