@@ -1,2 +1,3 @@
 #!/bin/bash
-CLASSPATH=$CLASSPATH:build/example.jar java example.apps.Pub
+# warning, the classpaths set are relative so this script must be run from zcm/examples
+CLASSPATH=$CLASSPATH:build/java/example.jar:build/types/examplezcmtypes.jar:/usr/local/share/java/zcm.jar java example.apps.Pub

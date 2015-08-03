@@ -1,12 +1,16 @@
 #! /usr/bin/env python
 # encoding: utf-8
 
+import os, sys
 import waflib
 from waflib.Errors import ConfigurationError
 
 # these variables are mandatory ('/' are converted automatically)
 top = '.'
 out = 'build'
+
+# Allow import of custom tools
+sys.path.append('waftools')
 
 def options(ctx):
     ctx.load('compiler_c')
@@ -21,6 +25,7 @@ def configure(ctx):
     ctx.load('compiler_cxx')
     ctx.load('java')
     ctx.check_cfg(package='zcm', args='--cflags --libs', uselib_store='zcm')
+    ctx.load('zcm-gen')
 
     # Using check_cfg to track down the jar so we can 'use' it when compiling java
     # unfortunately, check_cfg doesn't assign uselib variables like we'd like
@@ -33,9 +38,10 @@ def configure(ctx):
 
     ctx.check_java_class('zcm.zcm.ZCM', ctx.env.CLASSPATH_zcmjar)
 
-    ctx.find_program('zcm-gen', var='ZCMGEN')
-
 def setup_environment(ctx):
+    ctx.post_mode = waflib.Build.POST_LAZY
+    ctx.env.VERSION='1.0.0'
+
     useOptimize = not waflib.Options.options.debug
     useSymbols = waflib.Options.options.debug or waflib.Options.options.symbols
 
@@ -57,6 +63,7 @@ def build(ctx):
     if not ctx.env.ENVIRONMENT_SETUP:
         setup_environment(ctx)
 
+    ctx.recurse('types')
     ctx.recurse('c')
     ctx.recurse('cpp')
     ctx.recurse('java')

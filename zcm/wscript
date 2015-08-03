@@ -1,6 +1,8 @@
 #! /usr/bin/env python
 # encoding: utf-8
 
+import os
+
 def build(ctx):
     ctx.shlib(target = 'zcm',
               # Note: Had to make the include path one level up so that includes
@@ -35,8 +37,7 @@ def build(ctx):
 
 def exec_test_embedded(tsk):
     src = tsk.inputs[0].abspath()
-    pathparts = src.split('/')
-    blddir = '/'.join(pathparts[:-1])
+    blddir =  os.path.dirname(src)
     testdir = blddir+'/test-embed'
     return tsk.exec_command('rm -rf {0} && mkdir {0} && cd {0} && tar xf {1} && ' \
                             'cc -std=c89 -I. -DZCM_EMBEDDED -c zcm/*.c && ' \
