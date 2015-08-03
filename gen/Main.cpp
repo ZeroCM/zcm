@@ -39,10 +39,11 @@ int main(int argc, char *argv[])
     gopt.addBool('n', "node",      0,     "Emit Node.js code");
     setupOptionsNode(gopt);
 
-    if (!gopt.parse(argc, argv, 1) || gopt.getBool("help")) {
+    bool parseSuccess = gopt.parse(argc, argv, 1);
+    if (!parseSuccess || gopt.getBool("help")) {
         printf("Usage: %s [options] <input files>\n\n", argv[0]);
         gopt.doUsage();
-        return 0;
+        return !parseSuccess;
     }
 
     ZCMGen zcm;
@@ -66,6 +67,7 @@ int main(int argc, char *argv[])
     }
 
     int did_something = 0;
+    int ret = 0;
     if (gopt.getBool("debug")) {
         did_something = 1;
         zcm.dump();
@@ -75,6 +77,7 @@ int main(int argc, char *argv[])
         did_something = 1;
         if (emitC(zcm)) {
             printf("An error occurred while emitting C code.\n");
+            ret = 1;
         }
     }
 
@@ -82,6 +85,7 @@ int main(int argc, char *argv[])
         did_something = 1;
         if (emitCpp(zcm)) {
             printf("An error occurred while emitting C++ code.\n");
+            ret = 1;
         }
     }
 
@@ -89,6 +93,7 @@ int main(int argc, char *argv[])
         did_something = 1;
         if (emitJava(zcm)) {
             printf("An error occurred while emitting Java code.\n");
+            ret = 1;
         }
     }
 
@@ -96,6 +101,7 @@ int main(int argc, char *argv[])
         did_something = 1;
         if (emitPython(zcm)) {
             printf("An error occurred while emitting Python code.\n");
+            ret = 1;
         }
     }
 
@@ -103,12 +109,14 @@ int main(int argc, char *argv[])
         did_something = 1;
         if (emitNode(zcm)) {
             printf("An error occurred while emitting Node.js code.\n");
+            ret = 1;
         }
     }
 
     if (did_something == 0) {
         printf("No actions specified. Try --help.\n");
+        ret = 1;
     }
 
-    return 0;
+    return ret;
 }
