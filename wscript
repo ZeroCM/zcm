@@ -37,6 +37,7 @@ def setup_environment(ctx):
     OPT_FLAGS = ['-O3']
     ctx.env.CFLAGS_default   = ['-std=gnu99', '-fPIC'] + WARNING_FLAGS + SYM_FLAGS
     ctx.env.CXXFLAGS_default = ['-std=c++11', '-fPIC'] + WARNING_FLAGS + SYM_FLAGS
+    ctx.env.INCLUDES_default = [ctx.path.abspath()]
     if useOptimize:
         ctx.env.CFLAGS_default   += OPT_FLAGS
         ctx.env.CXXFLAGS_default += OPT_FLAGS

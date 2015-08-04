@@ -1,6 +1,8 @@
 #pragma once
 #include <unistd.h>
 #include <libgen.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include "StringUtil.hpp"
 
 namespace FileUtil
@@ -18,6 +20,16 @@ namespace FileUtil
         if (ret != 0)
             return false;
         return S_ISDIR(st.st_mode);
+    }
+
+    static inline int remove(const string& path)
+    {
+        return unlink(path.c_str());
+    }
+
+    static inline int rename(const string& old, const string& new_)
+    {
+        return ::rename(old.c_str(), new_.c_str());
     }
 
     static inline void mkdirWithParents(const string& path, mode_t mode)
