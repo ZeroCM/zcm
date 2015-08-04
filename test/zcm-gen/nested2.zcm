@@ -1,0 +1,13 @@
+struct a {
+    int32_t val;
+}
+
+struct b {
+    int32_t val2;
+    a a_;
+}
+
+struct nested2 {
+    int8_t g;
+    b b_array[g][5];
+}
