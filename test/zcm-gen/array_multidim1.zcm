@@ -1,0 +1,8 @@
+struct array_multidim1 {
+    double arr1[2][3][4][5];
+
+    int32_t i1;
+    int16_t i2;
+    double arr2[i1][3][i2][5];
+    double arr3[2][i2][4][i1];
+}

@@ -1,0 +1,8 @@
+struct consts1 {
+    const int8_t  k8  = 1;
+    const int16_t k16 = 2;
+    const int32_t i32 = 3;
+    const int64_t i64 = 4;
+    const float   f   = 5.0;
+    const double  d   = 6.0;
+}
