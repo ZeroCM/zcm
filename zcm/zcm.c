@@ -22,13 +22,6 @@
 # define ZCM_DEBUG(...)
 #endif
 
-struct zcm_sub_t
-{
-    char channel[ZCM_CHANNEL_MAXLEN+1];
-    zcm_msg_handler_t callback;
-    void *usr;
-}
-
 zcm_t *zcm_create(const char *url)
 {
 #ifndef ZCM_EMBEDDED

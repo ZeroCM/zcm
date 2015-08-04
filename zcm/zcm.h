@@ -13,6 +13,8 @@ extern "C" {
 #include "eventlog.h"
 #endif
 
+#define ZCM_CHANNEL_MAXLEN 32
+
 typedef struct zcm_trans_t zcm_trans_t;
 
 typedef struct zcm_t zcm_t;
@@ -34,7 +36,14 @@ struct zcm_recv_buf_t
 };
 
 typedef void (*zcm_msg_handler_t)(const zcm_recv_buf_t *rbuf, const char *channel, void *usr);
+
 typedef struct zcm_sub_t zcm_sub_t;
+struct zcm_sub_t
+{
+    char channel[ZCM_CHANNEL_MAXLEN+1];
+    zcm_msg_handler_t callback;
+    void *usr;
+};
 
 zcm_t *zcm_create(const char *url);
 zcm_t *zcm_create_trans(zcm_trans_t *zt);

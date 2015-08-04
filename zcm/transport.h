@@ -188,8 +188,6 @@ extern "C" {
 # define INLINE
 #endif
 
-#define ZCM_CHANNEL_MAXLEN 32
-
 /* Return codes */
 #define ZCM_EOK       0
 #define ZCM_EINVALID  1

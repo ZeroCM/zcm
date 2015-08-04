@@ -33,8 +33,8 @@ def build(ctx):
                       ['zcm.h', 'zcm_coretypes.h', 'transport.h', 'transport_registrar.h',
                        'url.h', 'eventlog.h', 'zcm-cpp.hpp', 'zcm-cpp-impl.hpp'])
 
-    ctx.recurse('java');
-    ctx.recurse('js');
+    #ctx.recurse('java');
+    #ctx.recurse('js');
 
 def exec_test_embedded(tsk):
     src = tsk.inputs[0].abspath()

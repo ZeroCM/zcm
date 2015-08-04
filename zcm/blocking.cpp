@@ -185,14 +185,14 @@ struct zcm_blocking
 
             // dispatch to a non regex channel
             auto its = subs.equal_range(msg->channel);
-            for (auto it = range.first; it != range.second; ++it) {
+            for (auto it = its.first; it != its.second; ++it) {
                 auto& sub = it->second;
                 sub.callback(&rbuf, msg->channel, sub.usr);
             }
 
             // dispatch to any regex channels
             for (auto& sub : subRegex) {
-                if (strncmp(sub.channel, ".*", sizeof(sub.channel)/sizeof(sub.channel[0]) == 0) {
+                if (strncmp(sub.channel, ".*", sizeof(sub.channel)/sizeof(sub.channel[0])) == 0) {
                     sub.callback(&rbuf, msg->channel, sub.usr);
                 } else {
                     // TODO: Implement more regex
@@ -263,25 +263,25 @@ struct zcm_blocking
         unique_lock<mutex> lk(submut);
         int rc;
         zcm_sub_t  sub;
-        zcm_sub_t *retptr;
+        zcm_sub_t *retptr = NULL;
 
+        bool regex = isRegexChannel(channel);
 
-        if (isRegexChannel(channel)) {
+        if (regex) {
             // TODO: this is dependenton all regex being ".*"
             rc = zcm_trans_recvmsg_enable(zt, NULL, true);
-            if (rc == ZCM_EOK) {
-                strncpy(sub.channel, channel.c_str(), sizeof(sub.channel)/sizeof(sub.channel[0]));
-                sub.callback = cb;
-                sub.usr = usr;
-                subRegex.emplace_back(forward<zcm_sub_t>(sub));
-                retptr = &(subRegex.back());
-            }
         } else {
             rc = zcm_trans_recvmsg_enable(zt, channel.c_str(), true);
-            if (rc == ZCM_EOK) {
-                strncpy(sub.channel, channel.c_str(), sizeof(sub.channel)/sizeof(sub.channel[0]));
-                sub.callback = cb;
-                sub.usr = usr;
+        }
+
+        if (rc == ZCM_EOK) {
+            strncpy(sub.channel, channel.c_str(), sizeof(sub.channel)/sizeof(sub.channel[0]));
+            sub.callback = cb;
+            sub.usr = usr;
+            if (regex) {
+                subRegex.emplace_back(forward<zcm_sub_t>(sub));
+                retptr = &(subRegex.back());
+            } else {
                 auto it = subs.emplace(channel, forward<zcm_sub_t>(sub));
                 retptr = &(it->second);
             }
@@ -291,7 +291,7 @@ struct zcm_blocking
             ZCM_DEBUG("zcm_trans_recvmsg_enable() didn't return ZCM_EOK: %d", rc);
         }
 
-        return sub;
+        return retptr;
     }
 
     // Note: We use a lock on unsubscribe() to make sure it can be
@@ -300,6 +300,38 @@ struct zcm_blocking
     int unsubscribe(zcm_sub_t *sub)
     {
         unique_lock<mutex> lk(submut);
+
+        string channel = sub->channel;
+        bool regex = isRegexChannel(channel);
+        int rc;
+
+        if (regex) {
+            for (auto it = subRegex.begin(); it != subRegex.end(); ++it) {
+                if (&(*it) == sub) {
+                    subRegex.erase(it);
+                    break;
+                }
+            }
+            // TODO: this is dependenton all regex being ".*"
+            if (subRegex.empty()) {
+                rc = zcm_trans_recvmsg_enable(zt, NULL, false);
+            }
+        } else {
+            auto its = subs.equal_range(channel);
+            for (auto it = its.first; it != its.second; ++it) {
+                if (sub == &(it->second)) {
+                    subs.erase(it);
+                }
+            }
+            if (subs.count(channel) == 0) {
+                rc = zcm_trans_recvmsg_enable(zt, channel.c_str(), false);
+            }
+        }
+
+        if (rc != ZCM_EOK) {
+            ZCM_DEBUG("zcm_trans_recvmsg_enable() didn't return ZCM_EOK: %d", rc);
+            return -1;
+        }
 
         return 0;
     }
