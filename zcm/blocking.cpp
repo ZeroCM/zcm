@@ -69,18 +69,12 @@ struct Msg
     Msg& operator=(Msg&& other) = delete;
 };
 
-struct zcm_reg_sub_t
-{
-    zcm_sub_t sub;
-    string channelRegex;
-};
-
 struct zcm_blocking
 {
     zcm_t *z;
     zcm_trans_t *zt;
     unordered_multimap<string, zcm_sub_t> subs;
-    vector<zcm_reg_sub_t> subRegex;
+    vector<zcm_sub_t> subRegex;
 
     typedef enum {
         MODE_NONE = 0,
@@ -197,9 +191,9 @@ struct zcm_blocking
             }
 
             // dispatch to any regex channels
-            for (auto& rsub : subRegex) {
-                if (rsub.channel == ".*") {
-                    rsub.sub.callback(&rbuf, msg->channel, rsub.sub.usr);
+            for (auto& sub : subRegex) {
+                if (strncmp(sub.channel, ".*", sizeof(sub.channel)/sizeof(sub.channel[0]) == 0) {
+                    sub.callback(&rbuf, msg->channel, sub.usr);
                 } else {
                     // TODO: Implement more regex
                     ZCM_DEBUG("ZCM only supports the '.*' regex (aka subscribe-all)");
@@ -268,19 +262,28 @@ struct zcm_blocking
     {
         unique_lock<mutex> lk(submut);
         int rc;
-        zcm_sub_t *sub = NULL;
+        zcm_sub_t  sub;
+        zcm_sub_t *retptr;
+
 
         if (isRegexChannel(channel)) {
+            // TODO: this is dependenton all regex being ".*"
             rc = zcm_trans_recvmsg_enable(zt, NULL, true);
             if (rc == ZCM_EOK) {
-                subRegex.emplace_back(zcm_reg_sub_t{{cb, usr}, channel});
-                sub = &(subRegex.back().sub);
+                strncpy(sub.channel, channel.c_str(), sizeof(sub.channel)/sizeof(sub.channel[0]));
+                sub.callback = cb;
+                sub.usr = usr;
+                subRegex.emplace_back(forward<zcm_sub_t>(sub));
+                retptr = &(subRegex.back());
             }
         } else {
             rc = zcm_trans_recvmsg_enable(zt, channel.c_str(), true);
             if (rc == ZCM_EOK) {
-                auto it = subs.emplace(channel, zcm_sub_t{cb, usr});
-                sub = &(it->second);
+                strncpy(sub.channel, channel.c_str(), sizeof(sub.channel)/sizeof(sub.channel[0]));
+                sub.callback = cb;
+                sub.usr = usr;
+                auto it = subs.emplace(channel, forward<zcm_sub_t>(sub));
+                retptr = &(it->second);
             }
         }
 
