@@ -15,7 +15,7 @@ gen_zcm() {(
     rm -fr $TMPDIR
     mkdir $TMPDIR
     cd $TMPDIR
-    $THISDIR/build/gen/zcm-gen -c $file
+    $THISDIR/build/gen/zcm-gen -c -x -j -p $file >/dev/null
 )}
 
 check_all_ext() {
@@ -29,8 +29,13 @@ check_all_ext() {
     files=$(echo "${collected[@]}" | xargs -n 1 basename | sort -u)
 
     for f in $files; do
-        cand=$TMPDIR/$f
-        orig=$TESTDIR/$bname.ans/$f
+        if [ "$ext" == "java" ]; then
+            cand=$TMPDIR/zcmtypes/$f
+            orig=$TESTDIR/$bname.ans/zcmtypes/$f
+        else
+            cand=$TMPDIR/$f
+            orig=$TESTDIR/$bname.ans/$f
+        fi
         if [ "$VERBOSE" == "1" ]; then
             echo "CHECK: '$cand' VS '$orig'"
         fi
@@ -44,10 +49,34 @@ check_all_ext() {
     done
 }
 
-compare() {
+compare_c() {
     bname=$1
     check_all_ext $bname h
     check_all_ext $bname c
+}
+
+compare_cpp() {
+    bname=$1
+    check_all_ext $bname hpp
+}
+
+compare_java() {
+    bname=$1
+    check_all_ext $bname java
+}
+
+compare_python() {
+    bname=$1
+    check_all_ext $bname py
+}
+
+## Add new language entries here
+compare() {
+    bname=$1
+    compare_c $bname
+    compare_cpp $bname
+    compare_python $bname
+    compare_java $bname
 }
 
 ZCMFILES=$(ls $TESTDIR/*.zcm)
