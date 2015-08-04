@@ -46,7 +46,7 @@ def setup_environment(ctx):
     useSymbols = waflib.Options.options.debug or waflib.Options.options.symbols
 
     WARNING_FLAGS = ['-Wall', '-Werror', '-Wno-unused-function', '-Wno-format-zero-length']
-    DEBUG_FLAGS = ['-g']
+    SYM_FLAGS = ['-g']
     OPT_FLAGS = ['-O3']
     ctx.env.CFLAGS_default   = ['-std=gnu99', '-fPIC'] + WARNING_FLAGS
     ctx.env.CXXFLAGS_default = ['-std=c++11', '-fPIC'] + WARNING_FLAGS
