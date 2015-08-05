@@ -40,6 +40,7 @@ typedef void (*zcm_msg_handler_t)(const zcm_recv_buf_t *rbuf, const char *channe
 typedef struct zcm_sub_t zcm_sub_t;
 struct zcm_sub_t
 {
+    /* Note: this is static to avoid mallocing and allow use of sizeof */
     char channel[ZCM_CHANNEL_MAXLEN+1];
     zcm_msg_handler_t callback;
     void *usr;

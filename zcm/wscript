@@ -33,6 +33,7 @@ def build(ctx):
                       ['zcm.h', 'zcm_coretypes.h', 'transport.h', 'transport_registrar.h',
                        'url.h', 'eventlog.h', 'zcm-cpp.hpp', 'zcm-cpp-impl.hpp'])
 
+    # XXX: disabled for now
     #ctx.recurse('java');
     #ctx.recurse('js');
 

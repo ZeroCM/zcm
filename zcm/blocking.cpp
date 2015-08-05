@@ -280,10 +280,10 @@ struct zcm_blocking
             sub.usr = usr;
             if (regex) {
                 subRegex.emplace_back(forward<zcm_sub_t>(sub));
-                retptr = &(subRegex.back());
+                retptr = &subRegex.back();
             } else {
                 auto it = subs.emplace(channel, forward<zcm_sub_t>(sub));
-                retptr = &(it->second);
+                retptr = &it->second;
             }
         }
 
@@ -319,7 +319,7 @@ struct zcm_blocking
         } else {
             auto its = subs.equal_range(channel);
             for (auto it = its.first; it != its.second; ++it) {
-                if (sub == &(it->second)) {
+                if (sub == &it->second) {
                     subs.erase(it);
                 }
             }
