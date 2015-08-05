@@ -63,7 +63,7 @@ function libzcmTransport(transport) {
 
     function subscribe(channel, cb) {
         var funcPtr = ffi.Callback('void', [recvBufRef, 'string', 'pointer'], makeDispatcher(cb));
-        process.on('exit', function() { funcPtr;}); // Force an extra ref to avoid Garbage Collection
+        process.on('exit', function() { funcPtr; }); // Force an extra ref to avoid Garbage Collection
         libzcm.zcm_subscribe(z, channel, funcPtr, null);
     }
 

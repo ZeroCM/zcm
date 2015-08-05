@@ -47,7 +47,7 @@ public class ZCM
             try {
                 singleton = new ZCM();
             } catch (Exception ex) {
-                System.err.println("LC singleton fail: "+ex);
+                System.err.println("ZCM singleton fail: "+ex);
                 System.exit(-1);
                 return null;
             }
@@ -90,7 +90,7 @@ public class ZCM
 
             publish(channel, encodeBuffer.getBuffer(), 0, encodeBuffer.size());
         } catch (IOException ex) {
-            System.err.println("LC publish fail: "+ex);
+            System.err.println("ZCM publish fail: "+ex);
         }
     }
 
