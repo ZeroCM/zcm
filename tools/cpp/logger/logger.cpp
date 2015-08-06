@@ -54,50 +54,47 @@ static inline u64 timestamp_now()
 
 struct Logger
 {
-    zcm_eventlog_t *log;
-
     string input_fname;
     string fname;
     string fname_prefix;
-    zcm_t    *zcm;
 
-    size_t max_write_queue_size;
-    int auto_increment;
-    int next_increment_num;
-    double auto_split_mb;
-    int force_overwrite;
-    int use_strftime;
-    int fflush_interval_ms;
-    int rotate;
-    int quiet;
+    zcm_eventlog_t *log             = nullptr;
+    zcm_t    *zcm                   = nullptr;
+
+    size_t max_write_queue_size     = 0;
+    int auto_increment              = 0;
+    int next_increment_num          = 0;
+    double auto_split_mb            = 0.0;
+    int force_overwrite             = 0;
+    int use_strftime                = 0;
+    int fflush_interval_ms          = 100;
+    int rotate                      = -1;
+    int quiet                       = 0;
 
     // variables for inverted matching (e.g., logging all but some channels)
-    int invert_channels;
+    int invert_channels             = 0;
     // XXX re-introduce regex
     string regex;
 
-    int64_t write_queue_size;
-    int write_thread_exit_flag;
+    size_t write_queue_size         = 0;
+    int write_thread_exit_flag      = 0;
 
     // these members controlled by write thread
-    size_t nevents;
-    size_t logsize;
-    size_t events_since_last_report;
-    u64    last_report_time;
-    size_t last_report_logsize;
-    u64    time0;
-    u64    last_fflush_time;
+    size_t nevents                  = 0;
+    size_t logsize                  = 0;
+    size_t events_since_last_report = 0;
+    u64    last_report_time         = 0;
+    size_t last_report_logsize      = 0;
+    u64    time0                    = 0;
+    u64    last_fflush_time         = 0;
 
-    size_t dropped_packets_count;
-    u64    last_drop_report_utime;
-    size_t last_drop_report_count;
+    size_t dropped_packets_count    = 0;
+    u64    last_drop_report_utime   = 0;
+    size_t last_drop_report_count   = 0;
 
-    Logger()
-    {
-        memset(this, 0, sizeof(*this));
-        fflush_interval_ms = 100;
-        rotate = -1;
-    }
+    int num_splits                  = 0;
+
+    Logger() {}
 
     void rotate_logfiles()
     {
@@ -185,158 +182,149 @@ struct Logger
         return 0;
     }
 
-    void write_thread()
+    void write_event(zcm_eventlog_event_t *le)
     {
-        int num_splits = 0;
+        // Is it time to start a new logfile?
+        int split_log = 0;
+        if (auto_split_mb) {
+            double logsize_mb = (double)logsize / (1 << 20);
+            split_log = (logsize_mb > auto_split_mb);
+        }
+        if (_reset_logfile) {
+            split_log = 1;
+            _reset_logfile = 0;
+        }
 
-        while (1) {
-            // XXX Get a message somehow...
-            zcm_eventlog_event_t *le = nullptr;
-            //void *msg = g_async_queue_pop(logger->write_queue);
+        if (split_log) {
+            // Yes.  open up a new log file
+            zcm_eventlog_destroy(log);
+            if (rotate > 0)
+                rotate_logfiles();
+            if(0 != open_logfile())
+                exit(1);
+            num_splits++;
+            logsize = 0;
+            last_report_logsize = 0;
+        }
 
-            // Is it time to start a new logfile?
-            int split_log = 0;
-            if (auto_split_mb) {
-                double logsize_mb = (double)logsize / (1 << 20);
-                split_log = (logsize_mb > auto_split_mb);
+        // Should the write thread exit?
+        if (write_thread_exit_flag)
+            return;
+
+        // nope.  write the event to disk
+        int64_t sz = sizeof(zcm_eventlog_event_t) + le->channellen + 1 + le->datalen;
+        write_queue_size -= sz;
+
+        if(0 != zcm_eventlog_write_event(log, le)) {
+            static u64 last_spew_utime = 0;
+            string reason = strerror(errno);
+            u64 now = timestamp_now();
+            if(now - last_spew_utime > 500000) {
+                fprintf(stderr, "zcm_eventlog_write_event: %s\n", reason.c_str());
+                last_spew_utime = now;
             }
-            if (_reset_logfile) {
-                split_log = 1;
-                _reset_logfile = 0;
-            }
-
-            if (split_log) {
-                // Yes.  open up a new log file
-                zcm_eventlog_destroy(log);
-                if (rotate > 0)
-                    rotate_logfiles();
-                if(0 != open_logfile())
-                    exit(1);
-                num_splits++;
-                logsize = 0;
-                last_report_logsize = 0;
-            }
-
-            // Should the write thread exit?
-            if (write_thread_exit_flag)
-                return;
-
-            // nope.  write the event to disk
-            int64_t sz = sizeof(zcm_eventlog_event_t) + le->channellen + 1 + le->datalen;
-            write_queue_size -= sz;
-
-            if(0 != zcm_eventlog_write_event(log, le)) {
-                static u64 last_spew_utime = 0;
-                string reason = strerror(errno);
-                u64 now = timestamp_now();
-                if(now - last_spew_utime > 500000) {
-                    fprintf(stderr, "zcm_eventlog_write_event: %s\n", reason.c_str());
-                    last_spew_utime = now;
-                }
-                free(le);
-                if(errno == ENOSPC) {
-                    exit(1);
-                } else {
-                    continue;
-                }
-            }
-            if (fflush_interval_ms >= 0 &&
-                (le->timestamp - last_fflush_time) > (u64)fflush_interval_ms*1000) {
-                fflush(zcm_eventlog_get_fileptr(log));
-                // Perform a full fsync operation after flush
-#ifndef WIN32
-                fdatasync(fileno(zcm_eventlog_get_fileptr(log)));
-#endif
-                last_fflush_time = le->timestamp;
-            }
-
-            // bookkeeping, cleanup
-            int64_t offset_utime = le->timestamp - time0;
-            nevents++;
-            events_since_last_report ++;
-            logsize += 4 + 8 + 8 + 4 + le->channellen + 4 + le->datalen;
-
             free(le);
-
-            if (!quiet && (offset_utime - last_report_time > 1000000)) {
-                double dt = (offset_utime - last_report_time)/1000000.0;
-
-                double tps =  events_since_last_report / dt;
-                double kbps = (logsize - last_report_logsize) / dt / 1024.0;
-                printf("Summary: %s ti:%4" PRIi64 "sec Events: %-9" PRIi64 " ( %4" PRIi64 " MB )      TPS: %8.2f       KB/s: %8.2f\n",
-                       fname.c_str(),
-                       offset_utime / 1000000,
-                       nevents, logsize/1048576,
-                       tps, kbps);
-                last_report_time = offset_utime;
-                events_since_last_report = 0;
-                last_report_logsize = logsize;
+            if(errno == ENOSPC) {
+                exit(1);
+            } else {
+                return;
             }
         }
+        if (fflush_interval_ms >= 0 &&
+            (le->timestamp - last_fflush_time) > (u64)fflush_interval_ms*1000) {
+            fflush(zcm_eventlog_get_fileptr(log));
+            // Perform a full fsync operation after flush
+#ifndef WIN32
+            fdatasync(fileno(zcm_eventlog_get_fileptr(log)));
+#endif
+            last_fflush_time = le->timestamp;
+        }
+
+        // bookkeeping, cleanup
+        int64_t offset_utime = le->timestamp - time0;
+        nevents++;
+        events_since_last_report ++;
+        logsize += 4 + 8 + 8 + 4 + le->channellen + 4 + le->datalen;
+
+        free(le);
+
+        if (!quiet && (offset_utime - last_report_time > 1000000)) {
+            double dt = (offset_utime - last_report_time)/1000000.0;
+
+            double tps =  events_since_last_report / dt;
+            double kbps = (logsize - last_report_logsize) / dt / 1024.0;
+            printf("Summary: %s ti:%4" PRIi64 "sec Events: %-9" PRIi64 " ( %4" PRIi64 " MB )      TPS: %8.2f       KB/s: %8.2f\n",
+                   fname.c_str(),
+                   offset_utime / 1000000,
+                   nevents, logsize/1048576,
+                   tps, kbps);
+            last_report_time = offset_utime;
+            events_since_last_report = 0;
+            last_report_logsize = logsize;
+        }
+    }
+
+    void handler(const zcm_recv_buf_t *rbuf, const char *channel)
+    {
+        // XXX re-introduce invert channels
+        // if (invert_channels) {
+        //     if (g_regex_match(logger->regex, channel, (GRegexMatchFlags) 0, NULL))
+        //         return;
+        // }
+
+        int channellen = strlen(channel);
+
+        // check if the backlog of unwritten messages is too big.  If so, then
+        // ignore this event
+        size_t mem_sz = sizeof(zcm_eventlog_event_t) + channellen + 1 + rbuf->len;
+        size_t mem_required = mem_sz + write_queue_size;
+
+        if(mem_required > max_write_queue_size) {
+            // XXX we should be detecting message drops and reporting
+            // // can't write to logfile fast enough.  drop packet.
+            // g_mutex_unlock(logger->mutex);
+
+            // // maybe print an informational message to stdout
+            // int64_t now = timestamp_now();
+            // logger->dropped_packets_count ++;
+            // int rc = logger->dropped_packets_count - logger->last_drop_report_count;
+
+            // if(now - logger->last_drop_report_utime > 1000000 && rc > 0) {
+            //     if(!logger->quiet)
+            //         printf("Can't write to log fast enough.  Dropped %d packet%s\n",
+            //                rc, rc==1?"":"s");
+            //     logger->last_drop_report_utime = now;
+            //     logger->last_drop_report_count = logger->dropped_packets_count;
+            // }
+            return;
+        } else {
+            write_queue_size = mem_required;
+        }
+
+        // queue up the message for writing to disk by the write thread
+        zcm_eventlog_event_t *le = (zcm_eventlog_event_t*) malloc(mem_sz);
+        memset(le, 0, mem_sz);
+
+        le->timestamp = rbuf->utime;
+        le->channellen = channellen;
+        le->datalen = rbuf->len;
+        // log_write_event will handle le.eventnum.
+
+        le->channel = ((char*)le) + sizeof(zcm_eventlog_event_t);
+        strcpy(le->channel, channel);
+        le->data = le->channel + channellen + 1;
+        assert((char*)le->data + rbuf->len == (char*)le + mem_sz);
+        memcpy(le->data, rbuf->data, rbuf->len);
+
+        write_event(le);
     }
 };
 
-static void message_handler(const zcm_recv_buf_t *rbuf, const char *channel, void *u)
+static void message_handler(const zcm_recv_buf_t *rbuf, const char *channel, void *usr)
 {
+    Logger *logger = (Logger *) usr;
+    logger->handler(rbuf, channel);
 }
-
-// static void
-// message_handler (const lcm_recv_buf_t *rbuf, const char *channel, void *u)
-// {
-//     logger_t *logger = (logger_t*) u;
-
-//     if(logger->invert_channels) {
-//         if(g_regex_match(logger->regex, channel, (GRegexMatchFlags) 0, NULL))
-//             return;
-//     }
-
-//     int channellen = strlen(channel);
-
-//     // check if the backlog of unwritten messages is too big.  If so, then
-//     // ignore this event
-//     int64_t mem_sz = sizeof(lcm_eventlog_event_t) + channellen + 1 + rbuf->data_size;
-//     g_mutex_lock(logger->mutex);
-//     int64_t mem_required = mem_sz + logger->write_queue_size;
-
-//     if(mem_required > logger->max_write_queue_size) {
-//         // can't write to logfile fast enough.  drop packet.
-//         g_mutex_unlock(logger->mutex);
-
-//         // maybe print an informational message to stdout
-//         int64_t now = timestamp_now();
-//         logger->dropped_packets_count ++;
-//         int rc = logger->dropped_packets_count - logger->last_drop_report_count;
-
-//         if(now - logger->last_drop_report_utime > 1000000 && rc > 0) {
-//             if(!logger->quiet)
-//                 printf("Can't write to log fast enough.  Dropped %d packet%s\n",
-//                         rc, rc==1?"":"s");
-//             logger->last_drop_report_utime = now;
-//             logger->last_drop_report_count = logger->dropped_packets_count;
-//         }
-//         return;
-//     } else {
-//         logger->write_queue_size = mem_required;
-//         g_mutex_unlock(logger->mutex);
-//     }
-
-//     // queue up the message for writing to disk by the write thread
-//     lcm_eventlog_event_t *le = (lcm_eventlog_event_t*) malloc(mem_sz);
-//     memset(le, 0, mem_sz);
-
-//     le->timestamp = rbuf->recv_utime;
-//     le->channellen = channellen;
-//     le->datalen = rbuf->data_size;
-//     // log_write_event will handle le.eventnum.
-
-//     le->channel = ((char*)le) + sizeof(lcm_eventlog_event_t);
-//     strcpy(le->channel, channel);
-//     le->data = le->channel + channellen + 1;
-//     assert((char*)le->data + rbuf->data_size == (char*)le + mem_sz);
-//     memcpy(le->data, rbuf->data, rbuf->data_size);
-
-//     g_async_queue_push(logger->write_queue, le);
-// }
 
 #ifdef USE_SIGHUP
 static void sighup_handler (int signum)
@@ -347,16 +335,16 @@ static void sighup_handler (int signum)
 
 static void usage ()
 {
-    fprintf (stderr, "usage: lcm-logger [options] [FILE]\n"
+    fprintf (stderr, "usage: zcm-logger [options] [FILE]\n"
             "\n"
-            "    LCM message logging utility.  Subscribes to all channels on an LCM\n"
+            "    ZCM message logging utility.  Subscribes to all channels on an ZCM\n"
             "    network, and records all messages received on that network to\n"
             "    FILE.  If FILE is not specified, then a filename is automatically\n"
             "    chosen.\n"
             "\n"
             "Options:\n"
             "\n"
-            "  -c, --channel=CHAN         Channel string to pass to lcm_subscribe.\n"
+            "  -c, --channel=CHAN         Channel string to pass to zcm_subscribe.\n"
             "                             (default: \".*\")\n"
             "      --flush-interval=MS    Flush the log file to disk every MS milliseconds.\n"
             "                             (default: 100)\n"
@@ -366,7 +354,7 @@ static void usage ()
             "                             such that the resulting filename does not\n"
             "                             already exist.  This option precludes -f and\n"
             "                             --rotate\n"
-            "  -l, --lcm-url=URL          Log messages on the specified LCM URL\n"
+            "  -l, --zcm-url=URL          Log messages on the specified ZCM URL\n"
             "  -m, --max-unwritten-mb=SZ  Maximum size of received but unwritten\n"
             "                             messages to store in memory before dropping\n"
             "                             messages.  (default: 100 MB)\n"
@@ -387,15 +375,15 @@ static void usage ()
             "\n"
             "Rotating / splitting log files\n"
             "==============================\n"
-            "    For long-term logging, lcm-logger can rotate through a fixed number of\n"
+            "    For long-term logging, zcm-logger can rotate through a fixed number of\n"
             "    log files, moving to a new log file as existing files reach a maximum size.\n"
             "    To do this, use --rotate and --split-mb.  For example:\n"
             "\n"
             "        # Rotate through logfile.0, logfile.1, ... logfile.4\n"
-            "        lcm-logger --rotate=5 --split-mb=2 logfile\n"
+            "        zcm-logger --rotate=5 --split-mb=2 logfile\n"
             "\n"
             "    Moving to a new file happens either when the current log file size exceeds\n"
-            "    the limit specified by --split-mb, or when lcm-logger receives a SIGHUP.\n"
+            "    the limit specified by --split-mb, or when zcm-logger receives a SIGHUP.\n"
             "\n");
 }
 
@@ -419,7 +407,7 @@ int main(int argc, char *argv[])
         { "channel", required_argument, 0, 'c' },
         { "force", no_argument, 0, 'f' },
         { "increment", required_argument, 0, 'i' },
-        { "lcm-url", required_argument, 0, 'l' },
+        { "zcm-url", required_argument, 0, 'l' },
         { "max-unwritten-mb", required_argument, 0, 'm' },
         { "rotate", required_argument, 0, 'r' },
         { "strftime", required_argument, 0, 's' },
@@ -492,7 +480,7 @@ int main(int argc, char *argv[])
     }
 
     if (optind == argc) {
-        logger.input_fname = "lcmlog-%Y-%m-%d";
+        logger.input_fname = "zcmlog-%Y-%m-%d";
         logger.auto_increment = 1;
         logger.use_strftime = 1;
     } else if (optind == argc - 1) {
@@ -524,9 +512,11 @@ int main(int argc, char *argv[])
     logger.write_queue_size = 0;
 
     // begin logging
-    logger.zcm = zcm_create(zcmurl != "" ? zcmurl.c_str() : nullptr);
+    // XXX "ipc" is the hardcoded default: This should be an automatic
+    //     by zcm_create whenever NULL is passed
+    logger.zcm = zcm_create(zcmurl != "" ? zcmurl.c_str() : "ipc");
     if (!logger.zcm) {
-        fprintf(stderr, "Couldn't initialize LCM!");
+        fprintf(stderr, "Couldn't initialize ZCM!");
         return 1;
     }
 
@@ -536,54 +526,25 @@ int main(int argc, char *argv[])
         zcm_subscribe(logger.zcm, ".*", message_handler, &logger);
         logger.regex = "^" + chan_regex + "$";
     } else {
-        // otherwise, let LCM handle the regex
+        // otherwise, let ZCM handle the regex
         zcm_subscribe(logger.zcm, chan_regex.c_str(), message_handler, &logger);
     }
 
     // XXX ADD THIS
     //     _mainloop = g_main_loop_new (NULL, FALSE);
     //     signal_pipe_glib_quit_on_kill ();
-    //     glib_mainloop_attach_lcm (logger.lcm);
+    //     glib_mainloop_attach_zcm (logger.zcm);
 
 #ifdef USE_SIGHUP
     signal(SIGHUP, sighup_handler);
 #endif
+
+    zcm_become(logger.zcm);
 
     // XXX ADD this
     //     // main loop
     //     g_main_loop_run (_mainloop);
 
     fprintf(stderr, "Logger exiting\n");
-
-    // XXX fix this up
-    //     // stop the write thread
-    //     g_mutex_lock(logger.mutex);
-    //     logger.write_thread_exit_flag = 1;
-    //     g_mutex_unlock(logger.mutex);
-    //     g_async_queue_push(logger.write_queue, &logger.write_thread_exit_flag);
-    //     g_thread_join(logger.write_thread);
-    //     g_mutex_free(logger.mutex);
-
-    // XXX fix this up
-    //     // cleanup.  This isn't strictly necessary, do it to be pedantic and so that
-    //     // leak checkers don't complain
-    //     glib_mainloop_detach_lcm (logger.lcm);
-    //     lcm_destroy (logger.lcm);
-    //     lcm_eventlog_destroy (logger.log);
-
-    // XXX fix this up
-    //     for(void *msg = g_async_queue_try_pop(logger.write_queue); msg;
-    //             msg=g_async_queue_try_pop(logger.write_queue)) {
-    //         if(msg == &logger.write_thread_exit_flag)
-    //             continue;
-    //         free(msg);
-    //     }
-
-    // XXX fix this up
-    //     g_async_queue_unref(logger.write_queue);
-    //     if(logger.invert_channels) {
-    //         g_regex_unref(logger.regex);
-    //     }
-
     return 0;
 }
