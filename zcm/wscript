@@ -17,6 +17,15 @@ def build(ctx):
                                           'util/*.c', 'util/*.cpp',
                                           'transport/**/*.c', 'transport/**/*.cpp']))
 
+    # Note: this is intended for local use by zcm test binaries only
+    ctx.stlib(target = 'zcmstatic',
+              includes = '..',
+              export_includes = '..',
+              use = ['default', 'zmq'],
+              source = ctx.path.ant_glob(['*.cpp', '*.c',
+                                          'util/*.c', 'util/*.cpp',
+                                          'transport/*.c', 'transport/*.cpp']))
+
     ## Collect files for Embedded
     ctx(rule = 'tar cfz ${TGT} ${SRC}',
         name = 'embed-tar',

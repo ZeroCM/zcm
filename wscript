@@ -52,6 +52,7 @@ def build(ctx):
         setup_environment(ctx)
 
     ctx.recurse('zcm')
+    ctx.recurse('test')
     # XXX: disabled for now
     #ctx.recurse('gen')
     #ctx.recurse('config')

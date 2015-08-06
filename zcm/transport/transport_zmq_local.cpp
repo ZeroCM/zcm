@@ -170,15 +170,22 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         // concurrently
         unique_lock<mutex> lk(mut);
 
-        // XXX: Implement disabling
-        assert(enable && "Disabling is not supported");
         if (channel == NULL) {
-            recvAllChannels = true;
+            if (enable) {
+                recvAllChannels = enable;
+            } else {
+                // XXX: do disable
+            }
             return ZCM_EOK;
         }
-        void *sock = subsockFindOrCreate(channel);
-        if (sock == nullptr)
-            return ZCM_ECONNECT;
+
+        if (enable) {
+            void *sock = subsockFindOrCreate(channel);
+            if (sock == nullptr)
+                return ZCM_ECONNECT;
+        } else {
+            // XXX: do disable
+        }
         return ZCM_EOK;
     }
 

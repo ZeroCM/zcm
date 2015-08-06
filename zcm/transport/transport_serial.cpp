@@ -316,7 +316,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     {
         unique_lock<mutex> lk(mut);
         if (channel == NULL)
-            recvAllChannels = true;
+            recvAllChannels = enable;
         else
             recvChannels[channel] = (int)enable;
         return ZCM_EOK;

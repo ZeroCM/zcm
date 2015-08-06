@@ -51,6 +51,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         return ZCM_EOK;
     }
 
+    // Note: this transport simply listens to all channels
     int recvmsgEnable(const char *channel, bool enable)
     {
         return ZCM_EOK;
