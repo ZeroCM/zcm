@@ -1,5 +1,6 @@
 #include "zcm/transport.h"
 #include "zcm/transport_registrar.h"
+#include "zcm/transport_register.hpp"
 #include "zcm/util/debug.h"
 #include "zcm/util/lockfile.h"
 #include <zmq.h>
@@ -319,6 +320,9 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
     static void _destroy(zcm_trans_t *zt)
     { delete cast(zt); }
+
+    static const TransportRegister regIpc;
+    static const TransportRegister regInproc;
 };
 
 zcm_trans_methods_t ZCM_TRANS_CLASSNAME::methods = {
@@ -341,7 +345,7 @@ static zcm_trans_t *createInproc(zcm_url_t *url)
 }
 
 // Register this transport with ZCM
-static struct Register { Register() {
-    zcm_transport_register("ipc",    "Transfer data via Inter-process Communication (e.g. 'ipc')", createIpc);
-    zcm_transport_register("inproc", "Transfer data via Internal process memory (e.g. 'inproc')",  createInproc);
-}} reg;
+const TransportRegister ZCM_TRANS_CLASSNAME::regIpc(
+    "ipc",    "Transfer data via Inter-process Communication (e.g. 'ipc')", createIpc);
+const TransportRegister ZCM_TRANS_CLASSNAME::regInproc(
+    "inproc", "Transfer data via Internal process memory (e.g. 'inproc')",  createInproc);

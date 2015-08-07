@@ -6,8 +6,3 @@ def build(ctx):
                 use = 'default zcm',
                 source = 'sub_unsub.cpp',
                 install_path = None)
-
-    ctx.program(target = 'sub_unsub_static',
-                use = 'default zcmstatic',
-                source = 'sub_unsub.cpp',
-                install_path = None)

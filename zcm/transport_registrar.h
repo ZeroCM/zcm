@@ -1,5 +1,5 @@
-#ifndef _ZCM_TRANS_REG_H
-#define _ZCM_TRANS_REG_H
+#ifndef _ZCM_TRANS_REGISTRAR_H
+#define _ZCM_TRANS_REGISTRAR_H
 
 #include "zcm/transport.h"
 #include "zcm/url.h"
@@ -18,4 +18,4 @@ void zcm_transport_help(FILE *f);
 }
 #endif
 
-#endif  /* _ZCM_TRANS_REG_H */
+#endif  /* _ZCM_TRANS_REGISTRAR_H */
