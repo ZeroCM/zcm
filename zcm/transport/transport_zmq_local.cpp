@@ -20,11 +20,11 @@
 using namespace std;
 
 // Define this the class name you want
-#define ZCM_TRANS_CLASSNAME TransportZmqIpc
+#define ZCM_TRANS_CLASSNAME TransportZmqLocal
 #define MTU (1<<20)
 #define ZMQ_IO_THREADS 1
-#define NAME_PREFIX "zcm-channel-zmq-ipc-"
-#define IPC_ADDR_PREFIX "ipc:///tmp/" NAME_PREFIX
+#define IPC_NAME_PREFIX "zcm-channel-zmq-ipc-"
+#define IPC_ADDR_PREFIX "ipc:///tmp/" IPC_NAME_PREFIX
 #define INPROC_ADDR_PREFIX "inproc://"
 
 enum Type { IPC, INPROC, };
@@ -57,7 +57,44 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
     ~ZCM_TRANS_CLASSNAME()
     {
-        // TODO shut down ZMQ correctly
+        int rc;
+        string address;
+
+        // Clean up all publish sockets
+        for (auto it = pubsocks.begin(); it != pubsocks.end(); ++it) {
+            address = getAddress(it->first);
+
+            rc = zmq_unbind(it->second, address.c_str());
+            if (rc == -1) {
+                ZCM_DEBUG("failed to unbind pubsock: %s", zmq_strerror(errno));
+            }
+
+            rc = zmq_close(it->second);
+            if (rc == -1) {
+                ZCM_DEBUG("failed to close pubsock: %s", zmq_strerror(errno));
+            }
+        }
+
+        // Clean up all subscribe sockets
+        for (auto it = subsocks.begin(); it != subsocks.end(); ++it) {
+            address = getAddress(it->first);
+
+            rc = zmq_disconnect(it->second, address.c_str());
+            if (rc == -1) {
+                ZCM_DEBUG("failed to disconnect subsock: %s", zmq_strerror(errno));
+            }
+
+            rc = zmq_close(it->second);
+            if (rc == -1) {
+                ZCM_DEBUG("failed to disconnect subsock: %s", zmq_strerror(errno));
+            }
+        }
+
+        // Clean up the zmq context
+        rc = zmq_ctx_term(ctx);
+        if (rc == -1) {
+            ZCM_DEBUG("failed to terminate context: %s", zmq_strerror(errno));
+        }
     }
 
     string getAddress(const string& channel)
@@ -192,8 +229,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
     void ipcScanForNewChannels()
     {
-        const char *prefix = NAME_PREFIX;
-        size_t prefixLen = strlen(NAME_PREFIX);
+        const char *prefix = IPC_NAME_PREFIX;
+        size_t prefixLen = strlen(IPC_NAME_PREFIX);
 
         DIR *d;
         dirent *ent;
@@ -216,7 +253,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
     // XXX This only works for channels within this instance! Creating another
     //     ZCM instance using 'inproc' will cause this scan to miss some channels!
-    //     Need to implement a better technique. Should sse a globally shared datastruct.
+    //     Need to implement a better technique. Should use a globally shared datastruct.
     void inprocScanForNewChannels()
     {
         for (auto& elt : pubsocks) {

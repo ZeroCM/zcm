@@ -303,7 +303,7 @@ struct zcm_blocking
 
         string channel = sub->channel;
         bool regex = isRegexChannel(channel);
-        int rc;
+        int rc = ZCM_EOK;
 
         if (regex) {
             for (auto it = subRegex.begin(); it != subRegex.end(); ++it) {
@@ -312,15 +312,17 @@ struct zcm_blocking
                     break;
                 }
             }
-            // TODO: this is dependenton all regex being ".*"
+            // XXX: this is dependent on all regex being ".*" (only those are allowed as of now)
             if (subRegex.empty()) {
                 rc = zcm_trans_recvmsg_enable(zt, NULL, false);
             }
         } else {
             auto its = subs.equal_range(channel);
-            for (auto it = its.first; it != its.second; ++it) {
+            for (auto it = its.first; it != its.second;) {
                 if (sub == &it->second) {
-                    subs.erase(it);
+                    it = subs.erase(it);
+                } else {
+                    ++it;
                 }
             }
             if (subs.count(channel) == 0) {
