@@ -73,6 +73,13 @@
  *         of channels that the user expects to receive. It exists to provide the
  *         transport layer more information for optimization purposes (e.g. the
  *         transport may decide to send each channel over a different endpoint).
+ *         If this method is called to disable with channel = NULL, the transport
+ *         may only disable receipt of channels that it did not previously receive
+ *         an explicit enable command for (i.e. those channels that it would be
+ *         receiving had no "receive all" command been given). If a channel is
+ *         explicity disabled after channel = NULL has been enabled, the transport
+ *         must continue receiving messages on that channel until recv channel = NULL
+ *         is disabled.
  *         NOTE: This method should work concurrently and correctly with
  *         recvmsg(). On success, this method should return ZCM_EOK
  *

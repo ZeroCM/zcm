@@ -35,7 +35,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     Type type;
 
     unordered_map<string, void*> pubsocks;
-    unordered_map<string, void*> subsocks;
+    // socket pair contains the socket + whether it was subscribed to explicitly or not
+    unordered_map<string, pair<void*, bool>> subsocks;
     string recvmsgChannel;
     char recvmsgBuffer[MTU];
     bool recvAllChannels = false;
@@ -79,12 +80,12 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         for (auto it = subsocks.begin(); it != subsocks.end(); ++it) {
             address = getAddress(it->first);
 
-            rc = zmq_disconnect(it->second, address.c_str());
+            rc = zmq_disconnect(it->second.first, address.c_str());
             if (rc == -1) {
                 ZCM_DEBUG("failed to disconnect subsock: %s", zmq_strerror(errno));
             }
 
-            rc = zmq_close(it->second);
+            rc = zmq_close(it->second.first);
             if (rc == -1) {
                 ZCM_DEBUG("failed to disconnect subsock: %s", zmq_strerror(errno));
             }
@@ -150,11 +151,13 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     }
 
     // May return null if it cannot create a new subsock
-    void *subsockFindOrCreate(const string& channel)
+    void *subsockFindOrCreate(const string& channel, bool subExplicit)
     {
         auto it = subsocks.find(channel);
-        if (it != subsocks.end())
-            return it->second;
+        if (it != subsocks.end()) {
+            it->second.second |= subExplicit;
+            return it->second.first;
+        }
         void *sock = zmq_socket(ctx, ZMQ_SUB);
         if (sock == nullptr) {
             ZCM_DEBUG("failed to create subsock: %s", zmq_strerror(errno));
@@ -172,8 +175,46 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             ZCM_DEBUG("failed to setsockopt on subsock: %s", zmq_strerror(errno));
             return nullptr;
         }
-        subsocks.emplace(channel, sock);
+        subsocks.emplace(channel, make_pair(sock, subExplicit));
         return sock;
+    }
+
+    void ipcScanForNewChannels()
+    {
+        const char *prefix = IPC_NAME_PREFIX;
+        size_t prefixLen = strlen(IPC_NAME_PREFIX);
+
+        DIR *d;
+        dirent *ent;
+
+        if (!(d=opendir("/tmp/")))
+            return;
+
+        while ((ent=readdir(d)) != nullptr) {
+            if (strncmp(ent->d_name, prefix, prefixLen) == 0) {
+                string channel(ent->d_name + prefixLen);
+                void *sock = subsockFindOrCreate(channel, false);
+                if (sock == nullptr) {
+                    ZCM_DEBUG("failed to open subsock in scanForNewChannels(%s)", channel.c_str());
+                }
+            }
+        }
+
+        closedir(d);
+    }
+
+    // XXX This only works for channels within this instance! Creating another
+    //     ZCM instance using 'inproc' will cause this scan to miss some channels!
+    //     Need to implement a better technique. Should use a globally shared datastruct.
+    void inprocScanForNewChannels()
+    {
+        for (auto& elt : pubsocks) {
+            auto& channel = elt.first;
+            void *sock = subsockFindOrCreate(channel, false);
+            if (sock == nullptr) {
+                ZCM_DEBUG("failed to open subsock in scanForNewChannels(%s)", channel.c_str());
+            }
+        }
     }
 
     /********************** METHODS **********************/
@@ -212,73 +253,57 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             if (enable) {
                 recvAllChannels = enable;
             } else {
-                // XXX: do disable
+                for (auto it = subsocks.begin(); it != subsocks.end(); ) {
+                    if (!it->second.second) { // This channel is only subscribed to implicitly
+                        string address = getAddress(it->first);
+                        int rc = zmq_disconnect(it->second.first, address.c_str());
+                        if (rc == -1) {
+                            ZCM_DEBUG("failed to disconnect subsock: %s", zmq_strerror(errno));
+                            return ZCM_ECONNECT;
+                        }
+
+                        rc = zmq_close(it->second.first);
+                        if (rc == -1) {
+                            ZCM_DEBUG("failed to disconnect subsock: %s", zmq_strerror(errno));
+                            return ZCM_ECONNECT;
+                        }
+                        it = subsocks.erase(it);
+                    } else {
+                        ++it;
+                    }
+                }
             }
             return ZCM_EOK;
         } else {
             if (enable) {
-                void *sock = subsockFindOrCreate(channel);
+                void *sock = subsockFindOrCreate(channel, true);
                 if (sock == nullptr)
                     return ZCM_ECONNECT;
             } else {
-                // XXX: really we should only disable if we are not in "recvAll" mode
                 auto it = subsocks.find(channel);
                 if (it != subsocks.end()) {
-                    string address = getAddress(it->first);
+                    if (it->second.second) { // This channel has been subscribed to explicitly
+                        if (recvAllChannels) {
+                            it->second.second = false;
+                        } else {
+                            string address = getAddress(it->first);
+                            int rc = zmq_disconnect(it->second.first, address.c_str());
+                            if (rc == -1) {
+                                ZCM_DEBUG("failed to disconnect subsock: %s", zmq_strerror(errno));
+                                return ZCM_ECONNECT;
+                            }
 
-                    int rc = zmq_disconnect(it->second, address.c_str());
-                    if (rc == -1) {
-                        ZCM_DEBUG("failed to disconnect subsock: %s", zmq_strerror(errno));
-                        return ZCM_ECONNECT;
+                            rc = zmq_close(it->second.first);
+                            if (rc == -1) {
+                                ZCM_DEBUG("failed to disconnect subsock: %s", zmq_strerror(errno));
+                                return ZCM_ECONNECT;
+                            }
+                            subsocks.erase(it);
+                        }
                     }
-
-                    rc = zmq_close(it->second);
-                    if (rc == -1) {
-                        ZCM_DEBUG("failed to disconnect subsock: %s", zmq_strerror(errno));
-                        return ZCM_ECONNECT;
-                    }
-                    subsocks.erase(it);
                 }
             }
             return ZCM_EOK;
-        }
-    }
-
-    void ipcScanForNewChannels()
-    {
-        const char *prefix = IPC_NAME_PREFIX;
-        size_t prefixLen = strlen(IPC_NAME_PREFIX);
-
-        DIR *d;
-        dirent *ent;
-
-        if (!(d=opendir("/tmp/")))
-            return;
-
-        while ((ent=readdir(d)) != nullptr) {
-            if (strncmp(ent->d_name, prefix, prefixLen) == 0) {
-                string channel(ent->d_name + prefixLen);
-                void *sock = subsockFindOrCreate(channel);
-                if (sock == nullptr) {
-                    ZCM_DEBUG("failed to open subsock in scanForNewChannels(%s)", channel.c_str());
-                }
-            }
-        }
-
-        closedir(d);
-    }
-
-    // XXX This only works for channels within this instance! Creating another
-    //     ZCM instance using 'inproc' will cause this scan to miss some channels!
-    //     Need to implement a better technique. Should use a globally shared datastruct.
-    void inprocScanForNewChannels()
-    {
-        for (auto& elt : pubsocks) {
-            auto& channel = elt.first;
-            void *sock = subsockFindOrCreate(channel);
-            if (sock == nullptr) {
-                ZCM_DEBUG("failed to open subsock in scanForNewChannels(%s)", channel.c_str());
-            }
         }
     }
 
@@ -304,7 +329,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             int i = 0;
             for (auto& elt : subsocks) {
                 auto& channel = elt.first;
-                auto& sock = elt.second;
+                auto& sock = elt.second.first;
                 auto *p = &pitems[i];
                 memset(p, 0, sizeof(*p));
                 p->socket = sock;
