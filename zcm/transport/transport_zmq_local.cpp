@@ -215,16 +215,33 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
                 // XXX: do disable
             }
             return ZCM_EOK;
-        }
-
-        if (enable) {
-            void *sock = subsockFindOrCreate(channel);
-            if (sock == nullptr)
-                return ZCM_ECONNECT;
         } else {
-            // XXX: do disable
+            if (enable) {
+                void *sock = subsockFindOrCreate(channel);
+                if (sock == nullptr)
+                    return ZCM_ECONNECT;
+            } else {
+                // XXX: really we should only disable if we are not in "recvAll" mode
+                auto it = subsocks.find(channel);
+                if (it != subsocks.end()) {
+                    string address = getAddress(it->first);
+
+                    int rc = zmq_disconnect(it->second, address.c_str());
+                    if (rc == -1) {
+                        ZCM_DEBUG("failed to disconnect subsock: %s", zmq_strerror(errno));
+                        return ZCM_ECONNECT;
+                    }
+
+                    rc = zmq_close(it->second);
+                    if (rc == -1) {
+                        ZCM_DEBUG("failed to disconnect subsock: %s", zmq_strerror(errno));
+                        return ZCM_ECONNECT;
+                    }
+                    subsocks.erase(it);
+                }
+            }
+            return ZCM_EOK;
         }
-        return ZCM_EOK;
     }
 
     void ipcScanForNewChannels()
@@ -299,8 +316,13 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
         timeout = (timeout >= 0) ? timeout : -1;
         int rc = zmq_poll(pitems.data(), pitems.size(), timeout);
-        // XXX: implement error handling, don't just assert
-        assert(rc != -1);
+        // XXX: implement better error handling, but can't assert because this triggers during
+        //      clean up of the zmq subscriptions and context (may need to look towards having a
+        //      "ZCM_ETERM" return code that we can use to cancel the recv message thread
+        if (rc == -1) {
+            ZCM_DEBUG("zmq_poll failed with: %s", zmq_strerror(errno));
+            return ZCM_EAGAIN;
+        }
         if (rc >= 0) {
             for (size_t i = 0; i < pitems.size(); i++) {
                 auto& p = pitems[i];

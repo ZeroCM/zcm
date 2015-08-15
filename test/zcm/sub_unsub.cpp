@@ -22,7 +22,7 @@ int main(int argc, const char *argv[])
 
     auto *sub = zcm_subscribe(zcm_ipc, "TEST", generic_handler, NULL);
 
-    usleep(1000);
+    usleep(1000000);
 
     zcm_unsubscribe(zcm_ipc, sub);
 

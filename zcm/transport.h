@@ -85,10 +85,10 @@
  *         NOTE: This method should work concurrently and correctly with
  *         recvmsg_enable(). If 'timeout >= 0' then recvmsg()
  *         should return EAGAIN if it is unable to receive a message within
- *         'timeout' milliseconds. NOTE: We do *NOT* require a very accurate
- *         clock for this timeout feature and users should only expect
- *         accuracy within a few milliseconds. Users should *not* attempt
- *         to use this timing mechanism for real-time events.
+ *         'timeout' milliseconds.
+ *         NOTE: We do *NOT* require a very accurate clock for this timeout feature
+ *         and users should only expect accuracy within a few milliseconds. Users
+ *         should *not* attempt to use this timing mechanism for real-time events.
  *
  *      int update(zcm_trans_t *zt);
  *      --------------------------------------------------------------------
