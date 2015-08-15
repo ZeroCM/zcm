@@ -25,8 +25,6 @@ using namespace std;
 # include <linux/limits.h>
 #endif
 
-//#include "glib_util.h"
-
 typedef uint8_t  u8;
 typedef  int8_t  i8;
 typedef uint16_t u16;
@@ -71,10 +69,10 @@ struct Logger
     int rotate                      = -1;
     int quiet                       = 0;
 
+    // TODO re-introduce invert
     // variables for inverted matching (e.g., logging all but some channels)
     int invert_channels             = 0;
-    // XXX re-introduce regex
-    string regex;
+    string invert_regex;
 
     size_t write_queue_size         = 0;
     int write_thread_exit_flag      = 0;
@@ -266,7 +264,7 @@ struct Logger
 
     void handler(const zcm_recv_buf_t *rbuf, const char *channel)
     {
-        // XXX re-introduce invert channels
+        // TODO re-introduce invert channels
         // if (invert_channels) {
         //     if (g_regex_match(logger->regex, channel, (GRegexMatchFlags) 0, NULL))
         //         return;
@@ -280,7 +278,7 @@ struct Logger
         size_t mem_required = mem_sz + write_queue_size;
 
         if(mem_required > max_write_queue_size) {
-            // XXX we should be detecting message drops and reporting
+            // TODO we should be detecting message drops and reporting
             // // can't write to logfile fast enough.  drop packet.
             // g_mutex_unlock(logger->mutex);
 
@@ -327,15 +325,15 @@ static void message_handler(const zcm_recv_buf_t *rbuf, const char *channel, voi
 }
 
 #ifdef USE_SIGHUP
-static void sighup_handler (int signum)
+static void sighup_handler(int signum)
 {
     _reset_logfile = 1;
 }
 #endif
 
-static void usage ()
+static void usage()
 {
-    fprintf (stderr, "usage: zcm-logger [options] [FILE]\n"
+    fprintf(stderr, "usage: zcm-logger [options] [FILE]\n"
             "\n"
             "    ZCM message logging utility.  Subscribes to all channels on an ZCM\n"
             "    network, and records all messages received on that network to\n"
@@ -446,6 +444,9 @@ int main(int argc, char *argv[])
                 logger.quiet = 1;
                 break;
             case 'v':
+                // TODO re-introduce invert
+                fprintf(stderr, "ERR: option 'invert-channels' not supported\n");
+                exit(1);
                 logger.invert_channels = 1;
                 break;
             case 'm':
@@ -524,26 +525,17 @@ int main(int argc, char *argv[])
         // if inverting the channels, subscribe to everything and invert on the
         // callback
         zcm_subscribe(logger.zcm, ".*", message_handler, &logger);
-        logger.regex = "^" + chan_regex + "$";
+        logger.invert_regex = "^" + chan_regex + "$";
     } else {
         // otherwise, let ZCM handle the regex
         zcm_subscribe(logger.zcm, chan_regex.c_str(), message_handler, &logger);
     }
-
-    // XXX ADD THIS
-    //     _mainloop = g_main_loop_new (NULL, FALSE);
-    //     signal_pipe_glib_quit_on_kill ();
-    //     glib_mainloop_attach_zcm (logger.zcm);
 
 #ifdef USE_SIGHUP
     signal(SIGHUP, sighup_handler);
 #endif
 
     zcm_become(logger.zcm);
-
-    // XXX ADD this
-    //     // main loop
-    //     g_main_loop_run (_mainloop);
 
     fprintf(stderr, "Logger exiting\n");
     return 0;
