@@ -106,62 +106,79 @@ typedef struct _zcm_buf {
 
 
 /******* Functions for managing a queue of message buffers *******/
-typedef struct _zcm_buf_queue {
-    zcm_buf_t * head;
-    zcm_buf_t ** tail;
-    int count;
-} zcm_buf_queue_t;
+struct BufQueue
+{
+    zcm_buf_t *head = nullptr;
+    zcm_buf_t **tail = &head;
+    int count = 0;
 
-zcm_buf_queue_t * zcm_buf_queue_new(void);
-zcm_buf_t * zcm_buf_dequeue(zcm_buf_queue_t * q);
-void zcm_buf_enqueue(zcm_buf_queue_t * q, zcm_buf_t * el);
+    BufQueue();
 
-void zcm_buf_queue_free(zcm_buf_queue_t * q, zcm_ringbuf_t *ringbuf);
-int zcm_buf_queue_is_empty(zcm_buf_queue_t * q);
+    zcm_buf_t *dequeue();
+    void enqueue(zcm_buf_t *el);
+
+    // NOTE: this should be the dtor
+    void freeQueue(zcm_ringbuf_t *ringbuf);
+
+    bool isEmpty();
+};
+
+// typedef struct _zcm_buf_queue {
+//     zcm_buf_t * head;
+//     zcm_buf_t ** tail;
+//     int count;
+// } zcm_buf_queue_t;
+
+// zcm_buf_queue_t * zcm_buf_queue_new(void);
+// zcm_buf_t * zcm_buf_dequeue(zcm_buf_queue_t * q);
+// void zcm_buf_enqueue(zcm_buf_queue_t * q, zcm_buf_t * el);
+
+// void zcm_buf_queue_free(zcm_buf_queue_t * q, zcm_ringbuf_t *ringbuf);
+// int zcm_buf_queue_is_empty(zcm_buf_queue_t * q);
 
 // allocate a zcm_buf from the ringbuf. If there is no more space in the ringbuf
 // it is replaced with a bigger one. In this case, the old ringbuffer will be
 // cleaned up when zcm_buf_free_data() is called;
 zcm_buf_t *
-zcm_buf_allocate_data(zcm_buf_queue_t * inbufs_empty, zcm_ringbuf_t **ringbuf);
+zcm_buf_allocate_data(BufQueue *inbufs_empty, zcm_ringbuf_t **ringbuf);
 
 void zcm_buf_free_data(zcm_buf_t *zcmb, zcm_ringbuf_t *ringbuf);
 
 /******************** fragment buffer **********************/
-typedef struct _zcm_frag_buf {
-    char      channel[ZCM_CHANNEL_MAXLEN+1];
-    struct    sockaddr_in from;
-    char      *data;
-    uint32_t  data_size;
-    uint16_t  fragments_remaining;
-    uint32_t  msg_seqno;
-    int64_t   last_packet_utime;
-} zcm_frag_buf_t;
+struct FragBuf
+{
+    char   channel[ZCM_CHANNEL_MAXLEN+1];
+    struct sockaddr_in from;
+    char   *data;
+    u32    data_size;
+    u16    fragments_remaining;
+    u32    msg_seqno;
+    i64    last_packet_utime;
 
-zcm_frag_buf_t * zcm_frag_buf_new(struct sockaddr_in from, const char *channel,
-        uint32_t msg_seqno, uint32_t data_size, uint16_t nfragments,
-        int64_t first_packet_utime);
-void zcm_frag_buf_destroy(zcm_frag_buf_t *fbuf);
+    FragBuf(struct sockaddr_in from, const char *channel, u32 msg_seqno,
+            u32 data_size, u16 nfragments, i64 first_packet_utime);
+    ~FragBuf();
 
-bool zcm_frag_buf_matches_sockaddr(zcm_frag_buf_t *fbuf, struct sockaddr_in *addr);
+    bool matchesSockaddr(struct sockaddr_in *addr);
+};
 
 /******************** fragment buffer store **********************/
 struct FragBufStore
 {
-    u32 totalSize = 0;
-    u32 maxTotalSize;
-    u32 maxFragBufs;
+    u32 total_size = 0;
+    u32 max_total_size;
+    u32 max_frag_bufs;
 
     // TODO change this back to a hashtable, using the 'sockaddr_in' as the key
     //      like the original LCM code uses
-    vector<zcm_frag_buf_t*> frag_bufs;
+    vector<FragBuf*> frag_bufs;
 
-    FragBufStore(u32 maxTotalSize, u32 maxFragBufs);
+    FragBufStore(u32 max_total_size, u32 max_frag_bufs);
     ~FragBufStore();
 
-    zcm_frag_buf_t *lookup(struct sockaddr_in *key);
-    void add(zcm_frag_buf_t *fbuf);
-    void remove(zcm_frag_buf_t *fbuf);
+    FragBuf *lookup(struct sockaddr_in *key);
+    void add(FragBuf *fbuf);
+    void remove(int index);
 };
 
 
