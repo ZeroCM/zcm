@@ -37,9 +37,10 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     unordered_map<string, void*> pubsocks;
     // socket pair contains the socket + whether it was subscribed to explicitly or not
     unordered_map<string, pair<void*, bool>> subsocks;
+    bool recvAllChannels = false;
+
     string recvmsgChannel;
     char recvmsgBuffer[MTU];
-    bool recvAllChannels = false;
 
     // Mutex used to protect 'subsocks' while allowing
     // recvmsgEnable() and recvmsg() to be called

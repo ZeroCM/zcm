@@ -50,6 +50,7 @@ zcm_t *zcm_create(const char *url);
 zcm_t *zcm_create_trans(zcm_trans_t *zt);
 void   zcm_destroy(zcm_t *zcm);
 
+/* XXX need to lock down return values for each of these functions (init through unsub) */
 /* Returns 1 on success, and 0 on failure */
 int  zcm_init(zcm_t *zcm, const char *url);
 int  zcm_init_trans(zcm_t *zcm, zcm_trans_t *zt);
