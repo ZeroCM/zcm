@@ -38,13 +38,17 @@ struct ZCM
 
     template <class Msg, class Handler>
     Subscription *subscribe(const std::string& channel,
-            void (Handler::*cb)(const ReceiveBuffer *rbuf, const std::string& channel, const Msg *msg),
-            Handler *handler);
+                            void (Handler::*cb)(const ReceiveBuffer *rbuf,
+                                                const std::string& channel, const Msg *msg),
+                            Handler *handler);
 
     template <class Handler>
     Subscription *subscribe(const std::string& channel,
-                            void (Handler::*cb)(const ReceiveBuffer* rbuf, const std::string& channel),
+                            void (Handler::*cb)(const ReceiveBuffer* rbuf,
+                                                const std::string& channel),
                             Handler* handler);
+
+    // TODO: add handler-less subscribe
 
     // TODO: add unsubscribe
     inline zcm_t* getUnderlyingZCM();

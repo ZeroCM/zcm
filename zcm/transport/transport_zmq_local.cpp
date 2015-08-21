@@ -250,6 +250,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         // concurrently
         unique_lock<mutex> lk(mut);
 
+        // TODO: make this prettier
         if (channel == NULL) {
             if (enable) {
                 recvAllChannels = enable;
