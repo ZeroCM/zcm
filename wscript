@@ -31,7 +31,7 @@ def setup_environment(ctx):
     useOptimize = not waflib.Options.options.debug
     useSymbols = waflib.Options.options.debug or waflib.Options.options.symbols
 
-    WARNING_FLAGS = ['-Wall', '-Werror', '-Wno-unused-function', '-Wno-format-zero-length']
+    WARNING_FLAGS = ['-fcolor-diagnostics', '-Wall', '-Werror', '-Wno-unused-function', '-Wno-format-zero-length']
     SYM_FLAGS = ['-g']
     OPT_FLAGS = ['-O3']
     ctx.env.CFLAGS_default   = ['-std=gnu99', '-fPIC'] + WARNING_FLAGS

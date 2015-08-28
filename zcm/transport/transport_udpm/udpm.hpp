@@ -5,21 +5,34 @@
 #include <cstdio>
 #include <cstddef>
 #include <cstdint>
+#include <cmath>
 #include <cstring>
 #include <cerrno>
+#include <ctime>
 #include <cassert>
+
+// TODO: get rid of these
+#include <thread>
+#include <mutex>
+#include <condition_variable>
 
 // Headers for C++ library
 #include <vector>
 #include <unordered_map>
 using namespace std;
 
-// Headers needed on Windows
+// Headers needed on Unix
 #ifndef WIN32
 # include <unistd.h>
+# include <fcntl.h>
 # include <arpa/inet.h>
 # include <netdb.h>
+# include <netinet/in.h>
 # include <sys/time.h>
+# include <sys/uio.h>
+# include <sys/socket.h>
+# include <sys/poll.h>
+# include <sys/select.h>
 typedef int SOCKET;
 #endif
 
@@ -62,6 +75,10 @@ typedef int16_t  i16;
 typedef int32_t  i32;
 typedef int64_t  i64;
 
+#define zcm_internal_pipe_write write
+#define zcm_internal_pipe_read read
+#define zcm_internal_pipe_close close
+#define zcm_internal_pipe_create pipe
 
 /************************* Important Defines *******************/
 #define ZCM2_MAGIC_SHORT 0x4c433032   // hex repr of ascii "LC02"
@@ -81,3 +98,5 @@ typedef int64_t  i64;
 
 #define MAX_FRAG_BUF_TOTAL_SIZE (1 << 24)// 16 megabytes
 #define MAX_NUM_FRAG_BUFS 1000
+
+#define SELF_TEST_CHANNEL "LCM_SELF_TEST"
