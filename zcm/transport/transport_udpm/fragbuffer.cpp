@@ -31,19 +31,46 @@ bool FragBuf::matchesSockaddr(struct sockaddr_in *addr)
     return sockaddrEqual(&from, addr);
 }
 
-/******************** fragment buffer store **********************/
-// XXX needs porting
-// static void
-// _find_lru_frag_buf (gpointer key, gpointer value, void *user_data)
-// {
-//     zcm_frag_buf_t **lru_fbuf = (zcm_frag_buf_t**) user_data;
-//     zcm_frag_buf_t *c_fbuf = (zcm_frag_buf_t*) value;
-//     if (! *lru_fbuf ||
-//         (c_fbuf->last_packet_utime < (*lru_fbuf)->last_packet_utime)) {
-//         *lru_fbuf = c_fbuf;
-//     }
-// }
+/************************* Utility Functions *******************/
+// XXX DISABLED due to GLIB removal
+/* static inline int */
+/* zcm_timeval_compare (const GTimeVal *a, const GTimeVal *b) { */
+/*     if (a->tv_sec == b->tv_sec && a->tv_usec == b->tv_usec) return 0; */
+/*     if (a->tv_sec > b->tv_sec || */
+/*             (a->tv_sec == b->tv_sec && a->tv_usec > b->tv_usec)) */
+/*         return 1; */
+/*     return -1; */
+/* } */
 
+/* static inline void */
+/* zcm_timeval_add (const GTimeVal *a, const GTimeVal *b, GTimeVal *dest) */
+/* { */
+/*     dest->tv_sec = a->tv_sec + b->tv_sec; */
+/*     dest->tv_usec = a->tv_usec + b->tv_usec; */
+/*     if (dest->tv_usec > 999999) { */
+/*         dest->tv_usec -= 1000000; */
+/*         dest->tv_sec++; */
+/*     } */
+/* } */
+
+/* static inline void */
+/* zcm_timeval_subtract (const GTimeVal *a, const GTimeVal *b, GTimeVal *dest) */
+/* { */
+/*     dest->tv_sec = a->tv_sec - b->tv_sec; */
+/*     dest->tv_usec = a->tv_usec - b->tv_usec; */
+/*     if (dest->tv_usec < 0) { */
+/*         dest->tv_usec += 1000000; */
+/*         dest->tv_sec--; */
+/*     } */
+/* } */
+
+/* static inline int64_t */
+/* zcm_timestamp_now() */
+/* { */
+/*     GTimeVal tv; */
+/*     g_get_current_time(&tv); */
+/*     return (int64_t) tv.tv_sec * 1000000 + tv.tv_usec; */
+/* } */
 
 FragBufStore::FragBufStore(u32 max_total_size, u32 max_frag_bufs) :
     max_total_size(max_total_size), max_frag_bufs(max_frag_bufs)
@@ -107,9 +134,9 @@ BufQueue::BufQueue()
 {
 }
 
-zcm_buf_t *BufQueue::dequeue()
+Buffer *BufQueue::dequeue()
 {
-    zcm_buf_t *el = head;
+    Buffer *el = head;
     if (!el)
         return nullptr;
 
@@ -122,7 +149,7 @@ zcm_buf_t *BufQueue::dequeue()
     return el;
 }
 
-void BufQueue::enqueue(zcm_buf_t *el)
+void BufQueue::enqueue(Buffer *el)
 {
     *tail = el;
     tail = &el->next;
@@ -132,11 +159,9 @@ void BufQueue::enqueue(zcm_buf_t *el)
 
 void BufQueue::freeQueue(Ringbuffer *ringbuf)
 {
-    zcm_buf_t *el;
-    while ((el = dequeue()) != nullptr) {
-        zcm_buf_free_data(el, ringbuf);
-        free(el);
-    }
+    Buffer *el;
+    while ((el = dequeue()) != nullptr)
+        Buffer::destroy(el, ringbuf);
 
     // NOTE: The destructor should be called after this function exits
 }
@@ -146,14 +171,15 @@ bool BufQueue::isEmpty()
     return head == nullptr;
 }
 
-zcm_buf_t *zcm_buf_allocate_data(BufQueue *inbufs_empty, Ringbuffer **ringbuf) {
-     zcm_buf_t * zcmb = NULL;
+Buffer *Buffer::make(BufQueue *inbufs_empty, Ringbuffer **ringbuf)
+{
+     Buffer * zcmb = NULL;
      // first allocate a buffer struct for the packet metadata
      if (inbufs_empty->isEmpty()) {
          // allocate additional buffer structs if needed
          int i;
          for (i = 0; i < ZCM_DEFAULT_RECV_BUFS; i++) {
-             zcm_buf_t * nbuf = (zcm_buf_t *) calloc(1, sizeof(zcm_buf_t));
+             Buffer * nbuf = (Buffer *) calloc(1, sizeof(Buffer));
              inbufs_empty->enqueue(nbuf);
          }
      }
@@ -190,28 +216,34 @@ zcm_buf_t *zcm_buf_allocate_data(BufQueue *inbufs_empty, Ringbuffer **ringbuf) {
      return zcmb;
  }
 
- void zcm_buf_free_data(zcm_buf_t *zcmb, Ringbuffer *ringbuf)
+void Buffer::destroy(Buffer *self, Ringbuffer *ringbuf)
 {
-    if(!zcmb->buf)
+    if(!self->buf)
         return;
-    if (zcmb->ringbuf) {
-        zcmb->ringbuf->dealloc(zcmb->buf);
+    if (self->ringbuf) {
+        self->ringbuf->dealloc(self->buf);
 
         // if the packet was allocated from an obsolete and empty ringbuffer,
         // then deallocate the old ringbuffer as well.
-        if(zcmb->ringbuf != ringbuf && !zcmb->ringbuf->get_used()) {
-            delete zcmb->ringbuf;
+        if(self->ringbuf != ringbuf && !self->ringbuf->get_used()) {
+            delete self->ringbuf;
             // XXX Add dbg() back
             // dbg(DBG_ZCM, "Destroying unused orphan ringbuffer %p\n",
             //         zcmb->ringbuf);
         }
     } else {
-        free (zcmb->buf);
+        free (self->buf);
     }
-    zcmb->buf = NULL;
-    zcmb->buf_size = 0;
-    zcmb->ringbuf = NULL;
+    self->buf = NULL;
+    self->buf_size = 0;
+    self->ringbuf = NULL;
 }
+
+/************************* Linux Specific Functions *******************/
+// #ifdef __linux__
+// void linux_check_routing_table(struct in_addr zcm_mcaddr);
+// #endif
+
 
 // #ifdef __linux__
 // static inline int _parse_inaddr(const char *addr_str, struct in_addr *addr)

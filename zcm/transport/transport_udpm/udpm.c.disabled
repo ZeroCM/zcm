@@ -36,6 +36,16 @@
 
 #define SELF_TEST_CHANNEL "LCM_SELF_TEST"
 
+static inline int
+zcm_close_socket(SOCKET fd)
+{
+#ifdef WIN32
+    return closesocket(fd);
+#else
+    return close(fd);
+#endif
+}
+
 /**
  * udpm_params_t:
  * @mc_addr:        multicast address
