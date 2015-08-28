@@ -1,9 +1,8 @@
-#ifndef _ZCM_TRANS_UDPM_UTIL_HPP
-#define _ZCM_TRANS_UDPM_UTIL_HPP
+#ifndef _ZCM_TRANS_UDPM_FRAGBUFFER_HPP
+#define _ZCM_TRANS_UDPM_FRAGBUFFER_HPP
 
 #include "udpm.hpp"
-#include "ringbuffer.h"
-
+#include "ringbuffer.hpp"
 
 /************************* Packet Headers *******************/
 
@@ -92,7 +91,7 @@ typedef struct _zcm_buf {
 
     int   data_offset;       // offset to payload
     int   data_size;         // size of payload
-    zcm_ringbuf_t *ringbuf;  // the ringbuffer used to allocate buf.  NULL if
+    Ringbuffer *ringbuf;  // the ringbuffer used to allocate buf.  NULL if
                              // not allocated from ringbuf
 
     int   packet_size;       // total bytes received
@@ -118,31 +117,16 @@ struct BufQueue
     void enqueue(zcm_buf_t *el);
 
     // NOTE: this should be the dtor
-    void freeQueue(zcm_ringbuf_t *ringbuf);
+    void freeQueue(Ringbuffer *ringbuf);
 
     bool isEmpty();
 };
 
-// typedef struct _zcm_buf_queue {
-//     zcm_buf_t * head;
-//     zcm_buf_t ** tail;
-//     int count;
-// } zcm_buf_queue_t;
-
-// zcm_buf_queue_t * zcm_buf_queue_new(void);
-// zcm_buf_t * zcm_buf_dequeue(zcm_buf_queue_t * q);
-// void zcm_buf_enqueue(zcm_buf_queue_t * q, zcm_buf_t * el);
-
-// void zcm_buf_queue_free(zcm_buf_queue_t * q, zcm_ringbuf_t *ringbuf);
-// int zcm_buf_queue_is_empty(zcm_buf_queue_t * q);
-
 // allocate a zcm_buf from the ringbuf. If there is no more space in the ringbuf
 // it is replaced with a bigger one. In this case, the old ringbuffer will be
 // cleaned up when zcm_buf_free_data() is called;
-zcm_buf_t *
-zcm_buf_allocate_data(BufQueue *inbufs_empty, zcm_ringbuf_t **ringbuf);
-
-void zcm_buf_free_data(zcm_buf_t *zcmb, zcm_ringbuf_t *ringbuf);
+zcm_buf_t *zcm_buf_allocate_data(BufQueue *inbufs_empty, Ringbuffer **ringbuf);
+void zcm_buf_free_data(zcm_buf_t *zcmb, Ringbuffer *ringbuf);
 
 /******************** fragment buffer **********************/
 struct FragBuf

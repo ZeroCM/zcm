@@ -1,4 +1,4 @@
-#include "udpm_util.hpp"
+#include "fragbuffer.hpp"
 
 /******************** fragment buffer **********************/
 FragBuf::FragBuf(struct sockaddr_in from, const char *channel, u32 msg_seqno,
@@ -130,7 +130,7 @@ void BufQueue::enqueue(zcm_buf_t *el)
     count++;
 }
 
-void BufQueue::freeQueue(zcm_ringbuf_t *ringbuf)
+void BufQueue::freeQueue(Ringbuffer *ringbuf)
 {
     zcm_buf_t *el;
     while ((el = dequeue()) != nullptr) {
@@ -146,7 +146,7 @@ bool BufQueue::isEmpty()
     return head == nullptr;
 }
 
-zcm_buf_t *zcm_buf_allocate_data(BufQueue *inbufs_empty, zcm_ringbuf_t **ringbuf) {
+zcm_buf_t *zcm_buf_allocate_data(BufQueue *inbufs_empty, Ringbuffer **ringbuf) {
      zcm_buf_t * zcmb = NULL;
      // first allocate a buffer struct for the packet metadata
      if (inbufs_empty->isEmpty()) {
@@ -163,21 +163,21 @@ zcm_buf_t *zcm_buf_allocate_data(BufQueue *inbufs_empty, zcm_ringbuf_t **ringbuf
 
     // allocate space on the ringbuffer for the packet data.
     // give it the maximum possible size for an unfragmented packet
-    zcmb->buf = zcm_ringbuf_alloc(*ringbuf, ZCM_MAX_UNFRAGMENTED_PACKET_SIZE);
+     zcmb->buf = (*ringbuf)->alloc(ZCM_MAX_UNFRAGMENTED_PACKET_SIZE);
     if (zcmb->buf == NULL) {
          // ringbuffer is full.  allocate a larger ringbuffer
 
          // Can't free the old ringbuffer yet because it's in use (i.e., full)
          // Must wait until later to free it.
-         assert(zcm_ringbuf_used(*ringbuf) > 0);
+        assert((*ringbuf)->get_used() > 0);
          // XXX Add dbg() back
          // dbg(DBG_ZCM, "Orphaning ringbuffer %p\n", *ringbuf);
 
-         unsigned int old_capacity = zcm_ringbuf_capacity(*ringbuf);
+        unsigned int old_capacity = (*ringbuf)->get_capacity();
          unsigned int new_capacity = (unsigned int) (old_capacity * 1.5);
          // replace the passed in ringbuf with the new one
-         *ringbuf = zcm_ringbuf_new(new_capacity);
-         zcmb->buf = zcm_ringbuf_alloc(*ringbuf, 65536);
+         *ringbuf = new Ringbuffer(new_capacity);
+         zcmb->buf = (*ringbuf)->alloc(65536);
          assert(zcmb->buf);
          // XXX Add dbg() back
          // dbg(DBG_ZCM, "Allocated new ringbuffer size %u\n", new_capacity);
@@ -190,17 +190,17 @@ zcm_buf_t *zcm_buf_allocate_data(BufQueue *inbufs_empty, zcm_ringbuf_t **ringbuf
      return zcmb;
  }
 
- void zcm_buf_free_data(zcm_buf_t *zcmb, zcm_ringbuf_t *ringbuf)
+ void zcm_buf_free_data(zcm_buf_t *zcmb, Ringbuffer *ringbuf)
 {
     if(!zcmb->buf)
         return;
     if (zcmb->ringbuf) {
-        zcm_ringbuf_dealloc (zcmb->ringbuf, zcmb->buf);
+        zcmb->ringbuf->dealloc(zcmb->buf);
 
         // if the packet was allocated from an obsolete and empty ringbuffer,
         // then deallocate the old ringbuffer as well.
-        if(zcmb->ringbuf != ringbuf && !zcm_ringbuf_used(zcmb->ringbuf)) {
-            zcm_ringbuf_free(zcmb->ringbuf);
+        if(zcmb->ringbuf != ringbuf && !zcmb->ringbuf->get_used()) {
+            delete zcmb->ringbuf;
             // XXX Add dbg() back
             // dbg(DBG_ZCM, "Destroying unused orphan ringbuffer %p\n",
             //         zcmb->ringbuf);

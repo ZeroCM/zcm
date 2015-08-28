@@ -1,8 +1,10 @@
 #pragma once
 
 // Headers from C library
-#include <ctime>
 #include <cstdlib>
+#include <cstdio>
+#include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <cerrno>
 #include <cassert>
