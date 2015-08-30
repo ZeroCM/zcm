@@ -2,6 +2,7 @@
 #include <thread>
 #include <cassert>
 #include <cstdio>
+#include <cstring>
 #include <signal.h>
 #include <unistd.h>
 #include "zcm/transport_registrar.h"
@@ -20,18 +21,39 @@ static zcm_trans_t *makeTransport(const char *url)
     return creator(u);
 }
 
+static zcm_msg_t makeMasterMsg()
+{
+    zcm_msg_t msg;
+    msg.channel = "FOO";
+    msg.len = 60000;
+    msg.buf = (char*) malloc(msg.len);
+    for (size_t i = 0; i < msg.len; i++)
+        msg.buf[i] = (char)(i & 0xff);
+
+    return msg;
+}
+
+#define fail(...) do {\
+    fprintf(stderr, "Err:"); fprintf(stderr, __VA_ARGS__); fprintf(stderr, "\n"); exit(1);\
+    } while(0)
+
+static void verifySame(zcm_msg_t *a, zcm_msg_t *b)
+{
+    if (strcmp(a->channel, b->channel) != 0)
+        fail("Channels don't match!");
+    if (a->len != b->len)
+        fail("Lengths don't match!");
+    for (size_t i = 0; i < a->len; i++)
+        if (a->buf[i] != b->buf[i])
+            fail("Data doesn't match at index %d", (int)i);
+}
+
 static void send(const char *url)
 {
     auto *trans = makeTransport(url);
     assert(trans);
 
-    zcm_msg_t msg;
-    msg.channel = "FOO";
-    msg.len = 100;
-    msg.buf = (char*) malloc(msg.len);
-    for (size_t i = 0; i < msg.len; i++)
-        msg.buf[i] = (char)(i & 0xff);
-
+    zcm_msg_t msg = makeMasterMsg();
     while (running_send) {
         zcm_trans_sendmsg(trans, msg);
         usleep(300000);
@@ -46,18 +68,12 @@ static void recv(const char *url)
     // Tell the transport to give us all of the channels
     zcm_trans_recvmsg_enable(trans, NULL, true);
 
+    zcm_msg_t master = makeMasterMsg();
     while (running_recv) {
         zcm_msg_t msg;
         int ret = zcm_trans_recvmsg(trans, &msg, 100);
         if (ret == ZCM_EOK) {
-            printf("recv: got message!\n");
-            printf("  channel='%s'\n", msg.channel);
-            printf("  len='%zu'\n", msg.len);
-            printf("  buf=");
-            for (size_t i = 0; i < msg.len; i++) {
-                printf("%02x ", msg.buf[i] & 0xff);
-            }
-            printf("\n");
+            verifySame(&master, &msg);
         }
     }
 
