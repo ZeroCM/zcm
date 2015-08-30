@@ -132,15 +132,12 @@ bool UDPM::_recv_fragment(Buffer *zcmb, u32 sz)
     if (fbuf && ((fbuf->msg_seqno != msg_seqno) ||
                  (fbuf->data_size != data_size))) {
         frag_bufs->remove(fbuf);
-        // XXX add back dbg()
-        //dbg(DBG_ZCM, "Dropping message (missing %d fragments)\n",
-        //fbuf->fragments_remaining);
+        ZCM_DEBUG("Dropping message (missing %d fragments)", fbuf->fragments_remaining);
         fbuf = NULL;
     }
 
     if (data_size > MTU) {
-        // XXX add back dbg()
-        //dbg (DBG_ZCM, "rejecting huge message (%d bytes)\n", data_size);
+        ZCM_DEBUG("rejecting huge message (%d bytes)", data_size);
         return false;
     }
 
@@ -149,8 +146,7 @@ bool UDPM::_recv_fragment(Buffer *zcmb, u32 sz)
         char *channel = (char*) (hdr + 1);
         int channel_sz = strlen (channel);
         if (channel_sz > ZCM_CHANNEL_MAXLEN) {
-            // XXX add back dbg()
-            //dbg (DBG_ZCM, "bad channel name length\n");
+            ZCM_DEBUG("bad channel name length");
             udp_discarded_bad++;
             return false;
         }
@@ -187,9 +183,8 @@ bool UDPM::_recv_fragment(Buffer *zcmb, u32 sz)
 #endif
 
     if (fragment_offset + frag_size > fbuf->data_size) {
-        // XXX add back dbg()
-        // dbg (DBG_ZCM, "dropping invalid fragment (off: %d, %d / %d)\n",
-        //         fragment_offset, frag_size, fbuf->data_size);
+        ZCM_DEBUG("dropping invalid fragment (off: %d, %d / %d)",
+                fragment_offset, frag_size, fbuf->data_size);
         frag_bufs->remove(fbuf);
         return false;
     }
@@ -244,8 +239,7 @@ bool UDPM::_recv_short(Buffer *zcmb, u32 sz)
     const char *pkt_channel_str = (char*)(hdr+1);
     zcmb->channel_size = strlen(pkt_channel_str);
     if (zcmb->channel_size > ZCM_CHANNEL_MAXLEN) {
-        // XXX add back dbg()
-        //dbg (DBG_ZCM, "bad channel name length\n");
+        ZCM_DEBUG("bad channel name length");
         udp_discarded_bad++;
         return false;
     }
@@ -381,8 +375,7 @@ Buffer *UDPM::udp_read_packet()
         else if (rcvd_magic == ZCM_MAGIC_LONG)
             got_complete_message = _recv_fragment(zcmb, sz);
         else {
-            // XXX add back dbg()
-            //dbg (DBG_ZCM, "ZCM: bad magic\n");
+            ZCM_DEBUG("ZCM: bad magic");
             udp_discarded_bad++;
             continue;
         }
@@ -403,8 +396,6 @@ Buffer *UDPM::udp_read_packet()
 
 int UDPM::sendmsg(zcm_msg_t msg)
 {
-    //ZCM_DEBUG("Inside UDPM::sendmsg");
-
     int channel_size = strlen(msg.channel);
     if (channel_size > ZCM_CHANNEL_MAXLEN) {
         fprintf(stderr, "ZCM Error: channel name too long [%s]\n", msg.channel);
@@ -427,11 +418,10 @@ int UDPM::sendmsg(zcm_msg_t msg)
         sendbufs[2].iov_base = msg.buf;
         sendbufs[2].iov_len = msg.len;
 
-        // XXX add back dbg()
         // transmit
         int packet_size = sizeof(hdr) + payload_size;
-        //dbg (DBG_ZCM_MSG, "transmitting %d byte [%s] payload (%d byte pkt)\n",
-        //        datalen, channel, packet_size);
+        ZCM_DEBUG("transmitting %zu byte [%s] payload (%d byte pkt)",
+                  msg.len, msg.channel, packet_size);
 
         struct msghdr mhdr;
         mhdr.msg_name = (struct sockaddr*) &dest_addr;
@@ -465,9 +455,8 @@ int UDPM::sendmsg(zcm_msg_t msg)
         // together, and so that no other message uses the same sequence number
         // (at least until the sequence # rolls over)
 
-        // XXX add back dbg()
-        // dbg (DBG_ZCM_MSG, "transmitting %d byte [%s] payload in %d fragments\n",
-        //        payload_size, channel, nfragments);
+        ZCM_DEBUG("transmitting %d byte [%s] payload in %d fragments",
+                  payload_size, msg.channel, nfragments);
 
         u32 fragment_offset = 0;
 
@@ -550,15 +539,14 @@ int UDPM::recvmsg(zcm_msg_t *msg, int timeout)
 
    msg->channel = buf->channel_name;
    msg->len = buf->data_size;
-   msg->buf = buf->buf;
+   msg->buf = buf->buf + buf->data_offset;
 
    return ZCM_EOK;
 }
 
 UDPM::~UDPM()
 {
-    // XXX add back debug
-    //dbg (DBG_ZCM, "closing zcm context\n");
+    ZCM_DEBUG("closing zcm context");
 
     if (recvfd >= 0) {
         zcm_close_socket(recvfd);
@@ -590,9 +578,8 @@ UDPM::~UDPM()
 UDPM::UDPM(const string& ip, u16 port, size_t recv_buf_size, u8 ttl)
     : params(ip, port, recv_buf_size, ttl)
 {
-    // XXX add back dbg()
-    // dbg (DBG_ZCM, "Initializing ZCM UDPM context...\n");
-    // dbg (DBG_ZCM, "Multicast %s:%d\n", inet_ntoa(params.mc_addr), ntohs (params.mc_port));
+    ZCM_DEBUG("Initializing ZCM UDPM context...");
+    ZCM_DEBUG("Multicast %s:%d", inet_ntoa(params.addr), ntohs(params.port));
 
     // setup destination multicast address
     memset(&dest_addr, 0, sizeof(dest_addr));
@@ -620,13 +607,10 @@ UDPM::UDPM(const string& ip, u16 port, size_t recv_buf_size, u8 ttl)
     sendfd = socket(AF_INET, SOCK_DGRAM, 0);
 
     // set multicast TTL
-    if (params.ttl == 0) {
-        // XXX add back dbg()
-        // dbg (DBG_ZCM, "ZCM multicast TTL set to 0.  Packets will not "
-        //         "leave localhost\n");
-    }
-    // XXX add back dbg()
-    //dbg (DBG_ZCM, "ZCM: setting multicast packet TTL to %d\n", params.mc_ttl);
+    if (params.ttl == 0)
+        ZCM_DEBUG("ZCM multicast TTL set to 0.  Packets will not leave localhost");
+
+    ZCM_DEBUG("ZCM: setting multicast packet TTL to %d", params.ttl);
     if (setsockopt(sendfd, IPPROTO_IP, IP_MULTICAST_TTL,
                 (char *) &params.ttl, sizeof (params.ttl)) < 0) {
         perror("setsockopt(IPPROTO_IP, IP_MULTICAST_TTL)");
@@ -646,8 +630,7 @@ UDPM::UDPM(const string& ip, u16 port, size_t recv_buf_size, u8 ttl)
     unsigned int retsize = sizeof(int);
     getsockopt(sendfd, SOL_SOCKET, SO_SNDBUF,
                (char*)&sockbufsize, (socklen_t *) &retsize);
-    // XXX add back dbg()
-    // dbg (DBG_ZCM, "ZCM: send buffer is %d bytes\n", sockbufsize);
+    ZCM_DEBUG("ZCM: send buffer is %d bytes", sockbufsize);
 
     // set loopback option on the send socket
     unsigned char send_lo_opt = 1;
@@ -664,8 +647,7 @@ UDPM::UDPM(const string& ip, u16 port, size_t recv_buf_size, u8 ttl)
     struct ip_mreq mreq;
     mreq.imr_multiaddr = params.addr;
     mreq.imr_interface.s_addr = INADDR_ANY;
-    // XXX add back dbg()
-    // dbg (DBG_ZCM, "ZCM: joining multicast group\n");
+    ZCM_DEBUG("ZCM: joining multicast group");
     if (setsockopt(sendfd, IPPROTO_IP, IP_ADD_MEMBERSHIP,
             (char*)&mreq, sizeof (mreq)) < 0) {
 #ifdef WIN32
@@ -681,8 +663,7 @@ UDPM::UDPM(const string& ip, u16 port, size_t recv_buf_size, u8 ttl)
     {
         // allocate the fragment buffer hashtable
         frag_bufs = new FragBufStore(MAX_FRAG_BUF_TOTAL_SIZE, MAX_NUM_FRAG_BUFS);
-        // XXX add back dbg()
-        // dbg (DBG_ZCM, "allocating resources for receiving messages\n");
+        ZCM_DEBUG("allocating resources for receiving messages");
 
         // allocate multicast socket
         recvfd = socket (AF_INET, SOCK_DGRAM, 0);
@@ -700,8 +681,7 @@ UDPM::UDPM(const string& ip, u16 port, size_t recv_buf_size, u8 ttl)
         // allow other applications on the local machine to also bind to this
         // multicast address and port
         int opt = 1;
-        // XXX add back dbg()
-        //dbg (DBG_ZCM, "ZCM: setting SO_REUSEADDR\n");
+        ZCM_DEBUG("ZCM: setting SO_REUSEADDR");
         if (setsockopt (recvfd, SOL_SOCKET, SO_REUSEADDR,
                         (char*)&opt, sizeof (opt)) < 0) {
             perror ("setsockopt (SOL_SOCKET, SO_REUSEADDR)");
@@ -712,8 +692,8 @@ UDPM::UDPM(const string& ip, u16 port, size_t recv_buf_size, u8 ttl)
         /* Mac OS and FreeBSD require the REUSEPORT option in addition
          * to REUSEADDR or it won't let multiple processes bind to the
          * same port, even if they are using multicast. */
-        // XXX add back dbg()
-        //dbg(DBG_ZCM, "ZCM: setting SO_REUSEPORT\n");
+
+        ZCM_DEBUG("ZCM: setting SO_REUSEPORT");
         if (setsockopt(recvfd, SOL_SOCKET, SO_REUSEPORT,
                        (char*)&opt, sizeof (opt)) < 0) {
             perror("setsockopt (SOL_SOCKET, SO_REUSEPORT)");
@@ -733,8 +713,7 @@ UDPM::UDPM(const string& ip, u16 port, size_t recv_buf_size, u8 ttl)
         unsigned int retsize = sizeof (int);
         getsockopt(recvfd, SOL_SOCKET, SO_RCVBUF,
                    (char*) &kernel_rbuf_sz, (socklen_t *) &retsize);
-        // XXX add back dbg()
-        //dbg (DBG_ZCM, "ZCM: receive buffer is %d bytes\n", zcm->kernel_rbuf_sz);
+        ZCM_DEBUG("ZCM: receive buffer is %zu bytes", kernel_rbuf_sz);
         if (params.recv_buf_size) {
             if (setsockopt(recvfd, SOL_SOCKET, SO_RCVBUF,
                            (char *) &params.recv_buf_size,
@@ -744,8 +723,7 @@ UDPM::UDPM(const string& ip, u16 port, size_t recv_buf_size, u8 ttl)
             }
             getsockopt(recvfd, SOL_SOCKET, SO_RCVBUF,
                        (char*)&kernel_rbuf_sz, (socklen_t *) &retsize);
-            // XXX add back dbg()
-            //dbg (DBG_ZCM, "ZCM: receive buffer is %d bytes\n", zcm->kernel_rbuf_sz);
+            ZCM_DEBUG("ZCM: receive buffer is %zu bytes", kernel_rbuf_sz);
 
             if (params.recv_buf_size > kernel_rbuf_sz) {
                 fprintf(stderr, "ZCM UDP receive buffer size (%d) \n"
@@ -771,8 +749,7 @@ UDPM::UDPM(const string& ip, u16 port, size_t recv_buf_size, u8 ttl)
         mreq.imr_multiaddr = params.addr;
         mreq.imr_interface.s_addr = INADDR_ANY;
         // join the multicast group
-        // XXX add back dbg()
-        //dbg (DBG_ZCM, "ZCM: joining multicast group\n");
+        ZCM_DEBUG("ZCM: joining multicast group");
         if (setsockopt(recvfd, IPPROTO_IP, IP_ADD_MEMBERSHIP,
                        (char*)&mreq, sizeof (mreq)) < 0) {
             perror("setsockopt (IPPROTO_IP, IP_ADD_MEMBERSHIP)");
@@ -791,12 +768,12 @@ UDPM::UDPM(const string& ip, u16 port, size_t recv_buf_size, u8 ttl)
 
         // XXX add back the sefl test
         // conduct a self-test just to make sure everything is working.
-        //dbg (DBG_ZCM, "ZCM: conducting self test\n");
+        // ZCM_DEBUG("ZCM: conducting self test");
         // int self_test_results = udpm_self_test(zcm);
         // g_static_rec_mutex_lock(&zcm->mutex);
 
         // if (0 == self_test_results) {
-        //     dbg (DBG_ZCM, "ZCM: self test successful\n");
+        //     ZCM_DEBUG("ZCM: self test successful");
         // } else {
         //     // self test failed.  destroy the read thread
         //     fprintf (stderr, "ZCM self test failed!!\n"
