@@ -6,13 +6,13 @@
 
 /************************* Packet Headers *******************/
 
-struct ZCM2HeaderShort
+struct MsgHeaderShort
 {
     u32 magic;
     u32 msg_seqno;
 };
 
-struct ZCM2HeaderLong
+struct MsgHeaderLong
 {
     u32 magic;
     u32 msg_seqno;
@@ -33,14 +33,14 @@ struct Buffer
     char  channel_name[ZCM_CHANNEL_MAXLEN+1];
     int   channel_size;      // length of channel name
 
-    i64   recv_utime;      // timestamp of first datagram receipt
+    i64   recv_utime;        // timestamp of first datagram receipt
     char *buf;               // pointer to beginning of message.  This includes
                              // the header for unfragmented messages, and does
                              // not include the header for fragmented messages.
 
     int   data_offset;       // offset to payload
     int   data_size;         // size of payload
-    Ringbuffer *ringbuf;  // the ringbuffer used to allocate buf.  NULL if
+    Ringbuffer *ringbuf;     // the ringbuffer used to allocate buf.  NULL if
                              // not allocated from ringbuf
 
     int   packet_size;       // total bytes received
@@ -50,6 +50,7 @@ struct Buffer
     socklen_t fromlen;
     Buffer *next;
 
+    Buffer() { memset(this, 0, sizeof(*this)); }
     // allocate a zcm_buf from the ringbuf. If there is no more space in the ringbuf
     // it is replaced with a bigger one. In this case, the old ringbuffer will be
     // cleaned up when zcm_buf_free_data() is called;
@@ -112,6 +113,7 @@ struct FragBufStore
     FragBuf *lookup(struct sockaddr_in *key);
     void add(FragBuf *fbuf);
     void remove(int index);
+    void remove(FragBuf *fbuf);
 };
 
 #endif  // _ZCM_TRANS_UDPM_FRAGBUFFER_HPP

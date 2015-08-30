@@ -17,8 +17,10 @@
 #include <condition_variable>
 
 // Headers for C++ library
+#include <algorithm>
 #include <vector>
 #include <unordered_map>
+#include <string>
 using namespace std;
 
 // Headers needed on Unix
@@ -63,6 +65,7 @@ typedef int SOCKET;
 
 // Headers for ZCM API
 #include "zcm/transport.h"
+#include "zcm/util/debug.h"
 
 // Useful integer typedefs
 typedef uint8_t  u8;
@@ -81,8 +84,8 @@ typedef int64_t  i64;
 #define zcm_internal_pipe_create pipe
 
 /************************* Important Defines *******************/
-#define ZCM2_MAGIC_SHORT 0x4c433032   // hex repr of ascii "LC02"
-#define ZCM2_MAGIC_LONG  0x4c433033   // hex repr of ascii "LC03"
+#define ZCM_MAGIC_SHORT 0x4c433032   // hex repr of ascii "LC02"
+#define ZCM_MAGIC_LONG  0x4c433033   // hex repr of ascii "LC03"
 
 #ifdef __APPLE__
 # define ZCM_SHORT_MESSAGE_MAX_SIZE 1435

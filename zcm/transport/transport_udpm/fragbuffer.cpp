@@ -128,6 +128,21 @@ void FragBufStore::remove(int index)
     frag_bufs.resize(lastIdx);
 }
 
+void FragBufStore::remove(FragBuf *fbuf)
+{
+    // NOTE: this is kinda slow...
+    // Search for the fragbuf index
+    for (int idx = 0; idx < (int)frag_bufs.size(); idx++) {
+        if (frag_bufs[idx] == fbuf) {
+            this->remove(idx);
+            return;
+        }
+    }
+
+    // Did not find
+    assert(0 && "Tried to remove invalid fragbuf");
+}
+
 
 // /*** Functions for managing a queue of zcm buffers ***/
 BufQueue::BufQueue()
