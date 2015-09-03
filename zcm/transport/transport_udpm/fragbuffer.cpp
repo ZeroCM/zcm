@@ -87,8 +87,6 @@ FragBuf *FragBufStore::lookup(struct sockaddr_in *key)
     for (auto& elt : frag_bufs)
         if (elt->matchesSockaddr(key))
             return elt;
-
-    assert(0 && "Should never happen");
     return nullptr;
 }
 

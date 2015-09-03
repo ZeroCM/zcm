@@ -8,6 +8,8 @@
 #include "zcm/transport_registrar.h"
 using namespace std;
 
+#define HZ 10
+
 volatile bool running_recv = true;
 volatile bool running_send = true;
 static void sighandler(int sig) { running_recv = false; }
@@ -25,7 +27,7 @@ static zcm_msg_t makeMasterMsg()
 {
     zcm_msg_t msg;
     msg.channel = "FOO";
-    msg.len = 60000;
+    msg.len = 70000;
     msg.buf = (char*) malloc(msg.len);
     for (size_t i = 0; i < msg.len; i++)
         msg.buf[i] = (char)(i & 0xff);
@@ -59,7 +61,7 @@ static void send(const char *url)
     zcm_msg_t msg = makeMasterMsg();
     while (running_send) {
         zcm_trans_sendmsg(trans, msg);
-        usleep(300000);
+        usleep(1000000/HZ);
     }
 }
 
@@ -80,6 +82,7 @@ static void recv(const char *url)
         int ret = zcm_trans_recvmsg(trans, &msg, 100);
         if (ret == ZCM_EOK) {
             verifySame(&master, &msg);
+            printf("SUCCESS\n");
         }
     }
 
