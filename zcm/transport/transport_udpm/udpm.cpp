@@ -342,6 +342,8 @@ Buffer *UDPM::udp_read_packet()
             continue;
         }
 
+        ZCM_DEBUG("Got packet of size %d", (int)sz);
+
         if (sz < sizeof(MsgHeaderShort)) {
             // packet too short to be ZCM
             udp_discarded_bad++;
@@ -388,7 +390,8 @@ Buffer *UDPM::udp_read_packet()
     // incoming message.
     if (ringbuf) {
         mut.lock();
-        zcmb->ringbuf->shrink_last(zcmb->buf, sz);
+        // XXX broken!
+        //zcmb->ringbuf->shrink_last(zcmb->buf, sz);
         mut.unlock();
     }
 
@@ -638,7 +641,11 @@ bool UDPM::init()
     ZCM_DEBUG("ZCM: send buffer is %d bytes", sockbufsize);
 
     // set loopback option on the send socket
-    unsigned char send_lo_opt = 1;
+#ifdef __sun__
+   unsigned char send_lo_opt = 1;
+#else
+    unsigned int send_lo_opt = 1;
+#endif
     if (setsockopt (sendfd, IPPROTO_IP, IP_MULTICAST_LOOP,
                 (char *) &send_lo_opt, sizeof (send_lo_opt)) < 0) {
         perror("setsockopt (IPPROTO_IP, IP_MULTICAST_LOOP)");
@@ -719,25 +726,26 @@ bool UDPM::init()
         getsockopt(recvfd, SOL_SOCKET, SO_RCVBUF,
                    (char*) &kernel_rbuf_sz, (socklen_t *) &retsize);
         ZCM_DEBUG("ZCM: receive buffer is %zu bytes", kernel_rbuf_sz);
-        if (params.recv_buf_size) {
-            if (setsockopt(recvfd, SOL_SOCKET, SO_RCVBUF,
-                           (char *) &params.recv_buf_size,
-                           sizeof(params.recv_buf_size)) < 0) {
-                perror("setsockopt(SOL_SOCKET, SO_RCVBUF)");
-                fprintf(stderr, "Warning: Unable to set recv buffer size\n");
-            }
-            getsockopt(recvfd, SOL_SOCKET, SO_RCVBUF,
-                       (char*)&kernel_rbuf_sz, (socklen_t *) &retsize);
-            ZCM_DEBUG("ZCM: receive buffer is %zu bytes", kernel_rbuf_sz);
+        // XXX broken
+        // if (params.recv_buf_size) {
+        //     if (setsockopt(recvfd, SOL_SOCKET, SO_RCVBUF,
+        //                    (char *) &params.recv_buf_size,
+        //                    sizeof(params.recv_buf_size)) < 0) {
+        //         perror("setsockopt(SOL_SOCKET, SO_RCVBUF)");
+        //         fprintf(stderr, "Warning: Unable to set recv buffer size\n");
+        //     }
+        //     getsockopt(recvfd, SOL_SOCKET, SO_RCVBUF,
+        //                (char*)&kernel_rbuf_sz, (socklen_t *) &retsize);
+        //     ZCM_DEBUG("ZCM: receive buffer is %zu bytes", kernel_rbuf_sz);
 
-            if (params.recv_buf_size > kernel_rbuf_sz) {
-                fprintf(stderr, "ZCM UDP receive buffer size (%d) \n"
-                        "       is smaller than reqested (%d). "
-                        "For more info:\n"
-                        "       http://zcm-proj.github.io/multicast_setup.html\n",
-                        (int)kernel_rbuf_sz, (int)params.recv_buf_size);
-            }
-        }
+        //     if (params.recv_buf_size > kernel_rbuf_sz) {
+        //         fprintf(stderr, "ZCM UDP receive buffer size (%d) \n"
+        //                 "       is smaller than reqested (%d). "
+        //                 "For more info:\n"
+        //                 "       http://zcm-proj.github.io/multicast_setup.html\n",
+        //                 (int)kernel_rbuf_sz, (int)params.recv_buf_size);
+        //     }
+        // }
 
         /* Enable per-packet timestamping by the kernel, if available */
 #ifdef SO_TIMESTAMP

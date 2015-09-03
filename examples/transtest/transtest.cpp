@@ -8,7 +8,7 @@
 #include "zcm/transport_registrar.h"
 using namespace std;
 
-#define HZ 10
+#define HZ 2
 
 volatile bool running_recv = true;
 volatile bool running_send = true;
