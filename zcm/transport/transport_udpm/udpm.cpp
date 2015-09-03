@@ -97,6 +97,7 @@ struct UDPM
 
     /***** Methods ******/
     UDPM(const string& ip, u16 port, size_t recv_buf_size, u8 ttl);
+    bool init();
     ~UDPM();
 
     int handle();
@@ -578,6 +579,10 @@ UDPM::~UDPM()
 UDPM::UDPM(const string& ip, u16 port, size_t recv_buf_size, u8 ttl)
     : params(ip, port, recv_buf_size, ttl)
 {
+}
+
+bool UDPM::init()
+{
     ZCM_DEBUG("Initializing ZCM UDPM context...");
     ZCM_DEBUG("Multicast %s:%d", inet_ntoa(params.addr), ntohs(params.port));
 
@@ -596,7 +601,7 @@ UDPM::UDPM(const string& ip, u16 port, size_t recv_buf_size, u8 ttl)
 // #ifdef __linux__
 //         linux_check_routing_table(dest_addr.sin_addr);
 // #endif
-        abort();
+        return false;
     }
     zcm_close_socket(testfd);
 
@@ -614,7 +619,7 @@ UDPM::UDPM(const string& ip, u16 port, size_t recv_buf_size, u8 ttl)
     if (setsockopt(sendfd, IPPROTO_IP, IP_MULTICAST_TTL,
                 (char *) &params.ttl, sizeof (params.ttl)) < 0) {
         perror("setsockopt(IPPROTO_IP, IP_MULTICAST_TTL)");
-        abort();
+        return false;
     }
 
 #ifdef WIN32
@@ -637,7 +642,7 @@ UDPM::UDPM(const string& ip, u16 port, size_t recv_buf_size, u8 ttl)
     if (setsockopt (sendfd, IPPROTO_IP, IP_MULTICAST_LOOP,
                 (char *) &send_lo_opt, sizeof (send_lo_opt)) < 0) {
         perror("setsockopt (IPPROTO_IP, IP_MULTICAST_LOOP)");
-        abort();
+        return false;
     }
 
     // don't start the receive thread yet.  Only allocate resources for
@@ -654,7 +659,7 @@ UDPM::UDPM(const string& ip, u16 port, size_t recv_buf_size, u8 ttl)
       // ignore this error in windows... see issue LCM #60
 #else
         perror("setsockopt (IPPROTO_IP, IP_ADD_MEMBERSHIP)");
-        abort();
+        return false;
 #endif
     }
 
@@ -669,7 +674,7 @@ UDPM::UDPM(const string& ip, u16 port, size_t recv_buf_size, u8 ttl)
         recvfd = socket (AF_INET, SOCK_DGRAM, 0);
         if (recvfd < 0) {
             perror ("allocating ZCM recv socket");
-            abort();
+            return false;
         }
 
         struct sockaddr_in addr;
@@ -685,7 +690,7 @@ UDPM::UDPM(const string& ip, u16 port, size_t recv_buf_size, u8 ttl)
         if (setsockopt (recvfd, SOL_SOCKET, SO_REUSEADDR,
                         (char*)&opt, sizeof (opt)) < 0) {
             perror ("setsockopt (SOL_SOCKET, SO_REUSEADDR)");
-            abort();
+            return false;
         }
 
 #ifdef USE_REUSEPORT
@@ -697,7 +702,7 @@ UDPM::UDPM(const string& ip, u16 port, size_t recv_buf_size, u8 ttl)
         if (setsockopt(recvfd, SOL_SOCKET, SO_REUSEPORT,
                        (char*)&opt, sizeof (opt)) < 0) {
             perror("setsockopt (SOL_SOCKET, SO_REUSEPORT)");
-            abort();
+            return false;
         }
 #endif
 
@@ -742,7 +747,7 @@ UDPM::UDPM(const string& ip, u16 port, size_t recv_buf_size, u8 ttl)
 
         if (bind(recvfd, (struct sockaddr*)&addr, sizeof (addr)) < 0) {
             perror("bind");
-            abort();
+            return false;
         }
 
         struct ip_mreq mreq;
@@ -753,7 +758,7 @@ UDPM::UDPM(const string& ip, u16 port, size_t recv_buf_size, u8 ttl)
         if (setsockopt(recvfd, IPPROTO_IP, IP_ADD_MEMBERSHIP,
                        (char*)&mreq, sizeof (mreq)) < 0) {
             perror("setsockopt (IPPROTO_IP, IP_ADD_MEMBERSHIP)");
-            abort();
+            return false;
         }
 
         inbufs_empty = new BufQueue();
@@ -778,10 +783,12 @@ UDPM::UDPM(const string& ip, u16 port, size_t recv_buf_size, u8 ttl)
         //     // self test failed.  destroy the read thread
         //     fprintf (stderr, "ZCM self test failed!!\n"
         //             "Check your routing tables and firewall settings\n");
-        //     abort();
+        //     return false;
         // }
         // return self_test_results;
     }
+
+    return true;
 }
 
 // Define this the class name you want
@@ -796,6 +803,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     {
         vtbl = &methods;
     }
+
+    bool init() { return udpm.init(); }
 
     /********************** STATICS **********************/
     static zcm_trans_methods_t methods;
@@ -845,7 +854,13 @@ static zcm_trans_t *createUdpm(zcm_url_t *url)
     auto *port = optFind(opts, "port");
     auto *ttl = optFind(opts, "ttl");
     size_t recv_buf_size = 1024;
-    return new ZCM_TRANS_CLASSNAME(ip, atoi(port), recv_buf_size, atoi(ttl));
+    auto *trans = new ZCM_TRANS_CLASSNAME(ip, atoi(port), recv_buf_size, atoi(ttl));
+    if (!trans->init()) {
+        delete trans;
+        return nullptr;
+    } else {
+        return trans;
+    }
 }
 
 // Register this transport with ZCM

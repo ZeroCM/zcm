@@ -51,7 +51,10 @@ static void verifySame(zcm_msg_t *a, zcm_msg_t *b)
 static void send(const char *url)
 {
     auto *trans = makeTransport(url);
-    assert(trans);
+    if (!trans) {
+        fprintf(stderr, "ERR: Failed to create transport for '%s'\n", url);
+        exit(1);
+    }
 
     zcm_msg_t msg = makeMasterMsg();
     while (running_send) {
@@ -63,7 +66,10 @@ static void send(const char *url)
 static void recv(const char *url)
 {
     auto *trans = makeTransport(url);
-    assert(trans);
+    if (!trans) {
+        fprintf(stderr, "ERR: Failed to create transport for '%s'\n", url);
+        exit(1);
+    }
 
     // Tell the transport to give us all of the channels
     zcm_trans_recvmsg_enable(trans, NULL, true);
