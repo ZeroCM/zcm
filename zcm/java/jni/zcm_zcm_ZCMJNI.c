@@ -135,8 +135,9 @@ JNIEXPORT jint JNICALL Java_zcm_zcm_ZCMJNI_subscribe
 
     const char *channel = (*env)->GetStringUTFChars(env, channelJ, 0);
 
-    int ret = zcm_subscribe(I->zcm, channel, handler, (void*)I);
+    // XXX: need to handle the subscription type returned from subscribe
+    zcm_subscribe(I->zcm, channel, handler, (void*)I);
 
     (*env)->ReleaseStringUTFChars(env, channelJ, channel);
-    return ret;
+    return 0;
 }

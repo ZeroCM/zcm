@@ -3,6 +3,7 @@ package zcm.zcm;
 import java.util.*;
 import java.util.regex.*;
 
+// XXX: this class unused?
 public class URLParser
 {
     HashMap<String,String> params = new HashMap<String,String>();

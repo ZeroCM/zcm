@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <unistd.h>
 #include <string>
 #include <vector>
@@ -9,8 +10,8 @@
 
 namespace zcm {
 
-struct Subscription;
-struct ReceiveBuffer;
+typedef zcm_sub_t      Subscription;
+typedef zcm_recv_buf_t ReceiveBuffer;
 
 // TODO: unify pointer style pref "Msg* msg" vs "Msg *msg", I'd tend toward the former
 
@@ -27,8 +28,7 @@ struct ZCM
     inline void stop();
     inline int handle();
 
-    inline int publish(const std::string& channel, const char *data,
-                       uint len);
+    inline int publish(const std::string& channel, const char *data, uint32_t len);
 
     // Note: if we make a publish binding that takes a const message reference, the compiler does
     //       not select the right version between the pointer and reference versions, so when the
@@ -64,30 +64,13 @@ struct ZCM
 
 // TODO: why not use or inherrit from the existing zcm data structures for the below
 
-struct ReceiveBuffer
-{
-    // TODO: is there a reason to have the ZCM pointer in here? It seems like it is always
-    //       set to nullptr
-    ZCM     *zcm;
-
-    uint64_t utime;
-    size_t   datalen;
-    char    *data;
-};
-
-struct Subscription
-{
-    Subscription() {};
-    virtual ~Subscription() {}
-};
-
 struct LogEvent
 {
     int64_t     eventnum;
     std::string channel;
 
     uint64_t    utime;
-    size_t      datalen;
+    size_t      len;
     char       *data;
 };
 
@@ -118,3 +101,4 @@ struct LogFile
 #undef __zcm_cpp_impl_ok__
 
 }
+

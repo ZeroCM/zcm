@@ -28,7 +28,7 @@ struct zcm_t
 typedef struct zcm_recv_buf_t zcm_recv_buf_t;
 struct zcm_recv_buf_t
 {
-    char *data;
+    char *data; /* do not free, recv_buf does not own this memory */
     uint32_t data_size;
     int64_t recv_utime;
 

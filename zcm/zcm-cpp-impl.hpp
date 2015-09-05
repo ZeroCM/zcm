@@ -45,8 +45,7 @@ inline int ZCM::handle()
     return zcm_handle(zcm);
 }
 
-inline int ZCM::publish(const std::string& channel, const char *data,
-                        uint len)
+inline int ZCM::publish(const std::string& channel, const char *data, uint32_t len)
 {
     return zcm_publish(zcm, channel.c_str(), (char*)data, len);
 }
@@ -54,13 +53,39 @@ inline int ZCM::publish(const std::string& channel, const char *data,
 template <class Msg>
 inline int ZCM::publish(const std::string& channel, const Msg *msg)
 {
-    uint datalen = msg->getEncodedSize();
-    uint8_t *buf = new uint8_t[datalen];
-    msg->encode(buf, 0, datalen);
-    int status = this->publish(channel, (const char*)buf, datalen);
+    uint32_t len = msg->getEncodedSize();
+    uint8_t *buf = new uint8_t[len];
+    msg->encode(buf, 0, len);
+    int status = this->publish(channel, (const char*)buf, len);
     delete[] buf;
     return status;
 }
+
+// TODO: wip
+template<class Msg>
+class TypedSubscription : public Subscription
+{
+    void (*typedCallback)(const ReceiveBuffer* rbuf, const std::string& channel, const Msg* msg,
+                          void *usr);
+    Msg msgMem; // Memory to decode this message into
+
+    void typedDispatch(const ReceiveBuffer *rbuf, const char *channel, void *usr)
+    {
+        int status = msgMem.decode(rbuf->data, 0, rbuf->len);
+        if (status < 0) {
+            fprintf (stderr, "error %d decoding %s!!!\n", status,
+                     Msg::getTypeName());
+            return;
+        }
+
+        typedCallback(rbuf, channel, channel, &msgMem, usr);
+    }
+
+    static void dispatch_(const ReceiveBuffer *rbuf, const char *channel, void *usr)
+    {
+        ((TypedSubscription<Msg>*)usr)->dispatch(rbuf, channel, usr);
+    }
+};
 
 // TODO: this class name is weird (what's with the "Stub"
 template <class Msg, class Handler>
@@ -91,8 +116,7 @@ class TypedSubStub : public Subscription
     }
 
     // A standard vanilla function to bind the this-pointer
-    static void dispatch_(const zcm_recv_buf_t *rbuf, const char *channel,
-                          void *usr)
+    static void dispatch_(const zcm_recv_buf_t *rbuf, const char *channel, void *usr)
     {
         typedef TypedSubStub<Msg, Handler> MyType;
         ((MyType*)usr)->dispatch(rbuf, channel);
@@ -101,12 +125,12 @@ class TypedSubStub : public Subscription
 
 template <class Msg, class Handler>
 Subscription *ZCM::subscribe(const std::string& channel,
-                        void (Handler::*cb)(const ReceiveBuffer *rbuf, const std::string& channel, const Msg *msg),
-                        Handler *handler)
+                             void (Handler::*cb)(const ReceiveBuffer *rbuf,
+                                                 const std::string& channel, const Msg *msg),
+                             Handler *handler)
 {
     if (!zcm) {
-        fprintf(stderr,
-                "ZCM instance not initialized.  Ignoring call to subscribe()\n");
+        fprintf(stderr, "ZCM instance not initialized. Ignoring call to subscribe()\n");
         return nullptr;
     }
     typedef TypedSubStub<Msg, Handler> StubType;
@@ -140,8 +164,7 @@ class UntypedSubStub : public Subscription
     }
 
     // A standard vanilla function to bind the this-pointer
-    static void dispatch_(const zcm_recv_buf_t *rbuf, const char *channel,
-                          void *usr)
+    static void dispatch_(const zcm_recv_buf_t *rbuf, const char *channel, void *usr)
     {
         typedef UntypedSubStub<Handler> MyType;
         ((MyType*)usr)->dispatch(rbuf, channel);
@@ -150,7 +173,8 @@ class UntypedSubStub : public Subscription
 
 template <class Handler>
 Subscription *ZCM::subscribe(const std::string& channel,
-                             void (Handler::*cb)(const ReceiveBuffer* rbuf, const std::string& channel),
+                             void (Handler::*cb)(const ReceiveBuffer* rbuf,
+                                                 const std::string& channel),
                              Handler* handler)
 {
     if (!zcm) {
@@ -230,7 +254,7 @@ inline const LogEvent* LogFile::readNextEvent()
     curEvent.eventnum = evt->eventnum;
     curEvent.channel.assign(evt->channel, evt->channellen);
     curEvent.utime = evt->timestamp;
-    curEvent.datalen = evt->datalen;
+    curEvent.len = evt->datalen;
     curEvent.data = (char*)evt->data;
     return &curEvent;
 }
@@ -241,7 +265,7 @@ inline int LogFile::writeEvent(LogEvent* event)
     evt.eventnum = event->eventnum;
     evt.timestamp = event->utime;
     evt.channellen = event->channel.size();
-    evt.datalen = event->datalen;
+    evt.datalen = event->len;
     evt.channel = (char*) event->channel.c_str();
     evt.data = event->data;
     return zcm_eventlog_write_event(eventlog, &evt);

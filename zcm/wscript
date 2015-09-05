@@ -35,8 +35,8 @@ def build(ctx):
                        'transport_register.hpp'])
 
     # XXX: disabled for now
-    #ctx.recurse('java');
-    #ctx.recurse('js');
+    ctx.recurse('java');
+    ctx.recurse('js');
 
 def exec_test_embedded(tsk):
     src = tsk.inputs[0].abspath()
