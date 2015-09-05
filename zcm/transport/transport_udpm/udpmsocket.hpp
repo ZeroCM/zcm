@@ -1,5 +1,7 @@
 #pragma once
+#include "udpm.hpp"
 
+class Buffer;
 class UDPMSocket
 {
   public:
@@ -20,10 +22,20 @@ class UDPMSocket
     size_t getRecvBufSize();
     size_t getSendBufSize();
 
+    // Returns true when there is a packet available for receiving
+    bool waitUntilData();
+    size_t recvBuffer(Buffer *b);
+
+    ssize_t sendBuffers(struct sockaddr_in *dest, const char *a, size_t alen);
+    ssize_t sendBuffers(struct sockaddr_in *dest, const char *a, size_t alen,
+                            const char *b, size_t blen);
+    ssize_t sendBuffers(struct sockaddr_in *dest, const char *a, size_t alen,
+                        const char *b, size_t blen, const char *c, size_t clen);
+
     static UDPMSocket createSendSocket(struct in_addr multiaddr, u8 ttl);
     static UDPMSocket createRecvSocket(struct in_addr multiaddr, u16 port);
 
-  // private:
+  private:
     SOCKET fd = -1;
 
   private:

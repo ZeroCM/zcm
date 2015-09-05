@@ -1,5 +1,5 @@
-#include "udpm.hpp"
 #include "udpmsocket.hpp"
+#include "fragbuffer.hpp"
 
 // Platform specifics
 #ifdef WIN32
@@ -192,6 +192,139 @@ size_t UDPMSocket::getSendBufSize()
     getsockopt(fd, SOL_SOCKET, SO_SNDBUF, (char*)&size, (socklen_t *)&retsize);
     ZCM_DEBUG("ZCM: receive buffer is %d bytes", size);
     return size;
+}
+
+bool UDPMSocket::waitUntilData()
+{
+    assert(isOpen());
+
+    fd_set fds;
+    FD_ZERO(&fds);
+    FD_SET(fd, &fds);
+
+    if (select(fd + 1, &fds, NULL, NULL, NULL) <= 0) {
+        perror("udp_read_packet -- select:");
+        return false;
+    }
+
+    // there is incoming UDP data ready.
+    assert(FD_ISSET(fd, &fds));
+    return true;
+}
+
+size_t UDPMSocket::recvBuffer(Buffer *b)
+//char *buf, size_t len, struct sockaddr *from)
+{
+    struct iovec vec;
+    vec.iov_base = b->buf;
+    vec.iov_len = 65535;  // XXX this shouldn't be hard-coded
+
+    struct msghdr msg;
+    memset(&msg, 0, sizeof(struct msghdr));
+    msg.msg_name = &b->from;
+    msg.msg_namelen = sizeof(struct sockaddr);
+    msg.msg_iov = &vec;
+    msg.msg_iovlen = 1;
+
+#ifdef MSG_EXT_HDR
+    // operating systems that provide SO_TIMESTAMP allow us to obtain more
+    // accurate timestamps by having the kernel produce timestamps as soon
+    // as packets are received.
+    char controlbuf[64];
+    msg.msg_control = controlbuf;
+    msg.msg_controllen = sizeof (controlbuf);
+    msg.msg_flags = 0;
+#endif
+
+    size_t ret = ::recvmsg(fd, &msg, 0);
+
+    b->fromlen = msg.msg_namelen;
+
+    bool got_utime = false;
+#ifdef SO_TIMESTAMP
+    struct cmsghdr *cmsg = CMSG_FIRSTHDR(&msg);
+    /* Get the receive timestamp out of the packet headers if possible */
+    while (!b->recv_utime && cmsg) {
+        if (cmsg->cmsg_level == SOL_SOCKET &&
+            cmsg->cmsg_type == SCM_TIMESTAMP) {
+            struct timeval *t = (struct timeval*) CMSG_DATA (cmsg);
+            b->recv_utime = (int64_t) t->tv_sec * 1000000 + t->tv_usec;
+            got_utime = true;
+            break;
+        }
+        cmsg = CMSG_NXTHDR (&msg, cmsg);
+    }
+#endif
+
+    if (!got_utime) {
+        struct timeval tv;
+        gettimeofday(&tv, NULL);
+        b->recv_utime = (i64)tv.tv_sec * 1000000 + tv.tv_usec;
+    }
+
+    return ret;
+}
+
+ssize_t UDPMSocket::sendBuffers(struct sockaddr_in *dest, const char *a, size_t alen)
+{
+    struct iovec iv;
+    iv.iov_base = (char*)a;
+    iv.iov_len = alen;;
+
+    struct msghdr mhdr;
+    mhdr.msg_name = (struct sockaddr*) dest;
+    mhdr.msg_namelen = sizeof(*dest);
+    mhdr.msg_iov = &iv;
+    mhdr.msg_iovlen = 1;
+    mhdr.msg_control = NULL;
+    mhdr.msg_controllen = 0;
+    mhdr.msg_flags = 0;
+
+    return::sendmsg(fd, &mhdr, 0);
+}
+
+ssize_t UDPMSocket::sendBuffers(struct sockaddr_in *dest, const char *a, size_t alen,
+                                const char *b, size_t blen)
+{
+    struct iovec iv[2];
+    iv[0].iov_base = (char*)a;
+    iv[0].iov_len = alen;;
+    iv[1].iov_base = (char*)b;
+    iv[1].iov_len = blen;;
+
+    struct msghdr mhdr;
+    mhdr.msg_name = (struct sockaddr*) dest;
+    mhdr.msg_namelen = sizeof(*dest);
+    mhdr.msg_iov = iv;
+    mhdr.msg_iovlen = 2;
+    mhdr.msg_control = NULL;
+    mhdr.msg_controllen = 0;
+    mhdr.msg_flags = 0;
+
+    return::sendmsg(fd, &mhdr, 0);
+}
+
+ssize_t UDPMSocket::sendBuffers(struct sockaddr_in *dest, const char *a, size_t alen,
+                                const char *b, size_t blen, const char *c, size_t clen)
+{
+    struct iovec iv[3];
+    iv[0].iov_base = (char*)a;
+    iv[0].iov_len = alen;;
+    iv[1].iov_base = (char*)b;
+    iv[1].iov_len = blen;;
+    iv[2].iov_base = (char*)c;
+    iv[2].iov_len = clen;;
+
+    struct msghdr mhdr;
+    mhdr.msg_name = (struct sockaddr*) dest;
+    mhdr.msg_namelen = sizeof(*dest);
+    mhdr.msg_iov = iv;
+    mhdr.msg_iovlen = 3;
+    mhdr.msg_control = NULL;
+    mhdr.msg_controllen = 0;
+    mhdr.msg_flags = 0;
+
+    return::sendmsg(fd, &mhdr, 0);
 }
 
 UDPMSocket UDPMSocket::createSendSocket(struct in_addr multiaddr, u8 ttl)

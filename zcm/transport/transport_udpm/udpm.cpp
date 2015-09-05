@@ -14,13 +14,6 @@ static i32 utimeInSeconds()
     return (i32)tv.tv_sec;
 }
 
-static i64 timestampNow()
-{
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    return (i64)tv.tv_sec * 1000000 + tv.tv_usec;
-}
-
 /**
  * udpm_params_t:
  * @mc_addr:        multicast address
@@ -65,16 +58,13 @@ struct UDPM
 
     /* Packet structures available for sending or receiving use are
      * stored in the *_empty queues. */
-    BufQueue *inbufs_empty = nullptr;
+    BufQueue inbufs_empty;
     /* Received packets that are filled with data are queued here. */
-    BufQueue *inbufs_filled = nullptr;
+    BufQueue inbufs_filled;
 
     /* Memory for received small packets is taken from a fixed-size ring buffer
      * so we don't have to do any mallocs */
-    Ringbuffer *ringbuf;
-
-    std::mutex mut; /* Must be locked when reading/writing to the
-                       above three queues */
+    Ringbuffer *ringbuf = nullptr;
 
     /* other variables */
     FragBufStore *frag_bufs = nullptr;
@@ -203,9 +193,7 @@ bool UDPM::_recv_fragment(Buffer *zcmb, u32 sz)
     // yes, transfer the message into the zcm_buf_t
 
     // deallocate the ringbuffer-allocated buffer
-    mut.lock();
     Buffer::destroy(zcmb, ringbuf);
-    mut.unlock();
 
     // transfer ownership of the message's payload buffer
     zcmb->buf = fbuf->data;
@@ -255,14 +243,11 @@ bool UDPM::_recv_short(Buffer *zcmb, u32 sz)
 Buffer *UDPM::udp_read_packet()
 {
     Buffer *zcmb = NULL;
-    int sz = 0;
+    size_t sz = 0;
 
     // TODO warn about message loss somewhere else.
-
-    mut.lock();
     u32 ring_capacity = ringbuf->get_capacity();
     u32 ring_used = ringbuf->get_used();
-    mut.unlock();
 
     double buf_avail = ((double)(ring_capacity - ring_used)) / ring_capacity;
     if (buf_avail < udp_low_watermark)
@@ -289,79 +274,28 @@ Buffer *UDPM::udp_read_packet()
 
     bool got_complete_message = false;
     while (!got_complete_message) {
-        // wait for either incoming UDP data, or for an abort message
-        fd_set fds;
-        FD_ZERO(&fds);
-        FD_SET(recvfd.fd, &fds);
-
-        if (select(recvfd.fd + 1, &fds, NULL, NULL, NULL) <= 0) {
-            perror("udp_read_packet -- select:");
+        // // wait for either incoming UDP data, or for an abort message
+        if (!recvfd.waitUntilData())
             continue;
-        }
-
-        // there is incoming UDP data ready.
-        assert(FD_ISSET(recvfd.fd, &fds));
 
         if (!zcmb) {
-            mut.lock();
-            zcmb = Buffer::make(inbufs_empty, &ringbuf);
-            mut.unlock();
+            zcmb = Buffer::make(&inbufs_empty, &ringbuf);
         }
 
-        struct iovec        vec;
-        vec.iov_base = zcmb->buf;
-        vec.iov_len = 65535;
-
-        struct msghdr msg;
-        memset(&msg, 0, sizeof(struct msghdr));
-        msg.msg_name = &zcmb->from;
-        msg.msg_namelen = sizeof(struct sockaddr);
-        msg.msg_iov = &vec;
-        msg.msg_iovlen = 1;
-#ifdef MSG_EXT_HDR
-        // operating systems that provide SO_TIMESTAMP allow us to obtain more
-        // accurate timestamps by having the kernel produce timestamps as soon
-        // as packets are received.
-        char controlbuf[64];
-        msg.msg_control = controlbuf;
-        msg.msg_controllen = sizeof (controlbuf);
-        msg.msg_flags = 0;
-#endif
-        sz = ::recvmsg(recvfd.fd, &msg, 0);
+        sz = recvfd.recvBuffer(zcmb);
         if (sz < 0) {
-            perror("udp_read_packet -- recvmsg");
+            ZCM_DEBUG("udp_read_packet -- recvmsg");
             udp_discarded_bad++;
             continue;
         }
 
-        ZCM_DEBUG("Got packet of size %d", (int)sz);
+        ZCM_DEBUG("Got packet of size %zu", sz);
 
-        if ((size_t)sz < sizeof(MsgHeaderShort)) {
+        if (sz < sizeof(MsgHeaderShort)) {
             // packet too short to be ZCM
             udp_discarded_bad++;
             continue;
         }
-
-        zcmb->fromlen = msg.msg_namelen;
-
-        int got_utime = 0;
-#ifdef SO_TIMESTAMP
-        struct cmsghdr *cmsg = CMSG_FIRSTHDR(&msg);
-        /* Get the receive timestamp out of the packet headers if possible */
-        while (!zcmb->recv_utime && cmsg) {
-            if (cmsg->cmsg_level == SOL_SOCKET &&
-                    cmsg->cmsg_type == SCM_TIMESTAMP) {
-                struct timeval *t = (struct timeval*) CMSG_DATA (cmsg);
-                zcmb->recv_utime = (int64_t) t->tv_sec * 1000000 + t->tv_usec;
-                got_utime = 1;
-                break;
-            }
-            cmsg = CMSG_NXTHDR (&msg, cmsg);
-        }
-#endif
-
-        if (!got_utime)
-            zcmb->recv_utime = timestampNow();
 
         MsgHeaderShort *hdr = (MsgHeaderShort*) zcmb->buf;
         u32 rcvd_magic = ntohl(hdr->magic);
@@ -381,10 +315,8 @@ Buffer *UDPM::udp_read_packet()
     // required.  That way, we do not use 64k of the ringbuffer for every
     // incoming message.
     if (ringbuf) {
-        mut.lock();
         // XXX broken!
         //zcmb->ringbuf->shrink_last(zcmb->buf, sz);
-        mut.unlock();
     }
 
     return zcmb;
@@ -406,33 +338,17 @@ int UDPM::sendmsg(zcm_msg_t msg)
         hdr.magic = htonl(ZCM_MAGIC_SHORT);
         hdr.msg_seqno = htonl(msg_seqno);
 
-        struct iovec sendbufs[3];
-        sendbufs[0].iov_base = (char *)&hdr;
-        sendbufs[0].iov_len = sizeof(hdr);
-        sendbufs[1].iov_base = (char *)msg.channel;
-        sendbufs[1].iov_len = channel_size + 1;
-        sendbufs[2].iov_base = msg.buf;
-        sendbufs[2].iov_len = msg.len;
+        ssize_t status = sendfd.sendBuffers(&dest_addr,
+                              (char*)&hdr, sizeof(hdr),
+                              (char*)msg.channel, channel_size+1,
+                              msg.buf, msg.len);
 
-        // transmit
         int packet_size = sizeof(hdr) + payload_size;
         ZCM_DEBUG("transmitting %zu byte [%s] payload (%d byte pkt)",
                   msg.len, msg.channel, packet_size);
-
-        struct msghdr mhdr;
-        mhdr.msg_name = (struct sockaddr*) &dest_addr;
-        mhdr.msg_namelen = sizeof(dest_addr);
-        mhdr.msg_iov = sendbufs;
-        mhdr.msg_iovlen = 3;
-        mhdr.msg_control = NULL;
-        mhdr.msg_controllen = 0;
-        mhdr.msg_flags = 0;
-
-        int status = ::sendmsg(sendfd.fd, &mhdr, 0);
         msg_seqno++;
 
-        if (status == packet_size) return 0;
-        else return status;
+        return (status == packet_size) ? 0 : status;
     }
 
 
@@ -468,26 +384,13 @@ int UDPM::sendmsg(zcm_msg_t msg)
         size_t firstfrag_datasize = fragment_size - (channel_size + 1);
         assert(firstfrag_datasize <= msg.len);
 
-        struct iovec    first_sendbufs[3];
-        first_sendbufs[0].iov_base = (char *) &hdr;
-        first_sendbufs[0].iov_len = sizeof (hdr);
-        first_sendbufs[1].iov_base = (char *) msg.channel;
-        first_sendbufs[1].iov_len = channel_size + 1;
-        first_sendbufs[2].iov_base = msg.buf;
-        first_sendbufs[2].iov_len = firstfrag_datasize;
-
         int packet_size = sizeof(hdr) + (channel_size + 1) + firstfrag_datasize;
         fragment_offset += firstfrag_datasize;
-//        int status = writev (zcm->sendfd, first_sendbufs, 3);
-        struct msghdr mhdr;
-        mhdr.msg_name = (struct sockaddr*) &dest_addr;
-        mhdr.msg_namelen = sizeof(dest_addr);
-        mhdr.msg_iov = first_sendbufs;
-        mhdr.msg_iovlen = 3;
-        mhdr.msg_control = NULL;
-        mhdr.msg_controllen = 0;
-        mhdr.msg_flags = 0;
-        int status = ::sendmsg(sendfd.fd, &mhdr, 0);
+
+        ssize_t status = sendfd.sendBuffers(&dest_addr,
+                                            (char*)&hdr, sizeof(hdr),
+                                            (char*)msg.channel, channel_size+1,
+                                            msg.buf, firstfrag_datasize);
 
         // transmit the rest of the fragments
         for (u16 frag_no = 1; packet_size == status && frag_no < nfragments; frag_no++) {
@@ -495,16 +398,9 @@ int UDPM::sendmsg(zcm_msg_t msg)
             hdr.fragment_no = htons(frag_no);
 
             int fraglen = std::min(fragment_size, (int)msg.len - (int)fragment_offset);
-
-            struct iovec sendbufs[2];
-            sendbufs[0].iov_base = (char *) &hdr;
-            sendbufs[0].iov_len = sizeof (hdr);
-            sendbufs[1].iov_base = (char *) (msg.buf + fragment_offset);
-            sendbufs[1].iov_len = fraglen;
-
-            mhdr.msg_iov = sendbufs;
-            mhdr.msg_iovlen = 2;
-            status = ::sendmsg(sendfd.fd, &mhdr, 0);
+            status = sendfd.sendBuffers(&dest_addr,
+                                        (char*)&hdr, sizeof(hdr),
+                                        (char*)(msg.buf + fragment_offset), fraglen);
 
             fragment_offset += fraglen;
             packet_size = sizeof(hdr) + fraglen;
@@ -526,7 +422,7 @@ int UDPM::recvmsg(zcm_msg_t *msg, int timeout)
     static Buffer *buf = NULL;
     if (buf != NULL) {
         Buffer::destroy(buf, ringbuf);
-        inbufs_empty->enqueue(buf);
+        inbufs_empty.enqueue(buf);
     }
 
     buf = udp_read_packet();
@@ -549,14 +445,9 @@ UDPM::~UDPM()
         frag_bufs = NULL;
     }
 
-    if (inbufs_empty) {
-        inbufs_empty->freeQueue(ringbuf);
-        inbufs_empty = NULL;
-    }
-    if (inbufs_filled) {
-        inbufs_filled->freeQueue(ringbuf);
-        inbufs_filled = NULL;
-    }
+    inbufs_empty.freeQueue(ringbuf);
+    inbufs_filled.freeQueue(ringbuf);
+
     if (ringbuf) {
         delete ringbuf;
         ringbuf = NULL;
@@ -604,14 +495,12 @@ bool UDPM::init()
 
     // allocate the fragment buffer hashtable
     frag_bufs = new FragBufStore(MAX_FRAG_BUF_TOTAL_SIZE, MAX_NUM_FRAG_BUFS);
-    inbufs_empty = new BufQueue();
-    inbufs_filled = new BufQueue();
     ringbuf = new Ringbuffer(ZCM_RINGBUF_SIZE);
 
     for (size_t i = 0; i < ZCM_DEFAULT_RECV_BUFS; i++) {
         /* We don't set the receive buffer's data pointer yet because it
          * will be taken from the ringbuffer at receive time. */
-        inbufs_empty->enqueue(new Buffer());
+        inbufs_empty.enqueue(new Buffer());
     }
 
     // XXX add back the self test
