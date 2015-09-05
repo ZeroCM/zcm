@@ -28,7 +28,7 @@ struct Platform
         return true;
     }
 
-    static void checkRoutingTable(struct sockaddr_in *dest)
+    static void checkRoutingTable(UDPMAddress& addr)
     {
         // UNIMPL
     }
@@ -51,7 +51,7 @@ struct Platform
         }
         return true;
     }
-    static void checkRoutingTable(struct sockaddr_in *dest)
+    static void checkRoutingTable(UDPMAddress& addr)
     {
 #ifdef __linux__
         // TODO
@@ -276,15 +276,15 @@ size_t UDPMSocket::recvBuffer(Buffer *b)
     return ret;
 }
 
-ssize_t UDPMSocket::sendBuffers(struct sockaddr_in *dest, const char *a, size_t alen)
+ssize_t UDPMSocket::sendBuffers(const UDPMAddress& dest, const char *a, size_t alen)
 {
     struct iovec iv;
     iv.iov_base = (char*)a;
     iv.iov_len = alen;;
 
     struct msghdr mhdr;
-    mhdr.msg_name = (struct sockaddr*) dest;
-    mhdr.msg_namelen = sizeof(*dest);
+    mhdr.msg_name = dest.getAddrPtr();
+    mhdr.msg_namelen = dest.getAddrSize();
     mhdr.msg_iov = &iv;
     mhdr.msg_iovlen = 1;
     mhdr.msg_control = NULL;
@@ -294,7 +294,7 @@ ssize_t UDPMSocket::sendBuffers(struct sockaddr_in *dest, const char *a, size_t 
     return::sendmsg(fd, &mhdr, 0);
 }
 
-ssize_t UDPMSocket::sendBuffers(struct sockaddr_in *dest, const char *a, size_t alen,
+ssize_t UDPMSocket::sendBuffers(const UDPMAddress& dest, const char *a, size_t alen,
                                 const char *b, size_t blen)
 {
     struct iovec iv[2];
@@ -304,8 +304,8 @@ ssize_t UDPMSocket::sendBuffers(struct sockaddr_in *dest, const char *a, size_t 
     iv[1].iov_len = blen;;
 
     struct msghdr mhdr;
-    mhdr.msg_name = (struct sockaddr*) dest;
-    mhdr.msg_namelen = sizeof(*dest);
+    mhdr.msg_name = dest.getAddrPtr();
+    mhdr.msg_namelen = dest.getAddrSize();
     mhdr.msg_iov = iv;
     mhdr.msg_iovlen = 2;
     mhdr.msg_control = NULL;
@@ -315,7 +315,7 @@ ssize_t UDPMSocket::sendBuffers(struct sockaddr_in *dest, const char *a, size_t 
     return::sendmsg(fd, &mhdr, 0);
 }
 
-ssize_t UDPMSocket::sendBuffers(struct sockaddr_in *dest, const char *a, size_t alen,
+ssize_t UDPMSocket::sendBuffers(const UDPMAddress& dest, const char *a, size_t alen,
                                 const char *b, size_t blen, const char *c, size_t clen)
 {
     struct iovec iv[3];
@@ -327,8 +327,8 @@ ssize_t UDPMSocket::sendBuffers(struct sockaddr_in *dest, const char *a, size_t 
     iv[2].iov_len = clen;;
 
     struct msghdr mhdr;
-    mhdr.msg_name = (struct sockaddr*) dest;
-    mhdr.msg_namelen = sizeof(*dest);
+    mhdr.msg_name = dest.getAddrPtr();
+    mhdr.msg_namelen = dest.getAddrSize();
     mhdr.msg_iov = iv;
     mhdr.msg_iovlen = 3;
     mhdr.msg_control = NULL;
@@ -338,13 +338,13 @@ ssize_t UDPMSocket::sendBuffers(struct sockaddr_in *dest, const char *a, size_t 
     return::sendmsg(fd, &mhdr, 0);
 }
 
-bool UDPMSocket::checkConnection(struct sockaddr_in *dest)
+bool UDPMSocket::checkConnection(const string& ip, u16 port)
 {
-    // test connectivity
+    UDPMAddress addr{ip, port};
     SOCKET testfd = socket(AF_INET, SOCK_DGRAM, 0);
-    if (connect(testfd, (struct sockaddr*)dest, sizeof(*dest)) < 0) {
+    if (connect(testfd, addr.getAddrPtr(), addr.getAddrSize()) < 0) {
         perror ("connect");
-        Platform::checkRoutingTable(dest);
+        Platform::checkRoutingTable(addr);
         return false;
     }
     Platform::closesocket(testfd);

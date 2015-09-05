@@ -1,7 +1,34 @@
 #pragma once
 #include "udpm.hpp"
 
+
 class Buffer;
+
+class UDPMAddress
+{
+  public:
+    UDPMAddress(const string& ip, u16 port)
+    {
+        this->ip = ip;
+        this->port = port;
+
+        memset(&this->addr, 0, sizeof(this->addr));
+        this->addr.sin_family = AF_INET;
+        inet_aton(ip.c_str(), &this->addr.sin_addr);
+        this->addr.sin_port = port;
+    }
+
+    const string& getIP() const { return ip; }
+    u16 getPort() const { return port; }
+    struct sockaddr* getAddrPtr() const { return (struct sockaddr*)&addr; }
+    size_t getAddrSize() const { return sizeof(addr); }
+
+  private:
+    string ip;
+    u16 port;
+    struct sockaddr_in addr;
+};
+
 class UDPMSocket
 {
   public:
@@ -18,6 +45,7 @@ class UDPMSocket
     bool setReusePort();
     bool enablePacketTimestamp();
     bool enableLoopback();
+    bool setDestination(const string& ip, u16 port);
 
     size_t getRecvBufSize();
     size_t getSendBufSize();
@@ -26,13 +54,13 @@ class UDPMSocket
     bool waitUntilData();
     size_t recvBuffer(Buffer *b);
 
-    ssize_t sendBuffers(struct sockaddr_in *dest, const char *a, size_t alen);
-    ssize_t sendBuffers(struct sockaddr_in *dest, const char *a, size_t alen,
+    ssize_t sendBuffers(const UDPMAddress& dest, const char *a, size_t alen);
+    ssize_t sendBuffers(const UDPMAddress& dest, const char *a, size_t alen,
                             const char *b, size_t blen);
-    ssize_t sendBuffers(struct sockaddr_in *dest, const char *a, size_t alen,
+    ssize_t sendBuffers(const UDPMAddress& dest, const char *a, size_t alen,
                         const char *b, size_t blen, const char *c, size_t clen);
 
-    static bool checkConnection(struct sockaddr_in *dest);
+    static bool checkConnection(const string& ip, u16 port);
 
     static UDPMSocket createSendSocket(struct in_addr multiaddr, u8 ttl);
     static UDPMSocket createRecvSocket(struct in_addr multiaddr, u16 port);

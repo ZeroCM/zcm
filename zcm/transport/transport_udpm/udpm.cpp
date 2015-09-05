@@ -28,6 +28,7 @@ static i32 utimeInSeconds()
  */
 struct Params
 {
+    string ip;
     struct in_addr addr;
     u16            port;
     u8             ttl;
@@ -36,6 +37,7 @@ struct Params
     Params(const string& ip, u16 port, size_t recv_buf_size, u8 ttl)
     {
         // TODO verify that the IP and PORT are vaild
+        this->ip = ip;
         inet_aton(ip.c_str(), (struct in_addr*) &this->addr);
         this->port = port;
         this->recv_buf_size = recv_buf_size;
@@ -45,11 +47,11 @@ struct Params
 
 struct UDPM
 {
+    Params params;
+    UDPMAddress destAddr;
+
     UDPMSocket recvfd;
     UDPMSocket sendfd;
-    struct sockaddr_in dest_addr;
-
-    Params params;
 
     /* size of the kernel UDP receive buffer */
     size_t kernel_rbuf_sz = 0;
@@ -94,6 +96,8 @@ struct UDPM
 
     Buffer *udp_read_packet();
     void recv_thread();
+
+    bool selftest();
 };
 
 bool UDPM::_recv_fragment(Buffer *zcmb, u32 sz)
@@ -338,7 +342,7 @@ int UDPM::sendmsg(zcm_msg_t msg)
         hdr.magic = htonl(ZCM_MAGIC_SHORT);
         hdr.msg_seqno = htonl(msg_seqno);
 
-        ssize_t status = sendfd.sendBuffers(&dest_addr,
+        ssize_t status = sendfd.sendBuffers(destAddr,
                               (char*)&hdr, sizeof(hdr),
                               (char*)msg.channel, channel_size+1,
                               msg.buf, msg.len);
@@ -387,7 +391,7 @@ int UDPM::sendmsg(zcm_msg_t msg)
         int packet_size = sizeof(hdr) + (channel_size + 1) + firstfrag_datasize;
         fragment_offset += firstfrag_datasize;
 
-        ssize_t status = sendfd.sendBuffers(&dest_addr,
+        ssize_t status = sendfd.sendBuffers(destAddr,
                                             (char*)&hdr, sizeof(hdr),
                                             (char*)msg.channel, channel_size+1,
                                             msg.buf, firstfrag_datasize);
@@ -398,7 +402,7 @@ int UDPM::sendmsg(zcm_msg_t msg)
             hdr.fragment_no = htons(frag_no);
 
             int fraglen = std::min(fragment_size, (int)msg.len - (int)fragment_offset);
-            status = sendfd.sendBuffers(&dest_addr,
+            status = sendfd.sendBuffers(destAddr,
                                         (char*)&hdr, sizeof(hdr),
                                         (char*)(msg.buf + fragment_offset), fraglen);
 
@@ -450,22 +454,16 @@ UDPM::~UDPM()
 }
 
 UDPM::UDPM(const string& ip, u16 port, size_t recv_buf_size, u8 ttl)
-    : params(ip, port, recv_buf_size, ttl)
+    : params(ip, port, recv_buf_size, ttl),
+      destAddr(ip, port)
 {
 }
 
 bool UDPM::init()
 {
     ZCM_DEBUG("Initializing ZCM UDPM context...");
-    ZCM_DEBUG("Multicast %s:%d", inet_ntoa(params.addr), ntohs(params.port));
-
-    // setup destination multicast address
-    memset(&dest_addr, 0, sizeof(dest_addr));
-    dest_addr.sin_family = AF_INET;
-    dest_addr.sin_addr = params.addr;
-    dest_addr.sin_port = params.port;
-
-    UDPMSocket::checkConnection(&dest_addr);
+    ZCM_DEBUG("Multicast %s:%d", params.ip.c_str(), params.port);
+    UDPMSocket::checkConnection(params.ip, params.port);
 
     sendfd = UDPMSocket::createSendSocket(params.addr, params.ttl);
     if (!sendfd.isOpen()) return false;
@@ -483,22 +481,22 @@ bool UDPM::init()
         inbufs_empty.enqueue(new Buffer());
     }
 
-    // XXX add back the self test
-    // conduct a self-test just to make sure everything is working.
-    // ZCM_DEBUG("ZCM: conducting self test");
-    // int self_test_results = udpm_self_test(zcm);
-    // g_static_rec_mutex_lock(&zcm->mutex);
+    if (!this->selftest()) {
+        // self test failed.  destroy the read thread
+        fprintf(stderr, "ZCM self test failed!!\n"
+                "Check your routing and firewall settings\n");
+        return false;
+    }
 
-    // if (0 == self_test_results) {
-    //     ZCM_DEBUG("ZCM: self test successful");
-    // } else {
-    //     // self test failed.  destroy the read thread
-    //     fprintf (stderr, "ZCM self test failed!!\n"
-    //             "Check your routing tables and firewall settings\n");
-    //     return false;
-    // }
-    // return self_test_results;
+    return true;
+}
 
+bool UDPM::selftest()
+{
+#ifdef ENABLE_SELFTEST
+    ZCM_DEBUG("UDPM conducting self test");
+    assert(0 && "unimpl");
+#endif
     return true;
 }
 
