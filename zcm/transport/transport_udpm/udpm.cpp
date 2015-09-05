@@ -58,15 +58,7 @@ struct UDPM
     size_t kernel_sbuf_sz = 0;
     bool warned_about_small_kernel_buf = false;
 
-    /* Packet structures available for sending or receiving use are
-     * stored in the *_empty queues. */
-    BufQueue inbufs_empty;
-    /* Received packets that are filled with data are queued here. */
-    BufQueue inbufs_filled;
-
-    /* Memory for received small packets is taken from a fixed-size ring buffer
-     * so we don't have to do any mallocs */
-    Ringbuffer *ringbuf = nullptr;
+    BufPool pool;
 
     /* other variables */
     FragBufStore frag_bufs = FragBufStore(MAX_FRAG_BUF_TOTAL_SIZE, MAX_NUM_FRAG_BUFS);
@@ -93,9 +85,7 @@ struct UDPM
     // These return true when a full message has been received
     bool _recv_fragment(Buffer *zcmb, u32 sz);
     bool _recv_short(Buffer *zcmb, u32 sz);
-
     Buffer *udp_read_packet();
-    void recv_thread();
 
     bool selftest();
 };
@@ -197,7 +187,7 @@ bool UDPM::_recv_fragment(Buffer *zcmb, u32 sz)
     // yes, transfer the message into the zcm_buf_t
 
     // deallocate the ringbuffer-allocated buffer
-    Buffer::destroy(zcmb, ringbuf);
+    pool.freeUnderlying(zcmb);
 
     // transfer ownership of the message's payload buffer
     zcmb->buf = fbuf->data;
@@ -249,32 +239,33 @@ Buffer *UDPM::udp_read_packet()
     Buffer *zcmb = NULL;
     size_t sz = 0;
 
+    // XXX add this back
     // TODO warn about message loss somewhere else.
-    u32 ring_capacity = ringbuf->get_capacity();
-    u32 ring_used = ringbuf->get_used();
+    // u32 ring_capacity = ringbuf->get_capacity();
+    // u32 ring_used = ringbuf->get_used();
 
-    double buf_avail = ((double)(ring_capacity - ring_used)) / ring_capacity;
-    if (buf_avail < udp_low_watermark)
-        udp_low_watermark = buf_avail;
+    // double buf_avail = ((double)(ring_capacity - ring_used)) / ring_capacity;
+    // if (buf_avail < udp_low_watermark)
+    //     udp_low_watermark = buf_avail;
 
-    i32 tm = utimeInSeconds();
-    int elapsedsecs = tm - udp_last_report_secs;
-    if (elapsedsecs > 2) {
-       if (udp_discarded_bad > 0 || udp_low_watermark < 0.5) {
-           fprintf(stderr,
-                   "%d ZCM loss %4.1f%% : %5d err, "
-                   "buf avail %4.1f%%\n",
-                   (int) tm,
-                   udp_discarded_bad * 100.0 / (udp_rx + udp_discarded_bad),
-                   udp_discarded_bad,
-                   100.0 * udp_low_watermark);
+    // i32 tm = utimeInSeconds();
+    // int elapsedsecs = tm - udp_last_report_secs;
+    // if (elapsedsecs > 2) {
+    //    if (udp_discarded_bad > 0 || udp_low_watermark < 0.5) {
+    //        fprintf(stderr,
+    //                "%d ZCM loss %4.1f%% : %5d err, "
+    //                "buf avail %4.1f%%\n",
+    //                (int) tm,
+    //                udp_discarded_bad * 100.0 / (udp_rx + udp_discarded_bad),
+    //                udp_discarded_bad,
+    //                100.0 * udp_low_watermark);
 
-           udp_rx = 0;
-           udp_discarded_bad = 0;
-           udp_last_report_secs = tm;
-           udp_low_watermark = HUGE;
-       }
-    }
+    //        udp_rx = 0;
+    //        udp_discarded_bad = 0;
+    //        udp_last_report_secs = tm;
+    //        udp_low_watermark = HUGE;
+    //    }
+    // }
 
     bool got_complete_message = false;
     while (!got_complete_message) {
@@ -282,9 +273,8 @@ Buffer *UDPM::udp_read_packet()
         if (!recvfd.waitUntilData())
             continue;
 
-        if (!zcmb) {
-            zcmb = Buffer::make(&inbufs_empty, &ringbuf);
-        }
+        if (!zcmb)
+            zcmb = pool.alloc();
 
         sz = recvfd.recvBuffer(zcmb);
         if (sz < 0) {
@@ -312,15 +302,6 @@ Buffer *UDPM::udp_read_packet()
             udp_discarded_bad++;
             continue;
         }
-    }
-
-    // if the newly received packet is a short packet, then resize the space
-    // allocated to it on the ringbuffer to exactly match the amount of space
-    // required.  That way, we do not use 64k of the ringbuffer for every
-    // incoming message.
-    if (ringbuf) {
-        // XXX broken!
-        //zcmb->ringbuf->shrink_last(zcmb->buf, sz);
     }
 
     return zcmb;
@@ -424,10 +405,8 @@ int UDPM::sendmsg(zcm_msg_t msg)
 int UDPM::recvmsg(zcm_msg_t *msg, int timeout)
 {
     static Buffer *buf = NULL;
-    if (buf != NULL) {
-        Buffer::destroy(buf, ringbuf);
-        inbufs_empty.enqueue(buf);
-    }
+    if (buf)
+        pool.free(buf);
 
     buf = udp_read_packet();
     if (buf == nullptr)
@@ -443,14 +422,6 @@ int UDPM::recvmsg(zcm_msg_t *msg, int timeout)
 UDPM::~UDPM()
 {
     ZCM_DEBUG("closing zcm context");
-
-    inbufs_empty.freeQueue(ringbuf);
-    inbufs_filled.freeQueue(ringbuf);
-
-    if (ringbuf) {
-        delete ringbuf;
-        ringbuf = NULL;
-    }
 }
 
 UDPM::UDPM(const string& ip, u16 port, size_t recv_buf_size, u8 ttl)
@@ -472,14 +443,6 @@ bool UDPM::init()
     recvfd = UDPMSocket::createRecvSocket(params.addr, params.port);
     if (!recvfd.isOpen()) return false;
     kernel_rbuf_sz = recvfd.getRecvBufSize();
-
-    ringbuf = new Ringbuffer(ZCM_RINGBUF_SIZE);
-
-    for (size_t i = 0; i < ZCM_DEFAULT_RECV_BUFS; i++) {
-        /* We don't set the receive buffer's data pointer yet because it
-         * will be taken from the ringbuffer at receive time. */
-        inbufs_empty.enqueue(new Buffer());
-    }
 
     if (!this->selftest()) {
         // self test failed.  destroy the read thread

@@ -61,21 +61,32 @@ struct Buffer
 
 
 /******* Functions for managing a queue of message buffers *******/
-struct BufQueue
+// struct BufQueue
+// {
+//     Buffer *head = nullptr;
+//     Buffer **tail = &head;
+//     int count = 0;
+
+//     BufQueue();
+
+//     Buffer *dequeue();
+//     void enqueue(Buffer *el);
+
+//     bool isEmpty();
+// };
+
+/************** A pool to handle every alloc/dealloc operation on Buffers ******/
+struct BufPool
 {
-    Buffer *head = nullptr;
-    Buffer **tail = &head;
-    int count = 0;
+    BufPool();
+    ~BufPool();
 
-    BufQueue();
+    Buffer *alloc();
+    void freeUnderlying(Buffer *b);
+    void free(Buffer *b);
 
-    Buffer *dequeue();
-    void enqueue(Buffer *el);
-
-    // NOTE: this should be the dtor
-    void freeQueue(Ringbuffer *ringbuf);
-
-    bool isEmpty();
+    std::stack<Buffer*> freelist;;
+    Ringbuffer *ringbuf = nullptr;
 };
 
 /******************** fragment buffer **********************/

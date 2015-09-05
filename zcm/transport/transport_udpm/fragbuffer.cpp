@@ -141,115 +141,89 @@ void FragBufStore::remove(FragBuf *fbuf)
     assert(0 && "Tried to remove invalid fragbuf");
 }
 
-
-// /*** Functions for managing a queue of zcm buffers ***/
-BufQueue::BufQueue()
+BufPool::BufPool()
 {
+    ringbuf = new Ringbuffer(ZCM_RINGBUF_SIZE);
 }
 
-Buffer *BufQueue::dequeue()
+BufPool::~BufPool()
 {
-    Buffer *el = head;
-    if (!el)
-        return nullptr;
+    while (!freelist.empty()) {
+        Buffer *b = freelist.top();
+        freelist.pop();
+        this->freeUnderlying(b);
+    }
 
-    head = el->next;
-    el->next = nullptr;
-    if (!head)
-        tail = &head;
-    count--;
-
-    return el;
+    if (ringbuf)
+        delete ringbuf;
 }
 
-void BufQueue::enqueue(Buffer *el)
+Buffer *BufPool::alloc()
 {
-    *tail = el;
-    tail = &el->next;
-    el->next = nullptr;
-    count++;
-}
+    Buffer *zcmb = NULL;
 
-void BufQueue::freeQueue(Ringbuffer *ringbuf)
-{
-    Buffer *el;
-    while ((el = dequeue()) != nullptr)
-        Buffer::destroy(el, ringbuf);
+    // first allocate a buffer struct for the packet metadata
+    if (freelist.empty()) {
+        // allocate additional buffer structs if needed
+        for (size_t i = 0; i < ZCM_DEFAULT_RECV_BUFS; i++)
+            freelist.push(new Buffer());
+    }
 
-    // NOTE: The destructor should be called after this function exits
-}
-
-bool BufQueue::isEmpty()
-{
-    return head == nullptr;
-}
-
-Buffer *Buffer::make(BufQueue *inbufs_empty, Ringbuffer **ringbuf)
-{
-     Buffer * zcmb = NULL;
-     // first allocate a buffer struct for the packet metadata
-     if (inbufs_empty->isEmpty()) {
-         // allocate additional buffer structs if needed
-         int i;
-         for (i = 0; i < ZCM_DEFAULT_RECV_BUFS; i++) {
-             Buffer * nbuf = (Buffer *) calloc(1, sizeof(Buffer));
-             inbufs_empty->enqueue(nbuf);
-         }
-     }
-
-     zcmb = inbufs_empty->dequeue();
-     assert(zcmb);
+    zcmb = freelist.top();
+    freelist.pop();
+    assert(zcmb);
 
     // allocate space on the ringbuffer for the packet data.
     // give it the maximum possible size for an unfragmented packet
-     zcmb->buf = (*ringbuf)->alloc(ZCM_MAX_UNFRAGMENTED_PACKET_SIZE);
+    zcmb->buf = ringbuf->alloc(ZCM_MAX_UNFRAGMENTED_PACKET_SIZE);
     if (zcmb->buf == NULL) {
-         // ringbuffer is full.  allocate a larger ringbuffer
+        // ringbuffer is full.  allocate a larger ringbuffer
 
-         // Can't free the old ringbuffer yet because it's in use (i.e., full)
-         // Must wait until later to free it.
-        assert((*ringbuf)->get_used() > 0);
-         // XXX Add dbg() back
-         // dbg(DBG_ZCM, "Orphaning ringbuffer %p\n", *ringbuf);
+        // Can't free the old ringbuffer yet because it's in use (i.e., full)
+        // Must wait until later to free it.
+        assert(ringbuf->get_used() > 0);
+        ZCM_DEBUG("Orphaning ringbuffer %p\n", ringbuf);
 
-        unsigned int old_capacity = (*ringbuf)->get_capacity();
-         unsigned int new_capacity = (unsigned int) (old_capacity * 1.5);
-         // replace the passed in ringbuf with the new one
-         *ringbuf = new Ringbuffer(new_capacity);
-         zcmb->buf = (*ringbuf)->alloc(65536);
-         assert(zcmb->buf);
-         // XXX Add dbg() back
-         // dbg(DBG_ZCM, "Allocated new ringbuffer size %u\n", new_capacity);
-     }
-     // save a pointer to the ringbuf, in case it gets replaced by another call
-     zcmb->ringbuf = *ringbuf;
+        size_t old_capacity = ringbuf->get_capacity();
+        size_t new_capacity = old_capacity + old_capacity/2; // 1.5 * old_capacity
 
-     // zero the last byte so that strlen never segfaults
-     zcmb->buf[65535] = 0;
-     return zcmb;
- }
+        // replace the passed in ringbuf with the new one
+        ringbuf = new Ringbuffer(new_capacity);
+        zcmb->buf = ringbuf->alloc(ZCM_MAX_UNFRAGMENTED_PACKET_SIZE);
+        assert(zcmb->buf);
+        ZCM_DEBUG("Allocated new ringbuffer size %zu\n", new_capacity);
+    }
 
-void Buffer::destroy(Buffer *self, Ringbuffer *ringbuf)
+    // save a pointer to the ringbuf, in case it gets replaced by another call
+    zcmb->ringbuf = ringbuf;
+    return zcmb;
+}
+
+void BufPool::freeUnderlying(Buffer *b)
 {
-    if(!self->buf)
+    if(!b->buf)
         return;
-    if (self->ringbuf) {
-        self->ringbuf->dealloc(self->buf);
+    if (b->ringbuf) {
+        b->ringbuf->dealloc(b->buf);
 
         // if the packet was allocated from an obsolete and empty ringbuffer,
         // then deallocate the old ringbuffer as well.
-        if(self->ringbuf != ringbuf && !self->ringbuf->get_used()) {
-            delete self->ringbuf;
-            // XXX Add dbg() back
-            // dbg(DBG_ZCM, "Destroying unused orphan ringbuffer %p\n",
-            //         zcmb->ringbuf);
+        if (b->ringbuf != ringbuf && !b->ringbuf->get_used()) {
+            ZCM_DEBUG("Destroying unused orphan ringbuffer %p\n", b->ringbuf);
+            delete b->ringbuf;
         }
     } else {
-        free (self->buf);
+        std::free(b->buf);
     }
-    self->buf = NULL;
-    self->buf_size = 0;
-    self->ringbuf = NULL;
+    b->buf = NULL;
+    b->buf_size = 0;
+    b->ringbuf = NULL;
+}
+
+void BufPool::free(Buffer *b)
+{
+    freeUnderlying(b);
+    freelist.push(b);
 }
 
 /************************* Linux Specific Functions *******************/
