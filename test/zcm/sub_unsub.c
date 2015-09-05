@@ -6,33 +6,63 @@
 #include <stdio.h>
 #include <string.h>
 
-static char last_received = 0;
+#define vprintf(...) do { \
+    if (verbose) { \
+        printf(__VA_ARGS__); \
+    } \
+} while(0)
+
+#define NUM_DATA 5
+static int  verbose = 0;
+static int  retval = 0;
+static int  num_received = 0;
+static int  bytepacked_received = 0;
+static char data[NUM_DATA] = {'a', 'b', 'c', 'd', 'e'};
 
 static void generic_handler(const zcm_recv_buf_t *rbuf, const char *channel, void *usr)
 {
-    printf("%lu - %s: ", rbuf->utime, channel);
-    for (size_t i = 0; i < rbuf->len; ++i) {
-        printf("%c ", rbuf->data[i]);
-        last_received = rbuf->data[i];
+    vprintf("%lu - %s: ", rbuf->utime, channel);
+    size_t i;
+    for (i = 0; i < rbuf->len; ++i) {
+        vprintf("%c ", rbuf->data[i]);
+
+        num_received++;
+        size_t j;
+        for (j = 0; j < NUM_DATA; ++j) {
+            if (rbuf->data[i] == data[j]) {
+                bytepacked_received |= 1 << j;
+            }
+        }
     }
-    printf("\n");
+    vprintf("\n");
     fflush(stdout);
 }
 
 int main(int argc, const char *argv[])
 {
+    size_t i;
+    for (i = 1; i < argc; ++i) {
+        if (strcmp(argv[i], "-h") == 0) {
+            printf("Usage: %s [-h] [-v]\n", argv[0]);
+            printf("       -h help\n");
+            printf("       -v verbose\n");
+            return 0;
+        } else if (strcmp(argv[i], "-v") == 0) {
+            verbose = 1;
+        }
+    }
+
     const char* transports[2] = {"ipc", "inproc"};
-    int i;
     for (i = 0; i < 2; ++i) {
         zcm_t *zcm = zcm_create(transports[i]);
-        printf("Creating zcm %s\n", transports[i]);
+        vprintf("Creating zcm %s\n", transports[i]);
         if (!zcm) {
-            printf("Failed to create zcm\n");
+            vprintf("Failed to create zcm\n");
             return 1;
         }
 
-        char data[5] = {'a', 'b', 'c', 'd', 'e'};
-
+        num_received = 0;
+        bytepacked_received = 0;
         zcm_sub_t *sub = zcm_subscribe(zcm, "TEST", generic_handler, NULL);
         zcm_publish(zcm, "TEST", data, sizeof(char));
 
@@ -41,8 +71,8 @@ int main(int argc, const char *argv[])
         // through them, we must wait for them to be set up
         usleep(200000);
 
-        int j;
-        for (j = 0; j < 5; ++j) {
+        size_t j;
+        for (j = 0; j < NUM_DATA; ++j) {
             zcm_publish(zcm, "TEST", data+j, sizeof(char));
         }
 
@@ -50,9 +80,20 @@ int main(int argc, const char *argv[])
 
         zcm_unsubscribe(zcm, sub);
 
-        printf("Cleaning up zcm %s\n", transports[i]);
+        for (j = 0; j < NUM_DATA; ++j) {
+            if (!(bytepacked_received & 1 << j)) {
+                fprintf(stderr, "%s: Missed a message: %c\n", transports[i], data[j]);
+                ++retval;
+            }
+            if (num_received != NUM_DATA && num_received != NUM_DATA+1) {
+                fprintf(stderr, "%s: Received an unexpected number of messages\n", transports[i]);
+                ++retval;
+            }
+        }
+
+        vprintf("Cleaning up zcm %s\n", transports[i]);
         zcm_destroy(zcm);
     }
 
-    return 0;
+    return retval;
 }
