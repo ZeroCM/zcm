@@ -67,7 +67,7 @@ struct UDPM
     Ringbuffer *ringbuf = nullptr;
 
     /* other variables */
-    FragBufStore *frag_bufs = nullptr;
+    FragBufStore frag_bufs = FragBufStore(MAX_FRAG_BUF_TOTAL_SIZE, MAX_NUM_FRAG_BUFS);
 
     u32          udp_rx = 0;            // packets received and processed
     u32          udp_discarded_bad = 0; // packets discarded because they were bad
@@ -101,7 +101,7 @@ bool UDPM::_recv_fragment(Buffer *zcmb, u32 sz)
     MsgHeaderLong *hdr = (MsgHeaderLong*) zcmb->buf;
 
     // any existing fragment buffer for this message source?
-    FragBuf *fbuf = frag_bufs->lookup((struct sockaddr_in*)&zcmb->from);
+    FragBuf *fbuf = frag_bufs.lookup((struct sockaddr_in*)&zcmb->from);
 
     u32 msg_seqno = ntohl(hdr->msg_seqno);
     u32 data_size = ntohl(hdr->msg_size);
@@ -114,7 +114,7 @@ bool UDPM::_recv_fragment(Buffer *zcmb, u32 sz)
     // discard any stale fragments from previous messages
     if (fbuf && ((fbuf->msg_seqno != msg_seqno) ||
                  (fbuf->data_size != data_size))) {
-        frag_bufs->remove(fbuf);
+        frag_bufs.remove(fbuf);
         ZCM_DEBUG("Dropping message (missing %d fragments)", fbuf->fragments_remaining);
         fbuf = NULL;
     }
@@ -142,7 +142,7 @@ bool UDPM::_recv_fragment(Buffer *zcmb, u32 sz)
         fbuf = new FragBuf(*(struct sockaddr_in*)&zcmb->from,
                            channel, msg_seqno, data_size, fragments_in_msg,
                            zcmb->recv_utime);
-        frag_bufs->add(fbuf);
+        frag_bufs.add(fbuf);
         data_start += channel_sz + 1;
         frag_size -= (channel_sz + 1);
     }
@@ -168,7 +168,7 @@ bool UDPM::_recv_fragment(Buffer *zcmb, u32 sz)
     if (fragment_offset + frag_size > fbuf->data_size) {
         ZCM_DEBUG("dropping invalid fragment (off: %d, %d / %d)",
                 fragment_offset, frag_size, fbuf->data_size);
-        frag_bufs->remove(fbuf);
+        frag_bufs.remove(fbuf);
         return false;
     }
 
@@ -206,7 +206,7 @@ bool UDPM::_recv_fragment(Buffer *zcmb, u32 sz)
     zcmb->recv_utime = fbuf->last_packet_utime;
 
     // don't need the fragment buffer anymore
-    frag_bufs->remove(fbuf);
+    frag_bufs.remove(fbuf);
 
     return true;
 }
@@ -440,11 +440,6 @@ UDPM::~UDPM()
 {
     ZCM_DEBUG("closing zcm context");
 
-    if (frag_bufs) {
-        delete frag_bufs;
-        frag_bufs = NULL;
-    }
-
     inbufs_empty.freeQueue(ringbuf);
     inbufs_filled.freeQueue(ringbuf);
 
@@ -470,20 +465,7 @@ bool UDPM::init()
     dest_addr.sin_addr = params.addr;
     dest_addr.sin_port = params.port;
 
-    // XXX do something about this...
-    // XXX this is probably not a good thing to do in a constructor...
-    // test connectivity
-//     SOCKET testfd = socket(AF_INET, SOCK_DGRAM, 0);
-//     if (connect(testfd, (struct sockaddr*) &dest_addr, sizeof(dest_addr)) < 0) {
-//         perror ("connect");
-// //XXX add this back
-// // #ifdef __linux__
-// //         linux_check_routing_table(dest_addr.sin_addr);
-// // #endif
-//         return false;
-//     }
-//     zcm_close_socket(testfd);
-
+    UDPMSocket::checkConnection(&dest_addr);
 
     sendfd = UDPMSocket::createSendSocket(params.addr, params.ttl);
     if (!sendfd.isOpen()) return false;
@@ -493,8 +475,6 @@ bool UDPM::init()
     if (!recvfd.isOpen()) return false;
     kernel_rbuf_sz = recvfd.getRecvBufSize();
 
-    // allocate the fragment buffer hashtable
-    frag_bufs = new FragBufStore(MAX_FRAG_BUF_TOTAL_SIZE, MAX_NUM_FRAG_BUFS);
     ringbuf = new Ringbuffer(ZCM_RINGBUF_SIZE);
 
     for (size_t i = 0; i < ZCM_DEFAULT_RECV_BUFS; i++) {

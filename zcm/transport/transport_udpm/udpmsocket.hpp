@@ -32,6 +32,8 @@ class UDPMSocket
     ssize_t sendBuffers(struct sockaddr_in *dest, const char *a, size_t alen,
                         const char *b, size_t blen, const char *c, size_t clen);
 
+    static bool checkConnection(struct sockaddr_in *dest);
+
     static UDPMSocket createSendSocket(struct in_addr multiaddr, u8 ttl);
     static UDPMSocket createRecvSocket(struct in_addr multiaddr, u16 port);
 

@@ -27,6 +27,11 @@ struct Platform
         // ignore any errors in windows... see issue LCM #60
         return true;
     }
+
+    static void checkRoutingTable(struct sockaddr_in *dest)
+    {
+        // UNIMPL
+    }
 };
 #else
 struct Platform
@@ -45,6 +50,12 @@ struct Platform
             return false;
         }
         return true;
+    }
+    static void checkRoutingTable(struct sockaddr_in *dest)
+    {
+#ifdef __linux__
+        // TODO
+#endif
     }
 };
 #endif
@@ -325,6 +336,19 @@ ssize_t UDPMSocket::sendBuffers(struct sockaddr_in *dest, const char *a, size_t 
     mhdr.msg_flags = 0;
 
     return::sendmsg(fd, &mhdr, 0);
+}
+
+bool UDPMSocket::checkConnection(struct sockaddr_in *dest)
+{
+    // test connectivity
+    SOCKET testfd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (connect(testfd, (struct sockaddr*)dest, sizeof(*dest)) < 0) {
+        perror ("connect");
+        Platform::checkRoutingTable(dest);
+        return false;
+    }
+    Platform::closesocket(testfd);
+    return true;
 }
 
 UDPMSocket UDPMSocket::createSendSocket(struct in_addr multiaddr, u8 ttl)
