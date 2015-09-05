@@ -4,5 +4,5 @@
 def build(ctx):
     ctx.program(target = 'sub_unsub',
                 use = 'default zcm',
-                source = 'sub_unsub.cpp',
+                source = 'sub_unsub.c',
                 install_path = None)
