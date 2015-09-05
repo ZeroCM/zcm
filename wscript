@@ -31,11 +31,12 @@ def setup_environment(ctx):
     useOptimize = not waflib.Options.options.debug
     useSymbols = waflib.Options.options.debug or waflib.Options.options.symbols
 
-    WARNING_FLAGS = ['-fcolor-diagnostics', '-Wall', '-Werror', '-Wno-unused-function', '-Wno-format-zero-length']
+    CLANG_FLAGS = ['-fcolor-diagnostics']
+    WARNING_FLAGS = ['-Wall', '-Werror', '-Wno-unused-function', '-Wno-format-zero-length']
     SYM_FLAGS = ['-g']
     OPT_FLAGS = ['-O3']
-    ctx.env.CFLAGS_default   = ['-std=gnu99', '-fPIC'] + WARNING_FLAGS
-    ctx.env.CXXFLAGS_default = ['-std=c++11', '-fPIC'] + WARNING_FLAGS
+    ctx.env.CFLAGS_default   = ['-std=gnu99', '-fPIC'] + WARNING_FLAGS + SYM_FLAGS + OPT_FLAGS
+    ctx.env.CXXFLAGS_default = ['-std=c++11', '-fPIC'] + WARNING_FLAGS + SYM_FLAGS + OPT_FLAGS
     if useOptimize:
         ctx.env.CFLAGS_default   += OPT_FLAGS
         ctx.env.CXXFLAGS_default += OPT_FLAGS

@@ -1,238 +1,9 @@
 #include "udpm.hpp"
 #include "fragbuffer.hpp"
+#include "udpmsocket.hpp"
 
 #include "zcm/transport.h"
 #include "zcm/transport_registrar.h"
-
-struct BufferSizes
-{
-    size_t send;
-    size_t recv;
-};
-
-static BufferSizes getKernelBuffers(int fd)
-{
-    BufferSizes bsz;
-
-    // how big is the send buffer?
-    {
-        int bufsize = 0;
-        unsigned int retsize = sizeof(int);
-        getsockopt(fd, SOL_SOCKET, SO_SNDBUF,
-                   (char*)&bufsize, (socklen_t*)&retsize);
-        ZCM_DEBUG("ZCM: send buffer is %d bytes", bufsize);
-        bsz.send = bufsize;
-    }
-
-    // how big is the receive buffer?
-    {
-        int bufsize = 0;
-        unsigned int retsize = sizeof (int);
-        getsockopt(fd, SOL_SOCKET, SO_RCVBUF,
-                   (char*)&bufsize, (socklen_t *)&retsize);
-        ZCM_DEBUG("ZCM: receive buffer is %d bytes", bufsize);
-        bsz.recv = bufsize;
-    }
-
-    return bsz;
-};
-
-// Platform specifics
-#ifdef WIN32
-struct Platform
-{
-    static void closesocket(int fd) { closesocket(fd); }
-    static void setKernelBuffers(int fd)
-    {
-        // Windows has small (8k) buffer by default
-        // increase the send buffer to a reasonable amount.
-        int send_size = 256 * 1024;
-        int recv_size = 2048 * 1024;
-
-        setsockopt(fd, SOL_SOCKET, SO_SNDBUF, (char*)&send_size, sizeof(send_size));
-        setsockopt(fd, SOL_SOCKET, SO_RCVBUF, (char*)&recv_size, sizeof(recv_size));
-    }
-
-    static bool setMulticastGroup(int fd, struct in_addr multiaddr)
-    {
-        struct ip_mreq mreq;
-        mreq.imr_multiaddr = multiaddr;
-        mreq.imr_interface.s_addr = INADDR_ANY;
-        ZCM_DEBUG("ZCM: joining multicast group");
-        setsockopt(fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char*)&mreq, sizeof(mreq));
-        // ignore any errors in windows... see issue LCM #60
-        return true;
-    }
-};
-#else
-struct Platform
-{
-    static void closesocket(int fd) { close(fd); }
-    static void setKernelBuffers(int fd) {}
-    static bool setMulticastGroup(int fd, struct in_addr multiaddr)
-    {
-        struct ip_mreq mreq;
-        mreq.imr_multiaddr = multiaddr;
-        mreq.imr_interface.s_addr = INADDR_ANY;
-        ZCM_DEBUG("ZCM: joining multicast group");
-        int ret = setsockopt(fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char*)&mreq, sizeof(mreq));
-        if (ret < 0) {
-            perror("setsockopt (IPPROTO_IP, IP_ADD_MEMBERSHIP)");
-            return false;
-        }
-        return true;
-    }
-};
-#endif
-
-class UDPMSocket
-{
-  public:
-    ~UDPMSocket() { close(); }
-
-    bool isOpen() { return fd != -1; }
-
-    bool init()
-    {
-        fd = socket(AF_INET, SOCK_DGRAM, 0);
-        if (fd < 0) {
-            perror("allocating ZCM udpm socket");
-            return false;
-        }
-        return true;
-    }
-
-    bool joinMulticastGroup(struct in_addr multiaddr)
-    {
-        //Platform::setKernelBuffers(fd);
-        //bsz = getKernelBuffers(fd);
-
-        // NOTE: For support on SUN Operating Systems, send_lo_opt should be 'u8'
-        //       We don't currently support SUN
-        // u32 send_lo_opt = 1;
-        // if (setsockopt(fd, IPPROTO_IP, IP_MULTICAST_LOOP,
-        //                (char *)&send_lo_opt, sizeof (send_lo_opt)) < 0) {
-        //     perror("setsockopt (IPPROTO_IP, IP_MULTICAST_LOOP)");
-        //     this->close();
-        //     return false;
-        // }
-
-        // Set-up the multicast group
-        if (!Platform::setMulticastGroup(fd, multiaddr)) {
-            this->close();
-            return false;
-        }
-
-        return true;
-    }
-
-    bool setTTL(u8 ttl)
-    {
-        if (ttl == 0)
-            ZCM_DEBUG("ZCM multicast TTL set to 0.  Packets will not leave localhost");
-
-        ZCM_DEBUG("ZCM: setting multicast packet TTL to %d", ttl);
-        if (setsockopt(fd, IPPROTO_IP, IP_MULTICAST_TTL,
-                       (char *) &ttl, sizeof (ttl)) < 0) {
-            perror("setsockopt(IPPROTO_IP, IP_MULTICAST_TTL)");
-            return false;
-        }
-
-        return true;
-    }
-
-    bool bindPort(u16 port)
-    {
-        struct sockaddr_in addr;
-        memset(&addr, 0, sizeof (addr));
-        addr.sin_family = AF_INET;
-        addr.sin_addr.s_addr = INADDR_ANY;
-        addr.sin_port = port;
-
-        if (bind(fd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
-            perror("bind");
-            return false;
-        }
-        return true;
-    }
-
-    bool setReuseAddr()
-    {
-        // allow other applications on the local machine to also bind to this
-        // multicast address and port
-        int opt = 1;
-        ZCM_DEBUG("ZCM: setting SO_REUSEADDR");
-        if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR,
-                       (char*)&opt, sizeof (opt)) < 0) {
-            perror ("setsockopt (SOL_SOCKET, SO_REUSEADDR)");
-            return false;
-        }
-        return true;
-    }
-
-    bool setReusePort()
-    {
-#ifdef USE_REUSEPORT
-        /* Mac OS and FreeBSD require the REUSEPORT option in addition
-         * to REUSEADDR or it won't let multiple processes bind to the
-         * same port, even if they are using multicast. */
-        int opt = 1;
-        ZCM_DEBUG("ZCM: setting SO_REUSEPORT");
-        if (setsockopt(fd, SOL_SOCKET, SO_REUSEPORT,
-                       (char*)&opt, sizeof (opt)) < 0) {
-            perror("setsockopt (SOL_SOCKET, SO_REUSEPORT)");
-            return false;
-        }
-#endif
-        return true;
-    }
-
-    bool enablePacketTimestamp()
-    {
-        /* Enable per-packet timestamping by the kernel, if available */
-#ifdef SO_TIMESTAMP
-        int opt = 1;
-        setsockopt(fd, SOL_SOCKET, SO_TIMESTAMP, &opt, sizeof (opt));
-#endif
-        return true;
-    }
-
-    void close()
-    {
-        if (fd != -1) {
-            Platform::closesocket(fd);
-            fd = -1;
-        }
-    }
-
-    static UDPMSocket createSendSocket(struct in_addr multiaddr, u8 ttl)
-    {
-        // don't use connect() on the actual transmit socket, because linux then
-        // has problems multicasting to localhost
-        UDPMSocket sock;
-        if (!sock.init())                        { sock.close(); return sock; }
-        if (!sock.setTTL(ttl))                   { sock.close(); return sock; }
-        if (!sock.joinMulticastGroup(multiaddr)) { sock.close(); return sock; }
-        return sock;
-    }
-
-    static UDPMSocket createRecvSocket(struct in_addr multiaddr, u16 port)
-    {
-        UDPMSocket sock;
-        if (!sock.init())                        { sock.close(); return sock; }
-        if (!sock.setReuseAddr())                { sock.close(); return sock; }
-        if (!sock.setReusePort())                { sock.close(); return sock; }
-        if (!sock.enablePacketTimestamp())       { sock.close(); return sock; }
-        if (!sock.bindPort(port))                { sock.close(); return sock; }
-        if (!sock.joinMulticastGroup(multiaddr)) { sock.close(); return sock; }
-        return sock;
-    }
-
-  //private:
-    SOCKET fd = -1;
-    BufferSizes bsz;
-};
-
 
 #define MTU (1<<20)
 
@@ -289,6 +60,7 @@ struct UDPM
 
     /* size of the kernel UDP receive buffer */
     size_t kernel_rbuf_sz = 0;
+    size_t kernel_sbuf_sz = 0;
     bool warned_about_small_kernel_buf = false;
 
     /* Packet structures available for sending or receiving use are
@@ -564,7 +336,7 @@ Buffer *UDPM::udp_read_packet()
 
         ZCM_DEBUG("Got packet of size %d", (int)sz);
 
-        if (sz < sizeof(MsgHeaderShort)) {
+        if ((size_t)sz < sizeof(MsgHeaderShort)) {
             // packet too short to be ZCM
             udp_discarded_bad++;
             continue;
@@ -693,7 +465,7 @@ int UDPM::sendmsg(zcm_msg_t msg)
         hdr.fragments_in_msg = htons(nfragments);
 
         // first fragment is special.  insert channel before data
-        int firstfrag_datasize = fragment_size - (channel_size + 1);
+        size_t firstfrag_datasize = fragment_size - (channel_size + 1);
         assert(firstfrag_datasize <= msg.len);
 
         struct iovec    first_sendbufs[3];
@@ -822,19 +594,16 @@ bool UDPM::init()
 //     zcm_close_socket(testfd);
 
 
-    // create a transmit socket
-    //
     sendfd = UDPMSocket::createSendSocket(params.addr, params.ttl);
     if (!sendfd.isOpen()) return false;
+    kernel_sbuf_sz = sendfd.getSendBufSize();
+
+    recvfd = UDPMSocket::createRecvSocket(params.addr, params.port);
+    if (!recvfd.isOpen()) return false;
+    kernel_rbuf_sz = recvfd.getRecvBufSize();
 
     // allocate the fragment buffer hashtable
     frag_bufs = new FragBufStore(MAX_FRAG_BUF_TOTAL_SIZE, MAX_NUM_FRAG_BUFS);
-    ZCM_DEBUG("allocating resources for receiving messages");
-
-    // allocate multicast socket
-    recvfd = UDPMSocket::createRecvSocket(params.addr, params.port);
-    if (!recvfd.isOpen()) return false;
-
     inbufs_empty = new BufQueue();
     inbufs_filled = new BufQueue();
     ringbuf = new Ringbuffer(ZCM_RINGBUF_SIZE);

@@ -8,8 +8,8 @@
 #include "zcm/transport_registrar.h"
 using namespace std;
 
-#define HZ 2000
-#define MSG_COUNT 300
+#define HZ 500
+#define MSG_COUNT 100
 
 volatile bool running_recv = true;
 volatile bool running_send = true;
