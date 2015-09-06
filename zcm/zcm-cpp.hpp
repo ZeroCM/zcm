@@ -10,8 +10,8 @@
 
 namespace zcm {
 
-typedef zcm_sub_t      Subscription;
 typedef zcm_recv_buf_t ReceiveBuffer;
+class Subscription;
 
 // TODO: unify pointer style pref "Msg* msg" vs "Msg *msg", I'd tend toward the former
 
@@ -50,16 +50,45 @@ struct ZCM
                                                 const std::string& channel),
                             Handler* handler);
 
-    // TODO: add handler-less subscribe
+    template <class Msg>
+    Subscription *subscribe(const std::string& channel,
+                            void (*cb)(const ReceiveBuffer *rbuf, const std::string& channel,
+                                       const Msg *msg, void *usr),
+                            void *usr);
 
-    // TODO: add unsubscribe (blocked on difference between c and c++ subscription types
-    //inline void unsubscribe(Subscription *sub);
+    Subscription *subscribe(const std::string& channel,
+                            void (*cb)(const ReceiveBuffer *rbuf, const std::string& channel,
+                                       void *usr),
+                            void *usr);
+
+    inline void unsubscribe(Subscription *sub);
 
     inline zcm_t* getUnderlyingZCM();
 
   private:
     zcm_t *zcm;
     std::vector<Subscription*> subscriptions;
+};
+
+// New class required to allow the Handler callbacks and std::string channel names
+class Subscription
+{
+    friend class ZCM;
+    zcm_sub_t *c_sub;
+
+  protected:
+    void *usr;
+    void (*callback)(const ReceiveBuffer* rbuf, const std::string& channel, void *usr);
+
+    void dispatch(const ReceiveBuffer *rbuf, const char *channel)
+    {
+        (*callback)(rbuf, channel, usr);
+    }
+
+    static void dispatch(const ReceiveBuffer *rbuf, const char *channel, void *usr)
+    {
+        ((Subscription*)usr)->dispatch(rbuf, channel);
+    }
 };
 
 // TODO: why not use or inherrit from the existing zcm data structures for the below
