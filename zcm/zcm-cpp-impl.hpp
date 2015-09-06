@@ -63,28 +63,68 @@ inline int ZCM::publish(const std::string& channel, const Msg *msg)
 
 // TODO: wip
 template<class Msg>
-class TypedSubscription : public Subscription
+struct TypedSubscription : public Subscription
 {
     void (*typedCallback)(const ReceiveBuffer* rbuf, const std::string& channel, const Msg* msg,
                           void *usr);
     Msg msgMem; // Memory to decode this message into
 
-    void typedDispatch(const ReceiveBuffer *rbuf, const char *channel, void *usr)
+    int readMsg(const ReceiveBuffer *rbuf)
     {
         int status = msgMem.decode(rbuf->data, 0, rbuf->len);
         if (status < 0) {
-            fprintf (stderr, "error %d decoding %s!!!\n", status,
-                     Msg::getTypeName());
-            return;
+            fprintf (stderr, "error %d decoding %s!!!\n", status, Msg::getTypeName());
+            return -1;
         }
-
-        typedCallback(rbuf, channel, channel, &msgMem, usr);
+        return 0;
     }
 
-    static void dispatch_(const ReceiveBuffer *rbuf, const char *channel, void *usr)
+    void typedDispatch(const ReceiveBuffer *rbuf, const char *channel, void *usr)
     {
-        ((TypedSubscription<Msg>*)usr)->dispatch(rbuf, channel, usr);
+        if (readMsg(rbuf) != 0) return;
+        (*typedCallback)(rbuf, channel, &msgMem, usr);
     }
+
+    static void dispatch(const ReceiveBuffer *rbuf, const char *channel, void *usr)
+    {
+        ((TypedSubscription<Msg>*)usr)->typedDispatch(rbuf, channel, usr);
+    }
+};
+
+template <class Handler>
+struct HandlerSubscription : public Subscription
+{
+    Handler* handler;
+    void (Handler::*handlerCallback)(const ReceiveBuffer* rbuf, const std::string& channel);
+
+    void handlerDispatch(const ReceiveBuffer *rbuf, const char *channel)
+    {
+        (handler->*cb)(&rb, channel);
+    }
+
+    static void dispatch(const ReceiveBuffer *rbuf, const char *channel, void *usr)
+    {
+        ((HandlerSubscription<Handler>*)usr)->handlerDispatch(rbuf, channel);
+    }
+};
+
+template <class Msg, class Handler>
+struct TypedHandlerSubscription : public TypedSubscription<Msg>, HandlerSubscription<Handler>
+{
+    void (Handler::*typedHandlerCallback)(const ReceiveBuffer* rbuf, const std::string& channel,
+                                          const Msg* msg);
+
+    void typedHandlerDispatch( const ReceiveBuffer *rbuf, const char *channel)
+    {
+        if (readMsg(rbuf) != 0) return;
+        (handler->*typedHandlerCallback)(rbuf, channel, &msgMem);
+    }
+
+    static void dispatch(const ReceiveBuffer *rbuf, const char *channel, void *usr)
+    {
+        ((TypedHandlerSubscription<Msg, Handler>*)usr)->typedHandlerDispatch(rbuf, channel);
+    }
+
 };
 
 // TODO: this class name is weird (what's with the "Stub"
