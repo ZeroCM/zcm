@@ -73,6 +73,8 @@ class TypedSubscription : public virtual Subscription
     Msg msgMem; // Memory to decode this message into
 
   public:
+    virtual ~TypedSubscription() {}
+
     int readMsg(const ReceiveBuffer *rbuf)
     {
         int status = msgMem.decode(rbuf->data, 0, rbuf->data_size);
@@ -106,6 +108,8 @@ class HandlerSubscription : public virtual Subscription
     void (Handler::*handlerCallback)(const ReceiveBuffer* rbuf, const std::string& channel);
 
   public:
+    virtual ~HandlerSubscription() {}
+
     void handlerDispatch(const ReceiveBuffer *rbuf, const char *channel)
     {
         (handler->*handlerCallback)(rbuf, channel);
@@ -127,6 +131,8 @@ class TypedHandlerSubscription : public TypedSubscription<Msg>, HandlerSubscript
                                           const Msg* msg);
 
   public:
+    virtual ~TypedHandlerSubscription() {}
+
     void typedHandlerDispatch( const ReceiveBuffer *rbuf, const char *channel)
     {
         // Unfortunately, we need to add "this" here to handle template inheritance:

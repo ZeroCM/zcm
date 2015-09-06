@@ -20,24 +20,28 @@ static int  num_received = 0;
 static int  bytepacked_received = 0;
 static char data[NUM_DATA] = {'a', 'b', 'c', 'd', 'e'};
 
-static void generic_handler(const zcm::ReceiveBuffer *rbuf, const string& channel, void *usr)
+class Handler
 {
-    vprintf("%lu - %s: ", rbuf->recv_utime, channel.c_str());
-    size_t i;
-    for (i = 0; i < rbuf->data_size; ++i) {
-        vprintf("%c ", rbuf->data[i]);
+  public:
+    void generic_handle(const zcm::ReceiveBuffer *rbuf, const string& channel)
+    {
+        vprintf("%lu - %s: ", rbuf->recv_utime, channel.c_str());
+        size_t i;
+        for (i = 0; i < rbuf->data_size; ++i) {
+            vprintf("%c ", rbuf->data[i]);
 
-        num_received++;
-        size_t j;
-        for (j = 0; j < NUM_DATA; ++j) {
-            if (rbuf->data[i] == data[j]) {
-                bytepacked_received |= 1 << j;
+            num_received++;
+            size_t j;
+            for (j = 0; j < NUM_DATA; ++j) {
+                if (rbuf->data[i] == data[j]) {
+                    bytepacked_received |= 1 << j;
+                }
             }
         }
+        vprintf("\n");
+        fflush(stdout);
     }
-    vprintf("\n");
-    fflush(stdout);
-}
+};
 
 int main(int argc, const char *argv[])
 {
@@ -52,6 +56,8 @@ int main(int argc, const char *argv[])
         }
     }
 
+    Handler handler;
+
     string transports[2] = {"ipc", "inproc"};
     for (size_t i = 0; i < 2; ++i) {
         zcm::ZCM zcm(transports[i]);
@@ -63,7 +69,7 @@ int main(int argc, const char *argv[])
 
         num_received = 0;
         bytepacked_received = 0;
-        zcm::Subscription *sub = zcm.subscribe("TEST", generic_handler, NULL);
+        zcm::Subscription *sub = zcm.subscribe("TEST", &Handler::generic_handle, &handler);
         zcm.publish("TEST", data, sizeof(char));
 
         // zmq sockets are documented as taking a small but perceptible amount of time

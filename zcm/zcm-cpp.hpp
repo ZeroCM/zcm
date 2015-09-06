@@ -80,6 +80,9 @@ class Subscription
     void *usr;
     void (*callback)(const ReceiveBuffer* rbuf, const std::string& channel, void *usr);
 
+  public:
+    virtual ~Subscription() {}
+
     void dispatch(const ReceiveBuffer *rbuf, const char *channel)
     {
         (*callback)(rbuf, channel, usr);
