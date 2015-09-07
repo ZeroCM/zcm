@@ -1,11 +1,15 @@
 #! /usr/bin/env python
 # encoding: utf-8
 
+import sys
 import waflib
 
 # these variables are mandatory ('/' are converted automatically)
 top = '.'
 out = 'build'
+
+# Allow import of custom tools
+sys.path.append('examples/waftools')
 
 def options(ctx):
     ctx.load('compiler_c')
@@ -22,7 +26,9 @@ def configure(ctx):
     ctx.check_jni_headers()
     ctx.check_cfg(package='libzmq', args='--cflags --libs', uselib_store='zmq')
 
-    ctx.recurse('gen');
+    ctx.recurse('gen')
+
+    ctx.load('zcm-gen')
 
 def setup_environment(ctx):
     ctx.post_mode = waflib.Build.POST_LAZY
@@ -53,7 +59,9 @@ def build(ctx):
 
     ctx.recurse('zcm')
     ctx.recurse('config')
-    ctx.recurse('test')
-    # XXX: disabled for now
     ctx.recurse('gen')
     ctx.recurse('tools')
+
+    ctx.add_group()
+
+    ctx.recurse('test')

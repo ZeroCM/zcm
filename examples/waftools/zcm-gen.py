@@ -6,6 +6,11 @@ from waflib.TaskGen import extension, feature, before_method
 from waflib.Configure import conf
 
 def configure(ctx):
+    # Note: This tool will also work if zcm-gen is a tool built by this build,
+    #       but only if all zcmtype generation happens after the tool is compiled.
+    #       (i.e. use ctx.add_group() while ctx.post_mode = waflib.Build.POST_LAZY
+    #       to separate zcm-gen compilation and zcmtype generation.
+
     # find program leaves the program itself in an array (probably for if there are multiple),
     # but we only expect / want one
     if not getattr(ctx.env, 'ZCMGEN', []):
@@ -68,9 +73,10 @@ def zcmgen(ctx, **kw):
     if 'lang' not in kw:
         raise WafError('zcmgen requires keword argument: "lang"')
 
+    # Add .zcm files to build so the process_zcmtypes rule picks them up
     tg = ctx(source  = kw['source'],
              lang    = kw['lang'],
-             javapkg = kw['javapkg'])
+             javapkg = javapkg_name)
 
     ctx.add_group()
 
@@ -108,7 +114,7 @@ class zcmgen(Task.Task):
     color   = 'PINK'
     quiet   = False
     ext_in  = ['.zcm']
-    ext_out = ['.c', '.h', '.hpp']
+    ext_out = ['.c', '.h', '.hpp', '.java']
 
     ## This method processes the inputs and determines the outputs that will be generated
     ## when the zcm-gen program is run
@@ -149,10 +155,6 @@ class zcmgen(Task.Task):
         bld = gen.path.get_bld().abspath()
         inc = bld.split('/')[-1]
 
-        # Note: Processing of the languages for zcm-gen will bail as soon as an error
-        #       is returned by one of the commands. Technically, we could run a single
-        #       zcm-gen call using the union all all these arguments, but it's cleaner
-        #       to keep them separate unless we think of a good reason to merge them
         langs = {}
         if 'c' in gen.lang:
             langs['c'] = '--c --c-cpath %s --c-hpath %s --c-include %s' % (bld, bld, inc)
@@ -162,5 +164,4 @@ class zcmgen(Task.Task):
             langs['java'] = '--java --jpath %s --jdefaultpkg %s' % (bld + '/java', gen.javapkg)
 
         # no need to check if langs is empty here, already handled in runnable_status()
-        return self.exec_command('%s %s %s' % \
-                                 (zcmgen, zcmfile, ' '.join([langs[lang] for lang in langs])))
+        return self.exec_command('%s %s %s' % (zcmgen, zcmfile, ' '.join(langs.values())))
