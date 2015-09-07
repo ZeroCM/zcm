@@ -6,10 +6,16 @@ from waflib.TaskGen import extension, feature, before_method
 from waflib.Configure import conf
 
 def configure(ctx):
-    # Note: This tool will also work if zcm-gen is a tool built by this build,
-    #       but only if all zcmtype generation happens after the tool is compiled.
-    #       (i.e. use ctx.add_group() while ctx.post_mode = waflib.Build.POST_LAZY
-    #       to separate zcm-gen compilation and zcmtype generation.
+    # Note: This tool will also work if zcm-gen is a tool built by this build if:
+    #       configuration:
+    #           ctx.env.ZCMGEN is set to the programs path prior to loading the zcm-gen tool
+    #       build:
+    #           all zcmtype generation happens after the tool is compiled.
+    #           That is, use ctx.add_group() while ctx.post_mode = waflib.Build.POST_LAZY
+    #           to separate zcm-gen compilation and zcmtype generation.
+    #
+    # TODO: could improve this to actually use the waf node of the zcm-gen binary as in the
+    #       ex. of building a compiler in the waf book (https://waf.io/book/#_advanced_scenarios)
 
     # find program leaves the program itself in an array (probably for if there are multiple),
     # but we only expect / want one
