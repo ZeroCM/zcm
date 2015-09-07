@@ -223,7 +223,7 @@ bool UDPMSocket::waitUntilData()
     return true;
 }
 
-size_t UDPMSocket::recvBuffer(Buffer *b)
+size_t UDPMSocket::recvBuffer(Message *b)
 //char *buf, size_t len, struct sockaddr *from)
 {
     struct iovec vec;

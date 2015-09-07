@@ -2,7 +2,7 @@
 #include "udpm.hpp"
 
 
-class Buffer;
+class Message;
 
 class UDPMAddress
 {
@@ -52,7 +52,7 @@ class UDPMSocket
 
     // Returns true when there is a packet available for receiving
     bool waitUntilData();
-    size_t recvBuffer(Buffer *b);
+    size_t recvBuffer(Message *b);
 
     ssize_t sendBuffers(const UDPMAddress& dest, const char *a, size_t alen);
     ssize_t sendBuffers(const UDPMAddress& dest, const char *a, size_t alen,

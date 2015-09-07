@@ -1,11 +1,12 @@
 #include "udpm.hpp"
 #include "fragbuffer.hpp"
 #include "udpmsocket.hpp"
+#include "mempool.hpp"
 
 #include "zcm/transport.h"
 #include "zcm/transport_registrar.h"
 
-#define MTU (1<<20)
+#define MTU (1<<28)
 
 static i32 utimeInSeconds()
 {
@@ -58,7 +59,7 @@ struct UDPM
     size_t kernel_sbuf_sz = 0;
     bool warned_about_small_kernel_buf = false;
 
-    BufPool pool;
+    MessagePool pool;
 
     /* other variables */
     FragBufStore frag_bufs = FragBufStore(MAX_FRAG_BUF_TOTAL_SIZE, MAX_NUM_FRAG_BUFS);
@@ -83,14 +84,15 @@ struct UDPM
 
   private:
     // These return true when a full message has been received
-    bool _recv_fragment(Buffer *zcmb, u32 sz);
-    bool _recv_short(Buffer *zcmb, u32 sz);
-    Buffer *udp_read_packet();
+    bool _recv_fragment(Message *zcmb, u32 sz);
+    bool _recv_short(Message *zcmb, u32 sz);
+    Message *udp_read_packet();
 
     bool selftest();
+    void checkForMessageLoss();
 };
 
-bool UDPM::_recv_fragment(Buffer *zcmb, u32 sz)
+bool UDPM::_recv_fragment(Message *zcmb, u32 sz)
 {
     MsgHeaderLong *hdr = (MsgHeaderLong*) zcmb->buf;
 
@@ -133,10 +135,9 @@ bool UDPM::_recv_fragment(Buffer *zcmb, u32 sz)
         // if(!zcm_has_handlers(zcm, channel))
         //     return 0;
 
-        fbuf = new FragBuf(*(struct sockaddr_in*)&zcmb->from,
-                           channel, msg_seqno, data_size, fragments_in_msg,
-                           zcmb->recv_utime);
-        frag_bufs.add(fbuf);
+        fbuf = frag_bufs.makeFragBuf(*(struct sockaddr_in*)&zcmb->from,
+                                     channel, msg_seqno, data_size, fragments_in_msg,
+                                     zcmb->recv_utime);
         data_start += channel_sz + 1;
         frag_size -= (channel_sz + 1);
     }
@@ -175,17 +176,6 @@ bool UDPM::_recv_fragment(Buffer *zcmb, u32 sz)
     if (fbuf->fragments_remaining > 0)
         return false;
 
-    // XXX add this back
-    // complete message received.  Is there a subscriber that still
-    // wants it?  (i.e., does any subscriber have space in its queue?)
-    // if(!zcm_try_enqueue_message(zcm->zcm, fbuf->channel)) {
-    //     // no... sad... free the fragment buffer and return
-    //     zcm_frag_buf_store_remove (zcm->frag_bufs, fbuf);
-    //     return false;
-    // }
-
-    // yes, transfer the message into the zcm_buf_t
-
     // deallocate the ringbuffer-allocated buffer
     pool.freeUnderlying(zcmb);
 
@@ -205,7 +195,7 @@ bool UDPM::_recv_fragment(Buffer *zcmb, u32 sz)
     return true;
 }
 
-bool UDPM::_recv_short(Buffer *zcmb, u32 sz)
+bool UDPM::_recv_short(Message *zcmb, u32 sz)
 {
     MsgHeaderShort *hdr = (MsgHeaderShort*) zcmb->buf;
 
@@ -221,11 +211,6 @@ bool UDPM::_recv_short(Buffer *zcmb, u32 sz)
 
      udp_rx++;
 
-     // XXX Add this!
-//     // if the packet has no subscribers, drop the message now.
-//     if(!zcm_try_enqueue_message(zcm->zcm, pkt_channel_str))
-//         return 0;
-
     strcpy(zcmb->channel_name, pkt_channel_str);
     zcmb->data_offset = sizeof(MsgHeaderShort) + zcmb->channel_size + 1;
     zcmb->data_size = sz - zcmb->data_offset;
@@ -233,12 +218,8 @@ bool UDPM::_recv_short(Buffer *zcmb, u32 sz)
     return true;
 }
 
-// read continuously until a complete message arrives
-Buffer *UDPM::udp_read_packet()
+void UDPM::checkForMessageLoss()
 {
-    Buffer *zcmb = NULL;
-    size_t sz = 0;
-
     // XXX add this back
     // TODO warn about message loss somewhere else.
     // u32 ring_capacity = ringbuf->get_capacity();
@@ -266,6 +247,15 @@ Buffer *UDPM::udp_read_packet()
     //        udp_low_watermark = HUGE;
     //    }
     // }
+}
+
+// read continuously until a complete message arrives
+Message *UDPM::udp_read_packet()
+{
+    Message *zcmb = NULL;
+    size_t sz = 0;
+
+    UDPM::checkForMessageLoss();
 
     bool got_complete_message = false;
     while (!got_complete_message) {
@@ -404,7 +394,7 @@ int UDPM::sendmsg(zcm_msg_t msg)
 
 int UDPM::recvmsg(zcm_msg_t *msg, int timeout)
 {
-    static Buffer *buf = NULL;
+    static Message *buf = NULL;
     if (buf)
         pool.free(buf);
 
@@ -428,6 +418,7 @@ UDPM::UDPM(const string& ip, u16 port, size_t recv_buf_size, u8 ttl)
     : params(ip, port, recv_buf_size, ttl),
       destAddr(ip, port)
 {
+    MemPool::test();
 }
 
 bool UDPM::init()

@@ -2,7 +2,7 @@
 #define _ZCM_TRANS_UDPM_FRAGBUFFER_HPP
 
 #include "udpm.hpp"
-#include "ringbuffer.hpp"
+#include "mempool.hpp"
 
 /************************* Packet Headers *******************/
 
@@ -27,66 +27,51 @@ struct MsgHeaderLong
 // if fragment_no > 0, then header is immediately followed by the payload data
 
 /******************** message buffer **********************/
-struct BufQueue;
-struct Buffer
+struct Message
 {
     char  channel_name[ZCM_CHANNEL_MAXLEN+1];
     int   channel_size;      // length of channel name
 
     i64   recv_utime;        // timestamp of first datagram receipt
-    char *buf;               // pointer to beginning of message.  This includes
-                             // the header for unfragmented messages, and does
-                             // not include the header for fragmented messages.
+
+    MemPool *mempool;        // Allocator for this (NULL if none)
+    char *buf;
+    size_t bufsize;
 
     int   data_offset;       // offset to payload
     int   data_size;         // size of payload
-    Ringbuffer *ringbuf;     // the ringbuffer used to allocate buf.  NULL if
-                             // not allocated from ringbuf
-
-    int   packet_size;       // total bytes received
-    int   buf_size;          // bytes allocated
 
     struct sockaddr from;    // sender
     socklen_t fromlen;
-    Buffer *next;
 
-    Buffer() { memset(this, 0, sizeof(*this)); }
-    // allocate a zcm_buf from the ringbuf. If there is no more space in the ringbuf
-    // it is replaced with a bigger one. In this case, the old ringbuffer will be
-    // cleaned up when zcm_buf_free_data() is called;
-    static Buffer *make(BufQueue *inbufs_empty, Ringbuffer **ringbuf);
-    static void destroy(Buffer *self, Ringbuffer *ringbuf);
+    Message() { memset(this, 0, sizeof(*this)); }
 };
 
-
-
-/******* Functions for managing a queue of message buffers *******/
-// struct BufQueue
-// {
-//     Buffer *head = nullptr;
-//     Buffer **tail = &head;
-//     int count = 0;
-
-//     BufQueue();
-
-//     Buffer *dequeue();
-//     void enqueue(Buffer *el);
-
-//     bool isEmpty();
-// };
-
-/************** A pool to handle every alloc/dealloc operation on Buffers ******/
-struct BufPool
+struct Packet
 {
-    BufPool();
-    ~BufPool();
+    char   *buf;
+    size_t  bufsize;
 
-    Buffer *alloc();
-    void freeUnderlying(Buffer *b);
-    void free(Buffer *b);
+    struct sockaddr from;
+    socklen_t fromlen;
+    i64    recv_utime;
+    size_t recv_size;
 
-    std::stack<Buffer*> freelist;;
-    Ringbuffer *ringbuf = nullptr;
+    Packet() { memset(this, 0, sizeof(*this)); }
+};
+
+/************** A pool to handle every alloc/dealloc operation on Message objects ******/
+struct MessagePool
+{
+    MessagePool();
+    ~MessagePool();
+
+    Message *alloc();
+    void freeUnderlying(Message *b);
+    void free(Message *b);
+
+    std::stack<Message*> freelist;;
+    MemPool mempool;
 };
 
 /******************** fragment buffer **********************/
@@ -121,6 +106,8 @@ struct FragBufStore
     FragBufStore(u32 max_total_size, u32 max_frag_bufs);
     ~FragBufStore();
 
+    FragBuf *makeFragBuf(struct sockaddr_in from, const char *channel, u32 msg_seqno,
+                         u32 data_size, u16 nfragments, i64 first_packet_utime);
     FragBuf *lookup(struct sockaddr_in *key);
     void add(FragBuf *fbuf);
     void remove(int index);
