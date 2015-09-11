@@ -29,20 +29,21 @@ struct MsgHeaderLong
 /******************** message buffer **********************/
 struct Message
 {
+    // Fields NOT set by the allocator object
     char  channel_name[ZCM_CHANNEL_MAXLEN+1];
     int   channel_size;      // length of channel name
 
     i64   recv_utime;        // timestamp of first datagram receipt
-
-    MemPool *mempool;        // Allocator for this (NULL if none)
-    char *buf;
-    size_t bufsize;
 
     int   data_offset;       // offset to payload
     int   data_size;         // size of payload
 
     struct sockaddr from;    // sender
     socklen_t fromlen;
+
+    // Fields set by the allocator object
+    char *buf;
+    size_t bufsize;
 
     Message() { memset(this, 0, sizeof(*this)); }
 };
@@ -63,36 +64,23 @@ struct Packet
 /******************** fragment buffer **********************/
 struct FragBuf
 {
+    // Fields NOT set by the allocator object
     char   channel[ZCM_CHANNEL_MAXLEN+1];
     struct sockaddr_in from;
-    char   *data;
-    u32    data_size;
     u16    fragments_remaining;
     u32    msg_seqno;
     i64    last_packet_utime;
 
+    // Fields set by the allocator object
+    char   *data;
+    u32    data_size;
+
     bool matchesSockaddr(struct sockaddr_in *addr);
 };
 
-/******************** fragment buffer store **********************/
-// struct FragBufStore
-// {
-//     u32 total_size = 0;
-//     u32 max_total_size;
-//     u32 max_frag_bufs;
 
-//     // TODO change this back to a hashtable, using the 'sockaddr_in' as the key
-//     //      like the original LCM code uses
-//     vector<FragBuf*> frag_bufs;
 
-//     FragBufStore(u32 max_total_size, u32 max_frag_bufs);
-//     ~FragBufStore();
 
-//     FragBuf *lookup(struct sockaddr_in *key);
-//     void add(FragBuf *fbuf);
-//     FragBuf *remove(int index);
-//     FragBuf *remove(FragBuf *fbuf);
-// };
 
 /************** A pool to handle every alloc/dealloc operation on Message objects ******/
 struct MessagePool
@@ -102,19 +90,18 @@ struct MessagePool
 
     // Message
     Message *allocMessage();
-    void freeMessageBuffer(Message *b);
     void freeMessage(Message *b);
 
     // FragBuf
-    FragBuf *allocFragBuf(struct sockaddr_in from, const char *channel, u32 msg_seqno,
-                          u32 data_size, u16 nfragments, i64 first_packet_utime);
-    void freeFragBuf(FragBuf *f);
-
+    FragBuf *addFragBuf(u32 data_size);
     FragBuf *lookupFragBuf(struct sockaddr_in *key);
-    void addFragBuf(FragBuf *fbuf);
-    FragBuf *removeFragBuf(int index);
-    FragBuf *removeFragBuf(FragBuf *fbuf);
+    void removeFragBuf(FragBuf *fbuf);
 
+    void transferBufffer(Message *to, FragBuf *from);
+
+  private:
+    void _freeMessageBuffer(Message *b);
+    void _removeFragBuf(int index);
 
   private:
     MemPool mempool;

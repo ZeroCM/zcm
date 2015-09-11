@@ -109,7 +109,6 @@ bool UDPM::_recv_fragment(Message *zcmb, u32 sz)
     if (fbuf && ((fbuf->msg_seqno != msg_seqno) ||
                  (fbuf->data_size != data_size))) {
         pool.removeFragBuf(fbuf);
-        pool.freeFragBuf(fbuf);
         ZCM_DEBUG("Dropping message (missing %d fragments)", fbuf->fragments_remaining);
         fbuf = NULL;
     }
@@ -134,10 +133,13 @@ bool UDPM::_recv_fragment(Message *zcmb, u32 sz)
         // if(!zcm_has_handlers(zcm, channel))
         //     return 0;
 
-        fbuf = pool.allocFragBuf(*(struct sockaddr_in*)&zcmb->from,
-                                    channel, msg_seqno, data_size, fragments_in_msg,
-                                    zcmb->recv_utime);
-        pool.addFragBuf(fbuf);
+        fbuf = pool.addFragBuf(data_size);
+        strncpy(fbuf->channel, channel, sizeof(fbuf->channel));
+        fbuf->channel[sizeof(fbuf->channel)-1] = '\0';
+        fbuf->from = *(struct sockaddr_in*)&zcmb->from;
+        fbuf->msg_seqno = msg_seqno;
+        fbuf->fragments_remaining = fragments_in_msg;
+        fbuf->last_packet_utime = zcmb->recv_utime;
 
         data_start += channel_sz + 1;
         frag_size -= (channel_sz + 1);
@@ -165,7 +167,6 @@ bool UDPM::_recv_fragment(Message *zcmb, u32 sz)
         ZCM_DEBUG("dropping invalid fragment (off: %d, %d / %d)",
                 fragment_offset, frag_size, fbuf->data_size);
         pool.removeFragBuf(fbuf);
-        pool.freeFragBuf(fbuf);
         return false;
     }
 
@@ -178,12 +179,8 @@ bool UDPM::_recv_fragment(Message *zcmb, u32 sz)
     if (fbuf->fragments_remaining > 0)
         return false;
 
-    // deallocate the ringbuffer-allocated buffer
-    pool.freeMessageBuffer(zcmb);
-
     // transfer ownership of the message's payload buffer
-    zcmb->buf = fbuf->data;
-    fbuf->data = NULL;
+    pool.transferBufffer(zcmb, fbuf);
 
     strcpy(zcmb->channel_name, fbuf->channel);
     zcmb->channel_size = strlen(zcmb->channel_name);
@@ -193,7 +190,6 @@ bool UDPM::_recv_fragment(Message *zcmb, u32 sz)
 
     // don't need the fragment buffer anymore
     pool.removeFragBuf(fbuf);
-    pool.freeFragBuf(fbuf);
 
     return true;
 }
