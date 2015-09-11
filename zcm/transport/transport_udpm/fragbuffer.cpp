@@ -1,24 +1,5 @@
 #include "fragbuffer.hpp"
 
-/******************** fragment buffer **********************/
-FragBuf::FragBuf(struct sockaddr_in from, const char *channel, u32 msg_seqno,
-                 u32 data_size, u16 nfragments, i64 first_packet_utime)
-{
-    strncpy(this->channel, channel, ZCM_CHANNEL_MAXLEN);
-    this->channel[ZCM_CHANNEL_MAXLEN] = '\0';
-    this->from = from;
-    this->msg_seqno = msg_seqno;
-    this->data = (char*) malloc(data_size);
-    this->data_size = data_size;
-    this->fragments_remaining = nfragments;
-    this->last_packet_utime = first_packet_utime;
-}
-
-FragBuf::~FragBuf()
-{
-    free(this->data);
-}
-
 static bool sockaddrEqual(struct sockaddr_in *a, struct sockaddr_in *b)
 {
     return a->sin_addr.s_addr == b->sin_addr.s_addr &&
@@ -72,109 +53,18 @@ bool FragBuf::matchesSockaddr(struct sockaddr_in *addr)
 /*     return (int64_t) tv.tv_sec * 1000000 + tv.tv_usec; */
 /* } */
 
-FragBufStore::FragBufStore(u32 max_total_size, u32 max_frag_bufs) :
-    max_total_size(max_total_size), max_frag_bufs(max_frag_bufs)
-{
-}
-
-FragBufStore::~FragBufStore()
-{
-    // XXX need to cleanup the zcm_frag_buf_t* in the 'frag_bufs' vector
-}
-
-FragBuf *FragBufStore::makeFragBuf(struct sockaddr_in from, const char *channel, u32 msg_seqno,
-                                   u32 data_size, u16 nfragments, i64 first_packet_utime)
-{
-    FragBuf *ret = new FragBuf(from, channel, msg_seqno, data_size, nfragments, first_packet_utime);
-    this->add(ret);
-    return ret;
-}
-
-FragBuf *FragBufStore::lookup(struct sockaddr_in *key)
-{
-    for (auto& elt : frag_bufs)
-        if (elt->matchesSockaddr(key))
-            return elt;
-    return nullptr;
-}
-
-void FragBufStore::add(FragBuf *fbuf)
-{
-    while (total_size > max_total_size || frag_bufs.size() > max_frag_bufs) {
-        // find and remove the least recently updated fragment buffer
-        int idx = -1;
-        FragBuf *eldest = nullptr;
-        for (int i = 0; i < (int)frag_bufs.size(); i++) {
-            auto& f = frag_bufs[i];
-            if (idx == -1 || f->last_packet_utime < eldest->last_packet_utime) {
-                idx = i;
-                eldest = frag_bufs[i];
-            }
-        }
-        if (eldest)
-            remove(idx);
-    }
-
-    frag_bufs.push_back(fbuf);
-    total_size += fbuf->data_size;
-}
-
-void FragBufStore::remove(int index)
-{
-    assert(0 <= index && index < (int)frag_bufs.size());
-
-    // Update the total_size of the fragment buffers
-    FragBuf *fbuf = frag_bufs[index];
-    total_size -= fbuf->data_size;
-
-    // delete old element, move last element to this slot, and shrink by 1
-    delete fbuf;
-    size_t lastIdx = frag_bufs.size()-1;
-    frag_bufs[index] = frag_bufs[lastIdx];
-    frag_bufs.resize(lastIdx);
-}
-
-void FragBufStore::remove(FragBuf *fbuf)
-{
-    // NOTE: this is kinda slow...
-    // Search for the fragbuf index
-    for (int idx = 0; idx < (int)frag_bufs.size(); idx++) {
-        if (frag_bufs[idx] == fbuf) {
-            this->remove(idx);
-            return;
-        }
-    }
-
-    // Did not find
-    assert(0 && "Tried to remove invalid fragbuf");
-}
-
-MessagePool::MessagePool()
+MessagePool::MessagePool(size_t maxSize, size_t maxBuffers)
+    : maxSize(maxSize), maxBuffers(maxBuffers)
 {
 }
 
 MessagePool::~MessagePool()
 {
-    while (!freelist.empty()) {
-        Message *b = freelist.top();
-        freelist.pop();
-        this->freeUnderlying(b);
-    }
 }
 
-Message *MessagePool::alloc()
+Message *MessagePool::allocMessage()
 {
-    Message *zcmb = NULL;
-
-    // first allocate a buffer struct for the packet metadata
-    if (freelist.empty()) {
-        // allocate additional buffer structs if needed
-        for (size_t i = 0; i < ZCM_DEFAULT_RECV_BUFS; i++)
-            freelist.push(new Message());
-    }
-
-    zcmb = freelist.top();
-    freelist.pop();
+    Message *zcmb = new (mempool.alloc(sizeof(Message))) Message{};
     assert(zcmb);
 
     // allocate space on the ringbuffer for the packet data.
@@ -187,7 +77,7 @@ Message *MessagePool::alloc()
     return zcmb;
 }
 
-void MessagePool::freeUnderlying(Message *b)
+void MessagePool::freeMessageBuffer(Message *b)
 {
     if (!b->buf)
         return;
@@ -203,10 +93,91 @@ void MessagePool::freeUnderlying(Message *b)
     b->bufsize = 0;
 }
 
-void MessagePool::free(Message *b)
+void MessagePool::freeMessage(Message *b)
 {
-    freeUnderlying(b);
-    freelist.push(b);
+    freeMessageBuffer(b);
+    mempool.free((char*)b, sizeof(*b));
+}
+
+
+FragBuf *MessagePool::allocFragBuf(struct sockaddr_in from, const char *channel, u32 msg_seqno,
+                                   u32 data_size, u16 nfragments, i64 first_packet_utime)
+{
+    FragBuf *fbuf = (FragBuf*) mempool.alloc(sizeof(FragBuf));
+    strncpy(fbuf->channel, channel, ZCM_CHANNEL_MAXLEN);
+    fbuf->channel[ZCM_CHANNEL_MAXLEN] = '\0';
+    fbuf->from = from;
+    fbuf->msg_seqno = msg_seqno;
+    fbuf->data = mempool.alloc(data_size);
+    fbuf->data_size = data_size;
+    fbuf->fragments_remaining = nfragments;
+    fbuf->last_packet_utime = first_packet_utime;
+    return fbuf;
+}
+
+void MessagePool::freeFragBuf(FragBuf *fbuf)
+{
+    if (fbuf->data)
+        mempool.free(fbuf->data, fbuf->data_size);
+    mempool.free((char*)fbuf, sizeof(FragBuf));
+}
+
+FragBuf *MessagePool::lookupFragBuf(struct sockaddr_in *key)
+{
+    for (auto& elt : fragbufs)
+        if (elt->matchesSockaddr(key))
+            return elt;
+    return nullptr;
+}
+
+void MessagePool::addFragBuf(FragBuf *fbuf)
+{
+    while (totalSize > maxSize || fragbufs.size() > maxBuffers) {
+        // find and remove the least recently updated fragment buffer
+        int idx = -1;
+        FragBuf *eldest = nullptr;
+        for (size_t i = 0; i < fragbufs.size(); i++) {
+            FragBuf *f = fragbufs[i];
+            if (idx == -1 || f->last_packet_utime < eldest->last_packet_utime) {
+                idx = (int)i;
+                eldest = f;
+            }
+        }
+        if (eldest) {
+            removeFragBuf(idx);
+            // XXX Need to free the removed FargBuf*
+        }
+    }
+
+    fragbufs.push_back(fbuf);
+    totalSize += fbuf->data_size;
+}
+
+FragBuf *MessagePool::removeFragBuf(int index)
+{
+    assert(0 <= index && index < (int)fragbufs.size());
+
+    // Update the total_size of the fragment buffers
+    FragBuf *fbuf = fragbufs[index];
+    totalSize -= fbuf->data_size;
+
+    // delete old element, move last element to this slot, and shrink by 1
+    size_t lastIdx = fragbufs.size()-1;
+    fragbufs[index] = fragbufs[lastIdx];
+    fragbufs.resize(lastIdx);
+    return fbuf;
+}
+
+FragBuf *MessagePool::removeFragBuf(FragBuf *fbuf)
+{
+    // NOTE: this is kinda slow...
+    // Search for the fragbuf index
+    for (int idx = 0; idx < (int)fragbufs.size(); idx++)
+        if (fragbufs[idx] == fbuf)
+            return this->removeFragBuf(idx);
+
+    // Did not find
+    assert(0 && "Tried to remove invalid fragbuf");
 }
 
 /************************* Linux Specific Functions *******************/

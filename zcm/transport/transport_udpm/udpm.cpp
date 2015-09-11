@@ -59,11 +59,9 @@ struct UDPM
     size_t kernel_sbuf_sz = 0;
     bool warned_about_small_kernel_buf = false;
 
-    MessagePool pool;
+    MessagePool pool {MAX_FRAG_BUF_TOTAL_SIZE, MAX_NUM_FRAG_BUFS};
 
     /* other variables */
-    FragBufStore frag_bufs = FragBufStore(MAX_FRAG_BUF_TOTAL_SIZE, MAX_NUM_FRAG_BUFS);
-
     u32          udp_rx = 0;            // packets received and processed
     u32          udp_discarded_bad = 0; // packets discarded because they were bad
                                     // somehow
@@ -97,7 +95,7 @@ bool UDPM::_recv_fragment(Message *zcmb, u32 sz)
     MsgHeaderLong *hdr = (MsgHeaderLong*) zcmb->buf;
 
     // any existing fragment buffer for this message source?
-    FragBuf *fbuf = frag_bufs.lookup((struct sockaddr_in*)&zcmb->from);
+    FragBuf *fbuf = pool.lookupFragBuf((struct sockaddr_in*)&zcmb->from);
 
     u32 msg_seqno = ntohl(hdr->msg_seqno);
     u32 data_size = ntohl(hdr->msg_size);
@@ -110,7 +108,8 @@ bool UDPM::_recv_fragment(Message *zcmb, u32 sz)
     // discard any stale fragments from previous messages
     if (fbuf && ((fbuf->msg_seqno != msg_seqno) ||
                  (fbuf->data_size != data_size))) {
-        frag_bufs.remove(fbuf);
+        pool.removeFragBuf(fbuf);
+        pool.freeFragBuf(fbuf);
         ZCM_DEBUG("Dropping message (missing %d fragments)", fbuf->fragments_remaining);
         fbuf = NULL;
     }
@@ -135,9 +134,11 @@ bool UDPM::_recv_fragment(Message *zcmb, u32 sz)
         // if(!zcm_has_handlers(zcm, channel))
         //     return 0;
 
-        fbuf = frag_bufs.makeFragBuf(*(struct sockaddr_in*)&zcmb->from,
-                                     channel, msg_seqno, data_size, fragments_in_msg,
-                                     zcmb->recv_utime);
+        fbuf = pool.allocFragBuf(*(struct sockaddr_in*)&zcmb->from,
+                                    channel, msg_seqno, data_size, fragments_in_msg,
+                                    zcmb->recv_utime);
+        pool.addFragBuf(fbuf);
+
         data_start += channel_sz + 1;
         frag_size -= (channel_sz + 1);
     }
@@ -163,7 +164,8 @@ bool UDPM::_recv_fragment(Message *zcmb, u32 sz)
     if (fragment_offset + frag_size > fbuf->data_size) {
         ZCM_DEBUG("dropping invalid fragment (off: %d, %d / %d)",
                 fragment_offset, frag_size, fbuf->data_size);
-        frag_bufs.remove(fbuf);
+        pool.removeFragBuf(fbuf);
+        pool.freeFragBuf(fbuf);
         return false;
     }
 
@@ -177,7 +179,7 @@ bool UDPM::_recv_fragment(Message *zcmb, u32 sz)
         return false;
 
     // deallocate the ringbuffer-allocated buffer
-    pool.freeUnderlying(zcmb);
+    pool.freeMessageBuffer(zcmb);
 
     // transfer ownership of the message's payload buffer
     zcmb->buf = fbuf->data;
@@ -190,7 +192,8 @@ bool UDPM::_recv_fragment(Message *zcmb, u32 sz)
     zcmb->recv_utime = fbuf->last_packet_utime;
 
     // don't need the fragment buffer anymore
-    frag_bufs.remove(fbuf);
+    pool.removeFragBuf(fbuf);
+    pool.freeFragBuf(fbuf);
 
     return true;
 }
@@ -264,7 +267,7 @@ Message *UDPM::udp_read_packet()
             continue;
 
         if (!zcmb)
-            zcmb = pool.alloc();
+            zcmb = pool.allocMessage();
 
         sz = recvfd.recvBuffer(zcmb);
         if (sz < 0) {
@@ -396,7 +399,7 @@ int UDPM::recvmsg(zcm_msg_t *msg, int timeout)
 {
     static Message *buf = NULL;
     if (buf)
-        pool.free(buf);
+        pool.freeMessage(buf);
 
     buf = udp_read_packet();
     if (buf == nullptr)
