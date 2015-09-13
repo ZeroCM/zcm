@@ -1,5 +1,5 @@
 #include "udpmsocket.hpp"
-#include "fragbuffer.hpp"
+#include "buffers.hpp"
 
 // Platform specifics
 #ifdef WIN32
@@ -224,7 +224,6 @@ bool UDPMSocket::waitUntilData()
 }
 
 size_t UDPMSocket::recvBuffer(Message *b)
-//char *buf, size_t len, struct sockaddr *from)
 {
     struct iovec vec;
     vec.iov_base = b->buf.data;

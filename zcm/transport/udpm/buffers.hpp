@@ -27,7 +27,6 @@ struct MsgHeaderLong
 // if fragment_no > 0, then header is immediately followed by the payload data
 
 /******************** message buffer **********************/
-
 struct Buffer
 {
     char *data = nullptr;
@@ -77,13 +76,11 @@ struct Message
 
 struct Packet
 {
-    char   *buf;
-    size_t  bufsize;
-
-    struct sockaddr from;
     socklen_t fromlen;
     i64    recv_utime;
     size_t recv_size;
+
+    Buffer buf;
 
     Packet() { memset(this, 0, sizeof(*this)); }
 };
