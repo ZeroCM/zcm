@@ -27,6 +27,34 @@ struct MsgHeaderLong
 // if fragment_no > 0, then header is immediately followed by the payload data
 
 /******************** message buffer **********************/
+
+struct Buffer
+{
+    char *data = nullptr;
+    size_t size = 0;
+
+    Buffer(){}
+  private:
+    Buffer(const Buffer&) = delete;
+    Buffer& operator=(const Buffer&) = delete;
+
+  public:
+    Buffer(Buffer&& o) : data(o.data), size(o.size)
+    {
+        o.data = nullptr;
+    }
+
+    Buffer& operator=(Buffer&& other)
+    {
+        assert(this->data == nullptr &&
+               "Error: Buffer MUST be deallocated before a move can occur");
+        this->data = other.data;
+        this->size = other.size;
+        other.data = nullptr;
+        return *this;
+    }
+};
+
 struct Message
 {
     // Fields NOT set by the allocator object
@@ -42,8 +70,7 @@ struct Message
     socklen_t fromlen;
 
     // Fields set by the allocator object
-    char *buf;
-    size_t bufsize;
+    Buffer buf;
 
     Message() { memset(this, 0, sizeof(*this)); }
 };
@@ -72,21 +99,20 @@ struct FragBuf
     i64    last_packet_utime;
 
     // Fields set by the allocator object
-    char   *data;
-    u32    data_size;
+    Buffer buf;
 
     bool matchesSockaddr(struct sockaddr_in *addr);
 };
-
-
-
-
 
 /************** A pool to handle every alloc/dealloc operation on Message objects ******/
 struct MessagePool
 {
     MessagePool(size_t maxSize, size_t maxBuffers);
     ~MessagePool();
+
+    // Buffer
+    Buffer allocBuffer(size_t sz);
+    void freeBuffer(Buffer& buf);
 
     // Message
     Message *allocMessage();
@@ -98,6 +124,7 @@ struct MessagePool
     void removeFragBuf(FragBuf *fbuf);
 
     void transferBufffer(Message *to, FragBuf *from);
+    void moveBuffer(Buffer& to, Buffer& from);
 
   private:
     void _freeMessageBuffer(Message *b);

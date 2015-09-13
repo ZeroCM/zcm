@@ -62,27 +62,40 @@ MessagePool::~MessagePool()
 {
 }
 
+Buffer MessagePool::allocBuffer(size_t sz)
+{
+    Buffer buf;
+    buf.data = mempool.alloc(sz);
+    buf.size = sz;
+    return buf;
+}
+
+void MessagePool::freeBuffer(Buffer& buf)
+{
+    if (buf.data) {
+        mempool.free(buf.data, buf.size);
+        buf.data = NULL;
+    }
+}
+
+void MessagePool::moveBuffer(Buffer& to, Buffer& from)
+{
+    freeBuffer(to);
+    to.data = from.data;
+    to.size = from.size;
+    from.data = NULL;
+}
+
 Message *MessagePool::allocMessage()
 {
     Message *zcmb = new (mempool.alloc(sizeof(Message))) Message{};
-    assert(zcmb);
-
-    // allocate space on the ringbuffer for the packet data.
-    // give it the maximum possible size for an unfragmented packet
-    zcmb->buf = mempool.alloc(ZCM_MAX_UNFRAGMENTED_PACKET_SIZE);
-    zcmb->bufsize = ZCM_MAX_UNFRAGMENTED_PACKET_SIZE;
-    assert(zcmb->buf);
-
+    zcmb->buf = this->allocBuffer(ZCM_MAX_UNFRAGMENTED_PACKET_SIZE);
     return zcmb;
 }
 
 void MessagePool::_freeMessageBuffer(Message *b)
 {
-    if (!b->buf)
-        return;
-    mempool.free(b->buf, b->bufsize);
-    b->buf = NULL;
-    b->bufsize = 0;
+    freeBuffer(b->buf);
 }
 
 void MessagePool::freeMessage(Message *b)
@@ -94,9 +107,8 @@ void MessagePool::freeMessage(Message *b)
 
 FragBuf *MessagePool::addFragBuf(u32 data_size)
 {
-    FragBuf *fbuf = (FragBuf*) mempool.alloc(sizeof(FragBuf));
-    fbuf->data = mempool.alloc(data_size);
-    fbuf->data_size = data_size;
+    FragBuf *fbuf = new (mempool.alloc(sizeof(FragBuf))) FragBuf{};
+    fbuf->buf = this->allocBuffer(data_size);
 
     while (totalSize > maxSize || fragbufs.size() > maxBuffers) {
         // find and remove the least recently updated fragment buffer
@@ -116,7 +128,7 @@ FragBuf *MessagePool::addFragBuf(u32 data_size)
     }
 
     fragbufs.push_back(fbuf);
-    totalSize += fbuf->data_size;
+    totalSize += data_size;
 
     return fbuf;
 }
@@ -135,15 +147,14 @@ void MessagePool::_removeFragBuf(int index)
 
     // Update the total_size of the fragment buffers
     FragBuf *fbuf = fragbufs[index];
-    totalSize -= fbuf->data_size;
+    totalSize -= fbuf->buf.size;
 
     // delete old element, move last element to this slot, and shrink by 1
     size_t lastIdx = fragbufs.size()-1;
     fragbufs[index] = fragbufs[lastIdx];
     fragbufs.resize(lastIdx);
 
-    if (fbuf->data)
-        mempool.free(fbuf->data, fbuf->data_size);
+    this->freeBuffer(fbuf->buf);
     mempool.free((char*)fbuf, sizeof(FragBuf));
 }
 
@@ -162,9 +173,7 @@ void MessagePool::removeFragBuf(FragBuf *fbuf)
 void MessagePool::transferBufffer(Message *to, FragBuf *from)
 {
     this->_freeMessageBuffer(to);
-    to->buf = from->data;
-    to->bufsize = from->data_size;
-    from->data = NULL;
+    to->buf = std::move(from->buf);
 }
 
 /************************* Linux Specific Functions *******************/

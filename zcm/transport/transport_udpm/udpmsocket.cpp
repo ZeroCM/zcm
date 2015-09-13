@@ -227,7 +227,7 @@ size_t UDPMSocket::recvBuffer(Message *b)
 //char *buf, size_t len, struct sockaddr *from)
 {
     struct iovec vec;
-    vec.iov_base = b->buf;
+    vec.iov_base = b->buf.data;
     vec.iov_len = 65535;  // XXX this shouldn't be hard-coded
 
     struct msghdr msg;
