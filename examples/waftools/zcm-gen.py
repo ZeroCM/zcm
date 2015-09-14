@@ -1,8 +1,10 @@
 #!/usr/bin/env python
+# encoding: utf-8
+
 import os
 from waflib import Task
 from waflib.Errors import WafError
-from waflib.TaskGen import extension, feature, before_method
+from waflib.TaskGen import extension
 from waflib.Configure import conf
 
 def configure(ctx):
@@ -16,6 +18,8 @@ def configure(ctx):
     #
     # TODO: could improve this to actually use the waf node of the zcm-gen binary as in the
     #       ex. of building a compiler in the waf book (https://waf.io/book/#_advanced_scenarios)
+    # TODO: The user MUST have uselib variables for zcm and zcmjar defined through their own
+    #       configuration. We should add them here or move them into a different waf module
 
     # find program leaves the program itself in an array (probably for if there are multiple),
     # but we only expect / want one
@@ -70,6 +74,7 @@ def configure(ctx):
 #   waf zcmgen tool was invoked.
 @conf
 def zcmgen(ctx, **kw):
+    # TODO: should raise an error if ctx.env.ZCMGEN is not set
     uselib_name = 'zcmtypes'
     if 'name' in kw:
         uselib_name = kw['name']
@@ -79,6 +84,7 @@ def zcmgen(ctx, **kw):
         javapkg_name = kw['javapkg']
 
     if 'lang' not in kw:
+        # TODO: this should probably be a more specific error type
         raise WafError('zcmgen requires keword argument: "lang"')
 
     # Add .zcm files to build so the process_zcmtypes rule picks them up
