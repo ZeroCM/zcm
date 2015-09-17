@@ -1,8 +1,6 @@
 #pragma once
 #include "udpm.hpp"
-
-
-class Message;
+#include "buffers.hpp"
 
 class UDPMAddress
 {
@@ -52,7 +50,7 @@ class UDPMSocket
 
     // Returns true when there is a packet available for receiving
     bool waitUntilData();
-    size_t recvBuffer(Message *b);
+    size_t recvPacket(Packet *pkt);
 
     ssize_t sendBuffers(const UDPMAddress& dest, const char *a, size_t alen);
     ssize_t sendBuffers(const UDPMAddress& dest, const char *a, size_t alen,
@@ -61,12 +59,14 @@ class UDPMSocket
                         const char *b, size_t blen, const char *c, size_t clen);
 
     static bool checkConnection(const string& ip, u16 port);
+    void checkAndWarnAboutSmallBuffer(size_t datalen, size_t kbufsize);
 
     static UDPMSocket createSendSocket(struct in_addr multiaddr, u8 ttl);
     static UDPMSocket createRecvSocket(struct in_addr multiaddr, u16 port);
 
   private:
     SOCKET fd = -1;
+    bool warnedAboutSmallBuffer = false;
 
   private:
     // Disallow copies

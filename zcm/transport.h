@@ -204,6 +204,7 @@ typedef struct zcm_trans_methods_t zcm_trans_methods_t;
 /* TODO: Discuss the semantics of this datastruct depending on the context (send vs. recv) */
 struct zcm_msg_t
 {
+    uint64_t utime;  /* 0 means invalid (caller should compute its own utime) */
     const char *channel;
     size_t len;
     char *buf;

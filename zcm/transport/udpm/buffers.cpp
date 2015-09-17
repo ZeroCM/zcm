@@ -86,11 +86,29 @@ void MessagePool::moveBuffer(Buffer& to, Buffer& from)
     from.data = NULL;
 }
 
+Packet *MessagePool::allocPacket(size_t maxsz)
+{
+    Packet *p = new (mempool.alloc<Packet>()) Packet{};
+    p->buf = this->allocBuffer(maxsz);
+    return p;
+}
+
+void MessagePool::freePacket(Packet *p)
+{
+    freeBuffer(p->buf);
+    mempool.free(p);
+}
+
 Message *MessagePool::allocMessage()
 {
-    Message *zcmb = new (mempool.alloc(sizeof(Message))) Message{};
+    Message *zcmb = new (mempool.alloc<Message>()) Message{};
     zcmb->buf = this->allocBuffer(ZCM_MAX_UNFRAGMENTED_PACKET_SIZE);
     return zcmb;
+}
+
+Message *MessagePool::allocMessageEmpty()
+{
+    return new (mempool.alloc<Message>()) Message{};
 }
 
 void MessagePool::_freeMessageBuffer(Message *b)
@@ -101,13 +119,13 @@ void MessagePool::_freeMessageBuffer(Message *b)
 void MessagePool::freeMessage(Message *b)
 {
     _freeMessageBuffer(b);
-    mempool.free((char*)b, sizeof(*b));
+    mempool.free(b);
 }
 
 
 FragBuf *MessagePool::addFragBuf(u32 data_size)
 {
-    FragBuf *fbuf = new (mempool.alloc(sizeof(FragBuf))) FragBuf{};
+    FragBuf *fbuf = new (mempool.alloc<FragBuf>()) FragBuf{};
     fbuf->buf = this->allocBuffer(data_size);
 
     while (totalSize > maxSize || fragbufs.size() > maxBuffers) {
@@ -155,7 +173,7 @@ void MessagePool::_removeFragBuf(int index)
     fragbufs.resize(lastIdx);
 
     this->freeBuffer(fbuf->buf);
-    mempool.free((char*)fbuf, sizeof(FragBuf));
+    mempool.free(fbuf);
 }
 
 void MessagePool::removeFragBuf(FragBuf *fbuf)
@@ -172,7 +190,7 @@ void MessagePool::removeFragBuf(FragBuf *fbuf)
 
 void MessagePool::transferBufffer(Message *to, FragBuf *from)
 {
-    this->_freeMessageBuffer(to);
+    _freeMessageBuffer(to);
     to->buf = std::move(from->buf);
 }
 

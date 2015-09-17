@@ -223,15 +223,15 @@ bool UDPMSocket::waitUntilData()
     return true;
 }
 
-size_t UDPMSocket::recvBuffer(Message *b)
+size_t UDPMSocket::recvPacket(Packet *pkt)
 {
     struct iovec vec;
-    vec.iov_base = b->buf.data;
-    vec.iov_len = 65535;  // XXX this shouldn't be hard-coded
+    vec.iov_base = pkt->buf.data;
+    vec.iov_len = pkt->buf.size;
 
     struct msghdr msg;
     memset(&msg, 0, sizeof(struct msghdr));
-    msg.msg_name = &b->from;
+    msg.msg_name = &pkt->from;
     msg.msg_namelen = sizeof(struct sockaddr);
     msg.msg_iov = &vec;
     msg.msg_iovlen = 1;
@@ -242,34 +242,33 @@ size_t UDPMSocket::recvBuffer(Message *b)
     // as packets are received.
     char controlbuf[64];
     msg.msg_control = controlbuf;
-    msg.msg_controllen = sizeof (controlbuf);
+    msg.msg_controllen = sizeof(controlbuf);
     msg.msg_flags = 0;
 #endif
 
     size_t ret = ::recvmsg(fd, &msg, 0);
-
-    b->fromlen = msg.msg_namelen;
+    pkt->fromlen = msg.msg_namelen;
 
     bool got_utime = false;
 #ifdef SO_TIMESTAMP
     struct cmsghdr *cmsg = CMSG_FIRSTHDR(&msg);
     /* Get the receive timestamp out of the packet headers if possible */
-    while (!b->recv_utime && cmsg) {
+    while (!pkt->utime && cmsg) {
         if (cmsg->cmsg_level == SOL_SOCKET &&
             cmsg->cmsg_type == SCM_TIMESTAMP) {
             struct timeval *t = (struct timeval*) CMSG_DATA (cmsg);
-            b->recv_utime = (int64_t) t->tv_sec * 1000000 + t->tv_usec;
+            pkt->utime = (int64_t) t->tv_sec * 1000000 + t->tv_usec;
             got_utime = true;
             break;
         }
-        cmsg = CMSG_NXTHDR (&msg, cmsg);
+        cmsg = CMSG_NXTHDR(&msg, cmsg);
     }
 #endif
 
     if (!got_utime) {
         struct timeval tv;
         gettimeofday(&tv, NULL);
-        b->recv_utime = (i64)tv.tv_sec * 1000000 + tv.tv_usec;
+        pkt->utime = (i64)tv.tv_sec * 1000000 + tv.tv_usec;
     }
 
     return ret;
@@ -348,6 +347,25 @@ bool UDPMSocket::checkConnection(const string& ip, u16 port)
     }
     Platform::closesocket(testfd);
     return true;
+}
+
+void UDPMSocket::checkAndWarnAboutSmallBuffer(size_t datalen, size_t kbufsize)
+{
+    // TODO: This should probably be in Platform
+#ifdef __linux__
+    if (warnedAboutSmallBuffer)
+        return;
+
+    const size_t MIN_KBUF_SIZE = (1<<18)+1;
+    if (kbufsize < MIN_KBUF_SIZE && datalen > kbufsize) {
+        warnedAboutSmallBuffer = true;
+        fprintf(stderr,
+                "==== ZCM Warning ===\n"
+                "ZCM detected that large packets are being received, but the kernel UDP\n"
+                "receive buffer is very small.  The possibility of dropping packets due to\n"
+                "insufficient buffer space is very high.\n");
+    }
+#endif
 }
 
 UDPMSocket UDPMSocket::createSendSocket(struct in_addr multiaddr, u8 ttl)

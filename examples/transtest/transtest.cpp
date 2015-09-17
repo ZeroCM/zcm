@@ -11,6 +11,7 @@ using namespace std;
 #define HZ 500
 #define MSG_COUNT 100
 
+static bool BIG_MESSAGE = true;
 volatile bool running_recv = true;
 volatile bool running_send = true;
 static void sighandler(int sig) { running_recv = false; }
@@ -28,7 +29,7 @@ static zcm_msg_t makeMasterMsg()
 {
     zcm_msg_t msg;
     msg.channel = "FOO";
-    msg.len = 500000;
+    msg.len = BIG_MESSAGE ? 500000 : 1000;
     msg.buf = (char*) malloc(msg.len);
     for (size_t i = 0; i < msg.len; i++)
         msg.buf[i] = (char)(i & 0xff);
@@ -93,8 +94,14 @@ static void recv(const char *url)
     running_send = false;
 }
 
-int main()
+int main(int argc, char *argv[])
 {
+    if (argc > 1) {
+        string opt {argv[1]};
+        if (opt == "--small")
+            BIG_MESSAGE = false;
+    }
+
     signal(SIGINT, sighandler);
 
     std::thread sendThread {send, "udpm://239.255.76.67?port=7667&ttl=0"};

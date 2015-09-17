@@ -11,6 +11,12 @@ class MemPool
     char *alloc(size_t sz);
     void free(char *mem, size_t sz);
 
+    template<class T>
+    T *alloc();
+
+    template<class T>
+    void free(T *ptr);
+
     static void test();
 
   private:
@@ -25,3 +31,15 @@ class MemPool
     MemPool(MemPool&& other) = delete;
     MemPool& operator=(MemPool&& other) = delete;
 };
+
+template<class T>
+T *MemPool::alloc()
+{
+    return (T*)this->alloc(sizeof(T));
+}
+
+template<class T>
+void MemPool::free(T *ptr)
+{
+    this->free((char*)ptr, sizeof(*ptr));
+}

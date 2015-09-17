@@ -1,5 +1,4 @@
-#ifndef _ZCM_TRANS_UDPM_FRAGBUFFER_HPP
-#define _ZCM_TRANS_UDPM_FRAGBUFFER_HPP
+#pragma once
 
 #include "udpm.hpp"
 #include "mempool.hpp"
@@ -8,18 +7,57 @@
 
 struct MsgHeaderShort
 {
+    // Layout
+  private:
+    // NOTE: These are set to private only because they are in network format.
+    //       Thus, they are not safe to access directly.
     u32 magic;
     u32 msg_seqno;
+
+    // Converted data
+  public:
+    u32  getMagic()         { return ntohl(magic); }
+    void setMagic(u32 v)    { magic = htonl(v); }
+    u32  getMsgSeqno()      { return ntohl(msg_seqno); }
+    void setMsgSeqno(u32 v) { msg_seqno = htonl(v); }
+
+    // Computed data
+  public:
+    // Note: Channel starts after the header
+    const char *getChannelPtr() { return (char*)(this+1); }
+    size_t getChannelLen() { return strlen(getChannelPtr()); }
+
+    // Note: Data starts after the channel and null
+    char *getDataPtr() { return (char*)getChannelPtr() + getChannelLen() + 1; }
+    size_t getDataOffset() { return sizeof(*this) + getChannelLen() + 1; }
+    size_t getDataLen(size_t pktsz) { return pktsz - getDataOffset(); }
 };
 
 struct MsgHeaderLong
 {
+    // Layout
+  // TODO: make this private
+  //private:
     u32 magic;
     u32 msg_seqno;
     u32 msg_size;
     u32 fragment_offset;
     u16 fragment_no;
     u16 fragments_in_msg;
+
+    // Converted data
+  public:
+    u32 getMagic()          { return ntohl(magic); }
+    u32 getMsgSeqno()       { return ntohl(msg_seqno); }
+    u32 getMsgSize()        { return ntohl(msg_size); }
+    u32 getFragmentOffset() { return ntohl(fragment_offset); }
+    u16 getFragmentNo()     { return ntohs(fragment_no); }
+    u16 getFragmentsInMsg() { return ntohs(fragments_in_msg); }
+
+    // Computed data
+  public:
+    u32 getFragmentSize(size_t pktsz) { return pktsz - sizeof(*this); }
+    char *getDataPtr() { return (char*)(this+1); }
 };
 
 // if fragment_no == 0, then header is immediately followed by NULL-terminated
@@ -56,19 +94,15 @@ struct Buffer
 
 struct Message
 {
-    // Fields NOT set by the allocator object
-    char  channel_name[ZCM_CHANNEL_MAXLEN+1];
-    int   channel_size;      // length of channel name
+    i64               utime;       // timestamp of first datagram receipt
 
-    i64   recv_utime;        // timestamp of first datagram receipt
+    const char       *channel;     // points into 'buf'
+    size_t            channellen;  // length of channel
 
-    int   data_offset;       // offset to payload
-    int   data_size;         // size of payload
+    char             *data;        // points into 'buf'
+    size_t            datalen;     // length of data
 
-    struct sockaddr from;    // sender
-    socklen_t fromlen;
-
-    // Fields set by the allocator object
+    // Backing store buffer that contains the actual data
     Buffer buf;
 
     Message() { memset(this, 0, sizeof(*this)); }
@@ -76,24 +110,31 @@ struct Message
 
 struct Packet
 {
-    socklen_t fromlen;
-    i64    recv_utime;
-    size_t recv_size;
+    i64             utime;      // timestamp of first datagram receipt
+    size_t          sz;         // size received
 
-    Buffer buf;
+    struct sockaddr from;       // sender
+    socklen_t       fromlen;
+
+    // Backing store buffer that contains the actual data
+    Buffer          buf;
 
     Packet() { memset(this, 0, sizeof(*this)); }
+    MsgHeaderShort *asHeaderShort() { return (MsgHeaderShort*)buf.data; }
+    MsgHeaderLong  *asHeaderLong()  { return (MsgHeaderLong* )buf.data; }
 };
 
 /******************** fragment buffer **********************/
 struct FragBuf
 {
-    // Fields NOT set by the allocator object
-    char   channel[ZCM_CHANNEL_MAXLEN+1];
+    i64     last_packet_utime;
+    u32     msg_seqno;
+    u16     fragments_remaining;
+
+    // The channel starts at the beginning of the buffer. The data
+    // follows immediately after the channel and its NULL
+    size_t  channellen;
     struct sockaddr_in from;
-    u16    fragments_remaining;
-    u32    msg_seqno;
-    i64    last_packet_utime;
 
     // Fields set by the allocator object
     Buffer buf;
@@ -111,8 +152,13 @@ struct MessagePool
     Buffer allocBuffer(size_t sz);
     void freeBuffer(Buffer& buf);
 
+    // Packet
+    Packet *allocPacket(size_t maxsz);
+    void freePacket(Packet *p);
+
     // Message
     Message *allocMessage();
+    Message *allocMessageEmpty();
     void freeMessage(Message *b);
 
     // FragBuf
@@ -134,5 +180,3 @@ struct MessagePool
     size_t maxBuffers;
     size_t totalSize = 0;
 };
-
-#endif  // _ZCM_TRANS_UDPM_FRAGBUFFER_HPP
