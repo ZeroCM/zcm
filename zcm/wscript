@@ -15,7 +15,7 @@ def build(ctx):
               use = ['default', 'zmq'],
               source = ctx.path.ant_glob(['*.cpp', '*.c',
                                           'util/*.c', 'util/*.cpp',
-                                          'transport/*.c', 'transport/*.cpp']))
+                                          'transport/**/*.c', 'transport/**/*.cpp']))
 
     ## Collect files for Embedded
     ctx(rule = 'tar cfz ${TGT} ${SRC}',

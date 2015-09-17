@@ -123,6 +123,8 @@ struct zcm_blocking
     {
         while (running) {
             zcm_msg_t msg;
+            // XXX remove this memset once transport layers know about the utime field
+            memset(&msg, 0, sizeof(msg));
             int rc = zcm_trans_recvmsg(zt, &msg, RECV_TIMEOUT);
             if (rc == ZCM_EOK) {
                 bool success;
@@ -139,7 +141,8 @@ struct zcm_blocking
     {
         zcm_recv_buf_t rbuf;
         rbuf.zcm = z;
-        rbuf.utime = 0;
+        // XXX we should be computing a utime if it is 0
+        rbuf.utime = msg->utime;
         rbuf.len = msg->len;
         rbuf.data = (char*)msg->buf;
 
