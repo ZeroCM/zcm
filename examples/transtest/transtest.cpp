@@ -16,12 +16,16 @@ volatile bool running_recv = true;
 volatile bool running_send = true;
 static void sighandler(int sig) { running_recv = false; }
 
-static zcm_trans_t *makeTransport(const char *url)
+static zcm_trans_t *makeTransport()
 {
+    const char *url = getenv("ZCM_DEFAULT_URL");
+
     auto *u = zcm_url_create(url);
     auto *creator = zcm_transport_find(zcm_url_protocol(u));
-    if (!creator)
+    if (!creator) {
+        fprintf(stderr, "ERR: Failed to create transport for '%s'\n", url);
         return NULL;
+    }
     return creator(u);
 }
 
@@ -52,13 +56,11 @@ static void verifySame(zcm_msg_t *a, zcm_msg_t *b)
             fail("Data doesn't match at index %d", (int)i);
 }
 
-static void send(const char *url)
+static void send()
 {
-    auto *trans = makeTransport(url);
-    if (!trans) {
-        fprintf(stderr, "ERR: Failed to create transport for '%s'\n", url);
+    auto *trans = makeTransport();
+    if (!trans)
         exit(1);
-    }
 
     usleep(10000); // sleep 10ms so the recv thread can come up
 
@@ -69,13 +71,11 @@ static void send(const char *url)
     }
 }
 
-static void recv(const char *url)
+static void recv()
 {
-    auto *trans = makeTransport(url);
-    if (!trans) {
-        fprintf(stderr, "ERR: Failed to create transport for '%s'\n", url);
+    auto *trans = makeTransport();
+    if (!trans)
         exit(1);
-    }
 
     // Tell the transport to give us all of the channels
     zcm_trans_recvmsg_enable(trans, NULL, true);
@@ -104,8 +104,8 @@ int main(int argc, char *argv[])
 
     signal(SIGINT, sighandler);
 
-    std::thread sendThread {send, "udpm://239.255.76.67:7667?ttl=0"};
-    std::thread recvThread {recv, "udpm://239.255.76.67:7667?ttl=0"};
+    std::thread sendThread {send};
+    std::thread recvThread {recv};
 
     recvThread.join();
     sendThread.join();

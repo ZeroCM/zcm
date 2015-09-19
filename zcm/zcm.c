@@ -55,6 +55,14 @@ void zcm_destroy(zcm_t *zcm)
 int zcm_init(zcm_t *zcm, const char *url)
 {
 #ifndef ZCM_EMBEDDED
+    // If we have no url, try to use the env var
+    if (!url) {
+        url = getenv("ZCM_DEFAULT_URL");
+        if (!url) {
+            ZCM_DEBUG("failed to determine the URL. You should pass it to the creator or set ZCM_DEFAULT_URL");
+            return 0;
+        }
+    }
     int ret = 0;
     zcm_url_t *u = zcm_url_create(url);
     const char *protocol = zcm_url_protocol(u);
