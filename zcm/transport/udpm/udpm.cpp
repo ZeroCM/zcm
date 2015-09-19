@@ -481,14 +481,43 @@ static const char *optFind(zcm_url_opts_t *opts, const string& key)
     return NULL;
 }
 
+// TODO: this probably belongs more in a string util like file
+#include <sstream>
+static vector<string> split(const string& str, char delimiter)
+{
+    vector<string> v;
+    std::stringstream ss {str};
+    string tok;
+
+    while(getline(ss, tok, delimiter))
+        v.push_back(std::move(tok));
+
+    auto len = str.size();
+    if (len > 0 && str[len-1] == delimiter)
+        v.push_back("");
+
+    return v;
+}
+
 static zcm_trans_t *createUdpm(zcm_url_t *url)
 {
     auto *ip = zcm_url_address(url);
+    vector<string> parts = split(ip, ':');
+    if (parts.size() != 2) {
+        ZCM_DEBUG("ERROR: Url format is <ip-address>:<port-num>");
+        return nullptr;
+    }
+    auto& address = parts[0];
+    auto& port = parts[1];
+
     auto *opts = zcm_url_opts(url);
-    auto *port = optFind(opts, "port");
     auto *ttl = optFind(opts, "ttl");
+    if (!ttl) {
+        ZCM_DEBUG("No ttl!");
+        return nullptr;
+    }
     size_t recv_buf_size = 1024;
-    auto *trans = new ZCM_TRANS_CLASSNAME(ip, atoi(port), recv_buf_size, atoi(ttl));
+    auto *trans = new ZCM_TRANS_CLASSNAME(address, atoi(port.c_str()), recv_buf_size, atoi(ttl));
     if (!trans->init()) {
         delete trans;
         return nullptr;

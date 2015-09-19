@@ -104,8 +104,8 @@ int main(int argc, char *argv[])
 
     signal(SIGINT, sighandler);
 
-    std::thread sendThread {send, "udpm://239.255.76.67?port=7667&ttl=0"};
-    std::thread recvThread {recv, "udpm://239.255.76.67?port=7667&ttl=0"};
+    std::thread sendThread {send, "udpm://239.255.76.67:7667?ttl=0"};
+    std::thread recvThread {recv, "udpm://239.255.76.67:7667?ttl=0"};
 
     recvThread.join();
     sendThread.join();
