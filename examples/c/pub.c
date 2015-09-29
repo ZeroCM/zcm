@@ -5,6 +5,10 @@
 #include <zcm/transport_registrar.h>
 #include "types/example_t.h"
 
+#define HZ 10
+//#define NRANGES 10000
+#define NRANGES 100
+
 int main(int argc, char *argv[])
 {
     if (argc > 1) {
@@ -24,14 +28,14 @@ int main(int argc, char *argv[])
         .orientation = { 1, 0, 0, 0 },
     };
 
-    my_data.num_ranges = 10000;
+    my_data.num_ranges = NRANGES;
     my_data.ranges = calloc(my_data.num_ranges, sizeof(int16_t));
     my_data.name = "example string";
     my_data.enabled = 1;
 
     while (1) {
         example_t_publish(zcm, "EXAMPLE", &my_data);
-        usleep(20);
+        usleep(1000/HZ);
     }
 
     zcm_destroy(zcm);
