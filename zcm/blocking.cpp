@@ -4,6 +4,7 @@
 #include "zcm/util/threadsafe_queue.hpp"
 #include "zcm/util/debug.h"
 
+#include <sys/time.h>
 #include <unistd.h>
 #include <cassert>
 #include <cstring>
@@ -18,6 +19,16 @@
 using namespace std;
 
 #define RECV_TIMEOUT 100
+
+// TODO: Should this be in a special library
+namespace TimeUtil {
+    static inline uint64_t utime()
+    {
+        struct timeval tv;
+        gettimeofday (&tv, NULL);
+        return (uint64_t) tv.tv_sec * 1000000 + tv.tv_usec;
+    }
+}
 
 // A C++ class that manages a zcm_msg_t
 struct Msg
@@ -141,8 +152,7 @@ struct zcm_blocking
     {
         zcm_recv_buf_t rbuf;
         rbuf.zcm = z;
-        // XXX we should be computing a utime if it is 0
-        rbuf.utime = msg->utime;
+        rbuf.utime = TimeUtil::utime();
         rbuf.len = msg->len;
         rbuf.data = (char*)msg->buf;
 

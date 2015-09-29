@@ -1,3 +1,0 @@
-#!/bin/sh
-jars=/usr/local/share/java/zcm.jar:/usr/local/share/java/zcm-tools.jar
-exec java -server -Xincgc -Xmx64m -Xms32m -ea -cp $jars zcm.logging.Logger $*
