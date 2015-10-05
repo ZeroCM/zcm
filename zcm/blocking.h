@@ -16,6 +16,9 @@ int    zcm_blocking_publish(zcm_blocking_t *zcm, const char *channel, char *data
 int    zcm_blocking_subscribe(zcm_blocking_t *zcm, const char *channel, zcm_callback_t *cb, void *usr);
 
 void   zcm_blocking_become(zcm_blocking_t *zcm);
+void   zcm_blocking_start(zcm_blocking_t *zcm);
+void   zcm_blocking_stop(zcm_blocking_t *zcm);
+int    zcm_blocking_handle(zcm_blocking_t *zcm);
 
 #ifdef __cplusplus
 }

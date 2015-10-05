@@ -44,9 +44,13 @@ int    zcm_publish(zcm_t *zcm, const char *channel, char *data, size_t len);
 int    zcm_subscribe(zcm_t *zcm, const char *channel, zcm_callback_t *cb, void *usr);
 /* TODO: add an unsubscribe */
 
+/* Note: should be used if and only if a block transport is also being used.   */
+/*       The start/stop/become functions are recommended, but handle() is also */
+/*       provided for backwards compatibility to LCM                           */
 void   zcm_become(zcm_t *zcm);
-/* void   zcm_start(zcm_t *zcm); */
-/* void   zcm_stop(zcm_t *zcm); */
+void   zcm_start(zcm_t *zcm);
+void   zcm_stop(zcm_t *zcm);
+int    zcm_handle(zcm_t *zcm); /* returns 0 nromally, and -1 when an error occurs. */
 
 /* Note: Should be used if and only if a nonblock transport is also being used. Internally, this condition is checked. */
 /* Returns 1 if a message was dispatched, and 0 otherwise */

@@ -19,7 +19,11 @@ struct ZCM
     inline ~ZCM();
 
     inline bool good() const;
+
     inline void become();
+    inline void start();
+    inline void stop();
+    inline int handle();
 
     inline int publish(const std::string& channel, const char *data,
                        uint len);
@@ -38,7 +42,6 @@ struct ZCM
                             Handler* handler);
 
     // TODO: add unsubscribe
-
     inline zcm_t* getUnderlyingZCM();
 
   private:

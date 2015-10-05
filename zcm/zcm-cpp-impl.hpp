@@ -28,6 +28,21 @@ inline void ZCM::become()
     zcm_become(zcm);
 }
 
+inline void ZCM::start()
+{
+    zcm_start(zcm);
+}
+
+inline void ZCM::stop()
+{
+    zcm_stop(zcm);
+}
+
+inline void ZCM::handle()
+{
+    return zcm_handle(zcm);
+}
+
 inline int ZCM::publish(const std::string& channel, const char *data,
                         uint len)
 {

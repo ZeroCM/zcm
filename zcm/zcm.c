@@ -151,6 +151,28 @@ int zcm_subscribe(zcm_t *zcm, const char *channel, zcm_callback_t *cb, void *usr
     assert(0 && "unreachable");
 }
 
+void zcm_start(zcm_t *zcm)
+{
+#ifndef ZCM_EMBEDDED
+    switch (zcm->type) {
+        case ZCM_BLOCKING:    return zcm_blocking_start(zcm->impl); break;
+        case ZCM_NONBLOCKING: assert(0 && "Cannot start() on a nonblocking ZCM interface"); break;
+    }
+#else
+#endif
+}
+
+void zcm_stop(zcm_t *zcm)
+{
+#ifndef ZCM_EMBEDDED
+    switch (zcm->type) {
+        case ZCM_BLOCKING:    return zcm_blocking_stop(zcm->impl); break;
+        case ZCM_NONBLOCKING: assert(0 && "Cannot stop() on a nonblocking ZCM interface"); break;
+    }
+#else
+#endif
+}
+
 void zcm_become(zcm_t *zcm)
 {
 #ifndef ZCM_EMBEDDED
@@ -161,6 +183,19 @@ void zcm_become(zcm_t *zcm)
 #else
     assert(0 && "the blocking api is not supported");
 #endif
+}
+
+int zcm_handle(zcm_t *zcm)
+{
+#ifndef ZCM_EMBEDDED
+    switch (zcm->type) {
+        case ZCM_BLOCKING:    return zcm_blocking_handle(zcm->impl); break;
+        case ZCM_NONBLOCKING: assert(0 && "Cannot handle() on a nonblocking ZCM interface"); break;
+    }
+#else
+    assert(0 && "the blocking api is not supported");
+#endif
+    return -1;
 }
 
 int zcm_handle_nonblock(zcm_t *zcm)

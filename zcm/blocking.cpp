@@ -88,12 +88,22 @@ struct zcm_blocking
     unordered_map<string, Sub> subs;
     vector<SubRegex> subRegex;
 
-    bool started = false;
-    std::atomic<bool> running {true};
+    typedef enum {
+        MODE_NONE = 0,
+        MODE_BECOME,
+        MODE_SPAWN,
+        MODE_HANDLE
+    } Mode_t;
+
+    Mode_t mode = MODE_NONE;
 
     thread sendThread;
     thread recvThread;
     thread handleThread;
+
+    std::atomic<bool> sendRunning   {false};
+    std::atomic<bool> recvRunning   {false};
+    std::atomic<bool> handleRunning {false};
 
     static constexpr size_t QUEUE_SIZE = 16;
     ThreadsafeQueue<Msg> sendQueue {QUEUE_SIZE};
@@ -105,18 +115,31 @@ struct zcm_blocking
     zcm_blocking(zcm_t *z, zcm_trans_t *zt_)
     {
         zt = zt_;
-        start();
+
+        // Spawn the send thread
+        sendRunning = true;
+        sendThread = thread{&zcm_blocking::sendThreadFunc, this};
     }
 
     ~zcm_blocking()
     {
-        stop();
+        if (mode == MODE_SPAWN) {
+            stop();
+        } else {
+            // XXX nedd to do something with 'mode == MODE_BECOME'
+        }
+
+        // Shutdown send thread
+        sendRunning = false;
+        sendQueue.forceWakeups();
+        sendThread.join();
+
         zcm_trans_destroy(zt);
     }
 
     void sendThreadFunc()
     {
-        while (running) {
+        while (sendRunning) {
             Msg *m = sendQueue.top();
             // If the Queue was forcibly woken-up, recheck the
             // running condition, and then retry.
@@ -132,7 +155,7 @@ struct zcm_blocking
 
     void recvThreadFunc()
     {
-        while (running) {
+        while (recvRunning) {
             zcm_msg_t msg;
             // XXX remove this memset once transport layers know about the utime field
             memset(&msg, 0, sizeof(msg));
@@ -183,17 +206,22 @@ struct zcm_blocking
         }
     }
 
+    int handleOneMessage()
+    {
+        Msg *m = recvQueue.top();
+        // If the Queue was forcibly woken-up, recheck the
+        // running condition, and then retry.
+        if (m == nullptr)
+            return -1;
+        dispatchMsg(m->get());
+        recvQueue.pop();
+        return 0;
+    }
+
     void handleThreadFunc()
     {
-        while (running) {
-            Msg *m = recvQueue.top();
-            // If the Queue was forcibly woken-up, recheck the
-            // running condition, and then retry.
-            if (m == nullptr)
-                continue;
-            dispatchMsg(m->get());
-            recvQueue.pop();
-        }
+        while (handleRunning)
+            handleOneMessage();
     }
 
     // Note: We use a lock on publish() to make sure it can be
@@ -260,42 +288,86 @@ struct zcm_blocking
         return 0;
     }
 
-    int handle()
-    {
-        // TODO: impl
-        while (1)
-            usleep(1000000);
-        return 0;
-    }
-
     void become()
     {
-        // This is a hack, we should use this thread for something productive
-        while (1)
-            usleep(1000*1000);
+        if (mode != MODE_NONE) {
+            ZCM_DEBUG("Err: call to become() when 'mode != MODE_NONE'");
+            return;
+        }
+        mode = MODE_BECOME;
+
+        // Spawn the recv thread
+        recvRunning = true;
+        recvThread = thread{&zcm_blocking::recvThreadFunc, this};
+
+        // Become the handle/dispatch thread
+        handleRunning = true;
+        handleThreadFunc();
+        assert(!handleRunning);
+
+        // Shutdown recv thread
+        recvRunning = false;
+        recvQueue.forceWakeups();
+        recvThread.join();
+
+        // Restore the "non-running" state
+        mode = MODE_NONE;
     }
 
     // TODO: should this call be thread safe?
     void start()
     {
-        assert(!started);
-        started = true;
+        if (mode != MODE_NONE) {
+            ZCM_DEBUG("Err: call to start() when 'mode != MODE_NONE'");
+            return;
+        }
+        mode = MODE_SPAWN;
 
-        sendThread = thread{&zcm_blocking::recvThreadFunc, this};
-        recvThread = thread{&zcm_blocking::sendThreadFunc, this};
+        // Spawn the recv thread
+        recvRunning = true;
+        recvThread = thread{&zcm_blocking::recvThreadFunc, this};
+
+        // Spawn the handle thread
+        handleRunning = true;
         handleThread = thread{&zcm_blocking::handleThreadFunc, this};
     }
 
     void stop()
     {
-        if (running && started) {
-            running = false;
-            sendQueue.forceWakeups();
-            recvQueue.forceWakeups();
-            handleThread.join();
-            recvThread.join();
-            sendThread.join();
+        if (mode != MODE_SPAWN) {
+            ZCM_DEBUG("Err: call to stop() when 'mode != MODE_SPAWN'");
+            return;
         }
+
+        // Shutdown recv thread
+        recvRunning = false;
+        recvQueue.forceWakeups();
+        recvThread.join();
+
+        // Shutdown handle thread
+        handleRunning = false;
+        handleThread.join();
+
+        // Restore the "non-running" state
+        mode = MODE_NONE;
+    }
+
+    int handle()
+    {
+        if (mode != MODE_NONE && mode != MODE_HANDLE) {
+            ZCM_DEBUG("Err: call to handle() when 'mode != MODE_SNODE && mode != MODE_HANDLE'");
+            return -1;
+        }
+
+        // if this is the first time handle() is called, we need to start the recv thread
+        if (mode == MODE_NONE) {
+            // Spawn the recv thread
+            recvRunning = true;
+            recvThread = thread{&zcm_blocking::recvThreadFunc, this};
+            mode = MODE_HANDLE;
+        }
+
+        return handleOneMessage();
     }
 };
 
@@ -325,6 +397,21 @@ int zcm_blocking_subscribe(zcm_blocking_t *zcm, const char *channel, zcm_callbac
 void zcm_blocking_become(zcm_blocking_t *zcm)
 {
     zcm->become();
+}
+
+void zcm_blocking_start(zcm_blocking_t *zcm)
+{
+    zcm->start();
+}
+
+void zcm_blocking_stop(zcm_blocking_t *zcm)
+{
+    zcm->stop();
+}
+
+int zcm_blocking_handle(zcm_blocking_t *zcm)
+{
+    return zcm->handle();
 }
 
 }
