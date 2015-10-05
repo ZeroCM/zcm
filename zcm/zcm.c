@@ -14,6 +14,8 @@
 #include "zcm/nonblocking.h"
 
 #ifndef ZCM_EMBEDDED
+#include <stdlib.h>
+
 # include "zcm/blocking.h"
 # include "zcm/transport_registrar.h"
 # include "zcm/util/debug.h"

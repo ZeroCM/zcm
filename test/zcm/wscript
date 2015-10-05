@@ -13,3 +13,9 @@ def build(ctx):
                 source = 'sub_unsub.cpp',
                 rpath = ctx.env.RPATH_zcm,
                 install_path = None)
+
+    ctx.program(target = 'transtest',
+                use = 'default zcm',
+                source = 'transtest.cpp',
+                rpath = ctx.env.RPATH_zcm,
+                install_path = None)
