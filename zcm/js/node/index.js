@@ -49,6 +49,8 @@ function libzcmTransport(transport) {
         return {};
     }
 
+    libzcm.zcm_start(z);
+
     function publish(channel, data) {
         libzcm.zcm_publish.async(z, channel, data, data.length, function(err, res){});
     }
