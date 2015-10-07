@@ -229,13 +229,13 @@ struct EmitModule : public Emitter
 
     void emitDecodeBody(int indent, ZCMStruct& ls)
     {
-        auto *sn = ls.structname.shortname.c_str();
+        //auto *sn = ls.structname.shortname.c_str();
         emit(indent, "var R = createReader(data);");
         emit(indent, "var hash = R.read64();");
-        emit(indent, "if (hash != %s.__hash) {", sn);
-        emit(indent, "    console.log('Err: hash mismatch on %s');", sn);
-        emit(indent, "    return null;");
-        emit(indent, "}");
+        // emit(indent, "if (hash != %s.__hash) {", sn);
+        // emit(indent, "    console.log('Err: hash mismatch on %s');", sn);
+        // emit(indent, "    return null;");
+        // emit(indent, "}");
         emit(indent, "var msg = {}");
         emit(indent, "msg.__type = '%s';", ls.structname.shortname.c_str());
         for (auto& lm : ls.members) {

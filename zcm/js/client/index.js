@@ -14,11 +14,12 @@ var zcm = (function(){
         });
 
         return {
-            subscribe: function(channel, cb) {
+            subscribe: function(channel, type, cb) {
+                socket.emit("subscribe", {channel: channel, type: type});
                 callbacks[channel] = cb;
             },
-            publish: function(channel, msg) {
-                var data = {channel: channel, msg: msg};
+            publish: function(channel, type, msg) {
+                var data = {channel: channel, type: type, msg: msg};
                 socket.emit('client-to-server', data);
             }
         };

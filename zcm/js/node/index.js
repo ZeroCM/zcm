@@ -67,19 +67,15 @@ function libzcmTransport(transport) {
     };
 }
 
-function socketioTransport(http) {
+function zcm_create(http, zcmtypes, zcmurl)
+{
+    zcmurl = zcmurl || "ipc";
+
     var io = require('socket.io')(http);
+    var zcmServer = libzcmTransport(zcmurl);
 
     // Channel -> Callback
     var callbacks = {};
-
-    io.on('connection', function(socket){
-        socket.on('client-to-server', function(data){
-            var channel = data.channel;
-            if (channel in callbacks)
-                callbacks[channel](channel, data.msg);
-        });
-    });
 
     function publish(channel, msg) {
         io.emit('server-to-client', {
@@ -88,43 +84,25 @@ function socketioTransport(http) {
         });
     }
 
-    function subscribe(channel, cb) {
-        callbacks[channel] = cb;
-    }
-
-    return {
-        publish: publish,
-        subscribe: subscribe
-    };
-}
-
-function zcm_create(transport) {
-    transport = transport || 'ipc';
-    // NOTE: this is a hack to keep the program alive
-    setInterval(function(){}, 100000);
-    return libzcmTransport(transport);
-}
-
-function zcm_connect_client(http, zcmtypes, table)
-{
-    var zIPC = libzcmTransport('ipc');
-    var zWebsock = socketioTransport(http);
-
-    for (var channel in table) {
-        var typename = table[channel];
-        var type = zcmtypes[typename];
-        if (!type) {
-            console.log("Unknown type '"+typename+"' in connect_client()");
-            continue;
-        }
-        zIPC.subscribe(channel, function(channel, data) {
-            zWebsock.publish(channel, type.decode(data));
+    io.on('connection', function(socket){
+        socket.on('client-to-server', function(data){
+            var channel = data.channel;
+            var typename = data.type;
+            var type = zcmtypes[typename];
+            var msg = data.msg;
+            zcmServer.publish(channel, type.encode(msg));
         });
-        zWebsock.subscribe(channel, function(channel, msg) {
-            zIPC.publish(channel, type.encode(msg));
+        socket.on('subscribe', function(data){
+            var subChannel = data.channel;
+            var subTypename = data.type;
+            var subType = zcmtypes[subTypename];
+            zcmServer.subscribe(data.channel, function(channel, data){
+                publish(channel, subType.decode(data));
+            });
         });
-    }
+    });
+
+    return io;
 }
 
 exports.create = zcm_create;
-exports.connect_client = zcm_connect_client;
