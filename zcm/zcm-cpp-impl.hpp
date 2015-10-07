@@ -38,7 +38,7 @@ inline void ZCM::stop()
     zcm_stop(zcm);
 }
 
-inline void ZCM::handle()
+inline int ZCM::handle()
 {
     return zcm_handle(zcm);
 }
@@ -58,6 +58,12 @@ inline int ZCM::publish(const std::string& channel, const Msg *msg)
     int status = this->publish(channel, (const char*)buf, datalen);
     delete[] buf;
     return status;
+}
+
+template <class Msg>
+inline int ZCM::publish(const std::string& channel, const Msg& msg)
+{
+    return publish(channel, &msg);
 }
 
 template <class Msg, class Handler>

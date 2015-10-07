@@ -31,6 +31,9 @@ struct ZCM
     template <class Msg>
     inline int publish(const std::string& channel, const Msg *msg);
 
+    template <class Msg>
+    inline int publish(const std::string& channel, const Msg& msg);
+
     template <class Msg, class Handler>
     Subscription *subscribe(const std::string& channel,
             void (Handler::*cb)(const ReceiveBuffer *rbuf, const std::string& channel, const Msg *msg),
