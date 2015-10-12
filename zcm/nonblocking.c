@@ -10,7 +10,7 @@ typedef struct sub sub_t;
 struct sub
 {
     char channel[ZCM_CHANNEL_MAXLEN+1];
-    zcm_callback_t *cb;
+    zcm_msg_handler_t cb;
     void *usr;
 };
 
@@ -45,17 +45,17 @@ void zcm_nonblocking_destroy(zcm_nonblocking_t *z)
     }
 }
 
-int zcm_nonblocking_publish(zcm_nonblocking_t *z, const char *channel, char *data, size_t len)
+int zcm_nonblocking_publish(zcm_nonblocking_t *z, const char *channel, const char *data, uint32_t len)
 {
     zcm_msg_t msg;
 
     msg.channel = channel;
     msg.len = len;
-    msg.buf = data;
+    msg.buf = (char*)data;
     return zcm_trans_sendmsg(z->trans, msg);
 }
 
-int zcm_nonblocking_subscribe(zcm_nonblocking_t *z, const char *channel, zcm_callback_t *cb, void *usr)
+int zcm_nonblocking_subscribe(zcm_nonblocking_t *z, const char *channel, zcm_msg_handler_t cb, void *usr)
 {
     int ret;
     size_t i;

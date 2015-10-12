@@ -70,14 +70,14 @@ struct Msg
 
 struct Sub
 {
-    zcm_callback_t *callback;
+    zcm_msg_handler_t callback;
     void *usr;
 };
 
 struct SubRegex
 {
     string channelRegex;
-    zcm_callback_t *callback;
+    zcm_msg_handler_t callback;
     void *usr;
 };
 
@@ -227,7 +227,7 @@ struct zcm_blocking
     // Note: We use a lock on publish() to make sure it can be
     // called concurrently. Without the lock, there is a potential
     // race to block on sendQueue.push()
-    int publish(const string& channel, const char *data, size_t len)
+    int publish(const string& channel, const char *data, uint32_t len)
     {
         unique_lock<mutex> lk(pubmut);
 
@@ -265,7 +265,7 @@ struct zcm_blocking
     // Note: We use a lock on subscribe() to make sure it can be
     // called concurrently. Without the lock, there is a race
     // on modifying and reading the 'subs' and 'subRegex' containers
-    int subscribe(const string& channel, zcm_callback_t *cb, void *usr)
+    int subscribe(const string& channel, zcm_msg_handler_t cb, void *usr)
     {
         unique_lock<mutex> lk(submut);
         int rc;
@@ -384,12 +384,12 @@ void zcm_blocking_destroy(zcm_blocking_t *zcm)
     if (zcm) delete zcm;
 }
 
-int zcm_blocking_publish(zcm_blocking_t *zcm, const char *channel, char *data, size_t len)
+int zcm_blocking_publish(zcm_blocking_t *zcm, const char *channel, const char *data, uint32_t len)
 {
     return zcm->publish(channel, data, len);
 }
 
-int zcm_blocking_subscribe(zcm_blocking_t *zcm, const char *channel, zcm_callback_t *cb, void *usr)
+int zcm_blocking_subscribe(zcm_blocking_t *zcm, const char *channel, zcm_msg_handler_t cb, void *usr)
 {
     return zcm->subscribe(channel, cb, usr);
 }

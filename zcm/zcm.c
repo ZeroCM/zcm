@@ -123,7 +123,7 @@ void zcm_cleanup(zcm_t *zcm)
     }
 }
 
-int zcm_publish(zcm_t *zcm, const char *channel, char *data, size_t len)
+int zcm_publish(zcm_t *zcm, const char *channel, const char *data, uint32_t len)
 {
 #ifndef ZCM_EMBEDDED
     switch (zcm->type) {
@@ -137,7 +137,7 @@ int zcm_publish(zcm_t *zcm, const char *channel, char *data, size_t len)
     assert(0 && "unreachable");
 }
 
-int zcm_subscribe(zcm_t *zcm, const char *channel, zcm_callback_t *cb, void *usr)
+int zcm_subscribe(zcm_t *zcm, const char *channel, zcm_msg_handler_t cb, void *usr)
 {
 #ifndef ZCM_EMBEDDED
     switch (zcm->type) {

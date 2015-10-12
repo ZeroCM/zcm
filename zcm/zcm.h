@@ -33,7 +33,7 @@ struct zcm_recv_buf_t
     zcm_t *zcm;
 };
 
-typedef void zcm_callback_t(const zcm_recv_buf_t *rbuf, const char *channel, void *usr);
+typedef void (*zcm_msg_handler_t)(const zcm_recv_buf_t *rbuf, const char *channel, void *usr);
 
 zcm_t *zcm_create(const char *url);
 zcm_t *zcm_create_trans(zcm_trans_t *zt);
@@ -44,8 +44,8 @@ int    zcm_init(zcm_t *zcm, const char *url);
 int    zcm_init_trans(zcm_t *zcm, zcm_trans_t *zt);
 void   zcm_cleanup(zcm_t *zcm);
 
-int    zcm_publish(zcm_t *zcm, const char *channel, char *data, size_t len);
-int    zcm_subscribe(zcm_t *zcm, const char *channel, zcm_callback_t *cb, void *usr);
+int    zcm_publish(zcm_t *zcm, const char *channel, const char *data, uint32_t len);
+int    zcm_subscribe(zcm_t *zcm, const char *channel, zcm_msg_handler_t cb, void *usr);
 /* TODO: add an unsubscribe */
 
 /* Note: should be used if and only if a block transport is also being used.   */
@@ -60,6 +60,16 @@ int    zcm_handle(zcm_t *zcm); /* returns 0 nromally, and -1 when an error occur
 /* Note: Should be used if and only if a nonblock transport is also being used. Internally, this condition is checked. */
 /* Returns 1 if a message was dispatched, and 0 otherwise */
 int    zcm_handle_nonblock(zcm_t *zcm);
+
+/*
+ * Version: M.m.u
+ *   M: Major
+ *   m: Minor
+ *   u: Micro
+ */
+#define ZCM_MAJOR_VERSION 1
+#define ZCM_MINOR_VERSION 0
+#define ZCM_MICRO_VERSION 0
 
 #ifdef __cplusplus
 }
