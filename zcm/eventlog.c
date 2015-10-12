@@ -5,12 +5,6 @@
 
 #define MAGIC ((int32_t) 0xEDA1DA01L)
 
-struct _zcm_eventlog_t
-{
-    FILE *f;
-    int64_t eventcount;
-};
-
 zcm_eventlog_t *zcm_eventlog_create(const char *path, const char *mode)
 {
     assert(!strcmp(mode, "r") || !strcmp(mode, "w") || !strcmp(mode, "a"));

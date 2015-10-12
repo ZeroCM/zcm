@@ -20,8 +20,14 @@ struct _zcm_eventlog_event_t
     void   *data;
 };
 
-/**** Methods for creation/deletion ****/
 typedef struct _zcm_eventlog_t zcm_eventlog_t;
+struct _zcm_eventlog_t
+{
+    FILE *f;
+    int64_t eventcount;
+};
+
+/**** Methods for creation/deletion ****/
 zcm_eventlog_t *zcm_eventlog_create(const char *path, const char *mode);
 void zcm_eventlog_destroy(zcm_eventlog_t *eventlog);
 

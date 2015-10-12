@@ -175,9 +175,9 @@ struct zcm_blocking
     {
         zcm_recv_buf_t rbuf;
         rbuf.zcm = z;
-        rbuf.utime = TimeUtil::utime();
-        rbuf.len = msg->len;
         rbuf.data = (char*)msg->buf;
+        rbuf.data_size = msg->len;
+        rbuf.recv_utime = TimeUtil::utime();
 
         // Note: We use a lock on dispatch to ensure there is not
         // a race on modifying and reading the 'subs' and

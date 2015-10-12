@@ -84,9 +84,9 @@ static void dispatch_message(zcm_nonblocking_t *z, zcm_msg_t *msg)
     for (i = 0; i < z->nsubs; i++) {
         if (strcmp(z->subs[i].channel, msg->channel) == 0) {
             rbuf.zcm = z->zcm;
-            rbuf.utime = 0;
-            rbuf.len = msg->len;
             rbuf.data = (char*)msg->buf;
+            rbuf.data_size = msg->len;
+            rbuf.recv_utime = 0;
             sub = &z->subs[i];
             sub->cb(&rbuf, msg->channel, sub->usr);
         }

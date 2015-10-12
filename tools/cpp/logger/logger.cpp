@@ -279,9 +279,9 @@ struct Logger
 
         zcm_eventlog_event_t le;
         memset(&le, 0, sizeof(le));
-        le.timestamp = rbuf->utime;
+        le.timestamp = rbuf->recv_utime;
         le.channellen = strlen(channel);
-        le.datalen = rbuf->len;
+        le.datalen = rbuf->data_size;
         le.channel = (char *)channel;
         le.data = rbuf->data;
 

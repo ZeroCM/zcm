@@ -99,11 +99,11 @@ static void handler(const zcm_recv_buf_t *rbuf, const char *channel, void *usr)
 
     jstring channelJ = (*env)->NewStringUTF(env, channel);
 
-    jbyteArray dataJ = (*env)->NewByteArray(env, rbuf->len);
-    (*env)->SetByteArrayRegion(env, dataJ, 0, rbuf->len, (signed char*)rbuf->data);
+    jbyteArray dataJ = (*env)->NewByteArray(env, rbuf->data_size);
+    (*env)->SetByteArrayRegion(env, dataJ, 0, rbuf->data_size, (signed char*)rbuf->data);
 
     jint offsetJ = 0;
-    jint lenJ = rbuf->len;
+    jint lenJ = rbuf->data_size;
 
     jclass cls = (*env)->GetObjectClass(env, self);
     assert(cls);

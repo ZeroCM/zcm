@@ -9,6 +9,10 @@ extern "C" {
 #include <stdint.h>
 #include <stdbool.h>
 
+#ifndef ZCM_EMBEDDED
+#include "eventlog.h"
+#endif
+
 typedef struct zcm_trans_t zcm_trans_t;
 
 typedef struct zcm_t zcm_t;
@@ -22,11 +26,11 @@ struct zcm_t
 typedef struct zcm_recv_buf_t zcm_recv_buf_t;
 struct zcm_recv_buf_t
 {
-    zcm_t *zcm;
-
-    uint64_t utime;
-    size_t len; /* TODO make this datalen for consistency */
     char *data;
+    uint32_t data_size;
+    int64_t recv_utime;
+
+    zcm_t *zcm;
 };
 
 typedef void zcm_callback_t(const zcm_recv_buf_t *rbuf, const char *channel, void *usr);
@@ -47,6 +51,7 @@ int    zcm_subscribe(zcm_t *zcm, const char *channel, zcm_callback_t *cb, void *
 /* Note: should be used if and only if a block transport is also being used.   */
 /*       The start/stop/become functions are recommended, but handle() is also */
 /*       provided for backwards compatibility to LCM                           */
+
 void   zcm_become(zcm_t *zcm);
 void   zcm_start(zcm_t *zcm);
 void   zcm_stop(zcm_t *zcm);
