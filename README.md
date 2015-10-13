@@ -1,0 +1,84 @@
+# ZCM: Zero Communications and Marshalling
+
+ZCM is a micro-framework for mesaage-passing and data-marshalling, designed originally
+for robotics systems where high-bandwidth and low-latency are critical and the variance in
+compute platforms is large.
+
+ZCM provides a publish/subscribe message-passing model and automatic marshalling/unmarshalling
+code generation with bindings for a variety of programming languages. This message-type design
+respects language-specific coding idioms insofar as possible.
+
+ZCM is transport-agnostic. There is no single built-in transport backend. Every transport is
+first-class. This is achieved by defining strict blocking and non-blocking transport APIs. As
+long as a transport implementation conforms to this API, it should work flawlessly with ZCM.
+This design allows ZCM to work well on anything from a high-end posix-based compute cluster
+to a low-end real-time embedded-system with no operating system.
+
+ZCM is a derivation of the LCM project created in 2006 by the MIT DARPA Urban Challenge
+team. The core message-type system, publish/subscribe APIs, and basic tools are ported
+directly from LCM and remain about 95% compatible. While there are a handful of subtle
+differences between the two, the core distinguishing feature is ZCM's transport
+agnosticism. LCM is designed competely around UDP Multicast. This trasport makes a lot
+of sense for LAN connected compute clusters (such the original 2006 MIT DGC Vechicle).
+However, there are many other applications that are interesting targets for ZCM messaging.
+These include: local system messaging (IPC), multi-threaded messaging (in-procees),
+embedded-system periphials (UART, I2C, etc), and web applications (Web Sockets).
+By refusing to make hard assumptions about the transport layer, ZCM opens the door
+to a wide set of use-cases that were neither possible nor practical with LCM.
+
+## Quick Links
+ - [Step-by-Step Tutorial](docs/tutorial.md)
+ - [From LCM to ZCM](docs/lcm_to_zcm.md)
+ - [Dependencies & Building](docs/building.md)
+ - [Project Philosphy & Contributing](docs/contributing.md)
+
+## Features
+ - Type-safe and version-safe message serialization
+ - A useful suite of tools for logging, log-playback, and real-time message inspection (spy)
+ - A wide set of built-in transports including UDP Multicast, IPC, In-Process, Serial, and ZeroMQ
+ - A well-defined interface for building custom transports
+ - Strong support for embedded applications. The core embedded code is restricted to C89.
+ - Only one true dependency: A modern C++11 compiler for the non-embedded code.
+
+## Supported platforms and languages
+
+ - Platforms:
+  - GNU/Linux
+  - Web browsers supporting the Websocket API
+  - Any C89 capable embedded system
+
+ - Languages
+  - C89 and greater
+  - C++
+  - Java
+  - MATLAB (using Java)
+  - NodeJS and Client-side Javascript
+
+## Roadmap
+ - Platform Support
+   - Windows
+   - OS X
+   - Any POSIX-1.2001 system (e.g., Cygwin, Solaris, BSD, etc.)
+ - Consider porting the rest of the LCM languages
+   - Python
+   - C#
+   - Lua
+ - Explore alternative messaging paradigms using ZCM Types (e.g. those found in ZeroMQ)
+ - Break from the orignal LCM APIs to improve API consistency
+   - Goal for v2.0
+   - v1.0 will **always** strive for API compatibility
+
+## Subtle differences to LCM
+
+ZCM is approximately 95% API compatible with LCM. Porting existing Unix-based LCM
+programs to ZCM is very easy in many cases. A quick `sed -i 's/lcm/zcm/g'` works for
+most applications. ZCM uses the same binary-compatible formats for UDP Multicast, Logging,
+and ZCMType encodings. Thus LCM and ZCM applications can communicate flawlessly. This
+allows LCM users to gradually migrate to ZCM.
+
+### Known incompatibilities:
+ - `zcm_get_fileno()` is not supported
+ - `zcm_handle_timeout()` is not supported
+ - Any applications using GLib via LCM may have build errors
+   - ZCM does *not* depend on GLib
+ - ZCMType drops support for the LCMType-style enums
