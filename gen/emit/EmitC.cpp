@@ -840,7 +840,7 @@ struct EmitSource : public Emit
         emit(0, "    int status;");
         emit(0, "    %s p;", tn_);
         emit(0, "    memset(&p, 0, sizeof(%s));", tn_);
-        emit(0, "    status = %s_decode (rbuf->data, 0, rbuf->len, &p);", tn_);
+        emit(0, "    status = %s_decode (rbuf->data, 0, rbuf->data_size, &p);", tn_);
         emit(0, "    if (status < 0) {");
         emit(0, "        fprintf (stderr, \"error %%d decoding %s!!!\\n\", status);", tn_);
         emit(0, "        return;");

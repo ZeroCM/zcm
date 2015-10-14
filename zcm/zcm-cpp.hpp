@@ -28,11 +28,13 @@ struct ZCM
     inline int publish(const std::string& channel, const char *data,
                        uint len);
 
+    // Note: if we make a publish binding that takes a const message reference, the compiler does
+    //       not select the right version between the pointer and reference versions, so when the
+    //       user intended to call the pointer version, the reference version is called and causes
+    //       compile errors (turns the input into a double pointer). We have to choose one or the
+    //       other for the api.
     template <class Msg>
     inline int publish(const std::string& channel, const Msg *msg);
-
-    template <class Msg>
-    inline int publish(const std::string& channel, const Msg& msg);
 
     template <class Msg, class Handler>
     Subscription *subscribe(const std::string& channel,

@@ -60,12 +60,6 @@ inline int ZCM::publish(const std::string& channel, const Msg *msg)
     return status;
 }
 
-template <class Msg>
-inline int ZCM::publish(const std::string& channel, const Msg& msg)
-{
-    return publish(channel, &msg);
-}
-
 template <class Msg, class Handler>
 class TypedSubStub : public Subscription
 {
@@ -77,7 +71,7 @@ class TypedSubStub : public Subscription
 
     void dispatch(const zcm_recv_buf_t *rbuf, const char *channel)
     {
-        int status = msgMem.decode(rbuf->data, 0, rbuf->len);
+        int status = msgMem.decode(rbuf->data, 0, rbuf->data_size);
         if (status < 0) {
             fprintf (stderr, "error %d decoding %s!!!\n", status,
                      Msg::getTypeName());
@@ -85,8 +79,8 @@ class TypedSubStub : public Subscription
         }
         const ReceiveBuffer rb = {
             nullptr,
-            rbuf->utime,
-            rbuf->len,
+            rbuf->recv_utime,
+            rbuf->data_size,
             rbuf->data,
         };
         std::string chan_str(channel);
@@ -134,8 +128,8 @@ class UntypedSubStub : public Subscription
     {
         const ReceiveBuffer rb = {
             nullptr,
-            rbuf->utime,
-            rbuf->len,
+            rbuf->recv_utime,
+            rbuf->data_size,
             rbuf->data,
         };
         std::string chan_str(channel);
