@@ -37,6 +37,8 @@ def configure(ctx):
 #                 default = 'zcmtypes' (though it is encouraged to name it something more unique
 #                                       to avoid library naming conflicts)
 #
+#   TODO: add support for changing include directory
+#
 # Using the output zcmtypes:
 #   For the following explanations, assume:
 #     ${name} = value entered for the "name" keyword,

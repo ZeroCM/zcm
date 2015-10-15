@@ -17,6 +17,10 @@ inline ZCM::~ZCM()
 {
     if (zcm != nullptr)
         zcm_destroy(zcm);
+
+    auto end = subscriptions.end();
+    for (auto it = subscriptions.begin(); it != end; ++it) delete *it;
+
     zcm = nullptr;
 }
 
