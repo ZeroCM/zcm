@@ -101,9 +101,13 @@ struct zcm_blocking
     thread recvThread;
     thread handleThread;
 
-    std::atomic<bool> sendRunning   {false};
-    std::atomic<bool> recvRunning   {false};
-    std::atomic<bool> handleRunning {false};
+    // Note: in order for their respective threads to shut down properly, the following MUST
+    //       be set to false PRIOR to calling the forceWakeups() function on the queue the
+    //       thread operates on. Else forceWakeups() may have to be called again to successfully
+    //       wake the thread.
+    std::atomic<bool> sendRunning   {false}; // operates on the sendQueue
+    std::atomic<bool> recvRunning   {false}; // operates on the recvQueue
+    std::atomic<bool> handleRunning {false}; // operates on the recvQueue
 
     static constexpr size_t QUEUE_SIZE = 16;
     ThreadsafeQueue<Msg> sendQueue {QUEUE_SIZE};
@@ -145,6 +149,7 @@ struct zcm_blocking
             // running condition, and then retry.
             if (m == nullptr)
                 continue;
+
             zcm_msg_t *msg = m->get();
             int ret = zcm_trans_sendmsg(zt, *msg);
             if (ret != ZCM_EOK)
@@ -163,10 +168,12 @@ struct zcm_blocking
             if (rc == ZCM_EOK) {
                 bool success;
                 do {
+                    // Note: push only fails if it was forcefully woken up. In such a case, we
+                    //       need to re-check the running condition; however, if we are still
+                    //       running, we want to still push the same message, necessitating the
+                    //       addition conditional on running.
                     success = recvQueue.push(&msg);
-                    // XXX: I believe this could deadlock if the recvQueue gets
-                    //      forcefully woken up (makes push always return false)
-                } while(!success);
+                } while(!success && recvRunning);
             }
         }
     }
@@ -213,6 +220,7 @@ struct zcm_blocking
         // running condition, and then retry.
         if (m == nullptr)
             return -1;
+
         dispatchMsg(m->get());
         recvQueue.pop();
         return 0;
@@ -237,14 +245,10 @@ struct zcm_blocking
             return -1;
         }
 
-        bool success;
-        do {
-            success = sendQueue.push(channel.c_str(), len, data);
-            // XXX: I believe this could deadlock if the sendQueue gets
-            //      forcefully woken up (makes push always return false)
-        } while(!success);
+        // Note: push only fails if it was forcefully woken up, which means zcm is shutting down
+        bool success = sendQueue.push(channel.c_str(), len, data);
 
-        return 0;
+        return success ? 0 : -1;
     }
 
     static bool isRegexChannel(const string& channel)
@@ -303,6 +307,9 @@ struct zcm_blocking
         // Become the handle/dispatch thread
         handleRunning = true;
         handleThreadFunc();
+        // TODO: should add a function that can wake up the thread that "became" the zcm
+        //       thread and trigger it to stop. Might even just extend the functionality of
+        //       zcm_stop
         assert(!handleRunning);
 
         // Shutdown recv thread
@@ -339,13 +346,13 @@ struct zcm_blocking
             return;
         }
 
-        // Shutdown recv thread
+        // Shutdown recv and handle threads
         recvRunning = false;
-        recvQueue.forceWakeups();
-        recvThread.join();
-
-        // Shutdown handle thread
         handleRunning = false;
+
+        recvQueue.forceWakeups();
+
+        recvThread.join();
         handleThread.join();
 
         // Restore the "non-running" state
