@@ -426,7 +426,7 @@ For dynamic arrays, the size parameter may be any integer type: `int8_t`,
 `int16_t`, `int32_t`, or `int64_t`
 
 Consistent with ZCM's philosophy, these types generate language bindings that
-use the language idioms:
+use the language-specific idioms:
 
 C code:
 
@@ -466,3 +466,62 @@ C++ code:
 
         /* ... code removed ... */
     };
+
+### Multi-dimmension Arrays
+
+ZCM also supports multiple dimmensions on arrays. You can also mix
+static-sized and dynamic-sized arrays along different dimensions:
+
+    struct multdim_t
+    {
+        int32_t dim1;
+        int32_t dim2;
+        int32_t dim3;
+
+        float array1[dim1][8][dim3];
+        float array2[2][dim2][5];
+    }
+
+### Constants
+
+ZCM supports consts embedded in the type. These constants occupy no
+space in the resulting serialization: they are only present in the
+language-specific generated code. Common uses for consts are for
+emulating enum types and for defining flags and masks:
+
+    struct consts_t
+    {
+        const int32_t VAL_FOO = 0;
+        const int32_t VAL_BAR = 1;
+        const int32_t VAL_BAZ = 2;
+        int32_t val;
+
+        const int32_t FLAG_A = 1;
+        const int32_t FLAG_B = 2;
+        const int32_t FLAG_C = 4;
+        const int32_t MASK_AB = 0x03;
+        int32_t flags;
+
+        const float secs_per_tick = 0.01;
+        float ticks;
+    }
+
+### Closing Thoughts on Types
+
+The ZCM type system is incredibly rich, flexible, and composable. Nearly each
+of these features can be used unrestricted with the others. This allows users
+to create rich and interesting message types with ease. For a rigourous
+definition of the ZCM type system, see the [ZCM Type Grammar](zcmtype_grammar.md).
+
+## Next Steps
+
+At this point you should know enough about ZCM to implement a many interesting
+applications. The essence of ZCM defining ZCMTypes, coding to the pub/sub APIs,
+and debugging using the built-in tool suite. This covers about 90% of the
+typical ZCM development workflow.
+
+But, there is much more to ZCM, so we recommend a few *next steps* below:
+
+ - [Custom Transports](docs/transports.md)
+ - [Dependencies & Building](docs/building.md)
+ - [Project Philosphy & Contributing](docs/contributing.md)
