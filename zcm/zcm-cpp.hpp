@@ -12,6 +12,8 @@ namespace zcm {
 struct Subscription;
 struct ReceiveBuffer;
 
+// TODO: unify pointer style pref "Msg* msg" vs "Msg *msg", I'd tend toward the former
+
 struct ZCM
 {
     // TODO: update to match new url based zcm_create
@@ -50,13 +52,17 @@ struct ZCM
 
     // TODO: add handler-less subscribe
 
-    // TODO: add unsubscribe
+    // TODO: add unsubscribe (blocked on difference between c and c++ subscription types
+    //inline void unsubscribe(Subscription *sub);
+
     inline zcm_t* getUnderlyingZCM();
 
   private:
     zcm_t *zcm;
     std::vector<Subscription*> subscriptions;
 };
+
+// TODO: why not use or inherrit from the existing zcm data structures for the below
 
 struct ReceiveBuffer
 {

@@ -118,7 +118,7 @@ struct zcm_blocking
         if (mode == MODE_SPAWN) {
             stop();
         } else {
-            // XXX nedd to do something with 'mode == MODE_BECOME'
+            // XXX need to do something with 'mode == MODE_BECOME'
         }
 
         // Shutdown send thread

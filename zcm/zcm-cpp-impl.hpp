@@ -6,6 +6,8 @@
 
 // =============== implementation ===============
 
+// TODO: unify pointer style pref "Msg* msg" vs "Msg *msg", I'd tend toward the former
+
 inline ZCM::ZCM(const std::string& transport)
 {
     zcm = zcm_create(transport.c_str());
@@ -60,6 +62,7 @@ inline int ZCM::publish(const std::string& channel, const Msg *msg)
     return status;
 }
 
+// TODO: this class name is weird (what's with the "Stub"
 template <class Msg, class Handler>
 class TypedSubStub : public Subscription
 {
@@ -164,6 +167,21 @@ Subscription *ZCM::subscribe(const std::string& channel,
     subscriptions.push_back(stub);
     return stub;
 }
+
+/* cannot use this until c++ subscription wraps a c subscription
+inline void ZCM::unsubscribe(Subscription *sub)
+{
+    auto end = subscriptions.end();
+    for (auto it = subscriptions.begin(); it != end; ++it) {
+        if (*it == sub) {
+            zcm_unsubscribe(zcm, sub->c_subs);
+            subscriptions.erase(it);
+            delete sub;
+            break;
+        }
+    }
+}
+*/
 
 inline zcm_t *ZCM::getUnderlyingZCM()
 {

@@ -21,9 +21,9 @@ static char data[NUM_DATA] = {'a', 'b', 'c', 'd', 'e'};
 
 static void generic_handler(const zcm_recv_buf_t *rbuf, const char *channel, void *usr)
 {
-    vprintf("%lu - %s: ", rbuf->utime, channel);
+    vprintf("%lu - %s: ", rbuf->recv_utime, channel);
     size_t i;
-    for (i = 0; i < rbuf->len; ++i) {
+    for (i = 0; i < rbuf->data_size; ++i) {
         vprintf("%c ", rbuf->data[i]);
 
         num_received++;
@@ -71,22 +71,30 @@ int main(int argc, const char *argv[])
         // through them, we must wait for them to be set up
         usleep(200000);
 
+        vprintf("Starting zcm receive %s\n", transports[i]);
+        zcm_start(zcm);
+
         size_t j;
         for (j = 0; j < NUM_DATA; ++j) {
             zcm_publish(zcm, "TEST", data+j, sizeof(char));
         }
 
         usleep(200000);
+        vprintf("Stopping zcm receive %s\n", transports[i]);
+        zcm_stop(zcm);
 
+        vprintf("Unsubscribing zcm %s\n", transports[i]);
         zcm_unsubscribe(zcm, sub);
 
         for (j = 0; j < NUM_DATA; ++j) {
             if (!(bytepacked_received & 1 << j)) {
                 fprintf(stderr, "%s: Missed a message: %c\n", transports[i], data[j]);
+                fflush(stderr);
                 ++retval;
             }
             if (num_received != NUM_DATA && num_received != NUM_DATA+1) {
                 fprintf(stderr, "%s: Received an unexpected number of messages\n", transports[i]);
+                fflush(stderr);
                 ++retval;
             }
         }

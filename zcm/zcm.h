@@ -32,7 +32,7 @@ struct zcm_recv_buf_t
     uint32_t data_size;
     int64_t recv_utime;
 
-    zcm_t *zcm;
+    zcm_t *zcm; /* TODO: do we need the zcm pointer here? */
 };
 
 typedef void (*zcm_msg_handler_t)(const zcm_recv_buf_t *rbuf, const char *channel, void *usr);
