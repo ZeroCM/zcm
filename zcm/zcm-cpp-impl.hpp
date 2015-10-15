@@ -142,6 +142,7 @@ class TypedHandlerSubscription : public TypedSubscription<Msg>, HandlerSubscript
 
 };
 
+// TODO: lots of room to condense the implementations of the various subscribe functions
 template <class Msg, class Handler>
 Subscription *ZCM::subscribe(const std::string& channel,
                              void (Handler::*cb)(const ReceiveBuffer *rbuf,

@@ -1,6 +1,4 @@
-#include <zcm/zcm.h>
-#include <zcm/transport.h>
-#include <zcm/transport_registrar.h>
+#include "zcm/zcm.h"
 
 #include <unistd.h>
 #include <stdio.h>
@@ -57,7 +55,7 @@ int main(int argc, const char *argv[])
         zcm_t *zcm = zcm_create(transports[i]);
         vprintf("Creating zcm %s\n", transports[i]);
         if (!zcm) {
-            vprintf("Failed to create zcm\n");
+            fprintf(stderr, "Failed to create zcm\n");
             return 1;
         }
 
@@ -92,11 +90,11 @@ int main(int argc, const char *argv[])
                 fflush(stderr);
                 ++retval;
             }
-            if (num_received != NUM_DATA && num_received != NUM_DATA+1) {
-                fprintf(stderr, "%s: Received an unexpected number of messages\n", transports[i]);
-                fflush(stderr);
-                ++retval;
-            }
+        }
+        if (num_received != NUM_DATA && num_received != NUM_DATA+1) {
+            fprintf(stderr, "%s: Received an unexpected number of messages\n", transports[i]);
+            fflush(stderr);
+            ++retval;
         }
 
         vprintf("Cleaning up zcm %s\n", transports[i]);

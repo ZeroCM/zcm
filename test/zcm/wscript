@@ -2,7 +2,14 @@
 # encoding: utf-8
 
 def build(ctx):
-    ctx.program(target = 'sub_unsub',
+    ctx.program(target = 'sub_unsub_c',
                 use = 'default zcm',
                 source = 'sub_unsub.c',
+                rpath = ctx.env.RPATH_zcm,
+                install_path = None)
+
+    ctx.program(target = 'sub_unsub_cpp',
+                use = 'default zcm',
+                source = 'sub_unsub.cpp',
+                rpath = ctx.env.RPATH_zcm,
                 install_path = None)

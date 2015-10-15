@@ -30,7 +30,7 @@ struct zcm_recv_buf_t
 {
     char *data; /* do not free, recv_buf does not own this memory */
     uint32_t data_size;
-    int64_t recv_utime;
+    int64_t recv_utime; /* Only set properly in blocking API */
 
     zcm_t *zcm; /* TODO: do we need the zcm pointer here? */
 };
