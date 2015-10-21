@@ -12,10 +12,11 @@ var Struct = require('ref-struct');
 var voidRef = ref.refType('void')
 var charRef = ref.refType('char')
 var recvBuf = Struct({
-    zcm:   voidRef,
-    utime: ref.types.ulonglong,
-    len:   ref.types.size_t,
+    // Note: it is VERY important that this struct match the zcm_recv_buf_t struct in zcm.h
     data:  charRef,
+    len:   ref.types.uint32,
+    utime: ref.types.uint64,
+    zcm:   voidRef,
 });
 var recvBufRef = ref.refType(recvBuf);
 
@@ -33,10 +34,15 @@ function makeDispatcher(cb)
     return function(rbuf, channel, usr) {
         // XXX This decoder makes a LOT of assumptions about the underlying machine
         //     These are not all correct for archs other than x86-64
-        var zcmPtr = ref.readPointer(rbuf, 0);
-        var utime  = ref.readUInt64LE(rbuf, 8);
-        var len    = ref.readUInt64LE(rbuf, 16);
-        var data   = ref.readPointer(rbuf, 24);
+        // Note: it is VERY important that this struct is decoded to match the zcm_recv_buf_t
+        //       struct in zcm.h
+        var data   = ref.readPointer(rbuf, 0);
+        // Note: despite len being a 32 bit uint, the following seems to work (simply inspected
+        //       by printing the interpreted utime, and I suspect it is due to the internal
+        //       workings of FFI, might be worth verifying though
+        var len    = ref.readUInt64LE(rbuf, 8);
+        var utime  = ref.readUInt64LE(rbuf, 16);
+        var zcmPtr = ref.readPointer(rbuf, 24);
         var dataBuf = ref.reinterpret(data, len);
         cb(channel, new Buffer(dataBuf));
     }

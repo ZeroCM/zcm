@@ -41,6 +41,7 @@ int main(int argc, char *argv[])
 
     Handler handlerObject;
     zcm.subscribe("EXAMPLE", &Handler::handleMessage, &handlerObject);
+    zcm.subscribe("FOOBAR", &Handler::handleMessage, &handlerObject);
     zcm.become();
 
     return 0;
