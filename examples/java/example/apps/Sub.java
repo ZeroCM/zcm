@@ -11,7 +11,17 @@ public class Sub implements ZCMSubscriber
     public Sub()
     {
         zcm = ZCM.getSingleton();
+        sub();
+    }
+
+    public void sub()
+    {
         zcm.subscribe("EXAMPLE", this);
+    }
+
+    public void unsub()
+    {
+        zcm.unsubscribe("EXAMPLE", this);
     }
 
     public void messageReceived(ZCM zcm, String channel, ZCMDataInputStream ins)
@@ -49,14 +59,20 @@ public class Sub implements ZCMSubscriber
     static void sleep(long ms)
     {
         try {
-            Thread.sleep(1000);
+            Thread.sleep(ms);
         } catch (InterruptedException ex) {}
     }
 
     public static void main(String[] args)
     {
         Sub s = new Sub();
-        while(true)
-            sleep(1000);
+        while(true) {
+            sleep(5000);
+            s.unsub();
+            System.out.println("\nunsubscribing\n");
+            sleep(5000);
+            s.sub();
+            System.out.println("\nresubscribing\n");
+        }
     }
 }
