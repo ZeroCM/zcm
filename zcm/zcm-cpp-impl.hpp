@@ -137,7 +137,7 @@ class TypedHandlerSubscription : public TypedSubscription<Msg>, HandlerSubscript
   public:
     virtual ~TypedHandlerSubscription() {}
 
-    void typedHandlerDispatch( const ReceiveBuffer *rbuf, const char *channel)
+    void typedHandlerDispatch(const ReceiveBuffer *rbuf, const char *channel)
     {
         // Unfortunately, we need to add "this" here to handle template inheritance:
         // https://isocpp.org/wiki/faq/templates#nondependent-name-lookup-members

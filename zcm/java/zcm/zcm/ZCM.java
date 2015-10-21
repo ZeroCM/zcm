@@ -45,6 +45,8 @@ public class ZCM
     {
         if (singleton == null) {
             try {
+                // XXX: add back in capability to use the ZCM_DEFAULT_URL env variable
+                //      as the default for getSingleton
                 singleton = new ZCM();
             } catch (Exception ex) {
                 System.err.println("ZCM singleton fail: "+ex);
@@ -105,6 +107,10 @@ public class ZCM
         zcmjni.publish(channel, data, offset, length);
     }
 
+    // TODO: because ZCM uses JNI while LCM used a full java implementation, this function and
+    //       many of the data structures that support it are obsolete. The entire java
+    //       subscription record could be replaced by a JNI type that kept track of the c style
+    //       subscriptions and would save us all the bookkeeping in java.
     /** Subscribe to all channels whose name matches the regular
      * expression. Note that to subscribe to all channels, you must
      * specify ".*", not "*".
@@ -133,6 +139,10 @@ public class ZCM
         }
     }
 
+    // TODO: because ZCM uses JNI while LCM used a full java implementation, this function and
+    //       many of the data structures that support it are obsolete. The entire java
+    //       subscription record could be replaced by a JNI type that kept track of the c style
+    //       subscriptions and would save us all the bookkeeping in java.
     /** Remove this particular regex/subscriber pair (UNTESTED AND API
      * MAY CHANGE). If regex is null, all subscriptions for 'sub' are
      * cancelled. If subscriber is null, any previous subscriptions
