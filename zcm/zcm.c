@@ -57,7 +57,7 @@ void zcm_destroy(zcm_t *zcm)
 int zcm_init(zcm_t *zcm, const char *url)
 {
 #ifndef ZCM_EMBEDDED
-    // If we have no url, try to use the env var
+    /* If we have no url, try to use the env var */
     if (!url) {
         url = getenv("ZCM_DEFAULT_URL");
         if (!url) {
