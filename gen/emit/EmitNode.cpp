@@ -232,6 +232,7 @@ struct EmitModule : public Emitter
         //auto *sn = ls.structname.shortname.c_str();
         emit(indent, "var R = createReader(data);");
         emit(indent, "var hash = R.read64();");
+        // XXX: why are we not verifying that the hash is correct?
         // emit(indent, "if (hash != %s.__hash) {", sn);
         // emit(indent, "    console.log('Err: hash mismatch on %s');", sn);
         // emit(indent, "    return null;");
@@ -272,6 +273,7 @@ struct EmitModule : public Emitter
         }
 
         // XXX: we need to validate the hash!
+        // XXX: should return null if the decode was not successful
         //emit(indent, "console.log(timestamp, position0, position1, position2, orient0, orient1, orient2, orient3);");
         emit(indent, "return msg;");
     }
