@@ -251,7 +251,7 @@ struct EmitHeader : public Emit
             emit(0, " *                zcm_handle_timeout().");
             emit(0, " * @param userdata An opaque pointer passed to @p handler when it is invoked.");
             emit(0, " * @return pointer to subscription type, NULL if failure. Must clean up");
-            emit(0, " *         dyanic memory by passing the pointer to %s_unsubscribe.", tn_);
+            emit(0, " *         dynamic memory by passing the pointer to %s_unsubscribe.", tn_);
             emit(0, " */");
             emit(0,"%s_subscription_t* %s_subscribe(zcm_t *zcm, const char *channel, %s_handler_t handler, void *userdata);",
                  tn_, tn_, tn_);
