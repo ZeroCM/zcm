@@ -1,4 +1,4 @@
-[Top](../README.md)
+<a href="javascript:history.go(-1)">Back</a>
 # From LCM to ZCM
 
 This page is for introducing LCM users to the unique differences of ZCM. Here, we intend
@@ -89,4 +89,4 @@ embedded systems to use ZCM types and ZCM non-blocking code with little or no mo
 To learn more, check out the page on [Embedded Applications](embedded.md).
 
 <hr>
-[Top](../README.md)
+<a href="javascript:history.go(-1)">Back</a>

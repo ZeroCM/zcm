@@ -1,7 +1,7 @@
 <a href="javascript:history.go(-1)">Back</a>
-# ZCM Type Grammar
+# Project Philosophy & Contributing
 
-TODO: Add the grammar here
+TODO
 
 <hr>
 <a href="javascript:history.go(-1)">Back</a>

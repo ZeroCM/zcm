@@ -1,4 +1,4 @@
-[Top](../README.md)
+<a href="javascript:history.go(-1)">Back</a>
 # ZCM Step-by-Step Tutorial
 
 We believe the best way to learn new things is to just dive in and start making mistakes.
@@ -522,6 +522,10 @@ typical ZCM development workflow.
 
 But, there is much more to ZCM, so we recommend a few *next steps* below:
 
- - [Custom Transports](docs/transports.md)
- - [Dependencies & Building](docs/building.md)
- - [Project Philosphy & Contributing](docs/contributing.md)
+ - [Transport Layer](transports.md)
+ - [Embedded Applications](embedded.md).
+ - [Dependencies & Building](building.md)
+ - [Project Philosphy & Contributing](contributing.md)
+
+<hr>
+<a href="javascript:history.go(-1)">Back</a>

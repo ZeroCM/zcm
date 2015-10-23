@@ -27,8 +27,11 @@ By refusing to make hard assumptions about the transport layer, ZCM opens the do
 to a wide set of use-cases that were neither possible nor practical with LCM.
 
 ## Quick Links
- - [Step-by-Step Tutorial](docs/tutorial.md)
+ - [Tutorial](docs/tutorial.md)
  - [From LCM to ZCM](docs/lcm_to_zcm.md)
+ - [ZCM Type Grammar](docs/zcmtype_grammar.md)
+ - [Transport Layer](docs/transports.md)
+ - [Embedded Applications](docs/embedded.md).
  - [Dependencies & Building](docs/building.md)
  - [Project Philosphy & Contributing](docs/contributing.md)
 
