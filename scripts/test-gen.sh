@@ -1,7 +1,8 @@
 #!/bin/bash
 
-THISDIR=$(pwd)
-TESTDIR=test/zcm-gen
+THISDIR=$(dirname "$(readlink -f "$0")")
+BASEDIR=$(dirname $THISDIR)
+TESTDIR=$BASEDIR/test/gen
 TMPDIR=/tmp/zcmtypes
 
 VERBOSE=0
@@ -15,7 +16,7 @@ gen_zcm() {(
     rm -fr $TMPDIR
     mkdir $TMPDIR
     cd $TMPDIR
-    $THISDIR/build/gen/zcm-gen -c -x -j -p $file >/dev/null
+    $BASEDIR/build/gen/zcm-gen -c -x -j -p $file >/dev/null
 )}
 
 check_all_ext() {
@@ -89,6 +90,6 @@ for f in $ZCMFILES; do
         echo "TEST: $bname"
     fi
 
-    gen_zcm $THISDIR/$f
+    gen_zcm $BASEDIR/$f
     compare $bname
 done

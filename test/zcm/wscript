@@ -1,0 +1,21 @@
+#! /usr/bin/env python
+# encoding: utf-8
+
+def build(ctx):
+    ctx.program(target = 'sub_unsub_c',
+                use = 'default zcm testzcmtypes_c',
+                source = 'sub_unsub.c',
+                rpath = ctx.env.RPATH_zcm,
+                install_path = None)
+
+    ctx.program(target = 'sub_unsub_cpp',
+                use = 'default zcm testzcmtypes_cpp',
+                source = 'sub_unsub.cpp',
+                rpath = ctx.env.RPATH_zcm,
+                install_path = None)
+
+    ctx.program(target = 'transtest',
+                use = 'default zcm',
+                source = 'transtest.cpp',
+                rpath = ctx.env.RPATH_zcm,
+                install_path = None)

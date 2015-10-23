@@ -1,5 +1,6 @@
 #include "zcm/transport.h"
 #include "zcm/transport_registrar.h"
+#include "zcm/transport_register.hpp"
 #include "zcm/util/debug.h"
 #include "zcm/util/lockfile.h"
 #include <zmq.h>
@@ -19,11 +20,11 @@
 using namespace std;
 
 // Define this the class name you want
-#define ZCM_TRANS_CLASSNAME TransportZmqIpc
+#define ZCM_TRANS_CLASSNAME TransportZmqLocal
 #define MTU (1<<20)
 #define ZMQ_IO_THREADS 1
-#define NAME_PREFIX "zcm-channel-zmq-ipc-"
-#define IPC_ADDR_PREFIX "ipc:///tmp/" NAME_PREFIX
+#define IPC_NAME_PREFIX "zcm-channel-zmq-ipc-"
+#define IPC_ADDR_PREFIX "ipc:///tmp/" IPC_NAME_PREFIX
 #define INPROC_ADDR_PREFIX "inproc://"
 
 enum Type { IPC, INPROC, };
@@ -34,10 +35,12 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     Type type;
 
     unordered_map<string, void*> pubsocks;
-    unordered_map<string, void*> subsocks;
+    // socket pair contains the socket + whether it was subscribed to explicitly or not
+    unordered_map<string, pair<void*, bool>> subsocks;
+    bool recvAllChannels = false;
+
     string recvmsgChannel;
     char recvmsgBuffer[MTU];
-    bool recvAllChannels = false;
 
     // Mutex used to protect 'subsocks' while allowing
     // recvmsgEnable() and recvmsg() to be called
@@ -56,7 +59,44 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
     ~ZCM_TRANS_CLASSNAME()
     {
-        // TODO shut down ZMQ correctly
+        int rc;
+        string address;
+
+        // Clean up all publish sockets
+        for (auto it = pubsocks.begin(); it != pubsocks.end(); ++it) {
+            address = getAddress(it->first);
+
+            rc = zmq_unbind(it->second, address.c_str());
+            if (rc == -1) {
+                ZCM_DEBUG("failed to unbind pubsock: %s", zmq_strerror(errno));
+            }
+
+            rc = zmq_close(it->second);
+            if (rc == -1) {
+                ZCM_DEBUG("failed to close pubsock: %s", zmq_strerror(errno));
+            }
+        }
+
+        // Clean up all subscribe sockets
+        for (auto it = subsocks.begin(); it != subsocks.end(); ++it) {
+            address = getAddress(it->first);
+
+            rc = zmq_disconnect(it->second.first, address.c_str());
+            if (rc == -1) {
+                ZCM_DEBUG("failed to disconnect subsock: %s", zmq_strerror(errno));
+            }
+
+            rc = zmq_close(it->second.first);
+            if (rc == -1) {
+                ZCM_DEBUG("failed to disconnect subsock: %s", zmq_strerror(errno));
+            }
+        }
+
+        // Clean up the zmq context
+        rc = zmq_ctx_term(ctx);
+        if (rc == -1) {
+            ZCM_DEBUG("failed to terminate context: %s", zmq_strerror(errno));
+        }
     }
 
     string getAddress(const string& channel)
@@ -112,11 +152,13 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     }
 
     // May return null if it cannot create a new subsock
-    void *subsockFindOrCreate(const string& channel)
+    void *subsockFindOrCreate(const string& channel, bool subExplicit)
     {
         auto it = subsocks.find(channel);
-        if (it != subsocks.end())
-            return it->second;
+        if (it != subsocks.end()) {
+            it->second.second |= subExplicit;
+            return it->second.first;
+        }
         void *sock = zmq_socket(ctx, ZMQ_SUB);
         if (sock == nullptr) {
             ZCM_DEBUG("failed to create subsock: %s", zmq_strerror(errno));
@@ -134,8 +176,46 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             ZCM_DEBUG("failed to setsockopt on subsock: %s", zmq_strerror(errno));
             return nullptr;
         }
-        subsocks.emplace(channel, sock);
+        subsocks.emplace(channel, make_pair(sock, subExplicit));
         return sock;
+    }
+
+    void ipcScanForNewChannels()
+    {
+        const char *prefix = IPC_NAME_PREFIX;
+        size_t prefixLen = strlen(IPC_NAME_PREFIX);
+
+        DIR *d;
+        dirent *ent;
+
+        if (!(d=opendir("/tmp/")))
+            return;
+
+        while ((ent=readdir(d)) != nullptr) {
+            if (strncmp(ent->d_name, prefix, prefixLen) == 0) {
+                string channel(ent->d_name + prefixLen);
+                void *sock = subsockFindOrCreate(channel, false);
+                if (sock == nullptr) {
+                    ZCM_DEBUG("failed to open subsock in scanForNewChannels(%s)", channel.c_str());
+                }
+            }
+        }
+
+        closedir(d);
+    }
+
+    // XXX This only works for channels within this instance! Creating another
+    //     ZCM instance using 'inproc' will cause this scan to miss some channels!
+    //     Need to implement a better technique. Should use a globally shared datastruct.
+    void inprocScanForNewChannels()
+    {
+        for (auto& elt : pubsocks) {
+            auto& channel = elt.first;
+            void *sock = subsockFindOrCreate(channel, false);
+            if (sock == nullptr) {
+                ZCM_DEBUG("failed to open subsock in scanForNewChannels(%s)", channel.c_str());
+            }
+        }
     }
 
     /********************** METHODS **********************/
@@ -170,53 +250,62 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         // concurrently
         unique_lock<mutex> lk(mut);
 
-        // XXX: Implement disabling
-        assert(enable && "Disabling is not supported");
+        // TODO: make this prettier
         if (channel == NULL) {
-            recvAllChannels = true;
-            return ZCM_EOK;
-        }
-        void *sock = subsockFindOrCreate(channel);
-        if (sock == nullptr)
-            return ZCM_ECONNECT;
-        return ZCM_EOK;
-    }
+            if (enable) {
+                recvAllChannels = enable;
+            } else {
+                for (auto it = subsocks.begin(); it != subsocks.end(); ) {
+                    if (!it->second.second) { // This channel is only subscribed to implicitly
+                        string address = getAddress(it->first);
+                        int rc = zmq_disconnect(it->second.first, address.c_str());
+                        if (rc == -1) {
+                            ZCM_DEBUG("failed to disconnect subsock: %s", zmq_strerror(errno));
+                            return ZCM_ECONNECT;
+                        }
 
-    void ipcScanForNewChannels()
-    {
-        const char *prefix = NAME_PREFIX;
-        size_t prefixLen = strlen(NAME_PREFIX);
-
-        DIR *d;
-        dirent *ent;
-
-        if (!(d=opendir("/tmp/")))
-            return;
-
-        while ((ent=readdir(d)) != nullptr) {
-            if (strncmp(ent->d_name, prefix, prefixLen) == 0) {
-                string channel(ent->d_name + prefixLen);
-                void *sock = subsockFindOrCreate(channel);
-                if (sock == nullptr) {
-                    ZCM_DEBUG("failed to open subsock in scanForNewChannels(%s)", channel.c_str());
+                        rc = zmq_close(it->second.first);
+                        if (rc == -1) {
+                            ZCM_DEBUG("failed to disconnect subsock: %s", zmq_strerror(errno));
+                            return ZCM_ECONNECT;
+                        }
+                        it = subsocks.erase(it);
+                    } else {
+                        ++it;
+                    }
                 }
             }
-        }
+            return ZCM_EOK;
+        } else {
+            if (enable) {
+                void *sock = subsockFindOrCreate(channel, true);
+                if (sock == nullptr)
+                    return ZCM_ECONNECT;
+            } else {
+                auto it = subsocks.find(channel);
+                if (it != subsocks.end()) {
+                    if (it->second.second) { // This channel has been subscribed to explicitly
+                        if (recvAllChannels) {
+                            it->second.second = false;
+                        } else {
+                            string address = getAddress(it->first);
+                            int rc = zmq_disconnect(it->second.first, address.c_str());
+                            if (rc == -1) {
+                                ZCM_DEBUG("failed to disconnect subsock: %s", zmq_strerror(errno));
+                                return ZCM_ECONNECT;
+                            }
 
-        closedir(d);
-    }
-
-    // XXX This only works for channels within this instance! Creating another
-    //     ZCM instance using 'inproc' will cause this scan to miss some channels!
-    //     Need to implement a better technique. Should sse a globally shared datastruct.
-    void inprocScanForNewChannels()
-    {
-        for (auto& elt : pubsocks) {
-            auto& channel = elt.first;
-            void *sock = subsockFindOrCreate(channel);
-            if (sock == nullptr) {
-                ZCM_DEBUG("failed to open subsock in scanForNewChannels(%s)", channel.c_str());
+                            rc = zmq_close(it->second.first);
+                            if (rc == -1) {
+                                ZCM_DEBUG("failed to disconnect subsock: %s", zmq_strerror(errno));
+                                return ZCM_ECONNECT;
+                            }
+                            subsocks.erase(it);
+                        }
+                    }
+                }
             }
+            return ZCM_EOK;
         }
     }
 
@@ -242,7 +331,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             int i = 0;
             for (auto& elt : subsocks) {
                 auto& channel = elt.first;
-                auto& sock = elt.second;
+                auto& sock = elt.second.first;
                 auto *p = &pitems[i];
                 memset(p, 0, sizeof(*p));
                 p->socket = sock;
@@ -254,8 +343,13 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
         timeout = (timeout >= 0) ? timeout : -1;
         int rc = zmq_poll(pitems.data(), pitems.size(), timeout);
-        // XXX: implement error handling, don't just assert
-        assert(rc != -1);
+        // XXX: implement better error handling, but can't assert because this triggers during
+        //      clean up of the zmq subscriptions and context (may need to look towards having a
+        //      "ZCM_ETERM" return code that we can use to cancel the recv message thread
+        if (rc == -1) {
+            ZCM_DEBUG("zmq_poll failed with: %s", zmq_strerror(errno));
+            return ZCM_EAGAIN;
+        }
         if (rc >= 0) {
             for (size_t i = 0; i < pitems.size(); i++) {
                 auto& p = pitems[i];
@@ -312,6 +406,9 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
     static void _destroy(zcm_trans_t *zt)
     { delete cast(zt); }
+
+    static const TransportRegister regIpc;
+    static const TransportRegister regInproc;
 };
 
 zcm_trans_methods_t ZCM_TRANS_CLASSNAME::methods = {
@@ -334,7 +431,7 @@ static zcm_trans_t *createInproc(zcm_url_t *url)
 }
 
 // Register this transport with ZCM
-static struct Register { Register() {
-    zcm_transport_register("ipc",    "Transfer data via Inter-process Communication (e.g. 'ipc')", createIpc);
-    zcm_transport_register("inproc", "Transfer data via Internal process memory (e.g. 'inproc')",  createInproc);
-}} reg;
+const TransportRegister ZCM_TRANS_CLASSNAME::regIpc(
+    "ipc",    "Transfer data via Inter-process Communication (e.g. 'ipc')", createIpc);
+const TransportRegister ZCM_TRANS_CLASSNAME::regInproc(
+    "inproc", "Transfer data via Internal process memory (e.g. 'inproc')",  createInproc);

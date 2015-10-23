@@ -14,6 +14,8 @@
 #include "zcm/nonblocking.h"
 
 #ifndef ZCM_EMBEDDED
+#include <stdlib.h>
+
 # include "zcm/blocking.h"
 # include "zcm/transport_registrar.h"
 # include "zcm/util/debug.h"
@@ -55,7 +57,7 @@ void zcm_destroy(zcm_t *zcm)
 int zcm_init(zcm_t *zcm, const char *url)
 {
 #ifndef ZCM_EMBEDDED
-    // If we have no url, try to use the env var
+    /* If we have no url, try to use the env var */
     if (!url) {
         url = getenv("ZCM_DEFAULT_URL");
         if (!url) {
@@ -137,7 +139,7 @@ int zcm_publish(zcm_t *zcm, const char *channel, const char *data, uint32_t len)
     assert(0 && "unreachable");
 }
 
-int zcm_subscribe(zcm_t *zcm, const char *channel, zcm_msg_handler_t cb, void *usr)
+zcm_sub_t *zcm_subscribe(zcm_t *zcm, const char *channel, zcm_msg_handler_t cb, void *usr)
 {
 #ifndef ZCM_EMBEDDED
     switch (zcm->type) {
@@ -147,6 +149,20 @@ int zcm_subscribe(zcm_t *zcm, const char *channel, zcm_msg_handler_t cb, void *u
 #else
     assert(zcm->type == ZCM_NONBLOCKING);
     return zcm_nonblocking_subscribe(zcm->impl, channel, cb, usr);
+#endif
+    assert(0 && "unreachable");
+}
+
+int zcm_unsubscribe(zcm_t *zcm, zcm_sub_t *sub)
+{
+#ifndef ZCM_EMBEDDED
+    switch (zcm->type) {
+        case ZCM_BLOCKING:    return zcm_blocking_unsubscribe   (zcm->impl, sub); break;
+        case ZCM_NONBLOCKING: return zcm_nonblocking_unsubscribe(zcm->impl, sub); break;
+    }
+#else
+    assert(zcm->type == ZCM_NONBLOCKING);
+    return zcm_nonblocking_unsubscribe(zcm->impl, sub);
 #endif
     assert(0 && "unreachable");
 }

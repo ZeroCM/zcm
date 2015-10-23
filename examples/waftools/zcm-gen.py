@@ -1,11 +1,29 @@
 #!/usr/bin/env python
+# encoding: utf-8
+
 import os
 from waflib import Task
 from waflib.Errors import WafError
-from waflib.TaskGen import extension, feature, before_method
+from waflib.TaskGen import extension
 from waflib.Configure import conf
 
 def configure(ctx):
+    # Note: This tool will also work if zcm-gen is a tool built by this build if:
+    #       configuration:
+    #           ctx.env.ZCMGEN is set to the programs path prior to loading the zcm-gen tool
+    #       build:
+    #           all zcmtype generation happens after the tool is compiled.
+    #           That is, use ctx.add_group() while ctx.post_mode = waflib.Build.POST_LAZY
+    #           to separate zcm-gen compilation and zcmtype generation.
+    #
+    # TODO: could improve this to actually use the waf node of the zcm-gen binary as in the
+    #       ex. of building a compiler in the waf book (https://waf.io/book/#_advanced_scenarios)
+    # XXX:  I believe because we are not doing the above, changes to the zcm-gen binary do not
+    #       force the regeneration of the zcmtypes. This is generally not a huge problem because
+    #       zcm-gen stays pretty static, but it is technically a build error.
+    # TODO: The user MUST have uselib variables for zcm and zcmjar defined through their own
+    #       configuration. We should add them here or move them into a different waf module
+
     # find program leaves the program itself in an array (probably for if there are multiple),
     # but we only expect / want one
     if not getattr(ctx.env, 'ZCMGEN', []):
@@ -25,6 +43,8 @@ def configure(ctx):
 #   javapkg:      name of the java package
 #                 default = 'zcmtypes' (though it is encouraged to name it something more unique
 #                                       to avoid library naming conflicts)
+#
+#   TODO: add support for changing include directory
 #
 # Using the output zcmtypes:
 #   For the following explanations, assume:
@@ -57,6 +77,7 @@ def configure(ctx):
 #   waf zcmgen tool was invoked.
 @conf
 def zcmgen(ctx, **kw):
+    # TODO: should raise an error if ctx.env.ZCMGEN is not set
     uselib_name = 'zcmtypes'
     if 'name' in kw:
         uselib_name = kw['name']
@@ -66,11 +87,13 @@ def zcmgen(ctx, **kw):
         javapkg_name = kw['javapkg']
 
     if 'lang' not in kw:
+        # TODO: this should probably be a more specific error type
         raise WafError('zcmgen requires keword argument: "lang"')
 
+    # Add .zcm files to build so the process_zcmtypes rule picks them up
     tg = ctx(source  = kw['source'],
              lang    = kw['lang'],
-             javapkg = kw['javapkg'])
+             javapkg = javapkg_name)
 
     ctx.add_group()
 
@@ -108,7 +131,7 @@ class zcmgen(Task.Task):
     color   = 'PINK'
     quiet   = False
     ext_in  = ['.zcm']
-    ext_out = ['.c', '.h', '.hpp']
+    ext_out = ['.c', '.h', '.hpp', '.java']
 
     ## This method processes the inputs and determines the outputs that will be generated
     ## when the zcm-gen program is run
@@ -149,10 +172,6 @@ class zcmgen(Task.Task):
         bld = gen.path.get_bld().abspath()
         inc = bld.split('/')[-1]
 
-        # Note: Processing of the languages for zcm-gen will bail as soon as an error
-        #       is returned by one of the commands. Technically, we could run a single
-        #       zcm-gen call using the union all all these arguments, but it's cleaner
-        #       to keep them separate unless we think of a good reason to merge them
         langs = {}
         if 'c' in gen.lang:
             langs['c'] = '--c --c-cpath %s --c-hpath %s --c-include %s' % (bld, bld, inc)
@@ -162,5 +181,4 @@ class zcmgen(Task.Task):
             langs['java'] = '--java --jpath %s --jdefaultpkg %s' % (bld + '/java', gen.javapkg)
 
         # no need to check if langs is empty here, already handled in runnable_status()
-        return self.exec_command('%s %s %s' % \
-                                 (zcmgen, zcmfile, ' '.join([langs[lang] for lang in langs])))
+        return self.exec_command('%s %s %s' % (zcmgen, zcmfile, ' '.join(langs.values())))

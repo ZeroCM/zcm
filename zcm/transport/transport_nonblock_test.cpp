@@ -1,5 +1,6 @@
 #include "zcm/transport.h"
 #include "zcm/transport_registrar.h"
+#include "zcm/transport_register.hpp"
 #include "zcm/util/debug.h"
 
 #include <cassert>
@@ -51,6 +52,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         return ZCM_EOK;
     }
 
+    // Note: this transport simply listens to all channels
     int recvmsgEnable(const char *channel, bool enable)
     {
         return ZCM_EOK;
@@ -99,6 +101,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
     static void _destroy(zcm_trans_t *zt)
     { delete cast(zt); }
+
+    static const TransportRegister reg;
 };
 
 
@@ -117,6 +121,5 @@ static zcm_trans_t *create(zcm_url_t *url)
 }
 
 // Register this transport with ZCM
-static struct Register { Register() {
-    zcm_transport_register("nonblock-test", "Test impl for non-block transport", create);
-}} reg;
+const TransportRegister ZCM_TRANS_CLASSNAME::reg(
+    "nonblock-test", "Test impl for non-block transport", create);

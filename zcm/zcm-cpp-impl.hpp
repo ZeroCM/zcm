@@ -6,6 +6,8 @@
 
 // =============== implementation ===============
 
+// TODO: unify pointer style pref "Msg* msg" vs "Msg *msg", I'd tend toward the former
+
 inline ZCM::ZCM(const std::string& transport)
 {
     zcm = zcm_create(transport.c_str());
@@ -15,6 +17,10 @@ inline ZCM::~ZCM()
 {
     if (zcm != nullptr)
         zcm_destroy(zcm);
+
+    auto end = subscriptions.end();
+    for (auto it = subscriptions.begin(); it != end; ++it) delete *it;
+
     zcm = nullptr;
 }
 
@@ -43,8 +49,7 @@ inline int ZCM::handle()
     return zcm_handle(zcm);
 }
 
-inline int ZCM::publish(const std::string& channel, const char *data,
-                        uint len)
+inline int ZCM::publish(const std::string& channel, const char *data, uint32_t len)
 {
     return zcm_publish(zcm, channel.c_str(), (char*)data, len);
 }
@@ -52,117 +57,196 @@ inline int ZCM::publish(const std::string& channel, const char *data,
 template <class Msg>
 inline int ZCM::publish(const std::string& channel, const Msg *msg)
 {
-    uint datalen = msg->getEncodedSize();
-    uint8_t *buf = new uint8_t[datalen];
-    msg->encode(buf, 0, datalen);
-    int status = this->publish(channel, (const char*)buf, datalen);
+    uint32_t len = msg->getEncodedSize();
+    uint8_t *buf = new uint8_t[len];
+    msg->encode(buf, 0, len);
+    int status = this->publish(channel, (const char*)buf, len);
     delete[] buf;
     return status;
 }
 
-template <class Msg, class Handler>
-class TypedSubStub : public Subscription
+// Virtual inheritance to avoid ambiguous base class problem http://stackoverflow.com/a/139329
+template<class Msg>
+class TypedSubscription : public virtual Subscription
 {
     friend class ZCM;
-  private:
-    Handler* handler;
-    void (Handler::*cb)(const ReceiveBuffer* rbuf, const std::string& channel, const Msg* msg);
+
+  protected:
+    void (*typedCallback)(const ReceiveBuffer* rbuf, const std::string& channel, const Msg* msg,
+                          void *usr);
     Msg msgMem; // Memory to decode this message into
 
-    void dispatch(const zcm_recv_buf_t *rbuf, const char *channel)
+  public:
+    virtual ~TypedSubscription() {}
+
+    int readMsg(const ReceiveBuffer *rbuf)
     {
         int status = msgMem.decode(rbuf->data, 0, rbuf->data_size);
         if (status < 0) {
-            fprintf (stderr, "error %d decoding %s!!!\n", status,
-                     Msg::getTypeName());
-            return;
+            fprintf (stderr, "error %d decoding %s!!!\n", status, Msg::getTypeName());
+            return -1;
         }
-        const ReceiveBuffer rb = {
-            nullptr,
-            rbuf->recv_utime,
-            rbuf->data_size,
-            rbuf->data,
-        };
-        std::string chan_str(channel);
-        (handler->*cb)(&rb, chan_str, &msgMem);
+        return 0;
     }
 
-    // A standard vanilla function to bind the this-pointer
-    static void dispatch_(const zcm_recv_buf_t *rbuf, const char *channel,
-                          void *usr)
+    void typedDispatch(const ReceiveBuffer *rbuf, const char *channel)
     {
-        typedef TypedSubStub<Msg, Handler> MyType;
-        ((MyType*)usr)->dispatch(rbuf, channel);
+        if (readMsg(rbuf) != 0) return;
+        (*typedCallback)(rbuf, channel, &msgMem, usr);
+    }
+
+    static void dispatch(const ReceiveBuffer *rbuf, const char *channel, void *usr)
+    {
+        ((TypedSubscription<Msg>*)usr)->typedDispatch(rbuf, channel);
+    }
+};
+
+// Virtual inheritance to avoid ambiguous base class problem http://stackoverflow.com/a/139329
+template <class Handler>
+class HandlerSubscription : public virtual Subscription
+{
+    friend class ZCM;
+
+  protected:
+    Handler* handler;
+    void (Handler::*handlerCallback)(const ReceiveBuffer* rbuf, const std::string& channel);
+
+  public:
+    virtual ~HandlerSubscription() {}
+
+    void handlerDispatch(const ReceiveBuffer *rbuf, const char *channel)
+    {
+        (handler->*handlerCallback)(rbuf, channel);
+    }
+
+    static void dispatch(const ReceiveBuffer *rbuf, const char *channel, void *usr)
+    {
+        ((HandlerSubscription<Handler>*)usr)->handlerDispatch(rbuf, channel);
     }
 };
 
 template <class Msg, class Handler>
+class TypedHandlerSubscription : public TypedSubscription<Msg>, HandlerSubscription<Handler>
+{
+    friend class ZCM;
+
+  protected:
+    void (Handler::*typedHandlerCallback)(const ReceiveBuffer* rbuf, const std::string& channel,
+                                          const Msg* msg);
+
+  public:
+    virtual ~TypedHandlerSubscription() {}
+
+    void typedHandlerDispatch(const ReceiveBuffer *rbuf, const char *channel)
+    {
+        // Unfortunately, we need to add "this" here to handle template inheritance:
+        // https://isocpp.org/wiki/faq/templates#nondependent-name-lookup-members
+        if (this->readMsg(rbuf) != 0) return;
+        (this->handler->*typedHandlerCallback)(rbuf, channel, &this->msgMem);
+    }
+
+    static void dispatch(const ReceiveBuffer *rbuf, const char *channel, void *usr)
+    {
+        ((TypedHandlerSubscription<Msg, Handler>*)usr)->typedHandlerDispatch(rbuf, channel);
+    }
+
+};
+
+// TODO: lots of room to condense the implementations of the various subscribe functions
+template <class Msg, class Handler>
 Subscription *ZCM::subscribe(const std::string& channel,
-                        void (Handler::*cb)(const ReceiveBuffer *rbuf, const std::string& channel, const Msg *msg),
-                        Handler *handler)
+                             void (Handler::*cb)(const ReceiveBuffer *rbuf,
+                                                 const std::string& channel, const Msg *msg),
+                             Handler *handler)
 {
     if (!zcm) {
-        fprintf(stderr,
-                "ZCM instance not initialized.  Ignoring call to subscribe()\n");
+        fprintf(stderr, "ZCM instance not initialized. Ignoring call to subscribe()\n");
         return nullptr;
     }
-    typedef TypedSubStub<Msg, Handler> StubType;
-    StubType *stub = new StubType();
-    stub->handler = handler;
-    stub->cb = cb;
-    zcm_subscribe(zcm, channel.c_str(), StubType::dispatch_, stub);
 
-    subscriptions.push_back(stub);
-    return stub;
+    typedef TypedHandlerSubscription<Msg, Handler> SubType;
+    SubType *sub = new SubType();
+    sub->handler = handler;
+    sub->typedHandlerCallback = cb;
+    sub->c_sub = zcm_subscribe(zcm, channel.c_str(), SubType::dispatch, sub);
+
+    subscriptions.push_back(sub);
+    return sub;
 }
 
 template <class Handler>
-class UntypedSubStub : public Subscription
-{
-    friend class ZCM;
-  private:
-    Handler* handler;
-    void (Handler::*cb)(const ReceiveBuffer* rbuf, const std::string& channel);
-
-    void dispatch(const zcm_recv_buf_t *rbuf, const char *channel)
-    {
-        const ReceiveBuffer rb = {
-            nullptr,
-            rbuf->recv_utime,
-            rbuf->data_size,
-            rbuf->data,
-        };
-        std::string chan_str(channel);
-        (handler->*cb)(&rb, chan_str);
-    }
-
-    // A standard vanilla function to bind the this-pointer
-    static void dispatch_(const zcm_recv_buf_t *rbuf, const char *channel,
-                          void *usr)
-    {
-        typedef UntypedSubStub<Handler> MyType;
-        ((MyType*)usr)->dispatch(rbuf, channel);
-    }
-};
-
-template <class Handler>
 Subscription *ZCM::subscribe(const std::string& channel,
-                             void (Handler::*cb)(const ReceiveBuffer* rbuf, const std::string& channel),
+                             void (Handler::*cb)(const ReceiveBuffer* rbuf,
+                                                 const std::string& channel),
                              Handler* handler)
 {
     if (!zcm) {
-        fprintf(stderr,
-                "ZCM instance not initialized.  Ignoring call to subscribe()\n");
+        fprintf(stderr, "ZCM instance not initialized.  Ignoring call to subscribe()\n");
         return nullptr;
     }
-    typedef UntypedSubStub<Handler> StubType;
-    StubType *stub = new StubType();
-    stub->handler = handler;
-    stub->cb = cb;
-    zcm_subscribe(zcm, channel.c_str(), StubType::dispatch_, stub);
 
-    subscriptions.push_back(stub);
-    return stub;
+    typedef HandlerSubscription<Handler> SubType;
+    SubType *sub = new SubType();
+    sub->handler = handler;
+    sub->handlerCallback = cb;
+    sub->c_sub = zcm_subscribe(zcm, channel.c_str(), SubType::dispatch, sub);
+
+    subscriptions.push_back(sub);
+    return sub;
+}
+
+template <class Msg>
+Subscription *ZCM::subscribe(const std::string& channel,
+                             void (*cb)(const ReceiveBuffer *rbuf, const std::string& channel,
+                                        const Msg *msg, void *usr),
+                             void *usr)
+{
+    if (!zcm) {
+        fprintf(stderr, "ZCM instance not initialized.  Ignoring call to subscribe()\n");
+        return nullptr;
+    }
+
+    typedef TypedSubscription<Msg> SubType;
+    SubType *sub = new SubType();
+    sub->usr = usr;
+    sub->typedCallback = cb;
+    sub->c_sub = zcm_subscribe(zcm, channel.c_str(), SubType::dispatch, sub);
+
+    subscriptions.push_back(sub);
+    return sub;
+}
+
+Subscription *ZCM::subscribe(const std::string& channel,
+                             void (*cb)(const ReceiveBuffer *rbuf, const std::string& channel,
+                                        void *usr),
+                             void *usr)
+{
+    if (!zcm) {
+        fprintf(stderr, "ZCM instance not initialized.  Ignoring call to subscribe()\n");
+        return nullptr;
+    }
+
+    typedef Subscription SubType;
+    SubType *sub = new SubType();
+    sub->usr = usr;
+    sub->callback = cb;
+    sub->c_sub = zcm_subscribe(zcm, channel.c_str(), SubType::dispatch, sub);
+
+    subscriptions.push_back(sub);
+    return sub;
+}
+
+inline void ZCM::unsubscribe(Subscription *sub)
+{
+    auto end = subscriptions.end();
+    for (auto it = subscriptions.begin(); it != end; ++it) {
+        if (*it == sub) {
+            zcm_unsubscribe(zcm, sub->c_sub);
+            subscriptions.erase(it);
+            delete sub;
+            break;
+        }
+    }
 }
 
 inline zcm_t *ZCM::getUnderlyingZCM()
@@ -212,7 +296,7 @@ inline const LogEvent* LogFile::readNextEvent()
     curEvent.eventnum = evt->eventnum;
     curEvent.channel.assign(evt->channel, evt->channellen);
     curEvent.utime = evt->timestamp;
-    curEvent.datalen = evt->datalen;
+    curEvent.len = evt->datalen;
     curEvent.data = (char*)evt->data;
     return &curEvent;
 }
@@ -223,7 +307,7 @@ inline int LogFile::writeEvent(LogEvent* event)
     evt.eventnum = event->eventnum;
     evt.timestamp = event->utime;
     evt.channellen = event->channel.size();
-    evt.datalen = event->datalen;
+    evt.datalen = event->len;
     evt.channel = (char*) event->channel.c_str();
     evt.data = event->data;
     return zcm_eventlog_write_event(eventlog, &evt);

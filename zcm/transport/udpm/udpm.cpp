@@ -5,6 +5,7 @@
 
 #include "zcm/transport.h"
 #include "zcm/transport_registrar.h"
+#include "zcm/transport_register.hpp"
 
 #define MTU (1<<28)
 
@@ -462,6 +463,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
     static void _destroy(zcm_trans_t *zt)
     { delete cast(zt); }
+
+    static const TransportRegister regUdpm;
 };
 
 zcm_trans_methods_t ZCM_TRANS_CLASSNAME::methods = {
@@ -527,6 +530,6 @@ static zcm_trans_t *createUdpm(zcm_url_t *url)
 }
 
 // Register this transport with ZCM
-static struct Register { Register() {
-    zcm_transport_register("udpm",    "Transfer data via UDP Multicast (e.g. 'udpm')", createUdpm);
-}} reg;
+const TransportRegister ZCM_TRANS_CLASSNAME::regUdpm(
+    // XXX: the example url does not work
+    "udpm", "Transfer data via UDP Multicast (e.g. 'udpm')", createUdpm);

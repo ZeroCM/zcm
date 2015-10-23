@@ -250,7 +250,8 @@ struct EmitHeader : public Emit
             emit(0, " *                This function is invoked by ZCM during calls to zcm_handle() and");
             emit(0, " *                zcm_handle_timeout().");
             emit(0, " * @param userdata An opaque pointer passed to @p handler when it is invoked.");
-            emit(0, " * @return 0 on success, <0 if an error occured");
+            emit(0, " * @return pointer to subscription type, NULL if failure. Must clean up");
+            emit(0, " *         dyanic memory by passing the pointer to %s_unsubscribe.", tn_);
             emit(0, " */");
             emit(0,"%s_subscription_t* %s_subscribe(zcm_t *zcm, const char *channel, %s_handler_t handler, void *userdata);",
                  tn_, tn_, tn_);
@@ -259,22 +260,22 @@ struct EmitHeader : public Emit
             emit(0, " * Removes and destroys a subscription created by %s_subscribe()", tn_);
             emit(0, " */");
             emit(0,"int %s_unsubscribe(zcm_t *zcm, %s_subscription_t* hid);", tn_, tn_);
-            emit(0, "");
-            emit(0, "/**");
-            emit(0, " * Sets the queue capacity for a subscription.");
-            emit(0, " * Some ZCM providers (e.g., the default multicast provider) are implemented");
-            emit(0, " * using a background receive thread that constantly revceives messages from");
-            emit(0, " * the network.  As these messages are received, they are buffered on");
-            emit(0, " * per-subscription queues until dispatched by zcm_handle().  This function");
-            emit(0, " * how many messages are queued before dropping messages.");
-            emit(0, " *");
-            emit(0, " * @param subs the subscription to modify.");
-            emit(0, " * @param num_messages The maximum number of messages to queue");
-            emit(0, " *  on the subscription.");
-            emit(0, " * @return 0 on success, <0 if an error occured");
-            emit(0, " */");
-            emit(0,"int %s_subscription_set_queue_capacity(%s_subscription_t* subs,\n"
-                 "                              int num_messages);\n", tn_, tn_);
+            //emit(0, "");
+            //emit(0, "/**");
+            //emit(0, " * Sets the queue capacity for a subscription.");
+            //emit(0, " * Some ZCM providers (e.g., the default multicast provider) are implemented");
+            //emit(0, " * using a background receive thread that constantly revceives messages from");
+            //emit(0, " * the network.  As these messages are received, they are buffered on");
+            //emit(0, " * per-subscription queues until dispatched by zcm_handle().  This function");
+            //emit(0, " * how many messages are queued before dropping messages.");
+            //emit(0, " *");
+            //emit(0, " * @param subs the subscription to modify.");
+            //emit(0, " * @param num_messages The maximum number of messages to queue");
+            //emit(0, " *  on the subscription.");
+            //emit(0, " * @return 0 on success, <0 if an error occured");
+            //emit(0, " */");
+            //emit(0,"int %s_subscription_set_queue_capacity(%s_subscription_t* subs,\n"
+                   //"                              int num_messages);\n", tn_, tn_);
         }
 
         emit(0, "/**");
@@ -832,6 +833,7 @@ struct EmitSource : public Emit
         emit(0, "struct _%s_subscription_t {", tn_);
         emit(0, "    %s_handler_t user_handler;", tn_);
         emit(0, "    void *userdata;");
+        emit(0, "    zcm_sub_t *z_sub;");
         emit(0, "};");
         emit(0, "static");
         emit(0, "void %s_handler_stub (const zcm_recv_buf_t *rbuf,", tn_);
@@ -856,35 +858,38 @@ struct EmitSource : public Emit
         emit(0, "                    const char *channel,");
         emit(0, "                    %s_handler_t f, void *userdata)", tn_);
         emit(0, "{");
+        // TODO: it would be nice if this didn't need to malloc, currently only typed subscriptions
+        //       in C allocate memory that isn't automatically cleaned up on the destruction of the
+        //       zcm object.
         emit(0, "    %s_subscription_t *n = (%s_subscription_t*)", tn_, tn_);
         emit(0, "                       malloc(sizeof(%s_subscription_t));", tn_);
         emit(0, "    n->user_handler = f;");
         emit(0, "    n->userdata = userdata;");
-        emit(0, "/*    n->lc_h = */zcm_subscribe (zcm, channel,");
-        emit(0, "                                 %s_handler_stub, n);", tn_);
-        emit(0, "//    if (n->lc_h == NULL) {");
-        emit(0, "//        fprintf (stderr,\"couldn't reg %s ZCM handler!\\n\");", tn_);
-        emit(0, "//        free (n);");
-        emit(0, "//        return NULL;");
-        emit(0, "//    }");
+        emit(0, "    n->z_sub = zcm_subscribe (zcm, channel,");
+        emit(0, "                              %s_handler_stub, n);", tn_);
+        emit(0, "    if (n->z_sub == NULL) {");
+        emit(0, "        fprintf (stderr,\"couldn't reg %s ZCM handler!\\n\");", tn_);
+        emit(0, "        free (n);");
+        emit(0, "        return NULL;");
+        emit(0, "    }");
         emit(0, "    return n;");
         emit(0, "}");
-        emit(0, "");
-        emit(0, "int %s_subscription_set_queue_capacity (%s_subscription_t* subs,", tn_, tn_);
-        emit(0, "                              int num_messages)");
-        emit(0, "{");
-        emit(0, "    return 0;//zcm_subscription_set_queue_capacity (subs->lc_h, num_messages);");
-        emit(0, "}\n");
+        //emit(0, "");
+        //emit(0, "int %s_subscription_set_queue_capacity (%s_subscription_t* subs,", tn_, tn_);
+        //emit(0, "                              int num_messages)");
+        //emit(0, "{");
+        //emit(0, "    return 0;//zcm_subscription_set_queue_capacity (subs->z_sub, num_messages);");
+        //emit(0, "}\n");
         emit(0, "");
         emit(0, "int %s_unsubscribe(zcm_t *zcm, %s_subscription_t* hid)", tn_, tn_);
         emit(0, "{");
-        emit(0, "//    int status = zcm_unsubscribe (zcm, hid->lc_h);");
-        emit(0, "//    if (0 != status) {");
-        emit(0, "//        fprintf(stderr,");
-        emit(0, "//           \"couldn't unsubscribe %s_handler %%p!\\n\", hid);", tn_);
-        emit(0, "//        return -1;");
-        emit(0, "//    }");
-        emit(0, "//    free (hid);");
+        emit(0, "    int status = zcm_unsubscribe (zcm, hid->z_sub);");
+        emit(0, "    if (0 != status) {");
+        emit(0, "        fprintf(stderr,");
+        emit(0, "           \"couldn't unsubscribe %s_handler %%p!\\n\", hid);", tn_);
+        emit(0, "        return -1;");
+        emit(0, "    }");
+        emit(0, "    free (hid);");
         emit(0, "    return 0;");
         emit(0, "}\n");
     }

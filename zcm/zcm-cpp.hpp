@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <unistd.h>
 #include <string>
 #include <vector>
@@ -9,8 +10,10 @@
 
 namespace zcm {
 
-struct Subscription;
-struct ReceiveBuffer;
+typedef zcm_recv_buf_t ReceiveBuffer;
+class Subscription;
+
+// TODO: unify pointer style pref "Msg* msg" vs "Msg *msg", I'd tend toward the former
 
 struct ZCM
 {
@@ -25,8 +28,7 @@ struct ZCM
     inline void stop();
     inline int handle();
 
-    inline int publish(const std::string& channel, const char *data,
-                       uint len);
+    inline int publish(const std::string& channel, const char *data, uint32_t len);
 
     // Note: if we make a publish binding that takes a const message reference, the compiler does
     //       not select the right version between the pointer and reference versions, so when the
@@ -38,15 +40,29 @@ struct ZCM
 
     template <class Msg, class Handler>
     Subscription *subscribe(const std::string& channel,
-            void (Handler::*cb)(const ReceiveBuffer *rbuf, const std::string& channel, const Msg *msg),
-            Handler *handler);
+                            void (Handler::*cb)(const ReceiveBuffer *rbuf,
+                                                const std::string& channel, const Msg *msg),
+                            Handler *handler);
 
     template <class Handler>
     Subscription *subscribe(const std::string& channel,
-                            void (Handler::*cb)(const ReceiveBuffer* rbuf, const std::string& channel),
+                            void (Handler::*cb)(const ReceiveBuffer* rbuf,
+                                                const std::string& channel),
                             Handler* handler);
 
-    // TODO: add unsubscribe
+    template <class Msg>
+    Subscription *subscribe(const std::string& channel,
+                            void (*cb)(const ReceiveBuffer *rbuf, const std::string& channel,
+                                       const Msg *msg, void *usr),
+                            void *usr);
+
+    Subscription *subscribe(const std::string& channel,
+                            void (*cb)(const ReceiveBuffer *rbuf, const std::string& channel,
+                                       void *usr),
+                            void *usr);
+
+    inline void unsubscribe(Subscription *sub);
+
     inline zcm_t* getUnderlyingZCM();
 
   private:
@@ -54,22 +70,31 @@ struct ZCM
     std::vector<Subscription*> subscriptions;
 };
 
-struct ReceiveBuffer
+// New class required to allow the Handler callbacks and std::string channel names
+class Subscription
 {
-    // TODO: is there a reason to have the ZCM pointer in here? It seems like it is always
-    //       set to nullptr
-    ZCM     *zcm;
+    friend class ZCM;
+    zcm_sub_t *c_sub;
 
-    uint64_t utime;
-    size_t   datalen;
-    char    *data;
-};
+  protected:
+    void *usr;
+    void (*callback)(const ReceiveBuffer* rbuf, const std::string& channel, void *usr);
 
-struct Subscription
-{
-    Subscription() {};
+  public:
     virtual ~Subscription() {}
+
+    void dispatch(const ReceiveBuffer *rbuf, const char *channel)
+    {
+        (*callback)(rbuf, channel, usr);
+    }
+
+    static void dispatch(const ReceiveBuffer *rbuf, const char *channel, void *usr)
+    {
+        ((Subscription*)usr)->dispatch(rbuf, channel);
+    }
 };
+
+// TODO: why not use or inherrit from the existing zcm data structures for the below
 
 struct LogEvent
 {
@@ -77,7 +102,7 @@ struct LogEvent
     std::string channel;
 
     uint64_t    utime;
-    size_t      datalen;
+    size_t      len;
     char       *data;
 };
 
@@ -108,3 +133,4 @@ struct LogFile
 #undef __zcm_cpp_impl_ok__
 
 }
+

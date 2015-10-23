@@ -35,7 +35,7 @@ int main(int argc, char *argv[])
 
     while (1) {
         example_t_publish(zcm, "EXAMPLE", &my_data);
-        usleep(1000/HZ);
+        usleep(1000000/HZ);
     }
 
     zcm_destroy(zcm);

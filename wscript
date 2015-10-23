@@ -1,11 +1,15 @@
 #! /usr/bin/env python
 # encoding: utf-8
 
+import sys
 import waflib
 
 # these variables are mandatory ('/' are converted automatically)
 top = '.'
 out = 'build'
+
+# Allow import of custom tools
+sys.path.append('examples/waftools')
 
 def options(ctx):
     ctx.load('compiler_c')
@@ -22,7 +26,9 @@ def configure(ctx):
     ctx.check_jni_headers()
     ctx.check_cfg(package='libzmq', args='--cflags --libs', uselib_store='zmq')
 
-    ctx.recurse('gen');
+    ctx.recurse('gen')
+
+    ctx.load('zcm-gen')
 
 def setup_environment(ctx):
     ctx.post_mode = waflib.Build.POST_LAZY
@@ -31,12 +37,11 @@ def setup_environment(ctx):
     useOptimize = not waflib.Options.options.debug
     useSymbols = waflib.Options.options.debug or waflib.Options.options.symbols
 
-    CLANG_FLAGS = ['-fcolor-diagnostics']
     WARNING_FLAGS = ['-Wall', '-Werror', '-Wno-unused-function', '-Wno-format-zero-length']
     SYM_FLAGS = ['-g']
     OPT_FLAGS = ['-O3']
-    ctx.env.CFLAGS_default   = ['-std=gnu99', '-fPIC'] + WARNING_FLAGS + SYM_FLAGS
-    ctx.env.CXXFLAGS_default = ['-std=c++11', '-fPIC'] + WARNING_FLAGS + SYM_FLAGS
+    ctx.env.CFLAGS_default   = ['-std=gnu99', '-fPIC'] + WARNING_FLAGS
+    ctx.env.CXXFLAGS_default = ['-std=c++11', '-fPIC'] + WARNING_FLAGS
     ctx.env.INCLUDES_default = [ctx.path.abspath()]
     if useOptimize:
         ctx.env.CFLAGS_default   += OPT_FLAGS
@@ -52,6 +57,10 @@ def build(ctx):
         setup_environment(ctx)
 
     ctx.recurse('zcm')
-    ctx.recurse('gen')
     ctx.recurse('config')
+    ctx.recurse('gen')
     ctx.recurse('tools')
+
+    ctx.add_group()
+
+    ctx.recurse('test')

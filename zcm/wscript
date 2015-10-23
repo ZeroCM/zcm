@@ -5,6 +5,7 @@ import os
 from waflib.Errors import WafError
 
 def build(ctx):
+    ctx.env.RPATH_zcm = [ctx.path.get_bld().abspath()]
     ctx.shlib(target = 'zcm',
               # Note: Had to make the include path one level up so that includes
               #       within this directory structure would match the structure
@@ -31,8 +32,10 @@ def build(ctx):
 
     ctx.install_files('${PREFIX}/include/zcm',
                       ['zcm.h', 'zcm_coretypes.h', 'transport.h', 'transport_registrar.h',
-                       'url.h', 'eventlog.h', 'zcm-cpp.hpp', 'zcm-cpp-impl.hpp'])
+                       'url.h', 'eventlog.h', 'zcm-cpp.hpp', 'zcm-cpp-impl.hpp',
+                       'transport_register.hpp'])
 
+    # XXX: disabled for now
     ctx.recurse('java');
     ctx.recurse('js');
 

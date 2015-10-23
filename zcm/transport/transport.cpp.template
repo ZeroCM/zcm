@@ -1,4 +1,8 @@
 #include "zcm/transport.h"
+/** If you choose to register the transport with the registrar, use these headers
+#include "zcm/transport_registrar.h"
+#include "zcm/transport_register.hpp"
+**/
 #include <cstdio>
 #include <cassert>
 
@@ -77,6 +81,9 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
     static void _destroy(zcm_trans_t *zt)
     { delete cast(zt); }
+
+    /** If you choose to use the registrar, use a static registration member **/
+    static const TransportRegister reg;
 };
 
 zcm_trans_methods_t ZCM_TRANS_CLASSNAME::methods = {
@@ -88,9 +95,13 @@ zcm_trans_methods_t ZCM_TRANS_CLASSNAME::methods = {
     &ZCM_TRANS_CLASSNAME::_destroy,
 };
 
-/** Add a create method here, like this:
-zcm_trans_t *zcm_trans_SOMENAME_create()
+/** Add a create method here and initialize the register, like this:
+static zcm_trans_t *createTransName()
 {
     return new ZCM_TRANS_CLASSNAME();
 }
+
+const TransportRegister ZCM_TRANS_CLASSNAME::regIpc(
+    "TransName", "Trans description (especially url components)", createTransName);
 **/
+

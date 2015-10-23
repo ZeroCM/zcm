@@ -18,6 +18,7 @@ static void sighandler(int sig) { running_recv = false; }
 
 static zcm_trans_t *makeTransport()
 {
+    // XXX: if ZCM_DEFAULT_URL is not set, this aborts without a nice error message
     const char *url = getenv("ZCM_DEFAULT_URL");
 
     auto *u = zcm_url_create(url);

@@ -73,6 +73,13 @@
  *         of channels that the user expects to receive. It exists to provide the
  *         transport layer more information for optimization purposes (e.g. the
  *         transport may decide to send each channel over a different endpoint).
+ *         If this method is called to disable with channel = NULL, the transport
+ *         may only disable receipt of channels that it did not previously receive
+ *         an explicit enable command for (i.e. those channels that it would be
+ *         receiving had no "receive all" command been given). If a channel is
+ *         explicity disabled after channel = NULL has been enabled, the transport
+ *         must continue receiving messages on that channel until recv channel = NULL
+ *         is disabled.
  *         NOTE: This method should work concurrently and correctly with
  *         recvmsg(). On success, this method should return ZCM_EOK
  *
@@ -85,10 +92,10 @@
  *         NOTE: This method should work concurrently and correctly with
  *         recvmsg_enable(). If 'timeout >= 0' then recvmsg()
  *         should return EAGAIN if it is unable to receive a message within
- *         'timeout' milliseconds. NOTE: We do *NOT* require a very accurate
- *         clock for this timeout feature and users should only expect
- *         accuracy within a few milliseconds. Users should *not* attempt
- *         to use this timing mechanism for real-time events.
+ *         'timeout' milliseconds.
+ *         NOTE: We do *NOT* require a very accurate clock for this timeout feature
+ *         and users should only expect accuracy within a few milliseconds. Users
+ *         should *not* attempt to use this timing mechanism for real-time events.
  *
  *      int update(zcm_trans_t *zt);
  *      --------------------------------------------------------------------
@@ -188,8 +195,6 @@ extern "C" {
 # define INLINE
 #endif
 
-#define ZCM_CHANNEL_MAXLEN 32
-
 /* Return codes */
 #define ZCM_EOK       0
 #define ZCM_EINVALID  1
@@ -202,6 +207,7 @@ typedef struct zcm_trans_methods_t zcm_trans_methods_t;
 
 
 /* TODO: Discuss the semantics of this datastruct depending on the context (send vs. recv) */
+/* TODO: do we really need another structure for this (zcm_recv_buf_t is almost identiical) */
 struct zcm_msg_t
 {
     uint64_t utime;  /* 0 means invalid (caller should compute its own utime) */
