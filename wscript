@@ -1,8 +1,9 @@
 #! /usr/bin/env python
 # encoding: utf-8
 
-import sys
+import sys,optparse
 import waflib
+from waflib import Logs
 
 # these variables are mandatory ('/' are converted automatically)
 top = '.'
@@ -14,21 +15,80 @@ sys.path.append('examples/waftools')
 def options(ctx):
     ctx.load('compiler_c')
     ctx.load('compiler_cxx')
-    ctx.add_option('-s', '--symbols', dest='symbols', default=False, action='store_true',
+    add_zcm_options(ctx)
+
+def add_zcm_options(ctx):
+    gr = ctx.add_option_group('ZCM Configuration options')
+    gr.add_option('-s', '--symbols', dest='symbols', default=False, action='store_true',
                    help='Leave the debugging symbols in the resulting object files')
-    ctx.add_option('-d', '--debug', dest='debug', default=False, action='store_true',
+    gr.add_option('-d', '--debug', dest='debug', default=False, action='store_true',
                    help='Compile all C/C++ code in debug mode: no optimizations and full symbols')
+
+    def add_use_option(name, desc):
+        gr.add_option('--use-'+name, dest='use_'+name, default=False, action='store_true', help=desc)
+
+    def add_trans_option(name, desc):
+        gr.add_option('--use-'+name, dest='use_'+name, default=False, action='store_true', help=desc)
+
+    add_use_option('all',  'Attempt to enable every ZCM feature')
+    add_use_option('java', 'Enable java features')
+    add_use_option('zmq',  'Enable ZeroMQ features')
+
+    add_trans_option('inproc', 'Enable the In-Process transport (Requires ZeroMQ)')
+    add_trans_option('ipc',    'Enable the IPC transport (Requires ZeroMQ)')
+    add_trans_option('udpm',   'Enable the UDP Multicast transport (LCM-compatible)')
+    add_trans_option('serial', 'Enable the Serial transport')
 
 def configure(ctx):
     ctx.load('compiler_c')
     ctx.load('compiler_cxx')
+    ctx.load('zcm-gen')
+    ctx.recurse('gen')
+    process_zcm_options(ctx)
+
+def process_zcm_options(ctx):
+    opt = waflib.Options.options
+    env = ctx.env;
+    def hasopt(key):
+        return opt.use_all or getattr(opt, key)
+
+    env.USING_CPP  = True
+    env.USING_JAVA = hasopt('use_java') and attempt_use_java(ctx)
+    env.USING_ZMQ  = hasopt('use_zmq')  and attempt_use_zmq(ctx)
+
+    env.USING_TRANS_IPC    = hasopt('use_ipc')    and env.USING_ZMQ
+    env.USING_TRANS_INPROC = hasopt('use_inproc') and env.USING_ZMQ
+    env.USING_TRANS_UDPM   = hasopt('use_udpm')
+    env.USING_TRANS_SERIAL = hasopt('use_serial')
+
+    def print_entry(name, enabled):
+        Logs.pprint("NORMAL", "    {:15}".format(name), sep='')
+        if enabled:
+            Logs.pprint("GREEN", "Enabled")
+        else:
+            Logs.pprint("RED", "Disabled")
+
+    Logs.pprint('BLUE', '\nDependency Configuration:')
+    print_entry("C/C++",  env.USING_CPP)
+    print_entry("Java",   env.USING_JAVA)
+    print_entry("ZeroMQ", env.USING_ZMQ)
+
+    Logs.pprint('BLUE', '\nTransport Configuration:')
+    print_entry("ipc",    env.USING_TRANS_IPC)
+    print_entry("inproc", env.USING_TRANS_INPROC)
+    print_entry("udpm",   env.USING_TRANS_UDPM)
+    print_entry("serial", env.USING_TRANS_SERIAL)
+
+    Logs.pprint('NORMAL', '')
+
+def attempt_use_java(ctx):
     ctx.load('java')
     ctx.check_jni_headers()
+    return True
+
+def attempt_use_zmq(ctx):
     ctx.check_cfg(package='libzmq', args='--cflags --libs', uselib_store='zmq')
-
-    ctx.recurse('gen')
-
-    ctx.load('zcm-gen')
+    return True
 
 def setup_environment(ctx):
     ctx.post_mode = waflib.Build.POST_LAZY
