@@ -4,6 +4,7 @@
 import sys,optparse
 import waflib
 from waflib import Logs
+from waflib.Errors import WafError
 
 # these variables are mandatory ('/' are converted automatically)
 top = '.'
@@ -52,14 +53,22 @@ def process_zcm_options(ctx):
     def hasopt(key):
         return opt.use_all or getattr(opt, key)
 
+    ctx.env.VERSION='1.0.0'
+    ctx.USING_OPT = not opt.debug
+    ctx.USING_SYM = opt.debug or opt.symbols
+
     env.USING_CPP  = True
     env.USING_JAVA = hasopt('use_java') and attempt_use_java(ctx)
     env.USING_ZMQ  = hasopt('use_zmq')  and attempt_use_zmq(ctx)
 
-    env.USING_TRANS_IPC    = hasopt('use_ipc')    and env.USING_ZMQ
-    env.USING_TRANS_INPROC = hasopt('use_inproc') and env.USING_ZMQ
+    env.USING_TRANS_IPC    = hasopt('use_ipc')
+    env.USING_TRANS_INPROC = hasopt('use_inproc')
     env.USING_TRANS_UDPM   = hasopt('use_udpm')
     env.USING_TRANS_SERIAL = hasopt('use_serial')
+
+    ZMQ_REQUIRED = env.USING_TRANS_IPC or env.USING_TRANS_INPROC
+    if ZMQ_REQUIRED and not env.USING_ZMQ:
+        raise WafError("Using ZeroMQ is required for some of the selected transports (--use-zmq)")
 
     def print_entry(name, enabled):
         Logs.pprint("NORMAL", "    {:15}".format(name), sep='')
@@ -92,10 +101,6 @@ def attempt_use_zmq(ctx):
 
 def setup_environment(ctx):
     ctx.post_mode = waflib.Build.POST_LAZY
-    ctx.env.VERSION='1.0.0'
-
-    useOptimize = not waflib.Options.options.debug
-    useSymbols = waflib.Options.options.debug or waflib.Options.options.symbols
 
     WARNING_FLAGS = ['-Wall', '-Werror', '-Wno-unused-function', '-Wno-format-zero-length']
     SYM_FLAGS = ['-g']
@@ -103,10 +108,10 @@ def setup_environment(ctx):
     ctx.env.CFLAGS_default   = ['-std=gnu99', '-fPIC'] + WARNING_FLAGS
     ctx.env.CXXFLAGS_default = ['-std=c++11', '-fPIC'] + WARNING_FLAGS
     ctx.env.INCLUDES_default = [ctx.path.abspath()]
-    if useOptimize:
+    if ctx.env.USING_OPT:
         ctx.env.CFLAGS_default   += OPT_FLAGS
         ctx.env.CXXFLAGS_default += OPT_FLAGS
-    if useSymbols:
+    if ctx.env.USING_SYM:
         ctx.env.CFLAGS_default   += SYM_FLAGS
         ctx.env.CXXFLAGS_default += SYM_FLAGS
 

@@ -1,7 +1,10 @@
 #!/usr/bin/env python
 
 def build(ctx):
+    lang = ['c', 'cpp']
+    if ctx.env.USING_JAVA:
+        lang += ['java']
     ctx.zcmgen(name    = 'testzcmtypes',
                source  = ctx.path.ant_glob('*.zcm'),
-               lang    = ['c', 'cpp', 'java'],
+               lang    = lang,
                javapkg = 'test.zcmtypes')
