@@ -57,6 +57,9 @@ There are two variants of this interface. One variant is for implementing blocki
 and the other is for non-blocking transports. In most cases on a linux system, the blocking
 interface is most convienant, but the non-blocking interface can also be used if desired.
 
+All of the core transport code is contained in `zcm/transport.h` and reading it is
+highly recommended.
+
 ### Core Datastructs
 
 To pass message data between the core-library and the transport implementations, the
@@ -242,18 +245,102 @@ transports (such as those found in embedded).
 
  - `int update(zcm_trans_t *zt)`
 
-   This method is called from the zcm_handle_nonblock() function.
+   This method is called from the `zcm_handle_nonblock()` function.
    This method provides a periodicly-running routine that can perform
    updates to the underlying hardware or other general mantainence to
-   this transport. This method should *never block*. Again, this
-   method is called from zcm_handle_nonblock() and thus runs at the same
-   frequency as zcm_handle_nonblock(). Failure to call zcm_handle_nonblock()
+   this transport. This method should **never block**. Again, this
+   method is called from `zcm_handle_nonblock()` and thus runs at the same
+   frequency as `zcm_handle_nonblock()`. Failure to call `zcm_handle_nonblock()`
    while using an nonblock transport may cause the transport to work
    incorrectly on both message send and recv.
 
  - `void destroy(zcm_trans_t *zt)`
 
    Close the transport and cleanup any resources used.
+
+### Registering a Transport
+
+Once we've implemented a new transport, we can *register* its create function with ZCM.
+Registering a transport allows users to create it using a url just like the built-in transports.
+To register, we simply need to call the following function (from `zcm/transport_registrar.h`):
+
+    bool zcm_transport_register(const char *name, const char *desc, zcm_trans_create_func *creator);
+
+The `name` parameter is the simply the name of the transport protocol to use in the url.
+
+If we wanted to register the transport we created above, we could write:
+
+    zcm_transport_register("myt", "A custom example transport", my_transport_create);
+
+Now, we can create new `my_transport` instances with:
+
+    zcm_create("myt://endpoint-for-my?param1=abcd&param2=dfg&param3=yui");
+
+This will issue a call to our `my_transport_create` function with a `zcm_url_t`
+
+We even can go a step further and register transports in a static-context (i.e. before main)!
+This can be acheived we either a compiler-specific attribute (in C) or with a static object
+constructor in C++. The `zcm_transport_register` function is designed to be static-context safe.
+
+Lastly, ZCM supports using a transport without registering. In this mode, URL parsing is
+not supported. Instead, the user manually constructs a custom `zcm_trans_t*` and passes
+it directly to the core library with the following function:
+
+    zcm_t *zcm_create_trans(zcm_trans_t *zt);
+
+## Blocking vs Non-Blocking Message Handling
+
+In most ways, the distiction between blocking and non-blocking transports are completely
+transparent to the end user. Internally, ZCM operates differently depending on the type
+of transport it's using. This allows all of the following to work *identically*:
+
+  - `zcm_publish`
+  - `zcm_subscribe`
+  - `zcm_unsubscribe`
+  - Message handler callbacks
+
+However, like all abstractions, this one is not completely *leak-free*. Despite our best efforts,
+we were unable to design a reasonable approach to message dispatching. Rather than try to force
+a broken abstraction that would behave differently depending on mode, we opted to make this
+difference explicit with distinct API methods.
+
+For the blocking case, there are the following approaches:
+
+  - Spawning a thread
+    - `zcm_start()     /* starts a dispatch thread to be the mainloop */`
+    - `zcm_stop()      /* stops the dispatch thread */`
+  - Becoming the mainloop
+    - `zcm_become()    /* this thread becomes the mainloop and doesn't return */`
+  - LCM-style (only for API compatibility)
+    - `zcm_handle()    /* block for a message, dispatch it, and return */`
+
+For the non-blocking case, there is a single approach:
+
+  - `zcm_handle_nonblock()  /* returns non-zero if a message was available and dispatched */`
+
+To prevent errors, the internal library checks that the API method matches the transport type.
+
+## Closing Thoughts
+
+While incredibly powerful, the transport API can be tricky to understand and use as a beginner.
+This appears to primarily be the incidental complexity of our requirements:
+
+  - C89 API for supporting embedded (and other languages in the future)
+  - Blocking and Non-blocking support
+  - First-class usage (no special builtin transports)
+
+For the aspiring transport developer, we recommend reading the following core sources:
+
+  - `zcm/transport.h`
+  - `zcm/transport_registrar.h` and `zcm/transport_registrar.c`
+
+It's also great to browse the implementations of built-in transports:
+
+  - `zcm/transport/transport_zmq_local.cpp`
+  - `zcm/transport/transport_serial.cpp`
+  - `zcm/transport/udpm/udpm.cpp`
+
+Finally, we love contributions! Check out [Project Philosphy & Contributing](contributing.md).
 
 
 <hr>
