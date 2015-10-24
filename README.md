@@ -31,7 +31,8 @@ to a wide set of use-cases that were neither possible nor practical with LCM.
  - [From LCM to ZCM](docs/lcm_to_zcm.md)
  - [ZCM Type Grammar](docs/zcmtype_grammar.md)
  - [Transport Layer](docs/transports.md)
- - [Embedded Applications](docs/embedded.md).
+ - [Embedded Applications](docs/embedded.md)
+ - [Web Applications](docs/web.md)
  - [Dependencies & Building](docs/building.md)
  - [Project Philosphy & Contributing](docs/contributing.md)
 
