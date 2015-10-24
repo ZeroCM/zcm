@@ -15,27 +15,246 @@ The following table shows the built-in transports and the URLs that can
 be used to *summon* the transport:
 
 <table>
-  <thead>
-    <tr><th>  Type                </th><th>  URL Format                                              </th></tr>
-  </thead>
-    <tr><td>  Inter-thread        </td><td>  inproc                                                  </td></tr>
-    <tr><td>  Inter-process (IPC) </td><td>  ipc                                                     </td></tr>
-    <tr><td>  UDP Multicast       </td><td>  udpm://&lt;udpm-ipaddr&gt;:&lt;port&gt;?ttl=&lt;ttl&gt; </td></tr>
-    <tr><td>  Serial              </td><td>  serial://&lt;path-to-device&gt;?baud=&lt;baud&gt; </td></tr>
+  <thead><tr>
+    <th>  Type          </th>
+    <th>  URL Format    </th>
+    <th>  Example Usage </th>
+  </tr></thead><tr>
+    <td>       Inter-thread                                            </td>
+    <td><pre>  inproc                                                  </pre></td>
+    <td><pre>  zcm_create("inproc")                                    </pre></td>
+  </tr><tr>
+    <td>       Inter-process (IPC)                                     </td>
+    <td><pre>  ipc                                                     </pre></td>
+    <td><pre>  zcm_create("ipc")                                       </pre></td>
+  </tr><tr>
+    <td>       UDP Multicast                                           </td>
+    <td><pre>  udpm://&lt;udpm-ipaddr&gt;:&lt;port&gt;?ttl=&lt;ttl&gt; </pre></td>
+    <td><pre>  zcm_create("udpm://239.255.76.67:7667?ttl=0")           </pre></td>
+  </tr><tr>
+    <td>       Serial                                                  </td>
+    <td><pre>  serial://&lt;path-to-device&gt;?baud=&lt;baud&gt;       </pre></td>
+    <td><pre>  zcm_create("serial:///dev/ttyUSB0?baud=115200")         </pre></td>
+  </tr>
 </table>
 
-Examples:
-
- - `zcm_create("ipc")`
- - `zcm_create("udpm://239.255.76.67:7667?ttl=0")`
- - `zcm_create("serial:///dev/ttyUSB0?baud=115200")`
-
-When no url is provided to `zcm_create`, the ZCM_DEFAULT_URL environment variable is
+When no url is provided (i.e. `zcm_create(NULL)`), the `ZCM_DEFAULT_URL` environment variable is
 queried for a valid url.
 
 ## Custom Transports
 
-TODO
+While these built-in transports are enough for many applications, there are many situations
+that can benefit from a custom transport protocol. For this, we can use the transport API.
+In fact, the transport API is *first-class*. All transports, even built-in ones, use this API.
+There is nothing special about the built-in transports. You can even configure a custom transport
+to use a URL just like above.
+
+The transport API is a C89-style interface. While it is possible to expose this interface to
+other languages, we don't currently provide this capability. However, you can still implement a
+custom transport using the C89 API and access it from any other language just like the built-ins.
+
+There are two variants of this interface. One variant is for implementing blocking-style transports,
+and the other is for non-blocking transports. In most cases on a linux system, the blocking
+interface is most convienant, but the non-blocking interface can also be used if desired.
+
+### Core Datastructs
+
+To pass message data between the core-library and the transport implementations, the
+following datastruct is employed:
+
+    struct zcm_msg_t
+    {
+        uint64_t utime;  /* 0 means invalid (caller should compute its own utime) */
+        const char *channel;
+        size_t len;
+        char *buf;
+    };
+
+To implement a polymorphic interface with only C89 code, we use a hand-rolled virtual-table
+of function pointers to the type. The following struct represtents this virtual-table:
+
+    struct zcm_trans_methods_t
+    {
+        size_t  (*get_mtu)(zcm_trans_t *zt);
+        int     (*sendmsg)(zcm_trans_t *zt, zcm_msg_t msg);
+        int     (*recvmsg_enable)(zcm_trans_t *zt, const char *channel, bool enable);
+        int     (*recvmsg)(zcm_trans_t *zt, zcm_msg_t *msg, int timeout);
+        int     (*update)(zcm_trans_t *zt);
+        void    (*destroy)(zcm_trans_t *zt);
+    };
+
+To make everything work, we need a *basetype* that is aware of the virtual-table and understands
+whether it is a blocking or non-blocking style transport. Here is this type:
+
+    struct zcm_trans_t
+    {
+        enum zcm_type trans_type;
+        zcm_trans_methods_t *vtbl;
+    };
+
+Creating custom transports requires a bit of pointer coercion, but otherwise is fairly straghtforward. Here's is an outline of a typical implementation:
+
+    typedef struct
+    {
+        enum zcm_type trans_type;
+        zcm_trans_methods_t *vtbl;
+        /* transport specific data here */
+    } my_transport_t;
+
+    /* implement the API methods here:
+        my_transport_get_mtu
+        my_transport_sendmsg
+        my_transport_recvmsg_enable
+        my_transport_recvmsg
+        my_transport_update
+        my_transport_destroy
+    */
+
+    static zcm_trans_methods_t methods = {
+        my_transport_get_mtu,
+        my_transport_sendmsg,
+        my_transport_recvmsg_enable,
+        my_transport_recvmsg,
+        my_transport_update,
+        my_transport_destroy
+    };
+
+    zcm_trans_t *my_transport_create(zcm_url_t *url)
+    {
+        my_transport_t *trans;
+        /* construct trans here */
+
+        trans->trans_type = ZCM_BLOCKING;  /* or ZCM_NONBLOCKING */
+        trans->vtbl = &methods;            /* setting the virtual-table defined above */
+
+        return (zcm_trans_t *) trans;
+    }
+
+IMPORTANT: The `my_transport_t` struct **must** perfectly mirror the start of `zcm_trans_t`.
+
+IMPORTANT: The `my_transport_create` **must** set the `trans_type` and `vtbl` fields
+
+
+### Blocking Transport API Semantics
+
+ -  `size_t get_mtu(zcm_trans_t *zt)`
+
+   Returns the Maximum Transmission Unit supported by this transport.
+   The transport is allowed to ignore any message above this size.
+   Users of this transport should ensure that they never attempt to
+   send messages larger than the MTU of their chosen transport.
+
+ -  `int sendmsg(zcm_trans_t *zt, zcm_msg_t msg)`
+
+   The caller to this method initiates a message send operation. The
+   caller must populate the fields of the `zcm_msg_t`. The channel must
+   be less than `ZCM_CHANNEL_MAXLEN` and `len <= get_mtu()`, otherwise
+   this method can return `ZCM_EINVALID`. On receipt of valid params,
+   this method should block until the message has been successfully
+   sent and should return `ZCM_EOK`.
+
+ -  `int recvmsg_enable(zcm_trans_t *zt, const char *channel, bool enable)`
+
+   This method will enable/disable the receipt of messages on the particular
+   channel. For 'all channels', the user should pass NULL for the channel.
+   This method is like a "suggestion", the transport is allowed to "enable"
+   more channels without concern. This method only sets the "minimum set"
+   of channels that the user expects to receive. It exists to provide the
+   transport layer more information for optimization purposes (e.g. the
+   transport may decide to send each channel over a different endpoint).
+
+   NOTE: This method should work concurrently and correctly with `recvmsg()`.
+   On success, this method should return `ZCM_EOK`
+
+ - `int recvmsg(zcm_trans_t *zt, zcm_msg_t *msg, int timeout)`
+
+   The caller to this method initiates a message recv operation. This
+   methods blocks until it receives a message. It should return `ZCM_EOK`.
+   Messages that have been *enabled* with `recvmsg_enable()` *must* be received.
+   Extra messages can also be received; the *enabled* channels define a minimum set.
+
+   If `timeout >= 0` then `recvmsg()` should return `ZCM_EAGAIN` if it is unable
+   to receive a message within the allotted time.
+
+   NOTE: We do **NOT** require a very accurate clock for this timeout feature
+   and users should only expect accuracy within a few milliseconds. Users
+   should **not** attempt to use this timing mechanism for real-time events.
+
+   NOTE: This method should work concurrently and correctly with
+   recvmsg_enable().
+
+ - `int update(zcm_trans_t *zt)`
+
+   This method is unused (in this mode) and should not be called by the user.
+   An implementation is allowed to set this vtable field to NULL.
+
+ - `void destroy(zcm_trans_t *zt)`
+
+   Close the transport and cleanup any resources used.
+
+### Non-blocking API Semantics
+
+General Note: None of the non-blocking methods must be thread-safe.
+This API is designed for single-thread, non-blocking, and minimalist
+transports (such as those found in embedded).
+
+ - `size_t get_mtu(zcm_trans_t *zt)`
+
+   Returns the Maximum Transmission Unit supported by this transport.
+   The transport is allowed to ignore any message above this size.
+   Users of this transport should ensure that they never attempt to
+   send messages larger than the MTU of their chosen transport.
+
+ - `int sendmsg(zcm_trans_t *zt, zcm_msg_t msg)`
+
+   The caller to this method initiates a message send operation. The
+   caller must populate the fields of the `zcm_msg_t`. The channel must
+   be less than `ZCM_CHANNEL_MAXLEN` and `len <= get_mtu()`, otherwise
+   this method can return `ZCM_EINVALID`. On receipt of valid params,
+   this method should **never block**. If the transport cannot accept the
+   message due to unavailability, `ZCM_EAGAIN` should be returned.
+   On success `ZCM_EOK` should be returned.
+
+ - `int recvmsg_enable(zcm_trans_t *zt, const char *channel, bool enable)`
+
+   This method will enable/disable the receipt of messages on the particular
+   channel. For *all channels*, the user should pass NULL for the channel.
+   This method is like a "suggestion", the transport is allowed to "enable"
+   more channels without concern. This method only sets the "minimum set"
+   of channels that the user expects to receive. It exists to provide the
+   transport layer more information for optimization purposes (e.g. the
+   transport may decide to send each channel over a different endpoint).
+
+   NOTE: This method does NOT have to work concurrently with `recvmsg()`.
+   On success, this method should return `ZCM_EOK`
+
+ - `int recvmsg(zcm_trans_t *zt, zcm_msg_t *msg, int timeout)`
+
+   The caller to this method initiates a message receive operation. This
+   methods should **never block**. If a message has been received then
+   `ZCM_EOK` should be returned, otherwise it should return `ZCM_EAGAIN`.
+   Messages that have been *enabled* with `recvmsg_enable()` **must** be received.
+   Extra messages can also be received; the *enabled* channels define a minimum set.
+
+   NOTE: This method does NOT have to work concurrently with `recvmsg_enable()`
+
+   NOTE: The timeout field is ignored
+
+ - `int update(zcm_trans_t *zt)`
+
+   This method is called from the zcm_handle_nonblock() function.
+   This method provides a periodicly-running routine that can perform
+   updates to the underlying hardware or other general mantainence to
+   this transport. This method should *never block*. Again, this
+   method is called from zcm_handle_nonblock() and thus runs at the same
+   frequency as zcm_handle_nonblock(). Failure to call zcm_handle_nonblock()
+   while using an nonblock transport may cause the transport to work
+   incorrectly on both message send and recv.
+
+ - `void destroy(zcm_trans_t *zt)`
+
+   Close the transport and cleanup any resources used.
+
 
 <hr>
 <a href="javascript:history.go(-1)">Back</a>
