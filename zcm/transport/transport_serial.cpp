@@ -467,7 +467,9 @@ static zcm_trans_t *create(zcm_url_t *url)
     return nullptr;
 }
 
+#ifdef USING_TRANS_SERIAL
 // Register this transport with ZCM
 const TransportRegister ZCM_TRANS_CLASSNAME::reg(
     "serial", "Transfer data via a serial connection (e.g. 'serial:///dev/ttyUSB0?baud=115200')",
     create);
+#endif

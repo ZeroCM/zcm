@@ -108,6 +108,13 @@ def setup_environment(ctx):
     ctx.env.CFLAGS_default   = ['-std=gnu99', '-fPIC'] + WARNING_FLAGS
     ctx.env.CXXFLAGS_default = ['-std=c++11', '-fPIC'] + WARNING_FLAGS
     ctx.env.INCLUDES_default = [ctx.path.abspath()]
+
+    ctx.env.DEFINES_default = []
+    for k in ctx.env.keys():
+        if k.startswith('USING_'):
+            if getattr(ctx.env, k):
+                ctx.env.DEFINES_default.append(k)
+
     if ctx.env.USING_OPT:
         ctx.env.CFLAGS_default   += OPT_FLAGS
         ctx.env.CXXFLAGS_default += OPT_FLAGS
