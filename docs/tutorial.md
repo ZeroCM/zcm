@@ -525,7 +525,8 @@ But, there is much more to ZCM, so we recommend a few *next steps* below:
  - [Transport Layer](transports.md)
  - [Embedded Applications](embedded.md).
  - [Dependencies & Building](building.md)
- - [Project Philosphy & Contributing](contributing.md)
+ - [Project Philosophy](philosophy.md)
+ - [Contributing](contributing.md)
 
 <hr>
 <a href="javascript:history.go(-1)">Back</a>

@@ -16,25 +16,25 @@ be used to *summon* the transport:
 
 <table>
   <thead><tr>
-    <th>  Type          </th>
-    <th>  URL Format    </th>
-    <th>  Example Usage </th>
+    <th>        Type          </th>
+    <th>        URL Format    </th>
+    <th>        Example Usage </th>
   </tr></thead><tr>
-    <td>       Inter-thread                                            </td>
-    <td><pre>  inproc                                                  </pre></td>
-    <td><pre>  zcm_create("inproc")                                    </pre></td>
+    <td>        Inter-thread                                            </td>
+    <td><code>  inproc                                                  </code></td>
+    <td><code>  zcm_create("inproc")                                    </code></td>
   </tr><tr>
-    <td>       Inter-process (IPC)                                     </td>
-    <td><pre>  ipc                                                     </pre></td>
-    <td><pre>  zcm_create("ipc")                                       </pre></td>
+    <td>        Inter-process (IPC)                                     </td>
+    <td><code>  ipc                                                     </code></td>
+    <td><code>  zcm_create("ipc")                                       </code></td>
   </tr><tr>
-    <td>       UDP Multicast                                           </td>
-    <td><pre>  udpm://&lt;udpm-ipaddr&gt;:&lt;port&gt;?ttl=&lt;ttl&gt; </pre></td>
-    <td><pre>  zcm_create("udpm://239.255.76.67:7667?ttl=0")           </pre></td>
+    <td>        UDP Multicast                                           </td>
+    <td><code>  udpm://&lt;udpm-ipaddr&gt;:&lt;port&gt;?ttl=&lt;ttl&gt; </code></td>
+    <td><code>  zcm_create("udpm://239.255.76.67:7667?ttl=0")           </code></td>
   </tr><tr>
-    <td>       Serial                                                  </td>
-    <td><pre>  serial://&lt;path-to-device&gt;?baud=&lt;baud&gt;       </pre></td>
-    <td><pre>  zcm_create("serial:///dev/ttyUSB0?baud=115200")         </pre></td>
+    <td>        Serial                                                  </td>
+    <td><code>  serial://&lt;path-to-device&gt;?baud=&lt;baud&gt;       </code></td>
+    <td><code>  zcm_create("serial:///dev/ttyUSB0?baud=115200")         </code></td>
   </tr>
 </table>
 
@@ -340,8 +340,7 @@ It's also great to browse the implementations of built-in transports:
   - `zcm/transport/transport_serial.cpp`
   - `zcm/transport/udpm/udpm.cpp`
 
-Finally, we love contributions! Check out [Project Philosphy & Contributing](contributing.md).
-
+Finally, we love contributions! Check out [Contributing](contributing.md).
 
 <hr>
 <a href="javascript:history.go(-1)">Back</a>

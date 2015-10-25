@@ -31,45 +31,41 @@ All of the optional dependencies can be enabled or disabled at build-time by usi
 dependencies as possible. If you wish to disallow a particular feature, you can
 disable it.
 
-## Configuring
-
-The configure step allows tweaking of the build and the dependencies that are to
-be used. For this, run:
-
-    ./waf configure
-
-This will check for all dependencies and set-up the build environment. If you wish
-to use different dependencies or settings, you can re-run with some command-line options.
-For a list of the available options:
-
-    ./waf --help
-
-Configure is the step most likely to fail in the build sequence. Typically configure
-fails due to missing dependecies.
-
 ## Building
 
-After sucessful configuring, building is just:
+Building is very similair to the GNU Autotools style, but recast in a Waf light:
 
-    ./waf build
+    ./waf configure && ./waf build && sudo ./waf install
 
-## Testing
+The command above will build the minimal ZCM possible with almost no features
+enabled. For beginners, we suggest building ZCM with all features enabled so
+tutorials and intros will work flawlessly. For all features:
 
-You can verify a correct build by running the ZCM regresssion test suite:
+    ./waf configure --use-all && ./waf build && sudo ./waf install
 
-    ./test.sh
+Unless you're lucky, the above command will probably fail due to a missing *Optional*
+dependency (as listed above). For Ubuntu users, we have provided a dependency installation
+script using:
 
-## Installing
+    ./scripts/install-deps.sh
 
-To use ZCM, we must install into the system directories:
+On other systems you may need to use your specific package manager to obtain the needed
+packages. It should be noted that JNI sometimes needs `$JAVA_HOME` to be manually set.
 
-    sudo ./waf install
+At this point you should be able to start exploring ZCM. Check out the [Tutorial](tutorial.md).
 
-## In One Command
+## Advanced Build Options
 
-In summary, we can do all of the above in one simple command:
+As mentioned earlier, we can pick-and-choice the dependencies and features we desire.
+As an example, imagine that we only intend to use the IPC transport and we don't want
+a dependency to Java. We could builld ZCM as follows:
 
-    ./waf configure && ./waf build && ./test.sh && sudo ./waf install
+    ./waf configure --use-ipc --use-zmq && ./waf build && ./test.sh && sudo ./waf install
+
+There are many more configuration options that can be passed to the configure script. To
+browse them all, simply run:
+
+    ./waf --help
 
 <hr>
 <a href="javascript:history.go(-1)">Back</a>

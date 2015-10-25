@@ -4,15 +4,16 @@ ZCM is a micro-framework for mesaage-passing and data-marshalling, designed orig
 for robotics systems where high-bandwidth and low-latency are critical and the variance in
 compute platforms is large.
 
-ZCM provides a publish/subscribe message-passing model and automatic marshalling/unmarshalling
-code generation with bindings for a variety of programming languages. This message-type design
-respects language-specific coding idioms insofar as possible.
+ZCM is a publish/subscribe message-passing system with automatic message type-checking and
+serialization. It provides bindings for a variety of programming languages, and generates
+lanaguage-specific messsage serialization routines. Using a ZCM message feels natural
+in each lanaguage.
 
-ZCM is transport-agnostic. There is no single built-in transport backend. Every transport is
+ZCM is transport-agnostic. There is no required built-in transport. Every transport is
 first-class. This is achieved by defining strict blocking and non-blocking transport APIs. As
 long as a transport implementation conforms to this API, it should work flawlessly with ZCM.
 This design allows ZCM to work well on anything from a high-end posix-based compute cluster
-to a low-end real-time embedded-system with no operating system.
+with thousands of nodes to a low-end real-time embedded-system with no operating system.
 
 ZCM is a derivation of the LCM project created in 2006 by the MIT DARPA Urban Challenge
 team. The core message-type system, publish/subscribe APIs, and basic tools are ported
@@ -26,6 +27,15 @@ embedded-system periphials (UART, I2C, etc), and web applications (Web Sockets).
 By refusing to make hard assumptions about the transport layer, ZCM opens the door
 to a wide set of use-cases that were neither possible nor practical with LCM.
 
+To learn more about what ZCM tries to be, and its guiding principles, check out the
+[Project Philosphy](docs/philosophy.md).
+
+To dive, in and see some examples, check out the [Tutorial](docs/tutorial.md).
+
+If you have previously used LCM, check out [From LCM to ZCM](docs/lcm_to_zcm.md).
+
+To learn how you can contribute to this project, check out [Contributing](docs/contributing.md)
+
 ## Quick Links
  - [Tutorial](docs/tutorial.md)
  - [From LCM to ZCM](docs/lcm_to_zcm.md)
@@ -34,12 +44,13 @@ to a wide set of use-cases that were neither possible nor practical with LCM.
  - [Embedded Applications](docs/embedded.md)
  - [Web Applications](docs/web.md)
  - [Dependencies & Building](docs/building.md)
- - [Project Philosphy & Contributing](docs/contributing.md)
+ - [Project Philosphy](docs/philosophy.md)
+ - [Contributing](docs/contributing.md)
 
 ## Features
  - Type-safe and version-safe message serialization
  - A useful suite of tools for logging, log-playback, and real-time message inspection (spy)
- - A wide set of built-in transports including UDP Multicast, IPC, In-Process, Serial, and ZeroMQ
+ - A wide set of optionally built-in transports including UDP Multicast, IPC, In-Process, Serial, and ZeroMQ
  - A well-defined interface for building custom transports
  - Strong support for embedded applications. The core embedded code is restricted to C89.
  - Only one true dependency: A modern C++11 compiler for the non-embedded code.
