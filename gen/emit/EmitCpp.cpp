@@ -266,7 +266,7 @@ struct Emit : public Emitter
         emit(2, "inline int _encodeNoHash(void *buf, int offset, int maxlen) const;");
         emit(2, "inline int _getEncodedSizeNoHash() const;");
         emit(2, "inline int _decodeNoHash(const void *buf, int offset, int maxlen);");
-        emit(2, "inline static int64_t _computeHash(const __zcm_hash_ptr *p);");
+        emit(2, "inline static uint64_t _computeHash(const __zcm_hash_ptr *p);");
         emit(0, "};");
         emit(0, "");
     }
@@ -283,7 +283,7 @@ struct Emit : public Emitter
         emit(0, "int %s::encode(void *buf, int offset, int maxlen) const", sn);
         emit(0, "{");
         emit(1,     "int pos = 0, tlen;");
-        emit(1,     "int64_t hash = getHash();");
+        emit(1,     "int64_t hash = (int64_t)getHash();");
         emit(0, "");
         emit(1,     "tlen = __int64_t_encode_array(buf, offset + pos, maxlen - pos, &hash, 1);");
         emit(1,     "if(tlen < 0) return tlen; else pos += tlen;");
@@ -359,7 +359,7 @@ struct Emit : public Emitter
         }
 
         if (lastComplexMember >= 0) {
-            emit(0, "int64_t %s::_computeHash(const __zcm_hash_ptr *p)", sn);
+            emit(0, "uint64_t %s::_computeHash(const __zcm_hash_ptr *p)", sn);
             emit(0, "{");
             emit(1,     "const __zcm_hash_ptr *fp;");
             emit(1,     "for(fp = p; fp != NULL; fp = fp->parent)");
@@ -369,7 +369,7 @@ struct Emit : public Emitter
                 emit(1, "const __zcm_hash_ptr cp = { p, (void*)%s::getHash };", sn);
             }
             emit(0, "");
-            emit(1,     "int64_t hash = 0x%016" PRIx64 "LL +", ls.hash);
+            emit(1,     "uint64_t hash = (uint64_t)0x%016" PRIx64 "LL +", ls.hash);
 
             for (int m = 0; m < (int)ls.members.size(); m++) {
                 auto& lm = ls.members[m];
@@ -383,9 +383,9 @@ struct Emit : public Emitter
             }
             emit(0, "");
         } else {
-            emit(0, "int64_t %s::_computeHash(const __zcm_hash_ptr *)", sn);
+            emit(0, "uint64_t %s::_computeHash(const __zcm_hash_ptr *)", sn);
             emit(0, "{");
-            emit(1,     "int64_t hash = 0x%016" PRIx64 "LL;", ls.hash);
+            emit(1,     "uint64_t hash = (uint64_t)0x%016" PRIx64 "LL;", ls.hash);
         }
 
         emit(1, "return (hash<<1) + ((hash>>63)&1);");

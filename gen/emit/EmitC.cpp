@@ -324,7 +324,7 @@ struct EmitHeader : public Emit
 
         emit(0,"// ZCM support functions. Users should not call these");
         emit(0,"int64_t __%s_get_hash(void);", tn_);
-        emit(0,"int64_t __%s_hash_recursive(const __zcm_hash_ptr *p);", tn_);
+        emit(0,"uint64_t __%s_hash_recursive(const __zcm_hash_ptr *p);", tn_);
         emit(0,"int     __%s_encode_array(void *buf, int offset, int maxlen, const %s *p, int elements);", tn_, tn_);
         emit(0,"int     __%s_decode_array(const void *buf, int offset, int maxlen, %s *p, int elements);", tn_, tn_);
         emit(0,"int     __%s_decode_array_cleanup(%s *p, int elements);", tn_, tn_);
@@ -357,10 +357,10 @@ struct EmitSource : public Emit
         char *tn_ = (char *)tmp_.c_str();
 
         emit(0, "static int __%s_hash_computed;", tn_);
-        emit(0, "static int64_t __%s_hash;", tn_);
+        emit(0, "static uint64_t __%s_hash;", tn_);
         emit(0, "");
 
-        emit(0, "int64_t __%s_hash_recursive(const __zcm_hash_ptr *p)", tn_);
+        emit(0, "uint64_t __%s_hash_recursive(const __zcm_hash_ptr *p)", tn_);
         emit(0, "{");
         emit(1,     "const __zcm_hash_ptr *fp;");
         emit(1,     "for (fp = p; fp != NULL; fp = fp->parent)");
@@ -372,7 +372,7 @@ struct EmitSource : public Emit
         emit(1, "cp.v = (void*)__%s_get_hash;", tn_);
         emit(1, "(void) cp;");
         emit(0, "");
-        emit(1, "int64_t hash = (int64_t)0x%016" PRIx64 "LL", lr.hash);
+        emit(1, "uint64_t hash = (uint64_t)0x%016" PRIx64 "LL", lr.hash);
 
         for (auto& lm : lr.members)
             emit(2, " + __%s_hash_recursive(&cp)", dotsToUnderscores(lm.type.fullname).c_str());
@@ -386,7 +386,7 @@ struct EmitSource : public Emit
         emit(0, "int64_t __%s_get_hash(void)", tn_);
         emit(0, "{");
         emit(1, "if (!__%s_hash_computed) {", tn_);
-        emit(2,      "__%s_hash = __%s_hash_recursive(NULL);", tn_, tn_);
+        emit(2,      "__%s_hash = (int64_t)__%s_hash_recursive(NULL);", tn_, tn_);
         emit(2,      "__%s_hash_computed = 1;", tn_);
         emit(1,      "}");
         emit(0, "");
@@ -456,7 +456,10 @@ struct EmitSource : public Emit
 
         emit(0,"int __%s_encode_array(void *buf, int offset, int maxlen, const %s *p, int elements)", tn_, tn_);
         emit(0,"{");
-        emit(1,    "int pos = 0, thislen, element;");
+        emit(1,    "int pos = 0, element;");
+        if (lr.members.size() > 0) {
+            emit(1, "int thislen;");
+        }
         emit(0,"");
         emit(1,    "for (element = 0; element < elements; element++) {");
         emit(0,"");

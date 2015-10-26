@@ -144,8 +144,9 @@ static inline int __int16_t_encode_array(void *_buf, int offset, int maxlen, con
     if (maxlen < total_size)
         return -1;
 
+    const uint64_t *unsigned_p = (uint64_t*)p;
     for (element = 0; element < elements; element++) {
-        int16_t v = p[element];
+        uint16_t v = unsigned_p[element];
         buf[pos++] = (v>>8) & 0xff;
         buf[pos++] = (v & 0xff);
     }
@@ -200,8 +201,9 @@ static inline int __int32_t_encode_array(void *_buf, int offset, int maxlen, con
     if (maxlen < total_size)
         return -1;
 
+    const uint32_t* unsigned_p = (uint32_t*)p;
     for (element = 0; element < elements; element++) {
-        int32_t v = p[element];
+        uint32_t v = unsigned_p[element];
         buf[pos++] = (v>>24)&0xff;
         buf[pos++] = (v>>16)&0xff;
         buf[pos++] = (v>>8)&0xff;
@@ -222,7 +224,8 @@ static inline int __int32_t_decode_array(const void *_buf, int offset, int maxle
         return -1;
 
     for (element = 0; element < elements; element++) {
-        p[element] = (((int32_t)buf[pos+0])<<24) + (((int32_t)buf[pos+1])<<16) + (((int32_t)buf[pos+2])<<8) + ((int32_t)buf[pos+3]);
+        p[element] = (((uint32_t)buf[pos+0])<<24) + (((uint32_t)buf[pos+1])<<16) +
+                     (((uint32_t)buf[pos+2])<<8) + ((uint32_t)buf[pos+3]);
         pos+=4;
     }
 
@@ -258,8 +261,9 @@ static inline int __int64_t_encode_array(void *_buf, int offset, int maxlen, con
     if (maxlen < total_size)
         return -1;
 
+    const uint64_t* unsigned_p = (uint64_t*)p;
     for (element = 0; element < elements; element++) {
-        int64_t v = p[element];
+        uint64_t v = unsigned_p[element];
         buf[pos++] = (v>>56)&0xff;
         buf[pos++] = (v>>48)&0xff;
         buf[pos++] = (v>>40)&0xff;
@@ -284,9 +288,11 @@ static inline int __int64_t_decode_array(const void *_buf, int offset, int maxle
         return -1;
 
     for (element = 0; element < elements; element++) {
-        int64_t a = (((int32_t)buf[pos+0])<<24) + (((int32_t)buf[pos+1])<<16) + ((int32_t)buf[pos+2]<<8) + (int32_t)buf[pos+3];
+        uint64_t a = (((uint32_t)buf[pos+0])<<24) + (((uint32_t)buf[pos+1])<<16) +
+                     (((uint32_t)buf[pos+2])<<8) + ((uint32_t)buf[pos+3]);
         pos+=4;
-        int64_t b = (((int32_t)buf[pos+0])<<24) + (((int32_t)buf[pos+1])<<16) + ((int32_t)buf[pos+2]<<8) + (int32_t)buf[pos+3];
+        uint64_t b = (((uint32_t)buf[pos+0])<<24) + (((uint32_t)buf[pos+1])<<16) +
+                     (((uint32_t)buf[pos+2])<<8) + ((uint32_t)buf[pos+3]);
         pos+=4;
         p[element] = (a<<32) + (b&0xffffffff);
     }

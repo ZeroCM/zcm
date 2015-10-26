@@ -21,7 +21,7 @@ static inline int fwrite32(FILE *f, int32_t v)
 
 static inline int fwrite64(FILE *f, int64_t v64)
 {
-    int32_t v = v64>>32;
+    int32_t v = ((uint64_t)v64)>>32;
     if (0 != fwrite32(f, v)) return -1;
     v = v64 & 0xffffffff;
     return fwrite32(f, v);
@@ -49,7 +49,7 @@ static inline int fread64(FILE *f, int64_t *v64)
     if (fread32(f, &v2))
         return -1;
 
-    *v64 =     (((int64_t) v1)<<32) | (((int64_t) v2)&0xffffffff);
+    *v64 = (int64_t)(((uint64_t)v1)<<32) | (((int64_t)v2)&0xffffffff);
 
     return 0;
 }
