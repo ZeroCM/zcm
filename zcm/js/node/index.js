@@ -139,7 +139,7 @@ function zcm_create(http, zcmtypes, zcmurl)
             var subTypename = data.type;
             var subType = zcmtypes[subTypename];
             var subscription = zcmServer.subscribe(data.channel, function(channel, data) {
-                io.emit('server-to-client', {
+                socket.emit('server-to-client', {
                     channel: channel,
                     msg: subType.decode(data),
                 });
