@@ -43,14 +43,21 @@ var libzcm = new ffi.Library('libzcm', {
 
 /**
  * Callback that handles data received on the zcm transport which this program has subscribed to
- * @callback dispatchCallback
+ * @callback dispatchRawCallback
+ * @param {string} channel - the zcm channel
+ * @param {Buffer} data - raw data that can be decoded into a zcmtype
+ */
+
+/**
+ * Callback that handles data received on the zcm transport which this program has subscribed to
+ * @callback dispatchDecodedCallback
  * @param {string} channel - the zcm channel
  * @param {zcmtype} msg - a decoded zcmtype
  */
 
 /**
  * Creates a dispatch function that can interface with the ffi library
- * @param {dispatchCallback} cb - the js callback function to be linked into the ffi library
+ * @param {dispatchRawCallback} cb - the js callback function to be linked into the ffi library
  */
 function makeDispatcher(cb)
 {
@@ -94,12 +101,16 @@ function libzcmTransport(transport) {
     /**
      * Subscribes to a zcm channel on the created transport
      * @param {string} channel - the zcm channel to subscribe to
-     * @param {dispatchCallback} cb - callback to handle received messages
+     * @param {dispatchRawCallback} cb - callback to handle received messages
      * @returns {subscriptionRef} reference to the subscription, used to unsubscribe
      */
     function subscribe(channel, cb) {
         var funcPtr = ffi.Callback('void', [recvBufRef, 'string', 'pointer'], makeDispatcher(cb));
         // Force an extra ref to avoid Garbage Collection
+        // RRR: addressing the below might fall within the scope of this branch
+        // XXX: This presents in node as a memory leak if you run multiple subscribe - unsubscribe
+        //      cycles. We should store this with the returned subscription and clear the reference
+        //      to it on an unsubscribe
         process.on('exit', function() { funcPtr; });
         return libzcm.zcm_subscribe(z, channel, funcPtr, null);
     }
@@ -123,24 +134,44 @@ function zcm (zcmtypes, zcmServer)
 {
     this.zcmServer = zcmServer;
 
+    /**
+     * Publishes a zcm message on the created transport
+     * @param {string} channel - the zcm channel to publish on
+     * @param {string} type - the zcmtype of messages on the channel (must be a generated
+     *                        type from zcmtypes.js)
+     * @param {Buffer} msg - the decoded message (must be a zcmtype)
+     */
+    this.publish = function(channel, type, msg)
+    {
+        var _type = zcmtypes[type];
+        zcmServer.publish(channel, _type.encode(msg));
+    }
+
+    /**
+     * Subscribes to a zcm channel on the created transport
+     * @param {string} channel - the zcm channel to subscribe to
+     * @param {string} type - the zcmtype of messages on the channel (must be a generated
+     *                        type from zcmtypes.js)
+     * @param {dispatchDecodedCallback} cb - callback to handle received messages
+     * @returns {subscriptionRef} reference to the subscription, used to unsubscribe
+     */
     this.subscribe = function(channel, type, cb)
     {
         var type = zcmtypes[type];
+        // RRR: any reason not to just return this instead of store it
         var sub = this.zcmServer.subscribe(channel, function(channel, data) {
             cb(channel, type.decode(data));
         });
         return sub;
     }
 
+    /**
+     * Unsubscribes from the zcm channel referenced by the given subscription
+     * @param {subscriptionRef} subscription - ref to the subscription to be unsubscribed from
+     */
     this.unsubscribe = function(subscription)
     {
         this.zcmServer.unsubscribe(subscription);
-    }
-
-    this.publish = function(channel, type, msg)
-    {
-        var _type = zcmtypes[type];
-        zcmServer.publish(channel, _type.encode(msg));
     }
 }
 
@@ -155,6 +186,7 @@ function zcm_create(zcmtypes, zcmurl, http)
 
         io.on('connection', function(socket) {
             var subscriptions = {};
+            // RRR: I'd change this to "nextSub", makes more sense as there isn't a max limit
             var maxSubs = 0;
             socket.on('client-to-server', function(data) {
                 var channel = data.channel;
