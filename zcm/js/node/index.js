@@ -106,13 +106,8 @@ function libzcmTransport(transport) {
      */
     function subscribe(channel, cb) {
         var funcPtr = ffi.Callback('void', [recvBufRef, 'string', 'pointer'], makeDispatcher(cb));
-        // Force an extra ref to avoid Garbage Collection
-        // RRR: addressing the below might fall within the scope of this branch
-        // XXX: This presents in node as a memory leak if you run multiple subscribe - unsubscribe
-        //      cycles. We should store this with the returned subscription and clear the reference
-        //      to it on an unsubscribe
-        process.on('exit', function() { funcPtr; });
-        return libzcm.zcm_subscribe(z, channel, funcPtr, null);
+        return {"subscription" : libzcm.zcm_subscribe(z, channel, funcPtr, null),
+                "nativeCallbackPtr" : funcPtr};
     }
 
     /**
@@ -120,7 +115,7 @@ function libzcmTransport(transport) {
      * @param {subscriptionRef} subscription - ref to the subscription to be unsubscribed from
      */
     function unsubscribe(subscription) {
-        libzcm.zcm_unsubscribe(z, subscription);
+        libzcm.zcm_unsubscribe(z, subscription.subscription);
     }
 
     return {
@@ -158,7 +153,6 @@ function zcm (zcmtypes, zcmServer)
     this.subscribe = function(channel, type, cb)
     {
         var type = zcmtypes[type];
-        // RRR: any reason not to just return this instead of store it
         var sub = this.zcmServer.subscribe(channel, function(channel, data) {
             cb(channel, type.decode(data));
         });
@@ -186,8 +180,7 @@ function zcm_create(zcmtypes, zcmurl, http)
 
         io.on('connection', function(socket) {
             var subscriptions = {};
-            // RRR: I'd change this to "nextSub", makes more sense as there isn't a max limit
-            var maxSubs = 0;
+            var nextSub = 0;
             socket.on('client-to-server', function(data) {
                 var channel = data.channel;
                 var typename = data.type;
@@ -205,8 +198,8 @@ function zcm_create(zcmtypes, zcmurl, http)
                         msg: subType.decode(data),
                     });
                 });
-                subscriptions[maxSubs] = subscription;
-                returnSubscription(maxSubs++);
+                subscriptions[nextSub] = subscription;
+                returnSubscription(nextSub++);
             });
             socket.on('unsubscribe', function(subId) {
                 zcmServer.unsubscribe(subscriptions[subId]);
@@ -217,7 +210,7 @@ function zcm_create(zcmtypes, zcmurl, http)
                     zcmServer.unsubscribe(subscriptions[id]);
                     delete subscriptions[id];
                 }
-                maxSubs = 0;
+                nextSub = 0;
             });
         });
     }
