@@ -29,6 +29,8 @@ var zcm = (function(){
 
         /**
          * Subscribes to zcm messages on the given channel of the specified zcmtype.
+         * RRR: because callbacks is now indexed by an id, we actually can support more
+         *      than 1 subscription per channel now, so this TODO is done
          * TODO: Currently, the js implementation can only support one subscription per channel
          * @param {string} channel - the zcm channel to subscribe to
          * @param {string} type - the zcmtype of messages on the channel (must be a generated
@@ -46,6 +48,7 @@ var zcm = (function(){
 
         /**
          * Subscribes to all zcm messages.
+         * RRR: can delete this todo, see above
          * TODO: Currently, the js implementation can only support one subscription per channel
          * @param {dispatchDecodedCallback} cb - handler for received messages
          */
@@ -59,9 +62,14 @@ var zcm = (function(){
 
         /**
          * Unsubscribes from the zcm messages on the given channel
+         * RRR: can delete this todo, see above
          * TODO: Currently, the js implementation can only support one subscription per channel
          * @param {string} channel - the zcm channel to unsubscribe from
          */
+        // RRR: because callbacks is now indexed by an id instead of by the actual channel string,
+        //      this function is no longer right. We need to actually pass in the subId, which
+        //      means that the subscribe functions need to return it to user land. Please change
+        //      the commented function descriptions too when you make the change
         function unsubscribe(channel) {
             if (channel in callbacks) {
                 var sub = callbacks[channel].subscription;

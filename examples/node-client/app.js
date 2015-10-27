@@ -38,6 +38,8 @@ function subTo2() {
     });
 }
 
+// RRR: would be nice to see a test of subscribe all in here
+
 setTimeout(function() { setInterval(subTo1,                              12000); },    0);
 setTimeout(function() { setInterval(subTo2,                              12000); }, 3000);
 setTimeout(function() { setInterval(function() { z.unsubscribe(sub1); }, 12000); }, 6000);

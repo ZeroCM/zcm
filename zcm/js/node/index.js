@@ -135,10 +135,20 @@ function libzcmTransport(transport) {
     };
 }
 
+// RRR: naming here is getting kind of confusing. The variable we refer to as zcmServer is
+//      really the ffi interface class. This class is actually the server side interface to
+//      zcm functions. I think we should either change the names to be more demonstrative or
+//      potentially even merge the two classes. There really isn't much difference between
+//      them and it seems like the extra layer might not be necessary.
 function zcm (zcmtypes, zcmServer)
 {
     var zcmServer = zcmServer;
 
+    // RRR: I really like that we build the hashmap dynamically (instead of having
+    //      zcmgen spit it out) because I think that will make it easier to load multiple
+    //      zcmtypes files with something like spy. However, one drawback is that now the
+    //      hashmap doesn't exist client side. Maybe it would be best to move this into the
+    //      generated code and then just have a good way of merging multiple typemaps
     var zcmtypeHashMap = {};
     for (var type in zcmtypes)
         zcmtypeHashMap[zcmtypes[type].__hash] = zcmtypes[type];
@@ -182,6 +192,11 @@ function zcm (zcmtypes, zcmServer)
     {
         return zcmServer.subscribe(".*", function(channel, data){
             var hash = ref.readInt64BE(data, 0);
+            // RRR: as a courtesy to the user, we should make the nodejs zcmgen add a
+            //      "typename" field to all zcmtypes that contains the string name of the
+            //      object. This will let the subscriber have a little better knowledge of
+            //      what decoded data they are actually getting back. Even though the channel
+            //      is some hint, it would still be useful for things like spy
             cb(channel, zcmtypeHashMap[hash].decode(data));
         });
     }
@@ -220,17 +235,24 @@ function zcm_create(zcmtypes, zcmurl, http)
                 ret.publish(data.channel, data.type, data.msg);
             });
             socket.on('subscribe', function(data, returnSubscription) {
-                var subChannel = data.channel;
-                var subTypename = data.type;
-                var subType = zcmtypes[subTypename];
                 var subId = data.subId;
-                var subscription = ret.subscribe(data.channel, function(channel, data) {
+                // RRR: switching over from the ffi interface to the slightly higher level
+                //      subscribe function means the signature changes:
+                var subscription = ret.subscribe(data.channel, data.type, function(channel, msg) {
                     socket.emit('server-to-client', {
                         channel: channel,
-                        msg: subType.decode(data),
+                        msg: msg,
                         id: subId
                     });
                 });
+                // RRR: this is what it was, delete it
+                //var subscription = ret.subscribe(data.channel, function(channel, data) {
+                    //socket.emit('server-to-client', {
+                        //channel: channel,
+                        //msg: subType.decode(data),
+                        //id: subId
+                    //});
+                //});
                 subscriptions[nextSub] = subscription;
                 returnSubscription(nextSub++);
             });
@@ -259,6 +281,9 @@ function zcm_create(zcmtypes, zcmurl, http)
             });
         });
     }
+
+    // RRR: forgot this :)
+    return ret;
 }
 
 exports.create = zcm_create;
