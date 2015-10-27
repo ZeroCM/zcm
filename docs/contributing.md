@@ -1,5 +1,5 @@
 <a href="javascript:history.go(-1)">Back</a>
-# Project Philosophy & Contributing
+# Contributing to ZCM
 
 TODO
 
