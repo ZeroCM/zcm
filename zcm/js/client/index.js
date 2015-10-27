@@ -4,13 +4,15 @@ var zcm = (function(){
     {
         var socket = io();
 
+        var subIds = 0;
+
         // Channel -> Callback
         var callbacks = {};
 
         socket.on('server-to-client', function(data){
-            var chan = data.channel;
-            if (chan in callbacks) {
-                callbacks[chan].callback(chan, data.msg);
+            var subId = data.id;
+            if (subId in callbacks) {
+                callbacks[subId].callback(data.channel, data.msg);
             }
         });
 
@@ -34,17 +36,25 @@ var zcm = (function(){
          * @param {dispatchDecodedCallback} cb - handler for received messages
          */
         function subscribe(channel, type, cb) {
-            if (channel in callbacks) {
-                console.log('Nodejs zcm currently only supports one subscription per channel');
-                return;
-            }
-
-            socket.emit("subscribe", {channel: channel, type: type},
+            var subId = subIds++;
+            callbacks[subId] = { callback: cb };
+            socket.emit("subscribe", {channel: channel, type: type, subId: subId},
                         function(subscription) {
-                callbacks[channel].subscription = subscription;
+                callbacks[subId].subscription = subscription;
             });
-            // change this so that it can support multiple channels
-            callbacks[channel] = { callback: cb };
+        }
+
+        /**
+         * Subscribes to all zcm messages.
+         * TODO: Currently, the js implementation can only support one subscription per channel
+         * @param {dispatchDecodedCallback} cb - handler for received messages
+         */
+        function subscribe_all(cb) {
+            var subId = subIds++;
+            callbacks[subId] = { callback: cb };
+            socket.emit("subscribe_all", {subId: subId}, function(subscription) {
+                callbacks[subId].subscription = subscription;
+            });
         }
 
         /**
@@ -65,9 +75,10 @@ var zcm = (function(){
         }
 
         return {
-            publish:     publish,
-            subscribe:   subscribe,
-            unsubscribe: unsubscribe,
+            publish:        publish,
+            subscribe:      subscribe,
+            subscribe_all:  subscribe_all,
+            unsubscribe:    unsubscribe,
         };
     }
 
