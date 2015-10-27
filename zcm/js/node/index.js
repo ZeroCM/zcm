@@ -119,39 +119,78 @@ function libzcmTransport(transport) {
     };
 }
 
-function zcm_create(http, zcmtypes, zcmurl)
+function zcm (zcmtypes, zcmServer)
+{
+    this.zcmServer = zcmServer;
+
+    this.subscribe = function(channel, type, cb)
+    {
+        var type = zcmtypes[type];
+        var sub = this.zcmServer.subscribe(channel, function(channel, data) {
+            cb(channel, type.decode(data));
+        });
+        return sub;
+    }
+
+    this.unsubscribe = function(subscription)
+    {
+        this.zcmServer.unsubscribe(subscription);
+    }
+
+    this.publish = function(channel, type, msg)
+    {
+        var _type = zcmtypes[type];
+        zcmServer.publish(channel, _type.encode(msg));
+    }
+}
+
+function zcm_create(zcmtypes, zcmurl, http)
 {
     zcmurl = zcmurl || "ipc";
 
-    var io = require('socket.io')(http);
     var zcmServer = libzcmTransport(zcmurl);
 
-    io.on('connection', function(socket) {
-        socket.on('client-to-server', function(data) {
-            var channel = data.channel;
-            var typename = data.type;
-            var type = zcmtypes[typename];
-            var msg = data.msg;
-            zcmServer.publish(channel, type.encode(msg));
-        });
-        socket.on('subscribe', function(data, returnSubscription) {
-            var subChannel = data.channel;
-            var subTypename = data.type;
-            var subType = zcmtypes[subTypename];
-            var subscription = zcmServer.subscribe(data.channel, function(channel, data) {
-                socket.emit('server-to-client', {
-                    channel: channel,
-                    msg: subType.decode(data),
-                });
-            });
-            returnSubscription(subscription);
-        });
-        socket.on('unsubscribe', function(subscription) {
-            zcmServer.unsubscribe(subscription);
-        });
-    });
+    if (http) {
+        var io = require('socket.io')(http);
 
-    return io;
+        io.on('connection', function(socket) {
+            var subscriptions = {};
+            var maxSubs = 0;
+            socket.on('client-to-server', function(data) {
+                var channel = data.channel;
+                var typename = data.type;
+                var type = zcmtypes[typename];
+                var msg = data.msg;
+                zcmServer.publish(channel, type.encode(msg));
+            });
+            socket.on('subscribe', function(data, returnSubscription) {
+                var subChannel = data.channel;
+                var subTypename = data.type;
+                var subType = zcmtypes[subTypename];
+                var subscription = zcmServer.subscribe(data.channel, function(channel, data) {
+                    socket.emit('server-to-client', {
+                        channel: channel,
+                        msg: subType.decode(data),
+                    });
+                });
+                subscriptions[maxSubs] = subscription;
+                returnSubscription(maxSubs++);
+            });
+            socket.on('unsubscribe', function(subId) {
+                zcmServer.unsubscribe(subscriptions[subId]);
+                delete subscriptions[subId];
+            });
+            socket.on('disconnect', function(){
+                for (var id in subscriptions) {
+                    zcmServer.unsubscribe(subscriptions[id]);
+                    delete subscriptions[id];
+                }
+                maxSubs = 0;
+            });
+        });
+    }
+
+    return new zcm(zcmtypes, zcmServer);
 }
 
 exports.create = zcm_create;
