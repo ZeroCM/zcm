@@ -135,20 +135,11 @@ function libzcmTransport(transport) {
     };
 }
 
-// RRR: naming here is getting kind of confusing. The variable we refer to as zcmServer is
-//      really the ffi interface class. This class is actually the server side interface to
-//      zcm functions. I think we should either change the names to be more demonstrative or
-//      potentially even merge the two classes. There really isn't much difference between
-//      them and it seems like the extra layer might not be necessary.
-function zcm (zcmtypes, zcmServer)
+function zcm (zcmtypes, zcmurl)
 {
-    var zcmServer = zcmServer;
+    zcmurl = zcmurl || "ipc";
+    var transport = libzcmTransport(zcmurl);
 
-    // RRR: I really like that we build the hashmap dynamically (instead of having
-    //      zcmgen spit it out) because I think that will make it easier to load multiple
-    //      zcmtypes files with something like spy. However, one drawback is that now the
-    //      hashmap doesn't exist client side. Maybe it would be best to move this into the
-    //      generated code and then just have a good way of merging multiple typemaps
     var zcmtypeHashMap = {};
     for (var type in zcmtypes)
         zcmtypeHashMap[zcmtypes[type].__hash] = zcmtypes[type];
@@ -163,7 +154,7 @@ function zcm (zcmtypes, zcmServer)
     function publish(channel, type, msg)
     {
         var _type = zcmtypes[type];
-        zcmServer.publish(channel, _type.encode(msg));
+        transport.publish(channel, _type.encode(msg));
     }
 
     /**
@@ -177,7 +168,7 @@ function zcm (zcmtypes, zcmServer)
     function subscribe(channel, type, cb)
     {
         var type = zcmtypes[type];
-        var sub = zcmServer.subscribe(channel, function(channel, data) {
+        var sub = transport.subscribe(channel, function(channel, data) {
             cb(channel, type.decode(data));
         });
         return sub;
@@ -190,7 +181,7 @@ function zcm (zcmtypes, zcmServer)
      */
     function subscribe_all(cb)
     {
-        return zcmServer.subscribe(".*", function(channel, data){
+        return transport.subscribe(".*", function(channel, data){
             var hash = ref.readInt64BE(data, 0);
             // RRR: as a courtesy to the user, we should make the nodejs zcmgen add a
             //      "typename" field to all zcmtypes that contains the string name of the
@@ -207,7 +198,7 @@ function zcm (zcmtypes, zcmServer)
      */
     function unsubscribe(subscription)
     {
-        zcmServer.unsubscribe(subscription);
+        transport.unsubscribe(subscription);
     }
 
     return {
@@ -220,10 +211,7 @@ function zcm (zcmtypes, zcmServer)
 
 function zcm_create(zcmtypes, zcmurl, http)
 {
-    zcmurl = zcmurl || "ipc";
-
-    var zcmServer = libzcmTransport(zcmurl);
-    var ret = zcm(zcmtypes, zcmServer);
+    var ret = zcm(zcmtypes, zcmurl);
 
     if (http) {
         var io = require('socket.io')(http);
@@ -236,23 +224,13 @@ function zcm_create(zcmtypes, zcmurl, http)
             });
             socket.on('subscribe', function(data, returnSubscription) {
                 var subId = data.subId;
-                // RRR: switching over from the ffi interface to the slightly higher level
-                //      subscribe function means the signature changes:
                 var subscription = ret.subscribe(data.channel, data.type, function(channel, msg) {
                     socket.emit('server-to-client', {
                         channel: channel,
                         msg: msg,
-                        id: subId
+                        subId: subId
                     });
                 });
-                // RRR: this is what it was, delete it
-                //var subscription = ret.subscribe(data.channel, function(channel, data) {
-                    //socket.emit('server-to-client', {
-                        //channel: channel,
-                        //msg: subType.decode(data),
-                        //id: subId
-                    //});
-                //});
                 subscriptions[nextSub] = subscription;
                 returnSubscription(nextSub++);
             });
@@ -262,7 +240,7 @@ function zcm_create(zcmtypes, zcmurl, http)
                     socket.emit('server-to-client', {
                         channel: channel,
                         msg: msg,
-                        id: subId
+                        subId: subId
                     });
                 });
                 subscriptions[nextSub] = subscription;
@@ -282,7 +260,6 @@ function zcm_create(zcmtypes, zcmurl, http)
         });
     }
 
-    // RRR: forgot this :)
     return ret;
 }
 
