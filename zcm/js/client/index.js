@@ -31,7 +31,7 @@ var zcm = (function(){
          * @param {string} channel - the zcm channel to subscribe to
          * @param {string} type - the zcmtype of messages on the channel (must be a generated
          *                        type from zcmtypes.js)
-         * @param {dispatchCallback} cb - handler for received messages
+         * @param {dispatchDecodedCallback} cb - handler for received messages
          */
         function subscribe(channel, type, cb) {
             if (channel in callbacks) {
@@ -44,7 +44,7 @@ var zcm = (function(){
                 callbacks[channel].subscription = subscription;
             });
             // change this so that it can support multiple channels
-            callbacks[channel] = { callback: cb, subscription: null, };
+            callbacks[channel] = { callback: cb };
         }
 
         /**
@@ -55,7 +55,7 @@ var zcm = (function(){
         function unsubscribe(channel) {
             if (channel in callbacks) {
                 var sub = callbacks[channel].subscription;
-                if (sub != null) {
+                if (sub != null) { // loose compare here because sub might be undefined
                     socket.emit("unsubscribe", sub);
                     delete callbacks[channel];
                     return;

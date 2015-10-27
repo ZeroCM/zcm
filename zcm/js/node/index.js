@@ -43,14 +43,21 @@ var libzcm = new ffi.Library('libzcm', {
 
 /**
  * Callback that handles data received on the zcm transport which this program has subscribed to
- * @callback dispatchCallback
+ * @callback dispatchRawCallback
+ * @param {string} channel - the zcm channel
+ * @param {Buffer} data - raw data that can be decoded into a zcmtype
+ */
+
+/**
+ * Callback that handles data received on the zcm transport which this program has subscribed to
+ * @callback dispatchDecodedCallback
  * @param {string} channel - the zcm channel
  * @param {zcmtype} msg - a decoded zcmtype
  */
 
 /**
  * Creates a dispatch function that can interface with the ffi library
- * @param {dispatchCallback} cb - the js callback function to be linked into the ffi library
+ * @param {dispatchRawCallback} cb - the js callback function to be linked into the ffi library
  */
 function makeDispatcher(cb)
 {
@@ -94,14 +101,13 @@ function libzcmTransport(transport) {
     /**
      * Subscribes to a zcm channel on the created transport
      * @param {string} channel - the zcm channel to subscribe to
-     * @param {dispatchCallback} cb - callback to handle received messages
+     * @param {dispatchRawCallback} cb - callback to handle received messages
      * @returns {subscriptionRef} reference to the subscription, used to unsubscribe
      */
     function subscribe(channel, cb) {
         var funcPtr = ffi.Callback('void', [recvBufRef, 'string', 'pointer'], makeDispatcher(cb));
-        // Force an extra ref to avoid Garbage Collection
-        process.on('exit', function() { funcPtr; });
-        return libzcm.zcm_subscribe(z, channel, funcPtr, null);
+        return {"subscription" : libzcm.zcm_subscribe(z, channel, funcPtr, null),
+                "nativeCallbackPtr" : funcPtr};
     }
 
     /**
@@ -109,7 +115,7 @@ function libzcmTransport(transport) {
      * @param {subscriptionRef} subscription - ref to the subscription to be unsubscribed from
      */
     function unsubscribe(subscription) {
-        libzcm.zcm_unsubscribe(z, subscription);
+        libzcm.zcm_unsubscribe(z, subscription.subscription);
     }
 
     return {
@@ -119,39 +125,97 @@ function libzcmTransport(transport) {
     };
 }
 
-function zcm_create(http, zcmtypes, zcmurl)
+function zcm (zcmtypes, zcmServer)
+{
+    this.zcmServer = zcmServer;
+
+    /**
+     * Publishes a zcm message on the created transport
+     * @param {string} channel - the zcm channel to publish on
+     * @param {string} type - the zcmtype of messages on the channel (must be a generated
+     *                        type from zcmtypes.js)
+     * @param {Buffer} msg - the decoded message (must be a zcmtype)
+     */
+    this.publish = function(channel, type, msg)
+    {
+        var _type = zcmtypes[type];
+        zcmServer.publish(channel, _type.encode(msg));
+    }
+
+    /**
+     * Subscribes to a zcm channel on the created transport
+     * @param {string} channel - the zcm channel to subscribe to
+     * @param {string} type - the zcmtype of messages on the channel (must be a generated
+     *                        type from zcmtypes.js)
+     * @param {dispatchDecodedCallback} cb - callback to handle received messages
+     * @returns {subscriptionRef} reference to the subscription, used to unsubscribe
+     */
+    this.subscribe = function(channel, type, cb)
+    {
+        var type = zcmtypes[type];
+        var sub = this.zcmServer.subscribe(channel, function(channel, data) {
+            cb(channel, type.decode(data));
+        });
+        return sub;
+    }
+
+    /**
+     * Unsubscribes from the zcm channel referenced by the given subscription
+     * @param {subscriptionRef} subscription - ref to the subscription to be unsubscribed from
+     */
+    this.unsubscribe = function(subscription)
+    {
+        this.zcmServer.unsubscribe(subscription);
+    }
+}
+
+function zcm_create(zcmtypes, zcmurl, http)
 {
     zcmurl = zcmurl || "ipc";
 
-    var io = require('socket.io')(http);
     var zcmServer = libzcmTransport(zcmurl);
 
-    io.on('connection', function(socket) {
-        socket.on('client-to-server', function(data) {
-            var channel = data.channel;
-            var typename = data.type;
-            var type = zcmtypes[typename];
-            var msg = data.msg;
-            zcmServer.publish(channel, type.encode(msg));
-        });
-        socket.on('subscribe', function(data, returnSubscription) {
-            var subChannel = data.channel;
-            var subTypename = data.type;
-            var subType = zcmtypes[subTypename];
-            var subscription = zcmServer.subscribe(data.channel, function(channel, data) {
-                socket.emit('server-to-client', {
-                    channel: channel,
-                    msg: subType.decode(data),
-                });
-            });
-            returnSubscription(subscription);
-        });
-        socket.on('unsubscribe', function(subscription) {
-            zcmServer.unsubscribe(subscription);
-        });
-    });
+    if (http) {
+        var io = require('socket.io')(http);
 
-    return io;
+        io.on('connection', function(socket) {
+            var subscriptions = {};
+            var nextSub = 0;
+            socket.on('client-to-server', function(data) {
+                var channel = data.channel;
+                var typename = data.type;
+                var type = zcmtypes[typename];
+                var msg = data.msg;
+                zcmServer.publish(channel, type.encode(msg));
+            });
+            socket.on('subscribe', function(data, returnSubscription) {
+                var subChannel = data.channel;
+                var subTypename = data.type;
+                var subType = zcmtypes[subTypename];
+                var subscription = zcmServer.subscribe(data.channel, function(channel, data) {
+                    socket.emit('server-to-client', {
+                        channel: channel,
+                        msg: subType.decode(data),
+                    });
+                });
+                subscriptions[nextSub] = subscription;
+                returnSubscription(nextSub++);
+            });
+            socket.on('unsubscribe', function(subId) {
+                zcmServer.unsubscribe(subscriptions[subId]);
+                delete subscriptions[subId];
+            });
+            socket.on('disconnect', function(){
+                for (var id in subscriptions) {
+                    zcmServer.unsubscribe(subscriptions[id]);
+                    delete subscriptions[id];
+                }
+                nextSub = 0;
+            });
+        });
+    }
+
+    return new zcm(zcmtypes, zcmServer);
 }
 
 exports.create = zcm_create;
