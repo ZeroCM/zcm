@@ -46,8 +46,10 @@ The code assumes we have the following encoding functions:
         buf[3] = (v>>0)&0xff;
     }
 
-Wow, that is a lot of work for such a simple type! To make matters worse, in practice the
-data looks much worse. Consider the following data structs:
+Wow, that is a lot of work for such a simple type! It also seems very tedious and error-prone. It's far too easy to
+forget about network byte order or to forget the correct way to shift and mask integers.
+
+To make matters worse, in practice the data looks much worse. Consider the following data structs:
 
     struct element_t
     {
@@ -70,30 +72,46 @@ Sure, we could write them, and for a veteran coder, it might not even take that 
 But, imagine we have countless messages with this complexity. This quickly will become
 a complexity management issue.
 
-### Conventional Approach
+However, there are many more disconcerting problems. Imagine a developer discovers that
+the roll, pitch, and yaw fields above need more precision and decides an upgrade to
+double precision is required. How should she approach this issue? What about migrating
+all of the existing distributed nodes to the new layout? What happens if it's a very
+large development team relying on the interface? At a minimum, how can we gaurentee
+that no user ever decodes data incorrectly?
 
-We need a better approach. How about something like XML or JSON? For the above, we have:
+### ASCII Approach
 
-    {"flags":0,"sz":1,"array":[{"timestamp":123456789,"roll":1.234,"pitch":3.452,"yaw":32.345,"count":42,"flags":256,"error_message":"Error: Failed to Frobinate!"}
+Things seems pretty dire. We need a better approach. How about an ASCII-based message format like XML or JSON?
+For above structs, we could encode into JSON like this:
 
-From the start, this isn't much better:
+    {"flags":0,"sz":1,"array":[{"timestamp":123456789,"roll":1.234,"pitch":3.452,"yaw":32.345,"count":42,"flags":256,"error_message":"Error: Failed to Frobinate!"},{"timestamp":5126536,"roll":1.234,"pitch":3.452,"yaw":32.345,"count":67,"flags":16,"error_message":"Error: Couldn't Foo the Bar in its Baz"}]
 
-  1. It requires much more space for the same data (at least 4X)
-    - This translates directly to a bandwidth hit on the network
-  2. Encoding/Decoding is much more expensive since we must convert between ASCII and Binary
-  3. Implementing Encoding/Decoding functions is not really simpler
-    - We must still manually iterate through each field to construct the JSON data
-    - A custom codec is still required for each type
+Well, at least that seems easier. Is our problem solved? Well, yes and no.
 
-ATTACK JSON ON LACK OF MESSAGE CONTEXT/TYPE
+#### The Good
 
+This approach does solve some of the hairy binary format issues. Changing from a 16-bit to a 32-bit integer would work perfectly.
+Also, the format is immune to a developer moving around struct fields since JSON object keys are unordered.
 
-    ### Give a crazy example of JSON image_t here
-    # This will demonstrate the weekness of JSON for serious applications with large messages
+#### The Bad
+
+Unfortunately, these benefits come from the fact that we don't really have any type system. The layout is enforced 100% by
+convention. While this is convenient for small/simple uses, it gets torn apart by a growth in complexity.
+
+#### The Ugly
+
+Unfortunately there are many more issues with these types of formats:
+
+  - We have to send the *schema* in the message
+  - Encoding numbers in ascii is very inefficent
+  - Encoding/Decoding between ascii data is very inefficent (versus binary)
+
+But, the worst part of all is that we're still forced to write encode/decode functions
+for each message type! We're still doing manual work and we're now also paying a runtime overhead!
 
 ### Dream Approach
 
-This problem is precisely what ZCM aims to solve. In particular, imagine if we could just define a complex
+So, let's step back and dream up a more ideal solution. Let's imagine if we could just define a complex
 data type like `message_t` above and then send it like this:
 
     message_t msg;
@@ -113,41 +131,116 @@ Then, we could imagine a receiver that simply gets a callback triggered:
 The callback dispatcher would have received the binary message data, automatically decoded it, and
 sent the resulting message to any interested parties.
 
-In addition, the programming-model could follow language-specific idioms and conventions. All of the messy issues
-with data transfer, message encoding, and message verification could be hidden in the send/recv layer. The application
-code could simply get on with it's main mission.
+Since we're dreaming, imagine that each endpoint could verify in O(1) time that it *understands* the
+type and data-layout of each message. The system would reject any invalid types and it would be impossible
+to ever receive an invalid message due to the reasons listed above.
 
-## ZCM as a Solution
+Let's go a step further: imagine that the programming-model could follow language-specific idioms and conventions.
+All of the messy issues with data transfer, message encoding, and message verification could be hidden in the
+send/recv layer. The application code could simply get on with it's main mission.
 
-In a nutshell, the *Dream Approach* is precisely what ZCM aims to provide. ZCM's primary value is its message type system.
+Then, we could trivially compose multiple languages. In C++, we'd code:
+
+    struct Foo
+    {
+        std::string str;
+        std::vector<double> nums;
+    };
+
+    void sendFoo()
+    {
+        Foo foo;
+        foo.str = "This is my string";
+        foo.nums = {1, 2, 3, 4, 5};
+        send("FOO_CHANNEL", &foo);
+    }
+
+And then in Python, we'd code:
+
+    class Foo(object):
+        def __init__(self):
+            self.str = ''
+            self.nums = []
+
+    def recvFoo(foo):
+        print foo.str
+        for v in foo.nums:
+            print v
+
+That would be pretty handy! But, have we traveled too far down the *rabbit-hole*?
+
+## The Zen of ZCM
+
+Luckily, for us dreamers, this depiction is precisely what ZCM aims to be! ZCM's primary value is its message type system.
 ZCM, provides an extremely rich type system with support for nested/recursive types, array types, and enum/const values.
-The message type-system is statically-typed and provides strong guarentees of message validity. If a message type is changed,
-ZCM will detect the changes, and reject all invalid messsges. It is simply not possible to incorrectly decode binary data with
-ZCM.
+The message type-system is statically-typed and provides strong guarentees of message validity via hash codes computed based on
+the message format. If a message type is changed, ZCM will detect the changes, and reject all invalid messsges. It is simply
+not possible to incorrectly decode binary data with ZCM.
 
-The tricky bit with the *Dream Approach* listed above is the transfer protocol. What should be done with the transfer
-protocol. On one hand, TCP is fairly ubiquitous. On the other, (1) its not present on every system and (2) it's an awful
+### Example
+
+Let's consider the example above. We'd define the message type as follows (in Foo.zcm):
+
+    struct Foo {
+        string str;
+        uint32_t n;
+        double nums[n];
+    };
+
+Then, we can generate language-specific versions with our zcm-gen tool. For C++, we get:
+
+    class Foo
+    {
+      public:
+        std::string str;
+        int32_t    n;
+        std::vector< double > nums;
+      // ...
+    };
+
+For Python we get:
+
+    class Foo(object):
+        __slots__ = ["str", "n", "nums"]
+
+        def __init__(self):
+            self.str = ""
+            self.n = 0
+            self.nums = []
+
+We can then use the ZCM APIs to send Foo messages between application nodes in our system. Just like we dreamed, our
+messages are encoded, *sent*, type-verified, and decoded into language-idiomatic bindings!
+
+### The Tricky Bit
+
+The tricky part with this *Dream Approach* is the transfer protocol. Until now, we've been very *hand-wavy* about it.
+This is for a good reason; its hard! What should be we use for the transfer protocol? On one hand, we could jsut stick with
+TCP since it's fairly ubiquitous. But, then again, (1) we may not find a TCP/IP stack on every system, and (2) TCP is an awful
 choice for some applications. For a real-time application on a LAN-connected cluster, we might quickly conclude that UDP
-multcast is the perfect transport protocal, and we'd be right for this application, but not others. What about embedded
-systems? How many of them actually have a usable TCP/IP stack? How about web applications where we only have ASCII-based
-TCP/IP? What transports can we expect systems to have?
+multcast is the perfect transport protocal, and we'd likely be right for this application. But, what about embedded
+systems? How many of them actually have a reliable TCP/IP stack? Or, how about web applications where we only have ASCII-based
+TCP/IP via WebSockets? In general, what transports can we reasonable expect a system to have?
 
-The transport question is complicated and appears to be very platform-dependent. For this reason, ZCM treats transports
-as a platform/application specific issue. ZCM refuses to take any side on transports and stays 100% transport agnostic.
-Instead, ZCM provides a very solid mesaage type system and a well-defined transport interface. This approach allows
-ZCM to be useful on any type of platform.
+### Transport Agnosticism
 
-## The Essence
+If you ponder this question long enough, you'll only emerge petrified. The only reasonable answer is unsatisfying: transports
+are very platform-dependent. It is just not possible to apease every application that could benifit for using zcmtypes. So,
+ZCM doesn't chose a transport. Instead ZCM treats transports as a platform/application specific issue, and provides
+a lightweight microframework for implementing a ZCM-compliant transport. Out-of-the-box, ZCM provides a lot of conventional
+transports, but non of them are strictly required. ZCM can work well on any system with any transport.
 
-Whether it is Embedded, Server, Cluster, or Web, distrubuted systems can share common message types and communicate with
-each-other. This is the essence of ZCM: Statically Well-Defined Messages and Transport Agnosticism enabling distubuted
-applications using many heterogeneous compute platforms.
+## The Mission
+
+This is the essence of ZCM: Statically Well-Defined Messages, Transport Agnosticism, and Language Agnosticism enabling
+distubuted applications using many heterogeneous compute platforms. Whether it's an Embedded, Server, Cluster, or Web
+distributed system, we aim to make it trivial to share and exchage common message types with each-other. We provide ZCM
+to make this easy.
 
 ## Next Steps
 
 If you haven't already, we encourage you to check out our [Tutorial](tutorial.md).
 
-Otherwise, you might like to learn about our community: [Contributing](contributing.md).
+Otherwise, you might like to learn about our community and how you can help make ZCM better: [Contributing](contributing.md).
 
 <hr>
 <a href="javascript:history.go(-1)">Back</a>
