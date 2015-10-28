@@ -78,9 +78,16 @@ function makeDispatcher(cb)
     }
 }
 
-// TODO: consider adding support for server driven comms (would be easy to export bindings into
-//       this library for the server to use instead of the client)
-function libzcmTransport(transport) {
+function zcm(zcmtypes, zcmurl)
+{
+    var transport = zcmurl || "ipc";
+
+    var zcmtypes = zcmtypes;
+
+    var zcmtypeHashMap = {};
+    for (var type in zcmtypes)
+        zcmtypeHashMap[zcmtypes[type].__hash] = zcmtypes[type];
+
     var z = libzcm.zcm_create(transport);
     if (z.isNull()) {
         console.log("Err: Failed to create transport '"+transport+"'");
@@ -92,70 +99,6 @@ function libzcmTransport(transport) {
     /**
      * Publishes a zcm message on the created transport
      * @param {string} channel - the zcm channel to publish on
-     * @param {Buffer} data - the encoded message (use the encode function of a generated zcmtype)
-     */
-    function publish(channel, data) {
-        libzcm.zcm_publish.async(z, channel, data, data.length, function(err, res) {});
-    }
-
-    /**
-     * Subscribes to a zcm channel on the created transport
-     * @param {string} channel - the zcm channel to subscribe to
-     * @param {dispatchRawCallback} cb - callback to handle received messages
-     * @returns {subscriptionRef} reference to the subscription, used to unsubscribe
-     */
-    function subscribe(channel, cb) {
-        var funcPtr = ffi.Callback('void', [recvBufRef, 'string', 'pointer'], makeDispatcher(cb));
-        return {"subscription" : libzcm.zcm_subscribe(z, channel, funcPtr, null),
-                "nativeCallbackPtr" : funcPtr};
-    }
-
-    /**
-     * Subscribes to all zcm channels on the created transport
-     * @param {dispatchRawCallback} cb - callback to handle received messages
-     * @returns {subscriptionRef} reference to the subscription, used to unsubscribe
-     */
-    function subscribe_all(cb) {
-        return subscribe(".*", cb);
-    }
-
-    /**
-     * Unsubscribes from the zcm channel referenced by the given subscription
-     * @param {subscriptionRef} subscription - ref to the subscription to be unsubscribed from
-     */
-    function unsubscribe(subscription) {
-        libzcm.zcm_unsubscribe(z, subscription.subscription);
-    }
-
-    return {
-        publish:        publish,
-        subscribe:      subscribe,
-        subscribe_all:  subscribe_all,
-        unsubscribe:    unsubscribe,
-    };
-}
-
-// RRR: haha nice catch, I didn't even notice the double variable thing, but what I actually
-//      meant was, do you think we actually need this extra class, or should we merge it in to
-//      be the same class as what is now "libzcmTransport". If you look 95% of all of the methods
-//      are the same, and all the ones in this class simply call into the transport. The main
-//      difference is that this class encodes / decodes zcmtypes, but that could easily be a
-//      functionality we add to the libzcmTransport. I'm just not sure I can justify having a
-//      this be a whole different class rather than just giving libzcmTransport a few hidden
-//      methods that do the messy work with encoded data and just move these functions to be
-//      the visible ones. Thoughts?
-function zcm (zcmtypes, zcmurl)
-{
-    zcmurl = zcmurl || "ipc";
-    var transport = libzcmTransport(zcmurl);
-
-    var zcmtypeHashMap = {};
-    for (var type in zcmtypes)
-        zcmtypeHashMap[zcmtypes[type].__hash] = zcmtypes[type];
-
-    /**
-     * Publishes a zcm message on the created transport
-     * @param {string} channel - the zcm channel to publish on
      * @param {string} type - the zcmtype of messages on the channel (must be a generated
      *                        type from zcmtypes.js)
      * @param {Buffer} msg - the decoded message (must be a zcmtype)
@@ -163,7 +106,17 @@ function zcm (zcmtypes, zcmurl)
     function publish(channel, type, msg)
     {
         var _type = zcmtypes[type];
-        transport.publish(channel, _type.encode(msg));
+        publish_raw(channel, _type.encode(msg));
+    }
+
+    /**
+     * Publishes a zcm message on the created transport
+     * @param {string} channel - the zcm channel to publish on
+     * @param {Buffer} data - the encoded message (use the encode function of a generated zcmtype)
+     */
+    function publish_raw(channel, data)
+    {
+        libzcm.zcm_publish.async(z, channel, data, data.length, function(err, res) {});
     }
 
     /**
@@ -177,10 +130,23 @@ function zcm (zcmtypes, zcmurl)
     function subscribe(channel, type, cb)
     {
         var type = zcmtypes[type];
-        var sub = transport.subscribe(channel, function(channel, data) {
+        var sub = subscribe_raw(channel, function(channel, data) {
             cb(channel, type.decode(data));
         });
         return sub;
+    }
+
+    /**
+     * Subscribes to a zcm channel on the created transport
+     * @param {string} channel - the zcm channel to subscribe to
+     * @param {dispatchRawCallback} cb - callback to handle received messages
+     * @returns {subscriptionRef} reference to the subscription, used to unsubscribe
+     */
+    function subscribe_raw(channel, cb)
+    {
+        var funcPtr = ffi.Callback('void', [recvBufRef, 'string', 'pointer'], makeDispatcher(cb));
+        return {"subscription" : libzcm.zcm_subscribe(z, channel, funcPtr, null),
+                "nativeCallbackPtr" : funcPtr};
     }
 
     /**
@@ -190,10 +156,20 @@ function zcm (zcmtypes, zcmurl)
      */
     function subscribe_all(cb)
     {
-        return transport.subscribe(".*", function(channel, data){
+        return subscribe_all_raw(function(channel, data){
             var hash = ref.readInt64BE(data, 0);
             cb(channel, zcmtypeHashMap[hash].decode(data));
         });
+    }
+
+    /**
+     * Subscribes to all zcm channels on the created transport
+     * @param {dispatchRawCallback} cb - callback to handle received messages
+     * @returns {subscriptionRef} reference to the subscription, used to unsubscribe
+     */
+    function subscribe_all_raw(cb)
+    {
+        return subscribe_raw(".*", cb);
     }
 
     /**
@@ -202,7 +178,7 @@ function zcm (zcmtypes, zcmurl)
      */
     function unsubscribe(subscription)
     {
-        transport.unsubscribe(subscription);
+        libzcm.zcm_unsubscribe(z, subscription.subscription);
     }
 
     return {
