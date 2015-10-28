@@ -9,6 +9,7 @@ var z = zcm.create(zcmtypes, 'ipc', http);
 
 var sub1;
 var sub2;
+var sub3;
 
 function subTo1() {
     sub1 = z.subscribe("EXAMPLE", "example_t", function(channel, msg) {
@@ -42,6 +43,11 @@ setTimeout(function() { setInterval(subTo1,                              12000);
 setTimeout(function() { setInterval(subTo2,                              12000); }, 3000);
 setTimeout(function() { setInterval(function() { z.unsubscribe(sub1); }, 12000); }, 6000);
 setTimeout(function() { setInterval(function() { z.unsubscribe(sub2); }, 12000); }, 9000);
+
+sub3 = z.subscribe_all(function(channel, msg) {
+    console.log("Subscribe All message received on channel " + channel);
+});
+
 
 http.listen(3000, function(){
   console.log('listening on *:3000');

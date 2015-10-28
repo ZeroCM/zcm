@@ -239,6 +239,7 @@ struct EmitModule : public Emitter
         // emit(indent, "}");
         emit(indent, "var msg = {}");
         emit(indent, "msg.__type = '%s';", ls.structname.shortname.c_str());
+        emit(indent, "msg.__hash = hash;");
         for (auto& lm : ls.members) {
             auto& mtn = lm.type.fullname;
             auto& mn = lm.membername;
