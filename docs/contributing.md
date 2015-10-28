@@ -1,4 +1,5 @@
-<a href="javascript:history.go(-1)">Back</a>
+<a style="margin-right: 1rem;" href="javascript:history.go(-1)">Back</a>
+[Home](../README.md)
 
 # Contributing to ZCM
 
@@ -28,4 +29,5 @@ ping the mailing list or Gitter for feedback. Most of the core developers are ve
 career engineers whom may miss your contribution without a reminder or two.
 
 <hr>
-<a href="javascript:history.go(-1)">Back</a>
+<a style="margin-right: 1rem;" href="javascript:history.go(-1)">Back</a>
+[Home](../README.md)

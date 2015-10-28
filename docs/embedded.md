@@ -1,8 +1,9 @@
-<a href="javascript:history.go(-1)">Back</a>
+<a style="margin-right: 1rem;" href="javascript:history.go(-1)">Back</a>
+[Home](../README.md)
 # Embedded Applications
 
 ZCM prides itself on strong support for embedded applications. This support allows
-embbeded systems to construct and send zcmtypes though a custom embedded transport to
+embedded systems to construct and send zcmtypes though a custom embedded transport to
 other systems using ZCM.
 
 The core nonblock library code follows the following principles:
@@ -46,11 +47,12 @@ should be able to use ZCM the same way you would on desktop systems!
 
 ## Issues, Bugs, and Support
 
-In embedded-land it's hard to gaurentee that a library will work on any system. We care a lot
+In embedded-land it's hard to guarantee that a library will work on any system. We care a lot
 about our compatibility on embedded, but issues do happen. We always try to be proactive in
 our handling of any issues that arise. If you find any violations with the principles and
 requirements above, don't hesitate to reach out to the ZCM community. See
 [Contributing](docs/contributing.md) for details.
 
 <hr>
-<a href="javascript:history.go(-1)">Back</a>
+<a style="margin-right: 1rem;" href="javascript:history.go(-1)">Back</a>
+[Home](../README.md)

@@ -1,4 +1,5 @@
-<a href="javascript:history.go(-1)">Back</a>
+<a style="margin-right: 1rem;" href="javascript:history.go(-1)">Back</a>
+[Home](../README.md)
 # ZCM Step-by-Step Tutorial
 
 We believe the best way to learn new things is to just dive in and start making mistakes.
@@ -531,4 +532,5 @@ But, there is much more to ZCM, so we recommend a few *next steps* below:
  - [Contributing](contributing.md)
 
 <hr>
-<a href="javascript:history.go(-1)">Back</a>
+<a style="margin-right: 1rem;" href="javascript:history.go(-1)">Back</a>
+[Home](../README.md)

@@ -1,4 +1,5 @@
-<a href="javascript:history.go(-1)">Back</a>
+<a style="margin-right: 1rem;" href="javascript:history.go(-1)">Back</a>
+[Home](../README.md)
 # Project Philosophy
 
 ## Problem
@@ -76,7 +77,7 @@ However, there are many more disconcerting problems. Imagine a developer discove
 the roll, pitch, and yaw fields above need more precision and decides an upgrade to
 double precision is required. How should she approach this issue? What about migrating
 all of the existing distributed nodes to the new layout? What happens if it's a very
-large development team relying on the interface? At a minimum, how can we gaurentee
+large development team relying on the interface? At a minimum, how can we gaurantee
 that no user ever decodes data incorrectly?
 
 ### ASCII Approach
@@ -103,8 +104,8 @@ convention. While this is convenient for small/simple uses, it gets torn apart b
 Unfortunately there are many more issues with these types of formats:
 
   - We have to send the *schema* in the message
-  - Encoding numbers in ascii is very inefficent
-  - Encoding/Decoding between ascii data is very inefficent (versus binary)
+  - Encoding numbers in ascii is very inefficient
+  - Encoding/Decoding between ascii data is very inefficient (versus binary)
 
 But, the worst part of all is that we're still forced to write encode/decode functions
 for each message type! We're still doing manual work and we're now also paying a runtime overhead!
@@ -173,68 +174,33 @@ That would be pretty handy! But, have we traveled too far down the *rabbit-hole*
 
 Luckily, for us dreamers, this depiction is precisely what ZCM aims to be! ZCM's primary value is its message type system.
 ZCM, provides an extremely rich type system with support for nested/recursive types, array types, and enum/const values.
-The message type-system is statically-typed and provides strong guarentees of message validity via hash codes computed based on
-the message format. If a message type is changed, ZCM will detect the changes, and reject all invalid messsges. It is simply
-not possible to incorrectly decode binary data with ZCM.
-
-### Example
-
-Let's consider the example above. We'd define the message type as follows (in Foo.zcm):
-
-    struct Foo {
-        string str;
-        uint32_t n;
-        double nums[n];
-    };
-
-Then, we can generate language-specific versions with our zcm-gen tool. For C++, we get:
-
-    class Foo
-    {
-      public:
-        std::string str;
-        int32_t    n;
-        std::vector< double > nums;
-      // ...
-    };
-
-For Python we get:
-
-    class Foo(object):
-        __slots__ = ["str", "n", "nums"]
-
-        def __init__(self):
-            self.str = ""
-            self.n = 0
-            self.nums = []
-
-We can then use the ZCM APIs to send Foo messages between application nodes in our system. Just like we dreamed, our
-messages are encoded, *sent*, type-verified, and decoded into language-idiomatic bindings!
+The message type-system is statically-typed and provides strong guarantees of message validity via hash codes computed based on
+messages are encoded, sent, type-verified, and decoded into language-idiomatic bindings!
 
 ### The Tricky Bit
 
 The tricky part with this *Dream Approach* is the transfer protocol. Until now, we've been very *hand-wavy* about it.
-This is for a good reason; its hard! What should be we use for the transfer protocol? On one hand, we could jsut stick with
+This is for a good reason; its hard! What should we use for the transfer protocol? On one hand, we could just stick with
 TCP since it's fairly ubiquitous. But, then again, (1) we may not find a TCP/IP stack on every system, and (2) TCP is an awful
 choice for some applications. For a real-time application on a LAN-connected cluster, we might quickly conclude that UDP
-multcast is the perfect transport protocal, and we'd likely be right for this application. But, what about embedded
+multicast is the perfect transport protocol, and we'd likely be right for this application. But, what about embedded
 systems? How many of them actually have a reliable TCP/IP stack? Or, how about web applications where we only have ASCII-based
-TCP/IP via WebSockets? In general, what transports can we reasonable expect a system to have?
+TCP/IP via WebSockets? In general, what transports can we reasonably expect a system to have?
 
 ### Transport Agnosticism
 
 If you ponder this question long enough, you'll only emerge petrified. The only reasonable answer is unsatisfying: transports
-are very platform-dependent. It is just not possible to apease every application that could benifit for using zcmtypes. So,
-ZCM doesn't chose a transport. Instead ZCM treats transports as a platform/application specific issue, and provides
+are very platform-dependent. It is just not possible to appease every application that could benefit by using zcmtypes. **So,
+ZCM doesn't chose a transport**. Instead ZCM treats transports as a platform/application specific issue, and provides
 a lightweight microframework for implementing a ZCM-compliant transport. Out-of-the-box, ZCM provides a lot of conventional
 transports, but non of them are strictly required. ZCM can work well on any system with any transport.
 
 ## The Mission
 
-This is the essence of ZCM: Statically Well-Defined Messages, Transport Agnosticism, and Language Agnosticism enabling
-distubuted applications using many heterogeneous compute platforms. Whether it's an Embedded, Server, Cluster, or Web
-distributed system, we aim to make it trivial to share and exchage common message types with each-other. We provide ZCM
-to make this easy.
+This is the essence of ZCM: *Statically Well-Defined Messages, Transport Agnosticism, and Language Agnosticism enabling
+distributed applications using many heterogeneous compute platforms*. Whether it's an Embedded, Server, Cluster, or Web
+distributed system, we aim to make it trivial to share and exchange common message types across language and system barriers.
+We provide ZCM to make this easy.
 
 ## Next Steps
 
@@ -243,4 +209,5 @@ If you haven't already, we encourage you to check out our [Tutorial](tutorial.md
 Otherwise, you might like to learn about our community and how you can help make ZCM better: [Contributing](contributing.md).
 
 <hr>
-<a href="javascript:history.go(-1)">Back</a>
+<a style="margin-right: 1rem;" href="javascript:history.go(-1)">Back</a>
+[Home](../README.md)

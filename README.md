@@ -6,8 +6,8 @@ compute platforms is large.
 
 ZCM is a publish/subscribe message-passing system with automatic message type-checking and
 serialization. It provides bindings for a variety of programming languages, and generates
-lanaguage-specific messsage serialization routines. Using a ZCM message feels natural
-in each lanaguage.
+language-specific message serialization routines. Using a ZCM message feels natural
+in each language.
 
 ZCM is transport-agnostic. There is no required built-in transport. Every transport is
 first-class. This is achieved by defining strict blocking and non-blocking transport APIs. As
@@ -19,11 +19,11 @@ ZCM is a derivation of the LCM project created in 2006 by the MIT DARPA Urban Ch
 team. The core message-type system, publish/subscribe APIs, and basic tools are ported
 directly from LCM and remain about 95% compatible. While there are a handful of subtle
 differences between the two, the core distinguishing feature is ZCM's transport
-agnosticism. LCM is designed competely around UDP Multicast. This trasport makes a lot
+agnosticism. LCM is designed completely around UDP Multicast. This transport makes a lot
 of sense for LAN connected compute clusters (such the original 2006 MIT DGC Vechicle).
 However, there are many other applications that are interesting targets for ZCM messaging.
 These include: local system messaging (IPC), multi-threaded messaging (in-process),
-embedded-system periphials (UART, I2C, etc), and web applications (Web Sockets).
+embedded-system peripherals (UART, I2C, etc), and web applications (Web Sockets).
 By refusing to make hard assumptions about the transport layer, ZCM opens the door
 to a wide set of use-cases that were neither possible nor practical with LCM.
 
@@ -79,7 +79,7 @@ To learn how you can contribute to this project, check out [Contributing](docs/c
    - C#
    - Lua
  - Explore alternative messaging paradigms using ZCM Types (e.g. those found in ZeroMQ)
- - Break from the orignal LCM APIs to improve API consistency
+ - Break from the original LCM APIs to improve API consistency
    - Goal for v2.0
    - v1.0 will **always** strive for API compatibility
 

@@ -1,9 +1,10 @@
-<a href="javascript:history.go(-1)">Back</a>
+<a style="margin-right: 1rem;" href="javascript:history.go(-1)">Back</a>
+[Home](../README.md)
 # Transport Layer
 
 The transport layer is a very important feature for ZCM. With
 this subsystem, end-users can craft their own custom transport implementations
-to transfer zcm messages. This is acheived with a generic transport interface
+to transfer zcm messages. This is achieved with a generic transport interface
 that specifies the services a transport must provide and how ZCM will use
 a given transport.
 
@@ -55,7 +56,7 @@ custom transport using the C89 API and access it from any other language just li
 
 There are two variants of this interface. One variant is for implementing blocking-style transports,
 and the other is for non-blocking transports. In most cases on a linux system, the blocking
-interface is most convienant, but the non-blocking interface can also be used if desired.
+interface is most convenient, but the non-blocking interface can also be used if desired.
 
 All of the core transport code is contained in `zcm/transport.h` and reading it is
 highly recommended.
@@ -74,7 +75,7 @@ following datastruct is employed:
     };
 
 To implement a polymorphic interface with only C89 code, we use a hand-rolled virtual-table
-of function pointers to the type. The following struct represtents this virtual-table:
+of function pointers to the type. The following struct represents this virtual-table:
 
     struct zcm_trans_methods_t
     {
@@ -95,7 +96,7 @@ whether it is a blocking or non-blocking style transport. Here is this type:
         zcm_trans_methods_t *vtbl;
     };
 
-Creating custom transports requires a bit of pointer coercion, but otherwise is fairly straghtforward. Here's is an outline of a typical implementation:
+Creating custom transports requires a bit of pointer coercion, but otherwise is fairly straightforward. Here's is an outline of a typical implementation:
 
     typedef struct
     {
@@ -184,7 +185,7 @@ IMPORTANT: The `my_transport_create` **must** set the `trans_type` and `vtbl` fi
    should **not** attempt to use this timing mechanism for real-time events.
 
    NOTE: This method should work concurrently and correctly with
-   recvmsg_enable().
+   `recvmsg_enable()`.
 
  - `int update(zcm_trans_t *zt)`
 
@@ -215,8 +216,10 @@ transports (such as those found in embedded).
    be less than `ZCM_CHANNEL_MAXLEN` and `len <= get_mtu()`, otherwise
    this method can return `ZCM_EINVALID`. On receipt of valid params,
    this method should **never block**. If the transport cannot accept the
-   message due to unavailability, `ZCM_EAGAIN` should be returned.
-   On success `ZCM_EOK` should be returned.
+   message due to unavailability, `ZCM_EAGAIN` should be returned. A transport
+   implementing this function will typically buffer the entirety of a message
+   into an internal buffer that will be flushed out upon successive calls to
+   `update()` below. On success `ZCM_EOK` should be returned.
 
  - `int recvmsg_enable(zcm_trans_t *zt, const char *channel, bool enable)`
 
@@ -246,11 +249,13 @@ transports (such as those found in embedded).
  - `int update(zcm_trans_t *zt)`
 
    This method is called from the `zcm_handle_nonblock()` function.
-   This method provides a periodicly-running routine that can perform
-   updates to the underlying hardware or other general mantainence to
-   this transport. This method should **never block**. Again, this
-   method is called from `zcm_handle_nonblock()` and thus runs at the same
-   frequency as `zcm_handle_nonblock()`. Failure to call `zcm_handle_nonblock()`
+   This method provides a periodically-running routine that can perform
+   updates to the underlying hardware or other general maintenance to
+   this transport. A transport implementing this function will typically use
+   this time to flush out any bytes left in its internal buffer. This method
+   should **never block**. Again, this method is called from
+   `zcm_handle_nonblock()` and thus runs at the same frequency as
+   `zcm_handle_nonblock()`. Failure to call `zcm_handle_nonblock()`
    while using an nonblock transport may cause the transport to work
    incorrectly on both message send and recv.
 
@@ -279,8 +284,9 @@ Now, we can create new `my_transport` instances with:
 This will issue a call to our `my_transport_create` function with a `zcm_url_t`
 
 We even can go a step further and register transports in a static-context (i.e. before main)!
-This can be acheived we either a compiler-specific attribute (in C) or with a static object
+This can be achieved we either a compiler-specific attribute (in C) or with a static object
 constructor in C++. The `zcm_transport_register` function is designed to be static-context safe.
+To learn more about how to do this in C++, take a look at `zcm/transport/transport_zmq_local.cpp`
 
 Lastly, ZCM supports using a transport without registering. In this mode, URL parsing is
 not supported. Instead, the user manually constructs a custom `zcm_trans_t*` and passes
@@ -290,7 +296,7 @@ it directly to the core library with the following function:
 
 ## Blocking vs Non-Blocking Message Handling
 
-In most ways, the distiction between blocking and non-blocking transports are completely
+In most ways, the distinction between blocking and non-blocking transports are completely
 transparent to the end user. Internally, ZCM operates differently depending on the type
 of transport it's using. This allows all of the following to work *identically*:
 
@@ -327,7 +333,7 @@ This appears to primarily be the incidental complexity of our requirements:
 
   - C89 API for supporting embedded (and other languages in the future)
   - Blocking and Non-blocking support
-  - First-class usage (no special builtin transports)
+  - First-class usage (no special built-in transports)
 
 For the aspiring transport developer, we recommend reading the following core sources:
 
@@ -343,4 +349,5 @@ It's also great to browse the implementations of built-in transports:
 Finally, we love contributions! Check out [Contributing](contributing.md).
 
 <hr>
-<a href="javascript:history.go(-1)">Back</a>
+<a style="margin-right: 1rem;" href="javascript:history.go(-1)">Back</a>
+[Home](../README.md)

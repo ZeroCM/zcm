@@ -1,4 +1,5 @@
-<a href="javascript:history.go(-1)">Back</a>
+<a style="margin-right: 1rem;" href="javascript:history.go(-1)">Back</a>
+[Home](../README.md)
 # From LCM to ZCM
 
 This page is for introducing LCM users to the unique differences of ZCM. Here, we intend
@@ -89,4 +90,5 @@ allows LCM users to gradually migrate to ZCM.
  - The ZeroMQ library is currently required for the 'ipc' and 'inproc' transports
 
 <hr>
-<a href="javascript:history.go(-1)">Back</a>
+<a style="margin-right: 1rem;" href="javascript:history.go(-1)">Back</a>
+[Home](../README.md)

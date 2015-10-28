@@ -1,4 +1,5 @@
-<a href="javascript:history.go(-1)">Back</a>
+<a style="margin-right: 1rem;" href="javascript:history.go(-1)">Back</a>
+[Home](../README.md)
 # ZCM Type Grammar
 
 This page describes the ZCM Type System and its grammar in very format terms. Unless you're interested in the
@@ -90,4 +91,5 @@ TODO
 TODO
 
 <hr>
-<a href="javascript:history.go(-1)">Back</a>
+<a style="margin-right: 1rem;" href="javascript:history.go(-1)">Back</a>
+[Home](../README.md)

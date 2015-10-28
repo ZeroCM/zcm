@@ -1,9 +1,10 @@
-<a href="javascript:history.go(-1)">Back</a>
+<a style="margin-right: 1rem;" href="javascript:history.go(-1)">Back</a>
+[Home](../README.md)
 # Dependencies & Building
 
 ZCM uses WAF as it's build system. While seemingly obscure, WAF improves upon and replaces
 GNU Autotools. It provides full configure, build, and install commands. It also supports building
-multiple lanaguages and elegantly handles custom build tools like zcm-gen. In-depth knowledge of
+multiple languages and elegantly handles custom build tools like zcm-gen. In-depth knowledge of
 WAF scripting is not required for most tasks, but we refer users to the
 [Waf Book](https://waf.io/book) as a reference.
 
@@ -23,7 +24,7 @@ modern linux systems.
 
  - All built-in transports: inclusion can be disabled at build-time
  - ZeroMQ: used for the `ipc` and `inproc` transports
- - Java JNI: used for the Java lanaguage bindings and tools implemented in Java
+ - Java JNI: used for the Java language bindings and tools implemented in Java
  - NodeJS and socket.io: used for client-side web applications
 
 All of the optional dependencies can be enabled or disabled at build-time by using
@@ -33,7 +34,7 @@ disable it.
 
 ## Building
 
-Building is very similair to the GNU Autotools style, but recast in a Waf light:
+Building is very similar to the GNU Autotools style, but recast in a Waf light:
 
     ./waf configure && ./waf build && sudo ./waf install
 
@@ -58,7 +59,7 @@ At this point you should be able to start exploring ZCM. Check out the [Tutorial
 
 As mentioned earlier, we can pick-and-choice the dependencies and features we desire.
 As an example, imagine that we only intend to use the IPC transport and we don't want
-a dependency to Java. We could builld ZCM as follows:
+a dependency to Java. We could build ZCM as follows:
 
     ./waf configure --use-ipc --use-zmq && ./waf build && ./test.sh && sudo ./waf install
 
@@ -68,4 +69,5 @@ browse them all, simply run:
     ./waf --help
 
 <hr>
-<a href="javascript:history.go(-1)">Back</a>
+<a style="margin-right: 1rem;" href="javascript:history.go(-1)">Back</a>
+[Home](../README.md)
