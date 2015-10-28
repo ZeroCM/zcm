@@ -1,6 +1,6 @@
 # ZCM: Zero Communications and Marshalling
 
-ZCM is a micro-framework for mesaage-passing and data-marshalling, designed originally
+ZCM is a micro-framework for message-passing and data-marshalling, designed originally
 for robotics systems where high-bandwidth and low-latency are critical and the variance in
 compute platforms is large.
 
@@ -22,7 +22,7 @@ differences between the two, the core distinguishing feature is ZCM's transport
 agnosticism. LCM is designed competely around UDP Multicast. This trasport makes a lot
 of sense for LAN connected compute clusters (such the original 2006 MIT DGC Vechicle).
 However, there are many other applications that are interesting targets for ZCM messaging.
-These include: local system messaging (IPC), multi-threaded messaging (in-procees),
+These include: local system messaging (IPC), multi-threaded messaging (in-process),
 embedded-system periphials (UART, I2C, etc), and web applications (Web Sockets).
 By refusing to make hard assumptions about the transport layer, ZCM opens the door
 to a wide set of use-cases that were neither possible nor practical with LCM.

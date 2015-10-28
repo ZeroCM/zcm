@@ -27,8 +27,8 @@ the same type specification for messaging in countless contexts, including:
   - Client-side web-browser (WebSockets and Javascript)
 
 For this, we created the ZCM project. Our goal is to connect all of these messaging
-granularities with simple and easy-to-use APIs. We want to be capable of defining
-a sinngle ZCM message type and send it anywhere.
+granularities with simple and easy-to-use APIs. We want to be able to define
+a single ZCM message type and send and receive it anywhere.
 
 ## Core Differences
 
@@ -41,6 +41,24 @@ Our primary goal for v1.0 is to retain API compatibility with LCM, while providi
 custom transport layer. Thus, despite being implemented in C++11, the ZCM C APIs are
 identical to LCM. We have strived to retain as much API compatibility as possible for
 our intial release.
+
+## New Features with ZCM
+
+### ZCM Transport Layer
+
+ZCM has many benefits over LCM, as noted above, but its primary boon is the addition
+of the new custom transport system. ZCM allows end-users to implement and register
+custom transports. As long as a new transport conforms to the rigorously-defined
+transport API, the custom transport will work flawlessly. To learn more, check out
+the page on [Transport Layer](transports.md).
+
+### ZCM Embedded-System Support
+
+ZCM is designed with embedded applications in mind. The custom transport layer (see above),
+has a special non-blocking transport API designed fine-tuned for embedded uses. In addition,
+the ZCM non-blocking core library is restricted to "on-the-metal" C89 code. This restriction allows
+embedded systems to use ZCM types and ZCM non-blocking code with little or no modifications.
+To learn more, check out the page on [Embedded Applications](embedded.md).
 
 ## Porting programs to ZCM
 
@@ -69,24 +87,6 @@ allows LCM users to gradually migrate to ZCM.
 ### Other minor issues
  - The Java bindings now require JNI
  - The ZeroMQ library is currently required for the 'ipc' and 'inproc' transports
-
-## New Features with ZCM
-
-### ZCM Transport Layer
-
-ZCM adds many benefits over LCM, as noted above, but its primary boon is the addition
-of the new custom transport system. ZCM allows end-users to implement and register
-custom transports. As long as a new transport conforms to the rigorously-defined
-transport API, the custom transport will work flawlessly. To learn more, check out
-the page on [Transport Layer](transports.md).
-
-### ZCM Embedded-System Support
-
-ZCM is designed with embedded applications in mind. The custom transport layer (see above),
-has a special non-blocking transport API designed fine-tuned for embedded uses. In addition,
-the ZCM non-blocking core library is restricted to "on-the-metal" C89 code. This restriction allows
-embedded systems to use ZCM types and ZCM non-blocking code with little or no modifications.
-To learn more, check out the page on [Embedded Applications](embedded.md).
 
 <hr>
 <a href="javascript:history.go(-1)">Back</a>

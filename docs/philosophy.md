@@ -11,7 +11,7 @@ various nodes in the system.
 
 ### Manual Approach
 
-At first, we might not see this as a problem and opt to manually-roll
+At first, we might not see this as a problem and opt to manually roll
 data types and encodings. As an example, we may want to send an *orientation* to another process.
 An *orientation* consists of a roll, pitch and yaw. We might decide to implement a send function as follows:
 
@@ -118,7 +118,7 @@ data type like `message_t` above and then send it like this:
     /* populate msg */
     send_message(m);
 
-The `send_message()` funtion would automatically encode the message in an optimal binary format, and
+The `send_message()` function would automatically encode the message in an optimal binary format, and
 send the encoded data through the desired transport protocol.
 
 Then, we could imagine a receiver that simply gets a callback triggered:

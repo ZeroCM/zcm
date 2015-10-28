@@ -2,12 +2,12 @@
 # ZCM Step-by-Step Tutorial
 
 We believe the best way to learn new things is to just dive in and start making mistakes.
-It's only by making those early mistakes that one truely can understand the folly of one's
+It's only by making those early mistakes that one truly can understand the folly of one's
 ways and to grow as a result. So, without further ado, let's get started.
 
 ## Basic Types
 
-To understand ZCM, we must start by discussing it's message type-system. Every message sent inside
+To understand ZCM, we must start by discussing its message type-system. Every message sent inside
 ZCM can be tied back to some message specification. Let's explore this with a simple, yet practical example.
 Imagine that we have a typical rotation sensor such as an IMU or Gyro. Our sensor produces
 yaw, pitch, and roll measurements as well as a few flags describing it's mode of operation. If we were
@@ -22,9 +22,9 @@ programming in just C code, we might design a struct type as follows:
     };
 
 In ZCM, we aim to retain this rich data structuring and layout while still being able to do
-powerfull message-passing in numerous different programming languages. To do this, we use a
+powerful message-passing in numerous different programming languages. To do this, we use a
 programming-language-agnostic type specification language. Fortunately for our example above,
-it is very similair to C struct syntax. Here it is:
+it is very similar to C struct syntax. Here it is:
 
     struct rotation_t
     {
@@ -75,7 +75,7 @@ for many different programming languages. We will be using C code for this examp
 
     zcm-gen -c msg_t.zcm
 
-This command will produce two new files in the current directory (msg_t.h and msg_t.c).
+This command will produce two new files in the current directory (msg\_t.h and msg\_t.c).
 Feel free to browse these files for a moment to get a rough idea of how zcm-gen works. Notice
 that zcm-gen has converted the *string* to a native C type. ZCM always tries to use the
 native data types in each programming langauge, so the programming experience doesn't feel foreign.
@@ -98,7 +98,7 @@ transport protocol to use and provide an appropriate url. For this example, we'l
 
     zcm_t *zcm = zcm_create("ipc");
 
-Finally, we simply construct a msg_t and then publish it repeatedly:
+Finally, we simply construct a msg\_t and then publish it repeatedly:
 
     msg_t msg;
     msg.str = (char*)"Hello, World!";
@@ -133,7 +133,7 @@ And that's it! Here's the full program (publish.c):
 
 Building and running:
 
-    cc -o publish -I. publish.c msg_t.c -lzcm`
+    cc -o publish -I. publish.c msg_t.c -lzcm
     ./publish
 
 If you have the java ZCM tools installed, you should be able to run zcm-spy and
@@ -143,8 +143,8 @@ see the published messages now!
 
 ### Hello World Subscribe
 
-Let's build a program to recieve those messages. We'll start off the same as before
-by adding the headers and creating a new zcm_t* instance. Then, we need to *subscribe*
+Let's build a program to receive those messages. We'll start off the same as before
+by adding the headers and creating a new zcm_t\* instance. Then, we need to *subscribe*
 to the particular channel. But, first we need to create a callback function to handle all the
 received messages:
 
@@ -161,7 +161,7 @@ Now, in the main() function, we need to register this callback by subscribing:
 
 Finally, in order to dispatch messages to the callbacks, ZCM needs a thread. So, we
 call into zcm to tell it to consume the current thread and use it for dispatching any
-incomming messages (zcm_become doesn't normally return):
+incoming messages (zcm\_become doesn't normally return):
 
     zcm_become(zcm);
 
@@ -205,9 +205,9 @@ see a stream of data in the subscribe window!
 Another super useful feature of the ZCM type system is its type-checking capabilities.
 These type checks make it hard to accidentally change message types without updating
 programs that rely on them. For a mission critical system such as a robotics system, this
-is a crutial feature.
+is a crucial feature.
 
-Let's explore by example. Let's revist our msg_t type and add a new field, changing
+Let's explore by example. Let's revisit our msg\_t type and add a new field, changing
 it to look as follows:
 
     struct msg_t
@@ -232,9 +232,10 @@ The `msg_t.h` file now contains:
     };
     /* ... code removed ... */
 
-Clearly, it was bad engineering to evolve this message like this, but these things can
-happen accidentally and can introduce bugs that are tricky to track-down. To show how
-ZCM detects this issue. Let's change publish.c to use the new type:
+Evolving a message in this way would normally eliminate any chance at backward
+compatibility, but these things can happen accidentally and can introduce bugs
+that are tricky to track-down. To show how ZCM detects this issue. Let's change
+publish.c to use the new type:
 
     msg.can_frobinate = 0;
 
@@ -268,7 +269,7 @@ using the `zcm-spy` tool.
 
 It is often desirable to record the messaging data events and record them for later
 debugging. On a robotics system this is very important because often the developer
-cannot debug in realtime nor deterministically reproduce bugs that have previously
+cannot debug in real-time nor deterministically reproduce bugs that have previously
 occurred. By recording live events, debugging can be done after an issue occurs.
 ZCM ships with a built-in logging API using `zcm/eventlog.h`. ZCM also provides
 a stand-alone process `zcm-logger` that records all events it receives on the
@@ -278,13 +279,13 @@ specified transport.
 
 After capturing a ZCM log, it can be *replayed* using the `zcm-logplayer` tool.
 This tool republishes the events back onto a ZCM transport. For here, any ZCM
-subscriber application can recieve the data exactly as it would have live! This
+subscriber application can receive the data exactly as it would have live! This
 tool, combined with the logger creates a powerful development approach for
 systems with limited debug-ability.
 
 ## ZCM Tools Example
 
-For this example we'll use a special zcm message type for counting (count_t.zcm):
+For this example we'll use a special ZCM message type for counting (count\_t.zcm):
 
     struct count_t
     {
@@ -318,10 +319,10 @@ Publisher application (publish.c):
 
 Building and running:
 
-    cc -o publish -I. publish.c count_t.c -lzcm`
+    cc -o publish -I. publish.c count_t.c -lzcm
     ./publish
 
-We can now *spy* on the zcm traffic with:
+We can now *spy* on the ZCM traffic with:
 
     zcm-spy --zcm-url ipc
 
@@ -331,7 +332,7 @@ Record the ZCM messages for a few seconds:
 
     zcm-logger --zcm-url ipc
 
-This will produce a zcm log file in the current directory
+This will produce a ZCM log file in the current directory
 named with the pattern: `zcmlog-{YEAR}-{MONTH}-{DAY}.00`
 
 We can *replay* these captured events using the zcm-logplayer tool:
@@ -349,15 +350,16 @@ we can use the `zcm-spy` tool, running it before the replay tool:
 
 With a firm grasp of the ZCM tools and environment, we can start exploring
 some of the more advanced topics in ZCM. Let's begin with the more
-advanced features of the zcm type system.
+advanced features of the ZCM type system.
 
 ### Nested Types
 As discussed earlier, ZCM types are
-strongly-typed statically-defined record that may contain any number of fields.
-These fields can use a wide set of primitive data types. However, this system is much more powerful than just
-primitive types. The ZCM type system can support nested types as well.
+strongly-typed statically-defined records that may contain any number of fields.
+These fields can use a wide set of primitive data types. However, this system
+is much more powerful than containing only primitive types.
+The ZCM type system can support nested types as well.
 
-Let's see an example (nested_types.zcm):
+Let's see an example (nested\_types.zcm):
 
     struct position_t
     {
@@ -376,7 +378,7 @@ Generate the bindings:
 
 This generates the types `position_t` and `cfg_t`.
 
-position_t.h:
+position\_t.h:
 
     /* ... code removed ... */
     typedef struct _position_t position_t;
@@ -399,7 +401,7 @@ cfg.h:
     };
     /* ... code removed ... */
 
-As you can see, cfg_t can be used in the same same way as any
+As you can see, cfg\_t can be used in the same same way as any
 other zcmtype. The type nesting *just works*!
 
 ### Array Types
@@ -469,7 +471,7 @@ C++ code:
 
 ### Multi-dimmension Arrays
 
-ZCM also supports multiple dimmensions on arrays. You can also mix
+ZCM also supports multiple dimensions on arrays. You can also mix
 static-sized and dynamic-sized arrays along different dimensions:
 
     struct multdim_t
@@ -509,13 +511,13 @@ emulating enum types and for defining flags and masks:
 ### Closing Thoughts on Types
 
 The ZCM type system is incredibly rich, flexible, and composable. Nearly each
-of these features can be used unrestricted with the others. This allows users
-to create rich and interesting message types with ease. For a rigourous
+of these features can be used independent of or in conjunction with the others.
+This allows users to create rich and interesting message types with ease. For a rigorous
 definition of the ZCM type system, see the [ZCM Type Grammar](zcmtype_grammar.md).
 
 ## Next Steps
 
-At this point you should know enough about ZCM to implement a many interesting
+At this point you should know enough about ZCM to implement many interesting
 applications. The essence of ZCM defining ZCMTypes, coding to the pub/sub APIs,
 and debugging using the built-in tool suite. This covers about 90% of the
 typical ZCM development workflow.
