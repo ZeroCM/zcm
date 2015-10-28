@@ -44,7 +44,7 @@ setTimeout(function() { setInterval(subTo2,                              12000);
 setTimeout(function() { setInterval(function() { z.unsubscribe(sub1); }, 12000); }, 6000);
 setTimeout(function() { setInterval(function() { z.unsubscribe(sub2); }, 12000); }, 9000);
 
-z.subscribe_all(function(channel, msg) {
+sub3 = z.subscribe_all(function(channel, msg) {
     console.log("Subscribe All message received on channel " + channel);
 });
 

@@ -47,6 +47,7 @@ var zcm = (function(){
         /**
          * Subscribes to all zcm messages.
          * @param {dispatchDecodedCallback} cb - handler for received messages
+         * @return {int} the subscription tag to use to unsubscribe
          */
         function subscribe_all(cb) {
             var subId = subIds++;
@@ -59,7 +60,7 @@ var zcm = (function(){
 
         /**
          * Unsubscribes from the zcm messages on the given channel
-         * @param {string} channel - the zcm channel to unsubscribe from
+         * @param {int} subId - the subscription tag to unsubscribe from
          */
         function unsubscribe(subId) {
             if (subId in callbacks) {

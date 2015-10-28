@@ -135,6 +135,15 @@ function libzcmTransport(transport) {
     };
 }
 
+// RRR: haha nice catch, I didn't even notice the double variable thing, but what I actually
+//      meant was, do you think we actually need this extra class, or should we merge it in to
+//      be the same class as what is now "libzcmTransport". If you look 95% of all of the methods
+//      are the same, and all the ones in this class simply call into the transport. The main
+//      difference is that this class encodes / decodes zcmtypes, but that could easily be a
+//      functionality we add to the libzcmTransport. I'm just not sure I can justify having a
+//      this be a whole different class rather than just giving libzcmTransport a few hidden
+//      methods that do the messy work with encoded data and just move these functions to be
+//      the visible ones. Thoughts?
 function zcm (zcmtypes, zcmurl)
 {
     zcmurl = zcmurl || "ipc";
@@ -183,11 +192,6 @@ function zcm (zcmtypes, zcmurl)
     {
         return transport.subscribe(".*", function(channel, data){
             var hash = ref.readInt64BE(data, 0);
-            // RRR: as a courtesy to the user, we should make the nodejs zcmgen add a
-            //      "typename" field to all zcmtypes that contains the string name of the
-            //      object. This will let the subscriber have a little better knowledge of
-            //      what decoded data they are actually getting back. Even though the channel
-            //      is some hint, it would still be useful for things like spy
             cb(channel, zcmtypeHashMap[hash].decode(data));
         });
     }
