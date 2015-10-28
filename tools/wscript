@@ -3,5 +3,6 @@
 
 def build(ctx):
     ctx.recurse('lspy');
-    ctx.recurse('java');
+    if ctx.env.USING_JAVA:
+        ctx.recurse('java');
     ctx.recurse('cpp');

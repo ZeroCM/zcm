@@ -35,8 +35,9 @@ def build(ctx):
                        'url.h', 'eventlog.h', 'zcm-cpp.hpp', 'zcm-cpp-impl.hpp',
                        'transport_register.hpp'])
 
-    # XXX: disabled for now
-    ctx.recurse('java');
+    if ctx.env.USING_JAVA:
+        ctx.recurse('java');
+
     ctx.recurse('js');
 
 def exec_test_embedded(tsk):
