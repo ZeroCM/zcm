@@ -43,8 +43,8 @@ def add_zcm_options(ctx):
 def configure(ctx):
     ctx.load('compiler_c')
     ctx.load('compiler_cxx')
-    ctx.load('zcm-gen')
     ctx.recurse('gen')
+    ctx.load('zcm-gen')
     process_zcm_options(ctx)
 
 def process_zcm_options(ctx):
