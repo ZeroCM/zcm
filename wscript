@@ -105,9 +105,10 @@ def setup_environment(ctx):
     WARNING_FLAGS = ['-Wall', '-Werror', '-Wno-unused-function', '-Wno-format-zero-length']
     SYM_FLAGS = ['-g']
     OPT_FLAGS = ['-O3']
-    ctx.env.CFLAGS_default   = ['-std=gnu99', '-fPIC'] + WARNING_FLAGS
-    ctx.env.CXXFLAGS_default = ['-std=c++11', '-fPIC'] + WARNING_FLAGS
+    ctx.env.CFLAGS_default   = ['-std=gnu99', '-fPIC', '-pthread'] + WARNING_FLAGS
+    ctx.env.CXXFLAGS_default = ['-std=c++11', '-fPIC', '-pthread'] + WARNING_FLAGS
     ctx.env.INCLUDES_default = [ctx.path.abspath()]
+    ctx.env.LINKFLAGS_default = ['-pthread']
 
     ctx.env.DEFINES_default = []
     for k in ctx.env.keys():
