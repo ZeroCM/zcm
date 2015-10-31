@@ -44,6 +44,7 @@ def configure(ctx):
     ctx.load('compiler_c')
     ctx.load('compiler_cxx')
     ctx.recurse('gen')
+    ctx.recurse('config')
     ctx.load('zcm-gen')
     process_zcm_options(ctx)
 
