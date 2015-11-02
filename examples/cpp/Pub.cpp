@@ -2,8 +2,12 @@
 #include <zcm/zcm-cpp.hpp>
 #include "types/example_t.hpp"
 
+#include "test.hpp"
+
 int main(int argc, char *argv[])
 {
+    test();
+
     const char *URL = "ipc";
     if (argc > 1) URL = argv[1];
 

@@ -4,7 +4,7 @@
 def build(ctx):
     ctx.program(target = 'pub',
                 use = 'default zcm examplezcmtypes_cpp',
-                source = 'Pub.cpp')
+                source = 'Pub.cpp test.cpp')
 
     ctx.program(target = 'sub',
                 use = 'default zcm examplezcmtypes_cpp',
