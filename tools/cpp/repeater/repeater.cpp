@@ -9,11 +9,16 @@
 #include <time.h>
 #include <getopt.h>
 
+// RRR: not terribly important, but since this is a .cpp file, you could use the cpp zcm api
 #include "zcm/zcm.h"
 
 #include <string>
 
 using namespace std;
+
+// RRR: like Anthony mentioned, it would be cool to build repeating (and logging) right in to the
+//      transport layers as opposed to relying on an extra app to cut down on the data copying,
+//      but this is a good step for now.
 
 struct Args
 {
@@ -88,14 +93,14 @@ struct Repeater
         // Source network
         zcmSrc = zcm_create(args.src_url.c_str());
         if (!zcmSrc) {
-            fprintf(stderr, "Couldn't initialize source ZCM! Try setting providing a source URL with the -s opt\n");
+            fprintf(stderr, "Couldn't initialize source ZCM! Try providing a source URL with the -s opt\n");
             return false;
         }
 
         // Dest network
         zcmDest = zcm_create(args.dest_url.c_str());
         if (!zcmDest) {
-            fprintf(stderr, "Couldn't initialize destination ZCM! Try setting providing a destination URL with the -d opt\n");
+            fprintf(stderr, "Couldn't initialize destination ZCM! Try providing a destination URL with the -d opt\n");
             return false;
         }
 
@@ -147,11 +152,14 @@ static void usage()
             "\n"
             "Options:\n"
             "\n"
+            // RRR: need to add back in the --channel long optarg
             "  -c, --channel=CHAN         Channel string to pass to zcm_subscribe.\n"
             "                             (default: \".*\")\n"
+            // RRR: need to add back in the --help long optarg
             "  -h, --help                 Shows this help text and exits\n"
             "  -s, --src-url=URL          Subscribe to messages on the specified ZCM URL\n"
             "  -d, --dest-url=URL         Repeat messages onto the specified ZCM URL\n"
+            // RRR: need to add back in the --invert-channels long optarg
             "  -v, --invert-channels      Invert channels. Repeat everything that CHAN\n"
             "                             does not match.\n"
             "\n");
