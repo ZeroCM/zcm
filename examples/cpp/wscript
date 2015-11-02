@@ -4,14 +4,6 @@
 def build(ctx):
     ctx.program(target = 'pub',
                 use = 'default zcm examplezcmtypes_cpp',
-                source = 'Pub.cpp test.cpp')
-
-    ctx.stlib(target = 'excpplib',
-              use = 'default zcm examplezcmtypes_cpp',
-              source = 'test.cpp')
-
-    ctx.program(target = 'pub-lib',
-                use = 'default zcm examplezcmtypes_cpp excpplib',
                 source = 'Pub.cpp')
 
     ctx.program(target = 'sub',

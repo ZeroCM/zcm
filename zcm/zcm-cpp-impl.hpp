@@ -6,6 +6,9 @@
 
 // =============== implementation ===============
 
+// Note: To prevent compiler "redefinition" issues, all functions in this file must be declared
+//       as `inline`
+
 // TODO: unify pointer style pref "Msg* msg" vs "Msg *msg", I'd tend toward the former
 
 inline ZCM::ZCM(const std::string& transport)
@@ -155,9 +158,10 @@ class TypedHandlerSubscription : public TypedSubscription<Msg>, HandlerSubscript
 // TODO: lots of room to condense the implementations of the various subscribe functions
 template <class Msg, class Handler>
 inline Subscription *ZCM::subscribe(const std::string& channel,
-                             void (Handler::*cb)(const ReceiveBuffer *rbuf,
-                                                 const std::string& channel, const Msg *msg),
-                             Handler *handler)
+                                    void (Handler::*cb)(const ReceiveBuffer *rbuf,
+                                                        const std::string& channel,
+                                                        const Msg *msg),
+                                    Handler *handler)
 {
     if (!zcm) {
         fprintf(stderr, "ZCM instance not initialized. Ignoring call to subscribe()\n");
@@ -176,9 +180,9 @@ inline Subscription *ZCM::subscribe(const std::string& channel,
 
 template <class Handler>
 inline Subscription *ZCM::subscribe(const std::string& channel,
-                             void (Handler::*cb)(const ReceiveBuffer* rbuf,
-                                                 const std::string& channel),
-                             Handler* handler)
+                                    void (Handler::*cb)(const ReceiveBuffer* rbuf,
+                                                        const std::string& channel),
+                                    Handler* handler)
 {
     if (!zcm) {
         fprintf(stderr, "ZCM instance not initialized.  Ignoring call to subscribe()\n");
@@ -197,9 +201,10 @@ inline Subscription *ZCM::subscribe(const std::string& channel,
 
 template <class Msg>
 inline Subscription *ZCM::subscribe(const std::string& channel,
-                             void (*cb)(const ReceiveBuffer *rbuf, const std::string& channel,
-                                        const Msg *msg, void *usr),
-                             void *usr)
+                                    void (*cb)(const ReceiveBuffer *rbuf,
+                                               const std::string& channel,
+                                               const Msg *msg, void *usr),
+                                    void *usr)
 {
     if (!zcm) {
         fprintf(stderr, "ZCM instance not initialized.  Ignoring call to subscribe()\n");
@@ -217,9 +222,9 @@ inline Subscription *ZCM::subscribe(const std::string& channel,
 }
 
 inline Subscription *ZCM::subscribe(const std::string& channel,
-                             void (*cb)(const ReceiveBuffer *rbuf, const std::string& channel,
-                                        void *usr),
-                             void *usr)
+                                    void (*cb)(const ReceiveBuffer *rbuf,
+                                               const std::string& channel, void *usr),
+                                    void *usr)
 {
     if (!zcm) {
         fprintf(stderr, "ZCM instance not initialized.  Ignoring call to subscribe()\n");
