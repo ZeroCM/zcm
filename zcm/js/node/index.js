@@ -144,9 +144,11 @@ function zcm(zcmtypes, zcmurl)
      */
     function subscribe_raw(channel, cb)
     {
-        var funcPtr = ffi.Callback('void', [recvBufRef, 'string', 'pointer'], makeDispatcher(cb));
+        var dispatcher = makeDispatcher(cb);
+        var funcPtr = ffi.Callback('void', [recvBufRef, 'string', 'pointer'], dispatcher);
         return {"subscription" : libzcm.zcm_subscribe(z, channel, funcPtr, null),
-                "nativeCallbackPtr" : funcPtr};
+                "nativeCallbackPtr" : funcPtr,
+                "dispatcher" : dispatcher};
     }
 
     /**
