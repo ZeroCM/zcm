@@ -1,6 +1,8 @@
 #include "zcm/zcm-cpp.hpp"
 #include "types/example_t.hpp"
 
+#include "multi_file.hpp"
+
 #include <unistd.h>
 #include <iostream>
 #include <cstdio>
@@ -81,6 +83,8 @@ int main(int argc, const char *argv[])
             }
         }
     }
+
+    greet();
 
     Handler handler;
 

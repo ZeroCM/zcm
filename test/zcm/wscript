@@ -10,7 +10,7 @@ def build(ctx):
 
     ctx.program(target = 'sub_unsub_cpp',
                 use = 'default zcm testzcmtypes_cpp',
-                source = 'sub_unsub.cpp',
+                source = 'sub_unsub.cpp multi_file.cpp',
                 rpath = ctx.env.RPATH_zcm,
                 install_path = None)
 

@@ -6,6 +6,9 @@
 
 // =============== implementation ===============
 
+// Note: To prevent compiler "redefinition" issues, all functions in this file must be declared
+//       as `inline`
+
 // TODO: unify pointer style pref "Msg* msg" vs "Msg *msg", I'd tend toward the former
 
 inline ZCM::ZCM(const std::string& transport)
@@ -79,7 +82,7 @@ class TypedSubscription : public virtual Subscription
   public:
     virtual ~TypedSubscription() {}
 
-    int readMsg(const ReceiveBuffer *rbuf)
+    inline int readMsg(const ReceiveBuffer *rbuf)
     {
         int status = msgMem.decode(rbuf->data, 0, rbuf->data_size);
         if (status < 0) {
@@ -89,13 +92,13 @@ class TypedSubscription : public virtual Subscription
         return 0;
     }
 
-    void typedDispatch(const ReceiveBuffer *rbuf, const char *channel)
+    inline void typedDispatch(const ReceiveBuffer *rbuf, const char *channel)
     {
         if (readMsg(rbuf) != 0) return;
         (*typedCallback)(rbuf, channel, &msgMem, usr);
     }
 
-    static void dispatch(const ReceiveBuffer *rbuf, const char *channel, void *usr)
+    static inline void dispatch(const ReceiveBuffer *rbuf, const char *channel, void *usr)
     {
         ((TypedSubscription<Msg>*)usr)->typedDispatch(rbuf, channel);
     }
@@ -114,12 +117,12 @@ class HandlerSubscription : public virtual Subscription
   public:
     virtual ~HandlerSubscription() {}
 
-    void handlerDispatch(const ReceiveBuffer *rbuf, const char *channel)
+    inline void handlerDispatch(const ReceiveBuffer *rbuf, const char *channel)
     {
         (handler->*handlerCallback)(rbuf, channel);
     }
 
-    static void dispatch(const ReceiveBuffer *rbuf, const char *channel, void *usr)
+    static inline void dispatch(const ReceiveBuffer *rbuf, const char *channel, void *usr)
     {
         ((HandlerSubscription<Handler>*)usr)->handlerDispatch(rbuf, channel);
     }
@@ -137,7 +140,7 @@ class TypedHandlerSubscription : public TypedSubscription<Msg>, HandlerSubscript
   public:
     virtual ~TypedHandlerSubscription() {}
 
-    void typedHandlerDispatch(const ReceiveBuffer *rbuf, const char *channel)
+    inline void typedHandlerDispatch(const ReceiveBuffer *rbuf, const char *channel)
     {
         // Unfortunately, we need to add "this" here to handle template inheritance:
         // https://isocpp.org/wiki/faq/templates#nondependent-name-lookup-members
@@ -145,7 +148,7 @@ class TypedHandlerSubscription : public TypedSubscription<Msg>, HandlerSubscript
         (this->handler->*typedHandlerCallback)(rbuf, channel, &this->msgMem);
     }
 
-    static void dispatch(const ReceiveBuffer *rbuf, const char *channel, void *usr)
+    static inline void dispatch(const ReceiveBuffer *rbuf, const char *channel, void *usr)
     {
         ((TypedHandlerSubscription<Msg, Handler>*)usr)->typedHandlerDispatch(rbuf, channel);
     }
@@ -154,10 +157,11 @@ class TypedHandlerSubscription : public TypedSubscription<Msg>, HandlerSubscript
 
 // TODO: lots of room to condense the implementations of the various subscribe functions
 template <class Msg, class Handler>
-Subscription *ZCM::subscribe(const std::string& channel,
-                             void (Handler::*cb)(const ReceiveBuffer *rbuf,
-                                                 const std::string& channel, const Msg *msg),
-                             Handler *handler)
+inline Subscription *ZCM::subscribe(const std::string& channel,
+                                    void (Handler::*cb)(const ReceiveBuffer *rbuf,
+                                                        const std::string& channel,
+                                                        const Msg *msg),
+                                    Handler *handler)
 {
     if (!zcm) {
         fprintf(stderr, "ZCM instance not initialized. Ignoring call to subscribe()\n");
@@ -175,10 +179,10 @@ Subscription *ZCM::subscribe(const std::string& channel,
 }
 
 template <class Handler>
-Subscription *ZCM::subscribe(const std::string& channel,
-                             void (Handler::*cb)(const ReceiveBuffer* rbuf,
-                                                 const std::string& channel),
-                             Handler* handler)
+inline Subscription *ZCM::subscribe(const std::string& channel,
+                                    void (Handler::*cb)(const ReceiveBuffer* rbuf,
+                                                        const std::string& channel),
+                                    Handler* handler)
 {
     if (!zcm) {
         fprintf(stderr, "ZCM instance not initialized.  Ignoring call to subscribe()\n");
@@ -196,10 +200,11 @@ Subscription *ZCM::subscribe(const std::string& channel,
 }
 
 template <class Msg>
-Subscription *ZCM::subscribe(const std::string& channel,
-                             void (*cb)(const ReceiveBuffer *rbuf, const std::string& channel,
-                                        const Msg *msg, void *usr),
-                             void *usr)
+inline Subscription *ZCM::subscribe(const std::string& channel,
+                                    void (*cb)(const ReceiveBuffer *rbuf,
+                                               const std::string& channel,
+                                               const Msg *msg, void *usr),
+                                    void *usr)
 {
     if (!zcm) {
         fprintf(stderr, "ZCM instance not initialized.  Ignoring call to subscribe()\n");
@@ -216,10 +221,10 @@ Subscription *ZCM::subscribe(const std::string& channel,
     return sub;
 }
 
-Subscription *ZCM::subscribe(const std::string& channel,
-                             void (*cb)(const ReceiveBuffer *rbuf, const std::string& channel,
-                                        void *usr),
-                             void *usr)
+inline Subscription *ZCM::subscribe(const std::string& channel,
+                                    void (*cb)(const ReceiveBuffer *rbuf,
+                                               const std::string& channel, void *usr),
+                                    void *usr)
 {
     if (!zcm) {
         fprintf(stderr, "ZCM instance not initialized.  Ignoring call to subscribe()\n");

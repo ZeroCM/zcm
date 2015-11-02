@@ -39,27 +39,27 @@ struct ZCM
     inline int publish(const std::string& channel, const Msg *msg);
 
     template <class Msg, class Handler>
-    Subscription *subscribe(const std::string& channel,
-                            void (Handler::*cb)(const ReceiveBuffer *rbuf,
-                                                const std::string& channel, const Msg *msg),
-                            Handler *handler);
+    inline Subscription *subscribe(const std::string& channel,
+                                   void (Handler::*cb)(const ReceiveBuffer *rbuf,
+                                                       const std::string& channel, const Msg *msg),
+                                   Handler *handler);
 
     template <class Handler>
-    Subscription *subscribe(const std::string& channel,
-                            void (Handler::*cb)(const ReceiveBuffer* rbuf,
-                                                const std::string& channel),
-                            Handler* handler);
+    inline Subscription *subscribe(const std::string& channel,
+                                   void (Handler::*cb)(const ReceiveBuffer* rbuf,
+                                                       const std::string& channel),
+                                   Handler* handler);
 
     template <class Msg>
-    Subscription *subscribe(const std::string& channel,
-                            void (*cb)(const ReceiveBuffer *rbuf, const std::string& channel,
-                                       const Msg *msg, void *usr),
-                            void *usr);
+    inline Subscription *subscribe(const std::string& channel,
+                                   void (*cb)(const ReceiveBuffer *rbuf, const std::string& channel,
+                                              const Msg *msg, void *usr),
+                                   void *usr);
 
-    Subscription *subscribe(const std::string& channel,
-                            void (*cb)(const ReceiveBuffer *rbuf, const std::string& channel,
-                                       void *usr),
-                            void *usr);
+    inline Subscription *subscribe(const std::string& channel,
+                                   void (*cb)(const ReceiveBuffer *rbuf, const std::string& channel,
+                                              void *usr),
+                                   void *usr);
 
     inline void unsubscribe(Subscription *sub);
 
@@ -83,12 +83,12 @@ class Subscription
   public:
     virtual ~Subscription() {}
 
-    void dispatch(const ReceiveBuffer *rbuf, const char *channel)
+    inline void dispatch(const ReceiveBuffer *rbuf, const char *channel)
     {
         (*callback)(rbuf, channel, usr);
     }
 
-    static void dispatch(const ReceiveBuffer *rbuf, const char *channel, void *usr)
+    static inline void dispatch(const ReceiveBuffer *rbuf, const char *channel, void *usr)
     {
         ((Subscription*)usr)->dispatch(rbuf, channel);
     }
