@@ -7,6 +7,7 @@
 #include <iostream>
 #include <cstdio>
 #include <string>
+#include <cinttypes>
 
 using namespace std;
 
@@ -30,7 +31,7 @@ class Handler
 
     void generic_handle(const zcm::ReceiveBuffer *rbuf, const string& channel)
     {
-        vprintf("%lu - %s: ", rbuf->recv_utime, channel.c_str());
+        vprintf("%" PRIi64 " - %s: ", rbuf->recv_utime, channel.c_str());
         size_t i;
         for (i = 0; i < rbuf->data_size; ++i) {
             vprintf("%c ", rbuf->data[i]);
@@ -52,7 +53,7 @@ class Handler
     void example_t_handle(const zcm::ReceiveBuffer *rbuf, const string& channel,
                           const example_t *msg)
     {
-        vprintf("%lu - %s: ", rbuf->recv_utime, channel.c_str());
+        vprintf("%" PRIi64 " - %s: ", rbuf->recv_utime, channel.c_str());
         vprintf("%d", (int) msg->timestamp);
         bytepacked_typed_received |= (int) msg->timestamp;
         num_typed_received++;

@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <inttypes.h>
 
 #define vprintf(...) do { \
     if (verbose) { \
@@ -21,7 +22,7 @@ static int  bytepacked_received = 0;
 static char data[NUM_DATA] = {'a', 'b', 'c', 'd', 'e'};
 static void generic_handler(const zcm_recv_buf_t *rbuf, const char *channel, void *usr)
 {
-    vprintf("%lu - %s: ", rbuf->recv_utime, channel);
+    vprintf("%" PRIi64 " - %s: ", rbuf->recv_utime, channel);
     size_t i;
     for (i = 0; i < rbuf->data_size; ++i) {
         vprintf("%c ", rbuf->data[i]);
@@ -43,7 +44,7 @@ static int  bytepacked_typed_received = 0;
 static void example_t_handler(const zcm_recv_buf_t *rbuf, const char *channel,
                               const example_t *msg, void *userdata)
 {
-    vprintf("%lu - %s: ", rbuf->recv_utime, channel);
+    vprintf("%" PRIi64 " - %s: ", rbuf->recv_utime, channel);
     vprintf("%d", (int) msg->timestamp);
     bytepacked_typed_received |= (int) msg->timestamp;
     num_typed_received++;
