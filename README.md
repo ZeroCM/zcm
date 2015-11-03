@@ -42,7 +42,7 @@ To learn how you can contribute to this project, check out [Contributing](docs/c
  - [ZCM Type System](docs/zcmtypesys.md)
  - [Transport Layer](docs/transports.md)
  - [Embedded Applications](docs/embedded.md)
- - [Web Applications](docs/web.md)
+ - Web Applications (coming soon)
  - [Dependencies & Building](docs/building.md)
  - [Project Philosphy](docs/philosophy.md)
  - [Contributing](docs/contributing.md)
