@@ -21,6 +21,7 @@ There are a few ways to join the community and stay informed on the latest ZCM n
  - [Gitter Chatroom](https://gitter.im/ZeroCM/zcm)
  - [Github Project Page](https://github.com/ZeroCM/zcm)
  - [Mailing List](https://groups.google.com/forum/#!forum/zcm-users)
+ - [Continuous Integration](http://ci.zcm-project.org)
 
 ## Pull Requests
 
