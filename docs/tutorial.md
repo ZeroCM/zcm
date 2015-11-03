@@ -514,7 +514,7 @@ emulating enum types and for defining flags and masks:
 The ZCM type system is incredibly rich, flexible, and composable. Nearly each
 of these features can be used independent of or in conjunction with the others.
 This allows users to create rich and interesting message types with ease. For a rigorous
-definition of the ZCM type system, see the [ZCM Type Grammar](zcmtype_grammar.md).
+definition of the ZCM type system, see the [ZCM Type System](zcmtypesys.md).
 
 ## Next Steps
 

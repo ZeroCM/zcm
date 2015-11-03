@@ -39,7 +39,7 @@ To learn how you can contribute to this project, check out [Contributing](docs/c
 ## Quick Links
  - [Tutorial](docs/tutorial.md)
  - [From LCM to ZCM](docs/lcm_to_zcm.md)
- - [ZCM Type Grammar](docs/zcmtype_grammar.md)
+ - [ZCM Type System](docs/zcmtypesys.md)
  - [Transport Layer](docs/transports.md)
  - [Embedded Applications](docs/embedded.md)
  - [Web Applications](docs/web.md)
