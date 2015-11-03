@@ -9,16 +9,11 @@
 #include <time.h>
 #include <getopt.h>
 
-// RRR: not terribly important, but since this is a .cpp file, you could use the cpp zcm api
-#include "zcm/zcm.h"
+#include "zcm/zcm-cpp.hpp"
 
 #include <string>
 
 using namespace std;
-
-// RRR: like Anthony mentioned, it would be cool to build repeating (and logging) right in to the
-//      transport layers as opposed to relying on an extra app to cut down on the data copying,
-//      but this is a good step for now.
 
 struct Args
 {
@@ -30,8 +25,11 @@ struct Args
     bool parse(int argc, char *argv[])
     {
         // set some defaults
-        const char *optstring = "s:d:";
+        const char *optstring = "hc:is:d:";
         struct option long_opts[] = {
+            { "help", optional_argument, 0, 'h' },
+            { "channel", optional_argument, 0, 'c' },
+            { "invert-channels", optional_argument, 0, 'i' },
             { "src-url", required_argument, 0, 's'},
             { "dest-url", required_argument, 0, 'd'},
             { 0, 0, 0, 0 }
@@ -152,14 +150,11 @@ static void usage()
             "\n"
             "Options:\n"
             "\n"
-            // RRR: need to add back in the --channel long optarg
             "  -c, --channel=CHAN         Channel string to pass to zcm_subscribe.\n"
             "                             (default: \".*\")\n"
-            // RRR: need to add back in the --help long optarg
             "  -h, --help                 Shows this help text and exits\n"
             "  -s, --src-url=URL          Subscribe to messages on the specified ZCM URL\n"
             "  -d, --dest-url=URL         Repeat messages onto the specified ZCM URL\n"
-            // RRR: need to add back in the --invert-channels long optarg
             "  -v, --invert-channels      Invert channels. Repeat everything that CHAN\n"
             "                             does not match.\n"
             "\n");
