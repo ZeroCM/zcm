@@ -4,6 +4,7 @@ using std::string;
 #include <vector>
 using std::vector;
 #include <sstream>
+#include <cassert>
 
 namespace StringUtil
 {
@@ -99,5 +100,13 @@ namespace StringUtil
         for (auto& c : ret)
             if (c == from) c = to;
         return ret;
+    }
+
+    static inline bool endswith(const string& s, const string& suffix)
+    {
+        if (s.size() < suffix.size())
+            return false;
+        const char *ending = &s[s.size()-suffix.size()];
+        return 0 == ::strcmp(ending, suffix.c_str());
     }
 }

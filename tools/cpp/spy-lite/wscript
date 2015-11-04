@@ -1,0 +1,8 @@
+#! /usr/bin/env python
+# encoding: utf-8
+
+def build(ctx):
+    ctx.program(target = 'zcm-spy-lite',
+                use = ['default', 'zcm'],
+                lib = 'dl',
+                source = ctx.path.ant_glob('*.cpp'))
