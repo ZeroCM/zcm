@@ -25,7 +25,10 @@ modern linux systems.
  - All built-in transports: inclusion can be disabled at build-time
  - ZeroMQ: used for the `ipc` and `inproc` transports
  - Java JNI: used for the Java language bindings and tools implemented in Java
- - NodeJS and socket.io: used for client-side web applications
+ - NodeJS and socket.io: used for client-side web applications. Note that Debian
+   users should install the `nodejs-legacy` package in addition to the `nodejs`
+   package because of the debian renaming of the "node" executable to "nodejs"
+   will cause build problems.
 
 All of the optional dependencies can be enabled or disabled at build-time by using
 `./waf configure`. By default, *configure* will attempt to find and enable as many
