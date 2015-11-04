@@ -41,15 +41,15 @@ def configure(ctx):
 #   build:        False if only zcmtype generation (no compiling or linking) is desired
 #                 Defaults to true.
 #   lang:         list of languages for which zcmtypes should be generated, options are:
-#                 ['c', 'cpp', 'java', 'python', 'nodejs']
-#                 TODO: add nodejs support
+#                 ['c', 'cpp', 'java', 'python', 'nodejs']. Can also be a space separated string.
 #   littleEndian  True or false based on desired endianess of output. Should almost always
 #                 be false. Don't use this option unless you really know what you're doing
 #   javapkg:      name of the java package
 #                 default = 'zcmtypes' (though it is encouraged to name it something more unique
 #                                       to avoid library naming conflicts)
 #
-#   TODO: add support for changing include directory
+#   TODO: add support for changing c/c++ include directory. Currently defaults so that the
+#         description below works
 #
 # Using the output zcmtypes:
 #   For the following explanations, assume:
@@ -140,7 +140,9 @@ def getFileParts(ctx, path):
 
 @conf
 def zcmgen(ctx, **kw):
-    # TODO: should raise an error if ctx.env.ZCMGEN is not set
+    if not getattr(ctx.env, 'ZCMGEN', []):
+        raise WafError('zcmgen requires ctx.env.ZCMGEN set to the zcm-gen executable')
+
     uselib_name = 'zcmtypes'
     if 'name' in kw:
         uselib_name = kw['name']
@@ -160,6 +162,14 @@ def zcmgen(ctx, **kw):
     if 'lang' not in kw:
         # TODO: this should probably be a more specific error type
         raise WafError('zcmgen requires keword argument: "lang"')
+
+    # exit early if no source files input
+    if not kw['source']:
+        return
+
+    lang = kw['lang']
+    if isinstance(kw['lang'], basestring):
+        lang = kw['lang'].split(' ')
 
     # Add .zcm files to build so the process_zcmtypes rule picks them up
     genfiles_name = uselib_name + '_genfiles'
