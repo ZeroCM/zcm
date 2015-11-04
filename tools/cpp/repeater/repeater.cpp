@@ -47,7 +47,7 @@ struct Args
                 case 'd':
                     dest_url = optarg;
                     break;
-                case 'v':
+                case 'i':
                     invert_channels = true;
                     break;
                 case 'h':
@@ -155,7 +155,7 @@ static void usage()
             "  -h, --help                 Shows this help text and exits\n"
             "  -s, --src-url=URL          Subscribe to messages on the specified ZCM URL\n"
             "  -d, --dest-url=URL         Repeat messages onto the specified ZCM URL\n"
-            "  -v, --invert-channels      Invert channels. Repeat everything that CHAN\n"
+            "  -i, --invert-channels      Invert channels. Repeat everything that CHAN\n"
             "                             does not match.\n"
             "\n");
 }
