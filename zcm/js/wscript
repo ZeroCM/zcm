@@ -10,6 +10,7 @@ def build(ctx):
         blddir = task.generator.path.get_bld().abspath()
         task.exec_command('(cd %s && npm pack %s > /dev/null)' % (blddir, srcdir))
 
+    # should add an install that does npm install -g
     ctx(rule = build_node_pkg,
         color = 'PINK',
         source = ctx.path.ant_glob('node/*'),
