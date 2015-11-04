@@ -16,14 +16,11 @@ sys.path.append('examples/waftools')
 def options(ctx):
     ctx.load('compiler_c')
     ctx.load('compiler_cxx')
-    add_zcm_options(ctx)
+    add_zcm_configure_options(ctx)
+    add_zcm_build_options(ctx)
 
-def add_zcm_options(ctx):
-    gr = ctx.add_option_group('ZCM Configuration options')
-    gr.add_option('-s', '--symbols', dest='symbols', default=False, action='store_true',
-                   help='Leave the debugging symbols in the resulting object files')
-    gr.add_option('-d', '--debug', dest='debug', default=False, action='store_true',
-                   help='Compile all C/C++ code in debug mode: no optimizations and full symbols')
+def add_zcm_configure_options(ctx):
+    gr = ctx.add_option_group('ZCM Configuration Options')
 
     def add_use_option(name, desc):
         gr.add_option('--use-'+name, dest='use_'+name, default=False, action='store_true', help=desc)
@@ -40,23 +37,29 @@ def add_zcm_options(ctx):
     add_trans_option('udpm',   'Enable the UDP Multicast transport (LCM-compatible)')
     add_trans_option('serial', 'Enable the Serial transport')
 
+def add_zcm_build_options(ctx):
+    gr = ctx.add_option_group('ZCM Build Options')
+
+    gr.add_option('-s', '--symbols', dest='symbols', default=False, action='store_true',
+                   help='Leave the debugging symbols in the resulting object files')
+    gr.add_option('-d', '--debug', dest='debug', default=False, action='store_true',
+                   help='Compile all C/C++ code in debug mode: no optimizations and full symbols')
+
 def configure(ctx):
     ctx.load('compiler_c')
     ctx.load('compiler_cxx')
     ctx.recurse('gen')
     ctx.recurse('config')
     ctx.load('zcm-gen')
-    process_zcm_options(ctx)
+    process_zcm_configure_options(ctx)
 
-def process_zcm_options(ctx):
+def process_zcm_configure_options(ctx):
     opt = waflib.Options.options
-    env = ctx.env;
+    env = ctx.env
     def hasopt(key):
         return opt.use_all or getattr(opt, key)
 
-    ctx.env.VERSION='1.0.0'
-    ctx.USING_OPT = not opt.debug
-    ctx.USING_SYM = opt.debug or opt.symbols
+    env.VERSION='1.0.0'
 
     env.USING_CPP  = True
     env.USING_JAVA = hasopt('use_java') and attempt_use_java(ctx)
@@ -100,8 +103,14 @@ def attempt_use_zmq(ctx):
     ctx.check_cfg(package='libzmq', args='--cflags --libs', uselib_store='zmq')
     return True
 
+def process_zcm_build_options(ctx):
+    opt = waflib.Options.options
+    ctx.env.USING_OPT = not opt.debug
+    ctx.env.USING_SYM = opt.debug or opt.symbols
+
 def setup_environment(ctx):
     ctx.post_mode = waflib.Build.POST_LAZY
+    process_zcm_build_options(ctx)
 
     WARNING_FLAGS = ['-Wall', '-Werror', '-Wno-unused-function', '-Wno-format-zero-length']
     SYM_FLAGS = ['-g']
