@@ -269,6 +269,8 @@ class zcmgen(Task.Task):
             filename = outFileName(gen.bld, inp.abspath(), 'python')
             node = gen.path.find_or_declare(filename)
             self.outputs.append(node)
+        if 'nodejs' in gen.lang:
+            self.set_outputs(gen.path.find_or_declare('zcmtypes.js'))
 
         if not self.outputs:
             raise WafError('No ZCMtypes generated, ensure a valid lang is specified')
@@ -303,6 +305,8 @@ class zcmgen(Task.Task):
             langs['python'] = '--python --ppath %s' % (bld)
             if gen.littleEndian:
                 langs['python'] = langs['python'] + ' --little-endian-encoding '
+        if 'nodejs' in gen.lang:
+            langs['nodejs'] = '--node --npath %s' % (bld)
 
         # no need to check if langs is empty here, already handled in runnable_status()
         return self.exec_command('%s %s %s' % (zcmgen, zcmfile, ' '.join(langs.values())))

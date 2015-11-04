@@ -141,8 +141,10 @@ def attempt_use_nodejs(ctx):
     # nodejs isn't really required for build, but it felt weird to leave it
     # out since the user is expecting zcm to build for nodejs. It will
     # technically build, but you wont be able to run it without the nodejs package
-    ctx.find_program('nodejs', var='NODEJS',  mandatory=True)
-    ctx.find_program('npm',    var='NPM',     mandatory=True)
+    ctx.find_program('node', var='NODE', mandatory=True)
+    ctx.env.NODE = ctx.env.NODE[0]
+    ctx.find_program('npm', var='NPM', mandatory=True)
+    ctx.env.NPM = ctx.env.NPM[0]
     return True
 
 def attempt_use_python(ctx):
@@ -170,7 +172,6 @@ def attempt_use_third_party(ctx):
         raise WafError('Failed to find all required submodules. You should run: \n' + \
                        'git submodule update --init --recursive\n' + \
                        'and then reconfigure')
-    return True
 
 def process_zcm_build_options(ctx):
     opt = waflib.Options.options

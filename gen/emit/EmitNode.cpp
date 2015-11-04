@@ -7,6 +7,7 @@
 
 void setupOptionsNode(GetOpt& gopt)
 {
+    gopt.addString(0, "npath", ".", "Location for zcmtypes.js file");
 }
 
 static string dimSizeAccessor(const string& dimSize)
@@ -373,7 +374,9 @@ int emitNode(ZCMGen& zcm)
         return -1;
     }
 
-    EmitModule E{zcm, "zcmtypes.js"};
+    string npath = zcm.gopt->getString("npath");
+    string fileName = npath + "/zcmtypes.js";
+    EmitModule E{zcm, fileName};
     if (!E.good())
         return -1;
 
