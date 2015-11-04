@@ -9,7 +9,7 @@
 #include <time.h>
 #include <getopt.h>
 
-#include "zcm/zcm-cpp.hpp"
+#include "zcm/zcm.h"
 
 #include <string>
 
@@ -27,9 +27,9 @@ struct Args
         // set some defaults
         const char *optstring = "hc:is:d:";
         struct option long_opts[] = {
-            { "help", optional_argument, 0, 'h' },
-            { "channel", optional_argument, 0, 'c' },
-            { "invert-channels", optional_argument, 0, 'i' },
+            { "help", no_argument, 0, 'h' },
+            { "channel", required_argument, 0, 'c' },
+            { "invert-channels", no_argument, 0, 'i' },
             { "src-url", required_argument, 0, 's'},
             { "dest-url", required_argument, 0, 'd'},
             { 0, 0, 0, 0 }
