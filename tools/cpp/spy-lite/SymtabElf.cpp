@@ -19,7 +19,7 @@ bool SymtabElf::refillBuffer()
 
     numread = n;
     index = 0;
-    return 0;
+    return true;
 }
 
 static inline int identChar(uint8_t ch)
@@ -35,40 +35,43 @@ static inline int firstIdentChar(uint8_t ch)
 // a very crude symbol extraction method
 // we simply search for byte sequences that look like valid
 // C language identifiers
-const std::string& SymtabElf::getNext()
+bool SymtabElf::getNext(string& s)
 {
-    static std::string emptystr;
     s.clear();
 
-    while(1) {
-        while(index < numread) {
-            uint8_t c = buffer[index++];
-
-            // null byte, end of a string?
-            if (c == '\0') {
-                if (s.size() > 0)
-                    return s;
-            }
-
-            // is it an identifier char?
-            else if (s.size() > 0 && identChar(c)) {
-                s.append(1, c);
-            }
-
-            else if(s.size() == 0 && firstIdentChar(c)) {
-                s.append(1, c);
-            }
-
-            // otherwise its garbage, reset the string
-            else {
-                s.clear();
-            }
+    char c;
+    while (getNextChar(c)) {
+        // null byte, end of a string?
+        if (c == '\0') {
+            if (s.size() > 0)
+                return true;
         }
 
-        // we've exhausted the buffer, let's try to get more...
-        if (!refillBuffer()) {
-            // end-of-file or error
-            return emptystr;
+        // is it an identifier char?
+        else if (s.size() > 0 && identChar(c)) {
+            s.append(1, c);
+        }
+
+        else if(s.size() == 0 && firstIdentChar(c)) {
+            s.append(1, c);
+        }
+
+        // otherwise its garbage, reset the string
+        else {
+            s.clear();
         }
     }
+
+    return false;
+}
+
+bool SymtabElf::getNextChar(char& c)
+{
+    if (index == numread) {
+        if (!refillBuffer()) {
+            return false;
+        }
+    }
+    c = buffer[index++];
+    return true;
 }

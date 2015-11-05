@@ -490,69 +490,6 @@ void handler_all_zcm (const zcm_recv_buf_t *rbuf,
     pthread_mutex_unlock(&spy->mutex);
 }
 
-void *zcm_thread_func(void *usr)
-{
-    spyinfo_t *spy = (spyinfo_t *) usr;
-
-    DEBUG(1, "INFO: %s: Starting\n", "lcm_thread");
-
-    // zcm setup
-    zcm_t *zcm = NULL;
-    //zcm_subscription_t *zcm_all = NULL;
-
-    zcm = zcm_create(NULL);
-    if (zcm == NULL) {
-        DEBUG(1, "ERR: failed to create an zcm object!\n");
-        quit = true;
-        goto done;
-    }
-
-    //    zcm_all =
-    zcm_subscribe(zcm, ".*", handler_all_zcm, spy);
-    // if (zcm_all == NULL) {
-    //     DEBUG(1, "ERR: failed to create an subscibe to all\n");
-    //     quit = true;
-    //     goto done;
-    // }
-
-    // all is good, lets handle it...
-
-    zcm_start(zcm);
-
-    // while(!quit) {
-
-    //     /* we use async lcm_handle(), so we can pthread_join() properly */
-    //     int lcm_fd = lcm_get_fileno(lcm);
-    //     fd_set fds;
-    //     FD_ZERO(&fds);
-    //     FD_SET(lcm_fd, &fds);
-
-    //     struct timeval timeout = { 0, SELECT_TIMEOUT };
-    //     int status = select(lcm_fd + 1, &fds, 0, 0, &timeout);
-
-    //     if(quit)
-    //         break;
-
-    //     if(status != 0 && FD_ISSET(lcm_fd, &fds)) {
-    //         int err = lcm_handle(lcm);
-    //         if (err) {
-    //             DEBUG(1, "ERR: lcm_handle() returned an error\n");
-    //             quit = true;
-    //         }
-    //     } else {
-    //         DEBUG(4, "INFO: lcm_handle() timeout\n");
-    //     }
-
-    // }
-
-    // DEBUG(1, "INFO: %s: Ending\n", "lcm_thread");
-
- done:
-    // if(lcm_all != NULL)  lcm_unsubscribe(lcm, lcm_all);
-    // if(lcm != NULL)      lcm_destroy(lcm);
-    return NULL;
-}
-
 //////////////////////////////////////////////////////////////////////
 ////////////////////////////////// MAIN //////////////////////////////
 //////////////////////////////////////////////////////////////////////
@@ -604,24 +541,28 @@ int main(int argc, char *argv[])
     // start threads
     pthread_mutex_init(&spy.mutex, NULL);
 
+    // start zcm
+    zcm_t *zcm = zcm_create(NULL);
+    if (!zcm) {
+        DEBUG(1, "ERR: failed to create an zcm object!\n");
+        return 1;
+    }
+    zcm_subscribe(zcm, ".*", handler_all_zcm, &spy);
+    zcm_start(zcm);
+
+
     pthread_t print_thread;
     if (pthread_create(&print_thread, NULL, print_thread_func, &spy)) {
         printf("ERR: %s: Failed to start thread\n", "print_thread");
         exit(-1);
     }
 
-    pthread_t keyboard_thread;
-    if (pthread_create(&keyboard_thread, NULL, keyboard_thread_func, &spy)) {
-        printf("ERR: %s: Failed to start thread\n", "keyboard_thread");
-        exit(-1);
-    }
-
-    // use this thread as the zcm thread
-    zcm_thread_func(&spy);
+    // use this thread as the keyboard thread
+    keyboard_thread_func(&spy);
 
     // cleanup
-    pthread_join(keyboard_thread, NULL);
     pthread_join(print_thread, NULL);
+    zcm_stop(zcm);
     pthread_mutex_destroy(&spy.mutex);
 
     DEBUG(1, "Exiting...\n");

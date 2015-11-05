@@ -38,7 +38,7 @@ static string methods[] =
     "_publish",
     "_struct_size",
     "_subscribe",
-    "_subscription_set_queue_capacity",
+    //"_subscription_set_queue_capacity",
     "_unsubscribe"
 };
 
@@ -70,11 +70,8 @@ static bool findTypenames(vector<string>& result, const string& libname)
     unordered_map<string,uint32_t> names;
 
     // process the symbols
-    while(1) {
-        string s = stbl.getNext();
-        if (s == "")
-            break;
-
+    string s;
+    while(stbl.getNext(s)) {
         for(size_t i = 0; i < nmethods; i++) {
             auto& m = methods[i];
             if (!StringUtil::endswith(s, m))
@@ -149,6 +146,7 @@ bool TypeDb::loadtypes(const string& libname, void *lib)
 TypeDb::TypeDb(const string& paths, bool debug)
 : debug(debug)
 {
+    DEBUG = debug;
     for (auto& libname : StringUtil::split(paths, ':')) {
         if(DEBUG) printf("Loading types from '%s'\n", libname.c_str());
         void *lib = openlib(libname);

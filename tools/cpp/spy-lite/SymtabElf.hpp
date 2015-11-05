@@ -7,16 +7,16 @@ struct SymtabElf
     ~SymtabElf();
 
     bool good() { return f != NULL; }
-    const std::string& getNext();
+    bool getNext(string& s);
 
 private:
+    bool getNextChar(char& c);
     bool refillBuffer();
 
 private:
     FILE *f = NULL;
-    static const size_t MaxBuf = 256;
+    static const size_t MaxBuf = 4096;
     char buffer[MaxBuf];
     size_t numread = 0;
     size_t index = 0;
-    std::string s;
 };
