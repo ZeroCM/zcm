@@ -17,6 +17,7 @@ public:
     const TypeMetadata *getByName(const string& name);
 
 private:
+    bool findTypenames(vector<string>& result, const string& libname);
     bool loadtypes(const string& libname, void *lib);
 
 private:
