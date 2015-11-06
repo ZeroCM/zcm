@@ -16,21 +16,21 @@ enum class DisplayMode {
 
 struct SpyInfo
 {
-
     SpyInfo(const char *path, bool debug)
     : typedb(path, debug)
-    {}
+    {
+    }
 
     ~SpyInfo()
     {
-        for (auto& it : minfo)
+        for (auto& it : minfomap)
             delete it.second;
     }
 
     MsgInfo *getCurrentMsginfo(const char **channel)
     {
         auto& ch = names[decode_index];
-        MsgInfo **m = lookup(minfo, ch);
+        MsgInfo **m = lookup(minfomap, ch);
         assert(m);
         if (channel)
             *channel = ch.c_str();
@@ -42,13 +42,21 @@ struct SpyInfo
         return (0 <= index && index < names.size());
     }
 
-    void display();
+    void addMessage(const char *channel, const zcm_recv_buf_t *rbuf);
 
+    void display();
+    void displayOverview();
+
+    void handleKeyboard(char ch);
+    void handleKeyboardOverview(char ch);
+    void handleKeyboardDecode(char ch);
+
+private:
     vector<string>                  names;
-    unordered_map<string, MsgInfo*> minfo;
+    unordered_map<string, MsgInfo*> minfomap;
     TypeDb typedb;
 
-    pthread_mutex_t mutex;
+    mutex mut;
 
     DisplayMode mode = DisplayMode::Overview;
     bool is_selecting = false;
@@ -58,77 +66,112 @@ struct SpyInfo
     const char *decode_msg_channel;
 };
 
-static void displayOverview(SpyInfo *spy);
+void SpyInfo::addMessage(const char *channel, const zcm_recv_buf_t *rbuf)
+{
+    unique_lock<mutex> lk(mut);
+
+    MsgInfo *minfo = minfomap[channel];
+    if (minfo == NULL) {
+        minfo = new MsgInfo(typedb, channel);
+        names.push_back(channel);
+        std::sort(begin(names), end(names));
+        minfomap[channel] = minfo;
+    }
+    minfo->addMessage(TimeUtil::utime(), rbuf);
+}
 
 void SpyInfo::display()
 {
-    pthread_mutex_lock(&mutex);
-    {
-        switch (mode) {
-            case DisplayMode::Overview: {
-                displayOverview(this);
-            } break;
-            case DisplayMode::Decode: {
-                decode_msg_info->display();
-            } break;
-            default:
-                DEBUG(1, "ERR: unknown mode\n");
-        }
+    unique_lock<mutex> lk(mut);
+
+    switch (mode) {
+        case DisplayMode::Overview: {
+            displayOverview();
+        } break;
+        case DisplayMode::Decode: {
+            decode_msg_info->display();
+        } break;
+        default:
+            DEBUG(1, "ERR: unknown mode\n");
     }
-    pthread_mutex_unlock(&mutex);
 }
 
-static void keyboard_handle_overview(SpyInfo *spy, char ch)
+void SpyInfo::displayOverview()
 {
-    if(ch == '-') {
-        spy->is_selecting = true;
-        spy->decode_index = -1;
-    } else if('0' <= ch && ch <= '9') {
+    printf("         %-28s\t%12s\t%8s\n", "Channel", "Num Messages", "Hz (ave)");
+    printf("   ----------------------------------------------------------------\n");
+
+    DEBUG(5, "start-loop\n");
+
+    for (size_t i = 0; i < names.size(); i++) {
+        auto& channel = names[i];
+        MsgInfo **minfo = lookup(minfomap, channel);
+        assert(minfo != NULL);
+        float hz = (*minfo)->getHertz();
+        printf("   %3zu)  %-28s\t%9" PRIu64 "\t%7.2f\n", i, channel.c_str(), (*minfo)->getNumMsgs(), hz);
+    }
+
+    printf("\n");
+
+    if (is_selecting) {
+        printf("   Decode channel: ");
+        if (decode_index != -1)
+            printf("%d", decode_index);
+        fflush(stdout);
+    }
+}
+
+void SpyInfo::handleKeyboardOverview(char ch)
+{
+    if (ch == '-') {
+        is_selecting = true;
+        decode_index = -1;
+    } else if ('0' <= ch && ch <= '9') {
         // shortcut for single digit channels
-        if(!spy->is_selecting) {
-            spy->decode_index = ch - '0';
-            if(spy->isValidChannelnum(spy->decode_index)) {
-                spy->decode_msg_info = spy->getCurrentMsginfo(&spy->decode_msg_channel);
-                spy->mode = DisplayMode::Decode;
+        if (!is_selecting) {
+            decode_index = ch - '0';
+            if (isValidChannelnum(decode_index)) {
+                decode_msg_info = getCurrentMsginfo(&decode_msg_channel);
+                mode = DisplayMode::Decode;
             }
         } else {
-            if(spy->decode_index == -1) {
-                spy->decode_index = ch - '0';
-            } else if(spy->decode_index < 10000) {
-                spy->decode_index *= 10;
-                spy->decode_index += (ch - '0');
+            if (decode_index == -1) {
+                decode_index = ch - '0';
+            } else if (decode_index < 10000) {
+                decode_index *= 10;
+                decode_index += (ch - '0');
             }
         }
-    } else if(ch == '\n') {
-        if(spy->is_selecting) {
-            if(spy->isValidChannelnum(spy->decode_index)) {
-                spy->decode_msg_info = spy->getCurrentMsginfo(&spy->decode_msg_channel);
-                spy->mode = DisplayMode::Decode;
+    } else if (ch == '\n') {
+        if (is_selecting) {
+            if (isValidChannelnum(decode_index)) {
+                decode_msg_info = getCurrentMsginfo(&decode_msg_channel);
+                mode = DisplayMode::Decode;
             }
-            spy->is_selecting = false;
+            is_selecting = false;
         }
-    } else if(ch == '\b' || ch == DEL_KEY) {
-        if(spy->is_selecting) {
-            if(spy->decode_index < 10)
-                spy->decode_index = -1;
+    } else if (ch == '\b' || ch == DEL_KEY) {
+        if (is_selecting) {
+            if (decode_index < 10)
+                decode_index = -1;
             else
-                spy->decode_index /= 10;
+                decode_index /= 10;
         }
     } else {
         DEBUG(1, "INFO: unrecognized input: '%c' (0x%2x)\n", ch, ch);
     }
 }
 
-static void keyboard_handle_decode(SpyInfo *spy, char ch)
+void SpyInfo::handleKeyboardDecode(char ch)
 {
-    MsgInfo& minfo = *spy->decode_msg_info;
+    MsgInfo& minfo = *decode_msg_info;
     size_t depth = minfo.getViewDepth();
 
     if (ch == ESCAPE_KEY) {
         if (depth > 0) {
             minfo.decViewDepth();
         } else {
-            spy->mode = DisplayMode::Overview;
+            mode = DisplayMode::Overview;
         }
     } else if ('0' <= ch && ch <= '9') {
         // if number is pressed, set and increase sub-msg decoding depth
@@ -141,6 +184,18 @@ static void keyboard_handle_decode(SpyInfo *spy, char ch)
         }
     } else {
         DEBUG(1, "INFO: unrecognized input: '%c' (0x%2x)\n", ch, ch);
+    }
+}
+
+void SpyInfo::handleKeyboard(char ch)
+{
+    unique_lock<mutex> lk(mut);
+
+    switch (mode) {
+        case DisplayMode::Overview: handleKeyboardOverview(ch); break;
+        case DisplayMode::Decode:   handleKeyboardDecode(ch);  break;
+        default:
+            DEBUG(1, "INFO: unrecognized keyboard mode: %d\n", (int)mode);
     }
 }
 
@@ -177,16 +232,7 @@ void *keyboard_thread_func(void *arg)
             if(read(0, &ch, 1) < 0)
                 perror ("read()");
 
-            pthread_mutex_lock(&spy->mutex);
-            {
-                switch(spy->mode) {
-                    case DisplayMode::Overview: keyboard_handle_overview(spy, ch); break;
-                    case DisplayMode::Decode:   keyboard_handle_decode(spy, ch);  break;
-                    default:
-                        DEBUG(1, "INFO: unrecognized keyboard mode: %d\n", spy->mode);
-                }
-            }
-            pthread_mutex_unlock(&spy->mutex);
+            spy->handleKeyboard(ch);
 
         } else {
             DEBUG(4, "INFO: keyboard_thread_func select() timeout\n");
@@ -215,37 +261,10 @@ void clearscreen()
 //////////////////////////// Print Thread ////////////////////////////
 //////////////////////////////////////////////////////////////////////
 
-static void displayOverview(SpyInfo *spy)
+void printThreadFunc(SpyInfo *spy)
 {
-    printf("         %-28s\t%12s\t%8s\n", "Channel", "Num Messages", "Hz (ave)");
-    printf("   ----------------------------------------------------------------\n");
-
-    DEBUG(5, "start-loop\n");
-
-    for (size_t i = 0; i < spy->names.size(); i++) {
-        auto& channel = spy->names[i];
-        MsgInfo **minfo = lookup(spy->minfo, channel);
-        assert(minfo != NULL);
-        float hz = (*minfo)->getHertz();
-        printf("   %3d)  %-28s\t%9" PRIu64 "\t%7.2f\n", (int)i, channel.c_str(), (*minfo)->getNumMsgs(), hz);
-    }
-
-    printf("\n");
-
-    if(spy->is_selecting) {
-        printf("   Decode channel: ");
-        if(spy->decode_index != -1)
-            printf("%d", spy->decode_index);
-        fflush(stdout);
-    }
-}
-
-void *print_thread_func(void *arg)
-{
-    SpyInfo *spy = (SpyInfo *)arg;
-
-    const float hz = 20.0;
-    const uint64_t period = 1000000 / hz;
+    static constexpr float hz = 20.0;
+    static constexpr u64 period = 1000000 / hz;
 
     DEBUG(1, "INFO: %s: Starting\n", "print_thread");
     while (!quit) {
@@ -263,8 +282,6 @@ void *print_thread_func(void *arg)
     }
 
     DEBUG(1, "INFO: %s: Ending\n", "print_thread");
-
-    return NULL;
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -275,23 +292,7 @@ void handler_all_zcm (const zcm_recv_buf_t *rbuf,
                       const char *channel, void *arg)
 {
     SpyInfo *spy = (SpyInfo *)arg;
-    MsgInfo *minfo;
-    uint64_t utime = TimeUtil::utime();
-
-    pthread_mutex_lock(&spy->mutex);
-    {
-        auto **minfo_ = lookup(spy->minfo, string(channel));
-        if (minfo_ == NULL) {
-            minfo = new MsgInfo(spy->typedb, channel);
-            spy->names.push_back(channel);
-            std::sort(begin(spy->names), end(spy->names));
-            spy->minfo[channel] = minfo;
-        } else {
-            minfo = *minfo_;
-        }
-        minfo->addMessage(utime, rbuf);
-    }
-    pthread_mutex_unlock(&spy->mutex);
+    spy->addMessage(channel, rbuf);
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -342,9 +343,6 @@ int main(int argc, char *argv[])
     // configure stdout buffering: use FULL buffering to avoid flickering
     setvbuf(stdout, NULL, _IOFBF, 2048);
 
-    // start threads
-    pthread_mutex_init(&spy.mutex, NULL);
-
     // start zcm
     zcm_t *zcm = zcm_create(NULL);
     if (!zcm) {
@@ -354,20 +352,14 @@ int main(int argc, char *argv[])
     zcm_subscribe(zcm, ".*", handler_all_zcm, &spy);
     zcm_start(zcm);
 
-
-    pthread_t print_thread;
-    if (pthread_create(&print_thread, NULL, print_thread_func, &spy)) {
-        printf("ERR: %s: Failed to start thread\n", "print_thread");
-        exit(-1);
-    }
+    thread printThread {printThreadFunc, &spy};
 
     // use this thread as the keyboard thread
     keyboard_thread_func(&spy);
 
     // cleanup
-    pthread_join(print_thread, NULL);
+    printThread.join();
     zcm_stop(zcm);
-    pthread_mutex_destroy(&spy.mutex);
 
     DEBUG(1, "Exiting...\n");
     return 0;
