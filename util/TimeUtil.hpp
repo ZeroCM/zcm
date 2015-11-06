@@ -4,7 +4,7 @@
 
 namespace TimeUtil
 {
-    u64 utime()
+    static u64 utime()
     {
         struct timeval tv;
         gettimeofday(&tv, NULL);

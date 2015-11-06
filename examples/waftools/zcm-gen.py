@@ -174,7 +174,7 @@ class zcmgen(Task.Task):
 
         langs = {}
         if 'c' in gen.lang:
-            langs['c'] = '--c --c-cpath %s --c-hpath %s --c-include %s' % (bld, bld, inc)
+            langs['c'] = '--c --c-typeinfo --c-cpath %s --c-hpath %s --c-include %s' % (bld, bld, inc)
         if 'cpp' in gen.lang:
             langs['cpp'] = '--cpp --cpp-hpath %s --cpp-include %s' % (bld, inc)
         if 'java' in gen.lang:
