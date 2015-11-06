@@ -1,162 +1,21 @@
 #include "Common.hpp"
 #include "MsgDisplay.hpp"
 #include "TypeDb.hpp"
-#include "ExpiringQueue.hpp"
+#include "MsgInfo.hpp"
+#include "Debug.hpp"
 
 #define SELECT_TIMEOUT 20000
 #define ESCAPE_KEY 0x1B
 #define DEL_KEY 0x7f
-#define QUEUE_PERIOD (4*1000*1000)   /* queue up to 4 sec of utimes */
-#define QUEUE_SIZE   (400)           /* hold up to 400 utimes */
 
 static volatile bool quit = false;
 
-#define DEBUG_LEVEL 2  /* 0=nothing, higher values mean more verbosity */
-#define DEBUG_FILENAME "/tmp/spy-lite-debug.log"
-static FILE *DEBUG_FILE = NULL;
-static void DEBUG_INIT(void) { DEBUG_FILE = fopen(DEBUG_FILENAME, "w"); }
-
-static void DEBUG(int level, const char *fmt, ...)
-{
-    if(!DEBUG_LEVEL || level > DEBUG_LEVEL)
-        return;
-
-    va_list vargs;
-    va_start(vargs, fmt);
-    vfprintf(DEBUG_FILE, fmt, vargs);
-    va_end(vargs);
-
-    fflush(DEBUG_FILE);
-}
-
-//////////////////////////////////////////////////////////////////////
-//////////////////////////////// Structs /////////////////////////////
-//////////////////////////////////////////////////////////////////////
-
-class MsgInfo
-{
-public:
-    MsgInfo(TypeDb& db, const char *channel)
-    : db(db), channel(channel)
-    {}
-
-    void addMessage(u64 utime, const zcm_recv_buf_t *rbuf);
-    float getHertz();
-    u64 getNumMsgs() { return num_msgs; }
-
-private:
-    void ensureHash(i64 hash);
-    u64 latestUtime();
-    u64 oldestUtime();
-    void removeOld();
-
-private:
-    TypeDb& db;
-    const char *channel;
-
-    ExpiringQueue<u64, QUEUE_SIZE> queue;
-    i64 hash = 0;
-    u64 num_msgs = 0;
-
-public: // HAX
-    MsgDisplayState disp_state;
-    const TypeMetadata *metadata = NULL;
-    void *last_msg = NULL;
+enum class DisplayMode {
+    Overview, Decode,
 };
-
-void MsgInfo::ensureHash(i64 h)
-{
-    if (hash == h)
-        return;
-
-    // if this not the first message, warn user
-    if (hash != 0) {
-        DEBUG(1, "WRN: hash changed, searching for new lcmtype on channel %s\n", this->channel);
-    }
-
-    // cleanup old memory if needed
-    if (metadata && last_msg) {
-        metadata->info->decode_cleanup(last_msg);
-        free(last_msg);
-        last_msg = NULL;
-    }
-
-    hash = h;
-    metadata = db.getByHash(h);
-    if (metadata == NULL) {
-        DEBUG(1, "WRN: failed to find lcmtype for hash: 0x%" PRIx64 "\n", hash);
-        return;
-    }
-}
-
-u64 MsgInfo::latestUtime()
-{
-    return queue.last();
-}
-
-u64 MsgInfo::oldestUtime()
-{
-    return queue.first();
-}
-
-void MsgInfo::removeOld()
-{
-    u64 oldest_allowed = TimeUtil::utime() - QUEUE_PERIOD;
-    while (!queue.isEmpty() && queue.first() < oldest_allowed)
-        queue.dequeue();
-}
-
-void MsgInfo::addMessage(u64 utime, const zcm_recv_buf_t *rbuf)
-{
-    if (queue.isFull())
-        queue.dequeue();
-    queue.enqueue(utime);
-
-    num_msgs++;
-
-    /* decode the data */
-    i64 hash;
-    __int64_t_decode_array(rbuf->data, 0, rbuf->data_size, &hash, 1);
-    ensureHash(hash);
-
-    if (metadata) {
-        // do we need to allocate memory for 'last_msg' ?
-        if (!last_msg) {
-            size_t sz = metadata->info->struct_size();
-            last_msg = malloc(sz);
-        } else {
-            metadata->info->decode_cleanup(last_msg);
-        }
-
-        // actually decode it
-        metadata->info->decode(rbuf->data, 0, rbuf->data_size, last_msg);
-
-        DEBUG(1, "INFO: successful decode on %s\n", channel);
-    }
-}
-
-float MsgInfo::getHertz()
-{
-    removeOld();
-    if (queue.isEmpty())
-        return 0.0;
-
-    int sz = queue.getSize();
-    u64 oldest = oldestUtime();
-    u64 latest = latestUtime();
-    u64 dt = latest - oldest;
-    if(dt == 0.0)
-        return 0.0;
-
-    return (float) sz / ((float) dt / 1000000.0);
-}
 
 struct SpyInfo
 {
-    typedef enum {
-        MODE_OVERVIEW,
-        MODE_DECODE
-    } DisplayMode_t;
 
     SpyInfo(const char *path, bool debug)
     : typedb(path, debug)
@@ -183,19 +42,41 @@ struct SpyInfo
         return (0 <= index && index < names.size());
     }
 
+    void display();
+
     vector<string>                  names;
     unordered_map<string, MsgInfo*> minfo;
     TypeDb typedb;
 
     pthread_mutex_t mutex;
 
-    DisplayMode_t mode = MODE_OVERVIEW;
+    DisplayMode mode = DisplayMode::Overview;
     bool is_selecting = false;
 
     int decode_index = 0;
     MsgInfo *decode_msg_info;
     const char *decode_msg_channel;
 };
+
+static void displayOverview(SpyInfo *spy);
+
+void SpyInfo::display()
+{
+    pthread_mutex_lock(&mutex);
+    {
+        switch (mode) {
+            case DisplayMode::Overview: {
+                displayOverview(this);
+            } break;
+            case DisplayMode::Decode: {
+                decode_msg_info->display();
+            } break;
+            default:
+                DEBUG(1, "ERR: unknown mode\n");
+        }
+    }
+    pthread_mutex_unlock(&mutex);
+}
 
 static void keyboard_handle_overview(SpyInfo *spy, char ch)
 {
@@ -208,7 +89,7 @@ static void keyboard_handle_overview(SpyInfo *spy, char ch)
             spy->decode_index = ch - '0';
             if(spy->isValidChannelnum(spy->decode_index)) {
                 spy->decode_msg_info = spy->getCurrentMsginfo(&spy->decode_msg_channel);
-                spy->mode = SpyInfo::MODE_DECODE;
+                spy->mode = DisplayMode::Decode;
             }
         } else {
             if(spy->decode_index == -1) {
@@ -222,7 +103,7 @@ static void keyboard_handle_overview(SpyInfo *spy, char ch)
         if(spy->is_selecting) {
             if(spy->isValidChannelnum(spy->decode_index)) {
                 spy->decode_msg_info = spy->getCurrentMsginfo(&spy->decode_msg_channel);
-                spy->mode = SpyInfo::MODE_DECODE;
+                spy->mode = DisplayMode::Decode;
             }
             spy->is_selecting = false;
         }
@@ -240,17 +121,20 @@ static void keyboard_handle_overview(SpyInfo *spy, char ch)
 
 static void keyboard_handle_decode(SpyInfo *spy, char ch)
 {
-    auto& ds = spy->decode_msg_info->disp_state;
+    MsgInfo& minfo = *spy->decode_msg_info;
+    size_t depth = minfo.getViewDepth();
 
-    if(ch == ESCAPE_KEY) {
-        if(ds.cur_depth > 0)
-            ds.cur_depth--;
-        else
-            spy->mode = SpyInfo::MODE_OVERVIEW;
-    } else if('0' <= ch && ch <= '9') {
+    if (ch == ESCAPE_KEY) {
+        if (depth > 0) {
+            minfo.decViewDepth();
+        } else {
+            spy->mode = DisplayMode::Overview;
+        }
+    } else if ('0' <= ch && ch <= '9') {
         // if number is pressed, set and increase sub-msg decoding depth
-        if(ds.cur_depth < MSG_DISPLAY_RECUR_MAX) {
-            ds.recur_table[ds.cur_depth++] = (ch - '0');
+        size_t viewid = (ch - '0');
+        if (depth < MSG_DISPLAY_RECUR_MAX) {
+            minfo.incViewDepth(viewid);
         } else {
             DEBUG(1, "INFO: cannot recurse further: reached maximum depth of %d\n",
                   MSG_DISPLAY_RECUR_MAX);
@@ -296,8 +180,8 @@ void *keyboard_thread_func(void *arg)
             pthread_mutex_lock(&spy->mutex);
             {
                 switch(spy->mode) {
-                    case SpyInfo::MODE_OVERVIEW: keyboard_handle_overview(spy, ch); break;
-                    case SpyInfo::MODE_DECODE:   keyboard_handle_decode(spy, ch);  break;
+                    case DisplayMode::Overview: keyboard_handle_overview(spy, ch); break;
+                    case DisplayMode::Decode:   keyboard_handle_decode(spy, ch);  break;
                     default:
                         DEBUG(1, "INFO: unrecognized keyboard mode: %d\n", spy->mode);
                 }
@@ -331,7 +215,7 @@ void clearscreen()
 //////////////////////////// Print Thread ////////////////////////////
 //////////////////////////////////////////////////////////////////////
 
-static void display_overview(SpyInfo *spy)
+static void displayOverview(SpyInfo *spy)
 {
     printf("         %-28s\t%12s\t%8s\n", "Channel", "Num Messages", "Hz (ave)");
     printf("   ----------------------------------------------------------------\n");
@@ -356,24 +240,6 @@ static void display_overview(SpyInfo *spy)
     }
 }
 
-static void display_decode(SpyInfo *spy)
-{
-    MsgInfo *minfo = spy->decode_msg_info;
-    const char *channel = spy->decode_msg_channel;
-
-    const char *name = NULL;
-    i64 hash = 0;
-    if (minfo->metadata != NULL) {
-        name = minfo->metadata->name.c_str();
-        hash = minfo->metadata->info->get_hash();
-    }
-
-    printf("         Decoding %s (%s) %" PRIu64 ":\n", channel, name, (uint64_t) hash);
-
-    if(minfo->last_msg != NULL)
-        msg_display(spy->typedb, *minfo->metadata, minfo->last_msg,  minfo->disp_state);
-}
-
 void *print_thread_func(void *arg)
 {
     SpyInfo *spy = (SpyInfo *)arg;
@@ -390,23 +256,7 @@ void *print_thread_func(void *arg)
         printf("  ******************************* ZCM-SPY-LITE ******************************* \n");
         printf("  **************************************************************************** \n");
 
-        pthread_mutex_lock(&spy->mutex);
-        {
-            switch(spy->mode) {
-
-                case SpyInfo::MODE_OVERVIEW:
-                    display_overview(spy);
-                    break;
-
-                case SpyInfo::MODE_DECODE:
-                    display_decode(spy);
-                    break;
-
-                default:
-                    DEBUG(1, "ERR: unknown mode\n");
-            }
-        }
-        pthread_mutex_unlock(&spy->mutex);
+        spy->display();
 
         // flush the stdout buffer (required since we use full buffering)
         fflush(stdout);
