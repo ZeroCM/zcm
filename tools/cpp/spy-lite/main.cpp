@@ -1,10 +1,13 @@
 #include "Common.hpp"
 #include "MsgDisplay.hpp"
 #include "TypeDb.hpp"
+#include "ExpiringQueue.hpp"
 
 #define SELECT_TIMEOUT 20000
 #define ESCAPE_KEY 0x1B
 #define DEL_KEY 0x7f
+#define QUEUE_PERIOD (4*1000*1000)   /* queue up to 4 sec of utimes */
+#define QUEUE_SIZE   (400)           /* hold up to 400 utimes */
 
 static volatile bool quit = false;
 
@@ -30,208 +33,171 @@ static void DEBUG(int level, const char *fmt, ...)
 //////////////////////////////// Structs /////////////////////////////
 //////////////////////////////////////////////////////////////////////
 
-#define QUEUE_PERIOD (4*1000*1000)   /* queue up to 4 sec of utimes */
-#define QUEUE_SIZE   (400)           /* hold up to 400 utimes */
-
-struct msg_info_t
+class MsgInfo
 {
-    TypeDb& db;
-    const char *channel;
-
-    uint64_t queue[QUEUE_SIZE];
-    int front = 0;  // front: the next index to dequeue
-    int back = 0;   // back-1: the last index enqueued
-    bool is_full = false;; // when front == back: the queue could be either full or empty (this disambiguates)
-
-    int64_t hash = 0;
-    const TypeMetadata *metadata = NULL;
-    MsgDisplayState disp_state;
-    void *last_msg = NULL;
-
-    uint64_t num_msgs = 0;
-
-    msg_info_t(TypeDb& db, const char *channel)
+public:
+    MsgInfo(TypeDb& db, const char *channel)
     : db(db), channel(channel)
     {}
 
-    void _ensure_hash(int64_t hash)
-    {
-        if(this->hash == hash)
-            return;
+    void addMessage(u64 utime, const zcm_recv_buf_t *rbuf);
+    float getHertz();
+    u64 getNumMsgs() { return num_msgs; }
 
-        // if this not the first message, warn user
-        if(this->hash != 0) {
-            DEBUG(1, "WRN: hash changed, searching for new lcmtype on channel %s\n", this->channel);
-        }
+private:
+    void ensureHash(i64 hash);
+    u64 latestUtime();
+    u64 oldestUtime();
+    void removeOld();
 
-        // cleanup old memory if needed
-        if(this->metadata != NULL && this->last_msg != NULL) {
-            this->metadata->info->decode_cleanup(this->last_msg);
-            free(this->last_msg);
-            this->last_msg = NULL;
-        }
+private:
+    TypeDb& db;
+    const char *channel;
 
-        this->hash = hash;
-        this->metadata = db.getByHash(hash);
-        if(this->metadata == NULL) {
-            DEBUG(1, "WRN: failed to find lcmtype for hash: 0x%" PRIx64 "\n", hash);
-            return;
-        }
-    }
+    ExpiringQueue<u64, QUEUE_SIZE> queue;
+    i64 hash = 0;
+    u64 num_msgs = 0;
 
-    inline bool _is_empty()
-    {
-        return !this->is_full && (this->front == this->back);
-    }
-
-    inline int _get_size()
-    {
-        if(this->is_full)
-            return QUEUE_SIZE;
-        if(this->front <= this->back)
-            return this->back - this->front;
-        else /* this->front > this->back */
-            return QUEUE_SIZE - (this->front - this->back);
-    }
-
-    inline void _dequeue()
-    {
-        /* assert not empty */
-        assert(!_is_empty());
-        ++this->front;
-        this->front %= QUEUE_SIZE;
-        this->is_full = false;
-    }
-
-    inline void _enqueue(uint64_t utime)
-    {
-        assert(!this->is_full);
-        this->queue[this->back++] = utime;
-        this->back %= QUEUE_SIZE;
-        if(this->front == this->back)
-            this->is_full = true;
-    }
-
-    uint64_t _latest_utime()
-    {
-        assert(!_is_empty());
-
-        int i = this->back - 1;
-        if(i < 0)
-            i = QUEUE_SIZE - 1;
-
-        return this->queue[i];
-    }
-
-    uint64_t _oldest_utime()
-    {
-        assert(!_is_empty());
-        return this->queue[this->front];
-    }
-
-    void _remove_old()
-    {
-        uint64_t oldest_allowed = TimeUtil::utime() - QUEUE_PERIOD;
-
-        // discard old messages
-        while(!_is_empty()) {
-            uint64_t last = this->queue[this->front];
-            if(last < oldest_allowed)
-                _dequeue();
-            else
-                break;
-        }
-    }
-
-    void add_msg(uint64_t utime, const zcm_recv_buf_t *rbuf)
-    {
-        if(this->is_full)
-            _dequeue();
-        _enqueue(utime);
-
-        this->num_msgs++;
-
-        /* decode the data */
-        int64_t hash;
-        __int64_t_decode_array(rbuf->data, 0, rbuf->data_size, &hash, 1);
-        _ensure_hash(hash);
-
-        if(this->metadata != NULL) {
-
-            // do we need to allocate memory for 'last_msg' ?
-            if(this->last_msg == NULL) {
-                size_t sz = this->metadata->info->struct_size();
-                this->last_msg = malloc(sz);
-            } else {
-                this->metadata->info->decode_cleanup(this->last_msg);
-            }
-
-            // actually decode it
-            this->metadata->info->decode(rbuf->data, 0, rbuf->data_size, this->last_msg);
-
-            DEBUG(1, "INFO: successful decode on %s\n", this->channel);
-        }
-    }
-
-    float get_hz()
-    {
-        _remove_old();
-        if (_is_empty())
-            return 0.0;
-
-        int sz = _get_size();
-        uint64_t oldest = _oldest_utime();
-        uint64_t latest = _latest_utime();
-        uint64_t dt = latest - oldest;
-        if(dt == 0.0)
-            return 0.0;
-
-        return (float) sz / ((float) dt / 1000000.0);
-    }
+public: // HAX
+    MsgDisplayState disp_state;
+    const TypeMetadata *metadata = NULL;
+    void *last_msg = NULL;
 };
 
-enum display_mode { MODE_OVERVIEW, MODE_DECODE };
-struct spyinfo_t
+void MsgInfo::ensureHash(i64 h)
 {
-    vector<string>                     names_array;
-    unordered_map<string, msg_info_t*> minfo_hashtbl;
-    TypeDb type_db;
-    pthread_mutex_t mutex;
-    float display_hz = 10.0;
+    if (hash == h)
+        return;
 
-    enum display_mode mode = MODE_OVERVIEW;
+    // if this not the first message, warn user
+    if (hash != 0) {
+        DEBUG(1, "WRN: hash changed, searching for new lcmtype on channel %s\n", this->channel);
+    }
+
+    // cleanup old memory if needed
+    if (metadata && last_msg) {
+        metadata->info->decode_cleanup(last_msg);
+        free(last_msg);
+        last_msg = NULL;
+    }
+
+    hash = h;
+    metadata = db.getByHash(h);
+    if (metadata == NULL) {
+        DEBUG(1, "WRN: failed to find lcmtype for hash: 0x%" PRIx64 "\n", hash);
+        return;
+    }
+}
+
+u64 MsgInfo::latestUtime()
+{
+    return queue.last();
+}
+
+u64 MsgInfo::oldestUtime()
+{
+    return queue.first();
+}
+
+void MsgInfo::removeOld()
+{
+    u64 oldest_allowed = TimeUtil::utime() - QUEUE_PERIOD;
+    while (!queue.isEmpty() && queue.first() < oldest_allowed)
+        queue.dequeue();
+}
+
+void MsgInfo::addMessage(u64 utime, const zcm_recv_buf_t *rbuf)
+{
+    if (queue.isFull())
+        queue.dequeue();
+    queue.enqueue(utime);
+
+    num_msgs++;
+
+    /* decode the data */
+    i64 hash;
+    __int64_t_decode_array(rbuf->data, 0, rbuf->data_size, &hash, 1);
+    ensureHash(hash);
+
+    if (metadata) {
+        // do we need to allocate memory for 'last_msg' ?
+        if (!last_msg) {
+            size_t sz = metadata->info->struct_size();
+            last_msg = malloc(sz);
+        } else {
+            metadata->info->decode_cleanup(last_msg);
+        }
+
+        // actually decode it
+        metadata->info->decode(rbuf->data, 0, rbuf->data_size, last_msg);
+
+        DEBUG(1, "INFO: successful decode on %s\n", channel);
+    }
+}
+
+float MsgInfo::getHertz()
+{
+    removeOld();
+    if (queue.isEmpty())
+        return 0.0;
+
+    int sz = queue.getSize();
+    u64 oldest = oldestUtime();
+    u64 latest = latestUtime();
+    u64 dt = latest - oldest;
+    if(dt == 0.0)
+        return 0.0;
+
+    return (float) sz / ((float) dt / 1000000.0);
+}
+
+struct SpyInfo
+{
+    typedef enum {
+        MODE_OVERVIEW,
+        MODE_DECODE
+    } DisplayMode_t;
+
+    SpyInfo(const char *path, bool debug)
+    : typedb(path, debug)
+    {}
+
+    ~SpyInfo()
+    {
+        for (auto& it : minfo)
+            delete it.second;
+    }
+
+    MsgInfo *getCurrentMsginfo(const char **channel)
+    {
+        auto& ch = names[decode_index];
+        MsgInfo **m = lookup(minfo, ch);
+        assert(m);
+        if (channel)
+            *channel = ch.c_str();
+        return *m;
+    }
+
+    bool isValidChannelnum(size_t index)
+    {
+        return (0 <= index && index < names.size());
+    }
+
+    vector<string>                  names;
+    unordered_map<string, MsgInfo*> minfo;
+    TypeDb typedb;
+
+    pthread_mutex_t mutex;
+
+    DisplayMode_t mode = MODE_OVERVIEW;
     bool is_selecting = false;
 
     int decode_index = 0;
-    msg_info_t *decode_msg_info;
+    MsgInfo *decode_msg_info;
     const char *decode_msg_channel;
-
-    spyinfo_t(const char *path, bool debug)
-    : type_db(path, debug)
-    {}
-
-    ~spyinfo_t()
-    {
-        for (auto& it : minfo_hashtbl)
-            delete it.second;
-    }
 };
 
-static msg_info_t *get_current_msg_info(spyinfo_t *spy, const char **channel)
-{
-    auto& ch = spy->names_array[spy->decode_index];
-    msg_info_t **minfo = lookup(spy->minfo_hashtbl, ch);
-    assert(minfo != NULL);
-    if (channel != NULL) *channel = ch.c_str();
-    return *minfo;
-}
-
-static int is_valid_channel_num(spyinfo_t *spy, int index)
-{
-    return (0 <= index && index < (int)spy->names_array.size());
-}
-
-static void keyboard_handle_overview(spyinfo_t *spy, char ch)
+static void keyboard_handle_overview(SpyInfo *spy, char ch)
 {
     if(ch == '-') {
         spy->is_selecting = true;
@@ -240,9 +206,9 @@ static void keyboard_handle_overview(spyinfo_t *spy, char ch)
         // shortcut for single digit channels
         if(!spy->is_selecting) {
             spy->decode_index = ch - '0';
-            if(is_valid_channel_num(spy, spy->decode_index)) {
-                spy->decode_msg_info = get_current_msg_info(spy, &spy->decode_msg_channel);
-                spy->mode = MODE_DECODE;
+            if(spy->isValidChannelnum(spy->decode_index)) {
+                spy->decode_msg_info = spy->getCurrentMsginfo(&spy->decode_msg_channel);
+                spy->mode = SpyInfo::MODE_DECODE;
             }
         } else {
             if(spy->decode_index == -1) {
@@ -254,9 +220,9 @@ static void keyboard_handle_overview(spyinfo_t *spy, char ch)
         }
     } else if(ch == '\n') {
         if(spy->is_selecting) {
-            if(is_valid_channel_num(spy, spy->decode_index)) {
-                spy->decode_msg_info = get_current_msg_info(spy, &spy->decode_msg_channel);
-                spy->mode = MODE_DECODE;
+            if(spy->isValidChannelnum(spy->decode_index)) {
+                spy->decode_msg_info = spy->getCurrentMsginfo(&spy->decode_msg_channel);
+                spy->mode = SpyInfo::MODE_DECODE;
             }
             spy->is_selecting = false;
         }
@@ -272,7 +238,7 @@ static void keyboard_handle_overview(spyinfo_t *spy, char ch)
     }
 }
 
-static void keyboard_handle_decode(spyinfo_t *spy, char ch)
+static void keyboard_handle_decode(SpyInfo *spy, char ch)
 {
     auto& ds = spy->decode_msg_info->disp_state;
 
@@ -280,7 +246,7 @@ static void keyboard_handle_decode(spyinfo_t *spy, char ch)
         if(ds.cur_depth > 0)
             ds.cur_depth--;
         else
-            spy->mode = MODE_OVERVIEW;
+            spy->mode = SpyInfo::MODE_OVERVIEW;
     } else if('0' <= ch && ch <= '9') {
         // if number is pressed, set and increase sub-msg decoding depth
         if(ds.cur_depth < MSG_DISPLAY_RECUR_MAX) {
@@ -296,7 +262,7 @@ static void keyboard_handle_decode(spyinfo_t *spy, char ch)
 
 void *keyboard_thread_func(void *arg)
 {
-    spyinfo_t *spy = (spyinfo_t *)arg;
+    SpyInfo *spy = (SpyInfo *)arg;
 
     struct termios old = {0};
     if (tcgetattr(0, &old) < 0)
@@ -330,8 +296,8 @@ void *keyboard_thread_func(void *arg)
             pthread_mutex_lock(&spy->mutex);
             {
                 switch(spy->mode) {
-                    case MODE_OVERVIEW: keyboard_handle_overview(spy, ch); break;
-                    case MODE_DECODE:   keyboard_handle_decode(spy, ch);  break;
+                    case SpyInfo::MODE_OVERVIEW: keyboard_handle_overview(spy, ch); break;
+                    case SpyInfo::MODE_DECODE:   keyboard_handle_decode(spy, ch);  break;
                     default:
                         DEBUG(1, "INFO: unrecognized keyboard mode: %d\n", spy->mode);
                 }
@@ -365,19 +331,19 @@ void clearscreen()
 //////////////////////////// Print Thread ////////////////////////////
 //////////////////////////////////////////////////////////////////////
 
-static void display_overview(spyinfo_t *spy)
+static void display_overview(SpyInfo *spy)
 {
     printf("         %-28s\t%12s\t%8s\n", "Channel", "Num Messages", "Hz (ave)");
     printf("   ----------------------------------------------------------------\n");
 
     DEBUG(5, "start-loop\n");
 
-    for (size_t i = 0; i < spy->names_array.size(); i++) {
-        auto& channel = spy->names_array[i];
-        msg_info_t **minfo = lookup(spy->minfo_hashtbl, channel);
+    for (size_t i = 0; i < spy->names.size(); i++) {
+        auto& channel = spy->names[i];
+        MsgInfo **minfo = lookup(spy->minfo, channel);
         assert(minfo != NULL);
-        float hz = (*minfo)->get_hz();
-        printf("   %3d)  %-28s\t%9" PRIu64 "\t%7.2f\n", (int)i, channel.c_str(), (*minfo)->num_msgs, hz);
+        float hz = (*minfo)->getHertz();
+        printf("   %3d)  %-28s\t%9" PRIu64 "\t%7.2f\n", (int)i, channel.c_str(), (*minfo)->getNumMsgs(), hz);
     }
 
     printf("\n");
@@ -390,9 +356,9 @@ static void display_overview(spyinfo_t *spy)
     }
 }
 
-static void display_decode(spyinfo_t *spy)
+static void display_decode(SpyInfo *spy)
 {
-    msg_info_t *minfo = spy->decode_msg_info;
+    MsgInfo *minfo = spy->decode_msg_info;
     const char *channel = spy->decode_msg_channel;
 
     const char *name = NULL;
@@ -405,27 +371,15 @@ static void display_decode(spyinfo_t *spy)
     printf("         Decoding %s (%s) %" PRIu64 ":\n", channel, name, (uint64_t) hash);
 
     if(minfo->last_msg != NULL)
-        msg_display(spy->type_db, *minfo->metadata, minfo->last_msg,  minfo->disp_state);
+        msg_display(spy->typedb, *minfo->metadata, minfo->last_msg,  minfo->disp_state);
 }
 
 void *print_thread_func(void *arg)
 {
-    spyinfo_t *spy = (spyinfo_t *)arg;
+    SpyInfo *spy = (SpyInfo *)arg;
 
-    const double MAX_FREQ = 100.0;
-    int period;
-    float hz = 10.0;
-
-    if (spy->display_hz <= 0) {
-        DEBUG(1, "WRN: Invalid Display Hz, defaulting to %3.3fHz\n", hz);
-    } else if (spy->display_hz > MAX_FREQ) {
-        DEBUG(1, "WRN: Invalid Display Hz, defaulting to %1.0f Hz\n", MAX_FREQ);
-        hz = MAX_FREQ;
-    } else {
-        hz = spy->display_hz;
-    }
-
-    period = 1000000 / hz;
+    const float hz = 20.0;
+    const uint64_t period = 1000000 / hz;
 
     DEBUG(1, "INFO: %s: Starting\n", "print_thread");
     while (!quit) {
@@ -433,18 +387,18 @@ void *print_thread_func(void *arg)
 
         clearscreen();
         printf("  **************************************************************************** \n");
-        printf("  ************************** LCM-SPY (lite) [%3.1f Hz] ************************ \n", hz);
+        printf("  ******************************* ZCM-SPY-LITE ******************************* \n");
         printf("  **************************************************************************** \n");
 
         pthread_mutex_lock(&spy->mutex);
         {
             switch(spy->mode) {
 
-                case MODE_OVERVIEW:
+                case SpyInfo::MODE_OVERVIEW:
                     display_overview(spy);
                     break;
 
-                case MODE_DECODE:
+                case SpyInfo::MODE_DECODE:
                     display_decode(spy);
                     break;
 
@@ -470,22 +424,22 @@ void *print_thread_func(void *arg)
 void handler_all_zcm (const zcm_recv_buf_t *rbuf,
                       const char *channel, void *arg)
 {
-    spyinfo_t *spy = (spyinfo_t *)arg;
-    msg_info_t *minfo;
+    SpyInfo *spy = (SpyInfo *)arg;
+    MsgInfo *minfo;
     uint64_t utime = TimeUtil::utime();
 
     pthread_mutex_lock(&spy->mutex);
     {
-        auto **minfo_ = lookup(spy->minfo_hashtbl, string(channel));
+        auto **minfo_ = lookup(spy->minfo, string(channel));
         if (minfo_ == NULL) {
-            minfo = new msg_info_t(spy->type_db, channel);
-            spy->names_array.push_back(channel);
-            std::sort(begin(spy->names_array), end(spy->names_array));
-            spy->minfo_hashtbl[channel] = minfo;
+            minfo = new MsgInfo(spy->typedb, channel);
+            spy->names.push_back(channel);
+            std::sort(begin(spy->names), end(spy->names));
+            spy->minfo[channel] = minfo;
         } else {
             minfo = *minfo_;
         }
-        minfo->add_msg(utime, rbuf);
+        minfo->addMessage(utime, rbuf);
     }
     pthread_mutex_unlock(&spy->mutex);
 }
@@ -527,7 +481,7 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    spyinfo_t spy {spy_lite_path, debug};
+    SpyInfo spy {spy_lite_path, debug};
     if (debug)
         exit(0);
 
