@@ -153,7 +153,7 @@ void msg_display(TypeDb& db, const TypeMetadata& metadata_, void *msg, const Msg
         const zcm_type_info_t *typeinfo = metadata->info;
         int num_fields = typeinfo->num_fields();
         size_t user_field_count = 0;
-        int inside_array;
+        int inside_array = 0;
         int index;
         for(int j = 0; j < num_fields; j++) {
             typeinfo->get_field(msg, j, &field);
