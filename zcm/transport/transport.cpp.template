@@ -29,31 +29,31 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
     int sendmsg(zcm_msg_t msg)
     {
-        // XXX write me
+        // WRITE ME
         assert(0);
     }
 
     int recvmsg_enable(const char *channel, bool enable)
     {
-        // XXX write me
+        // WRITE ME
         assert(0);
     }
 
     int recvmsg(zcm_msg_t *msg, int timeout)
     {
-        // XXX write me
+        // WRITE ME
         assert(0);
     }
 
     void update()
     {
-        // XXX write me
+        // WRITE ME
         assert(0);
     }
 
     void destory()
     {
-        // XXX write me
+        // WRITE ME
         assert(0);
     }
 
@@ -105,4 +105,3 @@ static zcm_trans_t *create()
 const TransportRegister ZCM_TRANS_CLASSNAME::reg(
     "TransName", "Trans description (especially url components)", create);
 **/
-

@@ -12,47 +12,6 @@ bool FragBuf::matchesSockaddr(struct sockaddr_in *addr)
     return sockaddrEqual(&from, addr);
 }
 
-/************************* Utility Functions *******************/
-// XXX DISABLED due to GLIB removal
-/* static inline int */
-/* zcm_timeval_compare (const GTimeVal *a, const GTimeVal *b) { */
-/*     if (a->tv_sec == b->tv_sec && a->tv_usec == b->tv_usec) return 0; */
-/*     if (a->tv_sec > b->tv_sec || */
-/*             (a->tv_sec == b->tv_sec && a->tv_usec > b->tv_usec)) */
-/*         return 1; */
-/*     return -1; */
-/* } */
-
-/* static inline void */
-/* zcm_timeval_add (const GTimeVal *a, const GTimeVal *b, GTimeVal *dest) */
-/* { */
-/*     dest->tv_sec = a->tv_sec + b->tv_sec; */
-/*     dest->tv_usec = a->tv_usec + b->tv_usec; */
-/*     if (dest->tv_usec > 999999) { */
-/*         dest->tv_usec -= 1000000; */
-/*         dest->tv_sec++; */
-/*     } */
-/* } */
-
-/* static inline void */
-/* zcm_timeval_subtract (const GTimeVal *a, const GTimeVal *b, GTimeVal *dest) */
-/* { */
-/*     dest->tv_sec = a->tv_sec - b->tv_sec; */
-/*     dest->tv_usec = a->tv_usec - b->tv_usec; */
-/*     if (dest->tv_usec < 0) { */
-/*         dest->tv_usec += 1000000; */
-/*         dest->tv_sec--; */
-/*     } */
-/* } */
-
-/* static inline int64_t */
-/* zcm_timestamp_now() */
-/* { */
-/*     GTimeVal tv; */
-/*     g_get_current_time(&tv); */
-/*     return (int64_t) tv.tv_sec * 1000000 + tv.tv_usec; */
-/* } */
-
 MessagePool::MessagePool(size_t maxSize, size_t maxBuffers)
     : maxSize(maxSize), maxBuffers(maxBuffers)
 {
