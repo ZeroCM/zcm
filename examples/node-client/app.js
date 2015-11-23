@@ -5,7 +5,10 @@ app.use(express.static("public"));
 
 var zcm = require('zcm');
 var zcmtypes = require('./zcmtypes');
-var z = zcm.create(zcmtypes, 'ipc', http);
+var z = zcm.create(zcmtypes, null, http);
+if (!z) {
+    throw "Failed to create ZCM";
+}
 
 var sub1;
 var sub2;

@@ -80,18 +80,15 @@ function makeDispatcher(cb)
 
 function zcm(zcmtypes, zcmurl)
 {
-    var transport = zcmurl || "ipc";
-
     var zcmtypes = zcmtypes;
 
     var zcmtypeHashMap = {};
     for (var type in zcmtypes)
         zcmtypeHashMap[zcmtypes[type].__hash] = zcmtypes[type];
 
-    var z = libzcm.zcm_create(transport);
+    var z = libzcm.zcm_create(zcmurl);
     if (z.isNull()) {
-        console.log("Err: Failed to create transport '"+transport+"'");
-        return {};
+        return null;
     }
 
     libzcm.zcm_start(z);
