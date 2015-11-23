@@ -43,10 +43,14 @@ JNIEXPORT jboolean JNICALL Java_zcm_zcm_ZCMJNI_initializeNative
     int rc = (*env)->GetJavaVM(env, &I->jvm);
     assert(rc == 0);
 
-    const char *url = (*env)->GetStringUTFChars(env, urlJ, 0);
+    const char *url = NULL;
+    if (urlJ)
+        url = (*env)->GetStringUTFChars(env, urlJ, 0);
     I->zcm = zcm_create(url);
-    zcm_start(I->zcm);
-    (*env)->ReleaseStringUTFChars(env, urlJ, url);
+    if (I->zcm)
+        zcm_start(I->zcm);
+    if (url)
+        (*env)->ReleaseStringUTFChars(env, urlJ, url);
 
     setNativePtr(env, self, I);
 

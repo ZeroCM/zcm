@@ -436,6 +436,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     ZCM_TRANS_CLASSNAME(const string& ip, u16 port, size_t recv_buf_size, u8 ttl)
         : udpm(ip, port, recv_buf_size, ttl)
     {
+        trans_type = ZCM_BLOCKING;
         vtbl = &methods;
     }
 

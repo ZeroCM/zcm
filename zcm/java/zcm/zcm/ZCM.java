@@ -29,9 +29,9 @@ public class ZCM
     ZCMJNI zcmjni;
 
     /** Create a new ZCM object, connecting to one or more URLs. If
-     * no URL is specified, "ipc" is used.
+     * no URL is specified, ZCM_DEFAULT_URL is used.
      **/
-    public ZCM() throws IOException { this("ipc"); }
+    public ZCM() throws IOException { this(null); }
     public ZCM(String url) throws IOException
     {
         zcmjni = new ZCMJNI(url);

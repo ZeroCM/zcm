@@ -454,7 +454,7 @@ public class Spy
             System.err.println("         The Sun JRE is recommended.");
         }
 
-        String zcmurl = "ipc";
+        String zcmurl = null;
         for(int optind=0; optind<args.length; optind++) {
             String c = args[optind];
             if(c.equals("-h") || c.equals("--help")) {

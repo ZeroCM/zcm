@@ -11,8 +11,12 @@ class ZCMJNI
     private native boolean initializeNative(String url);
     public ZCMJNI(String url) throws IOException
     {
-        if (!initializeNative(url))
-            throw new IOException("Failed to create ZCM for '"+url+"'");
+        if (!initializeNative(url)) {
+            String msg = (url != null) ?
+                "Failed to create ZCM for '"+url+"'" :
+                "Failed to create ZCM using the default url";
+            throw new IOException(msg);
+        }
     }
 
     // This method publishes the provided data on the requested channel

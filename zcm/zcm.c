@@ -106,6 +106,9 @@ int zcm_init_trans(zcm_t *zcm, zcm_trans_t *zt)
             zcm->impl = zcm_nonblocking_create(zcm, zt);
             return 1;
         } break;
+        default: {
+            assert(0 && "unexpected trans_type!");
+        }
     }
     return 0;
 }
