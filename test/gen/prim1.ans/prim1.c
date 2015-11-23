@@ -7,9 +7,9 @@
 #include "prim1.h"
 
 static int __prim1_hash_computed;
-static int64_t __prim1_hash;
+static uint64_t __prim1_hash;
 
-int64_t __prim1_hash_recursive(const __zcm_hash_ptr *p)
+uint64_t __prim1_hash_recursive(const __zcm_hash_ptr *p)
 {
     const __zcm_hash_ptr *fp;
     for (fp = p; fp != NULL; fp = fp->parent)
@@ -21,7 +21,7 @@ int64_t __prim1_hash_recursive(const __zcm_hash_ptr *p)
     cp.v = (void*)__prim1_get_hash;
     (void) cp;
 
-    int64_t hash = (int64_t)0x0c7cd031e3f10c81LL
+    uint64_t hash = (uint64_t)0x0c7cd031e3f10c81LL
          + __int8_t_hash_recursive(&cp)
          + __int16_t_hash_recursive(&cp)
          + __int32_t_hash_recursive(&cp)
@@ -39,7 +39,7 @@ int64_t __prim1_hash_recursive(const __zcm_hash_ptr *p)
 int64_t __prim1_get_hash(void)
 {
     if (!__prim1_hash_computed) {
-        __prim1_hash = __prim1_hash_recursive(NULL);
+        __prim1_hash = (int64_t)__prim1_hash_recursive(NULL);
         __prim1_hash_computed = 1;
     }
 
@@ -48,7 +48,8 @@ int64_t __prim1_get_hash(void)
 
 int __prim1_encode_array(void *buf, int offset, int maxlen, const prim1 *p, int elements)
 {
-    int pos = 0, thislen, element;
+    int pos = 0, element;
+    int thislen;
 
     for (element = 0; element < elements; element++) {
 
@@ -272,6 +273,7 @@ int prim1_publish(zcm_t *lc, const char *channel, const prim1 *p)
 struct _prim1_subscription_t {
     prim1_handler_t user_handler;
     void *userdata;
+    zcm_sub_t *z_sub;
 };
 static
 void prim1_handler_stub (const zcm_recv_buf_t *rbuf,
@@ -280,7 +282,7 @@ void prim1_handler_stub (const zcm_recv_buf_t *rbuf,
     int status;
     prim1 p;
     memset(&p, 0, sizeof(prim1));
-    status = prim1_decode (rbuf->data, 0, rbuf->len, &p);
+    status = prim1_decode (rbuf->data, 0, rbuf->data_size, &p);
     if (status < 0) {
         fprintf (stderr, "error %d decoding prim1!!!\n", status);
         return;
@@ -300,32 +302,25 @@ prim1_subscription_t* prim1_subscribe (zcm_t *zcm,
                        malloc(sizeof(prim1_subscription_t));
     n->user_handler = f;
     n->userdata = userdata;
-/*    n->lc_h = */zcm_subscribe (zcm, channel,
-                                 prim1_handler_stub, n);
-//    if (n->lc_h == NULL) {
-//        fprintf (stderr,"couldn't reg prim1 ZCM handler!\n");
-//        free (n);
-//        return NULL;
-//    }
+    n->z_sub = zcm_subscribe (zcm, channel,
+                              prim1_handler_stub, n);
+    if (n->z_sub == NULL) {
+        fprintf (stderr,"couldn't reg prim1 ZCM handler!\n");
+        free (n);
+        return NULL;
+    }
     return n;
 }
 
-int prim1_subscription_set_queue_capacity (prim1_subscription_t* subs,
-                              int num_messages)
-{
-    return 0;//zcm_subscription_set_queue_capacity (subs->lc_h, num_messages);
-}
-
-
 int prim1_unsubscribe(zcm_t *zcm, prim1_subscription_t* hid)
 {
-//    int status = zcm_unsubscribe (zcm, hid->lc_h);
-//    if (0 != status) {
-//        fprintf(stderr,
-//           "couldn't unsubscribe prim1_handler %p!\n", hid);
-//        return -1;
-//    }
-//    free (hid);
+    int status = zcm_unsubscribe (zcm, hid->z_sub);
+    if (0 != status) {
+        fprintf(stderr,
+           "couldn't unsubscribe prim1_handler %p!\n", hid);
+        return -1;
+    }
+    free (hid);
     return 0;
 }
 

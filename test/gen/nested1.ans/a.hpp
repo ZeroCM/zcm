@@ -60,13 +60,13 @@ class a
         inline int _encodeNoHash(void *buf, int offset, int maxlen) const;
         inline int _getEncodedSizeNoHash() const;
         inline int _decodeNoHash(const void *buf, int offset, int maxlen);
-        inline static int64_t _computeHash(const __zcm_hash_ptr *p);
+        inline static uint64_t _computeHash(const __zcm_hash_ptr *p);
 };
 
 int a::encode(void *buf, int offset, int maxlen) const
 {
     int pos = 0, tlen;
-    int64_t hash = getHash();
+    int64_t hash = (int64_t)getHash();
 
     tlen = __int64_t_encode_array(buf, offset + pos, maxlen - pos, &hash, 1);
     if(tlen < 0) return tlen; else pos += tlen;
@@ -135,9 +135,9 @@ int a::_getEncodedSizeNoHash() const
     return enc_size;
 }
 
-int64_t a::_computeHash(const __zcm_hash_ptr *)
+uint64_t a::_computeHash(const __zcm_hash_ptr *)
 {
-    int64_t hash = 0xd21b643a1f224c57LL;
+    uint64_t hash = (uint64_t)0xd21b643a1f224c57LL;
     return (hash<<1) + ((hash>>63)&1);
 }
 

@@ -1,14 +1,59 @@
 #!/bin/bash
 
+cleanup() { true; }
+fail() { echo "$1"; cleanup; exit 1; }
+
+## Strict mode
+set -uo pipefail
+command_failed () {
+    errcode=$?
+    echo "ERROR: Command on line ${BASH_LINENO[0]} failed ($errcode): $BASH_COMMAND"
+    cleanup
+    exit $errcode
+}
+trap command_failed ERR
+
+function usage() {
+    echo "Usage: $0 [-hvg]"
+    echo "    This script runs all set to zcmtypes through zcm-gen and verifies that"
+    echo "    the output matches the pre-generated .ans files"
+    echo
+    echo "  OPTIONS"
+    echo "    -h      Show help"
+    echo "    -v      Enable verbose test output"
+    echo "    -g      Generate new .ans files"
+    echo
+
+    [ $# -eq 0 ] || exit $1
+}
+
+VERBOSE=0
+GENERATE=0
+while getopts "hvg" opt; do
+    case $opt in
+        v)
+            VERBOSE=1
+            ;;
+        h)
+            usage 0
+            ;;
+        g)
+            GENERATE=1
+            ;;
+        :)
+            echo "Option $OPTARG requires an argument." >&2
+            usage 1
+            ;;
+        /?)
+            usage 1
+            ;;
+    esac
+done
+
 THISDIR=$(dirname "$(readlink -f "$0")")
 BASEDIR=$(dirname $THISDIR)
 TESTDIR=$BASEDIR/test/gen
 TMPDIR=/tmp/zcmtypes
-
-VERBOSE=0
-if [ "$1" == "-v" ]; then
-    VERBOSE=1
-fi
 
 ## Note: this runs in a subshell
 gen_zcm() {(
@@ -39,6 +84,9 @@ check_all_ext() {
         fi
         if [ "$VERBOSE" == "1" ]; then
             echo "CHECK: '$cand' VS '$orig'"
+        fi
+        if [ "$GENERATE" == "1" ]; then
+            cp $cand $orig
         fi
         diff $cand $orig > /tmp/zcm-test.out 2>&1
         if [ "$?" != "0" ]; then
@@ -90,6 +138,6 @@ for f in $ZCMFILES; do
         echo "TEST: $bname"
     fi
 
-    gen_zcm $BASEDIR/$f
+    gen_zcm $f
     compare $bname
 done

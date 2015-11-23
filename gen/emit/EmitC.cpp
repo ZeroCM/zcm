@@ -251,7 +251,7 @@ struct EmitHeader : public Emit
             emit(0, " *                zcm_handle_timeout().");
             emit(0, " * @param userdata An opaque pointer passed to @p handler when it is invoked.");
             emit(0, " * @return pointer to subscription type, NULL if failure. Must clean up");
-            emit(0, " *         dyanic memory by passing the pointer to %s_unsubscribe.", tn_);
+            emit(0, " *         dynamic memory by passing the pointer to %s_unsubscribe.", tn_);
             emit(0, " */");
             emit(0,"%s_subscription_t* %s_subscribe(zcm_t *zcm, const char *channel, %s_handler_t handler, void *userdata);",
                  tn_, tn_, tn_);
@@ -864,6 +864,12 @@ struct EmitSource : public Emit
         // TODO: it would be nice if this didn't need to malloc, currently only typed subscriptions
         //       in C allocate memory that isn't automatically cleaned up on the destruction of the
         //       zcm object.
+        // COMMENT: The entire _subscription_t struct could just be returned here instead of malloc()
+        //       its a copy of 3 registers on most systems and is likely cheaper than any malloc() implementation
+        //       on any system (except for maybe a bump-allocator, but those cannot by used in a general-case malloc).
+        //       Sadly, we cannot make this change as long as we are retaining LCM compatibility. Now on the other hand,
+        //       there is probably a hack that involves returning an int in the pointer and using an internal subscription
+        //       table...
         emit(0, "    %s_subscription_t *n = (%s_subscription_t*)", tn_, tn_);
         emit(0, "                       malloc(sizeof(%s_subscription_t));", tn_);
         emit(0, "    n->user_handler = f;");

@@ -72,7 +72,8 @@ int prim1_publish(zcm_t *zcm, const char *channel, const prim1 *msg);
  *                This function is invoked by ZCM during calls to zcm_handle() and
  *                zcm_handle_timeout().
  * @param userdata An opaque pointer passed to @p handler when it is invoked.
- * @return 0 on success, <0 if an error occured
+ * @return pointer to subscription type, NULL if failure. Must clean up
+ *         dynamic memory by passing the pointer to prim1_unsubscribe.
  */
 prim1_subscription_t* prim1_subscribe(zcm_t *zcm, const char *channel, prim1_handler_t handler, void *userdata);
 
@@ -80,23 +81,6 @@ prim1_subscription_t* prim1_subscribe(zcm_t *zcm, const char *channel, prim1_han
  * Removes and destroys a subscription created by prim1_subscribe()
  */
 int prim1_unsubscribe(zcm_t *zcm, prim1_subscription_t* hid);
-
-/**
- * Sets the queue capacity for a subscription.
- * Some ZCM providers (e.g., the default multicast provider) are implemented
- * using a background receive thread that constantly revceives messages from
- * the network.  As these messages are received, they are buffered on
- * per-subscription queues until dispatched by zcm_handle().  This function
- * how many messages are queued before dropping messages.
- *
- * @param subs the subscription to modify.
- * @param num_messages The maximum number of messages to queue
- *  on the subscription.
- * @return 0 on success, <0 if an error occured
- */
-int prim1_subscription_set_queue_capacity(prim1_subscription_t* subs,
-                              int num_messages);
-
 /**
  * Encode a message of type prim1 into binary form.
  *
@@ -136,7 +120,7 @@ int prim1_encoded_size(const prim1 *p);
 
 // ZCM support functions. Users should not call these
 int64_t __prim1_get_hash(void);
-int64_t __prim1_hash_recursive(const __zcm_hash_ptr *p);
+uint64_t __prim1_hash_recursive(const __zcm_hash_ptr *p);
 int     __prim1_encode_array(void *buf, int offset, int maxlen, const prim1 *p, int elements);
 int     __prim1_decode_array(const void *buf, int offset, int maxlen, prim1 *p, int elements);
 int     __prim1_decode_array_cleanup(prim1 *p, int elements);

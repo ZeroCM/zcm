@@ -70,7 +70,8 @@ int consts1_publish(zcm_t *zcm, const char *channel, const consts1 *msg);
  *                This function is invoked by ZCM during calls to zcm_handle() and
  *                zcm_handle_timeout().
  * @param userdata An opaque pointer passed to @p handler when it is invoked.
- * @return 0 on success, <0 if an error occured
+ * @return pointer to subscription type, NULL if failure. Must clean up
+ *         dynamic memory by passing the pointer to consts1_unsubscribe.
  */
 consts1_subscription_t* consts1_subscribe(zcm_t *zcm, const char *channel, consts1_handler_t handler, void *userdata);
 
@@ -78,23 +79,6 @@ consts1_subscription_t* consts1_subscribe(zcm_t *zcm, const char *channel, const
  * Removes and destroys a subscription created by consts1_subscribe()
  */
 int consts1_unsubscribe(zcm_t *zcm, consts1_subscription_t* hid);
-
-/**
- * Sets the queue capacity for a subscription.
- * Some ZCM providers (e.g., the default multicast provider) are implemented
- * using a background receive thread that constantly revceives messages from
- * the network.  As these messages are received, they are buffered on
- * per-subscription queues until dispatched by zcm_handle().  This function
- * how many messages are queued before dropping messages.
- *
- * @param subs the subscription to modify.
- * @param num_messages The maximum number of messages to queue
- *  on the subscription.
- * @return 0 on success, <0 if an error occured
- */
-int consts1_subscription_set_queue_capacity(consts1_subscription_t* subs,
-                              int num_messages);
-
 /**
  * Encode a message of type consts1 into binary form.
  *
@@ -134,7 +118,7 @@ int consts1_encoded_size(const consts1 *p);
 
 // ZCM support functions. Users should not call these
 int64_t __consts1_get_hash(void);
-int64_t __consts1_hash_recursive(const __zcm_hash_ptr *p);
+uint64_t __consts1_hash_recursive(const __zcm_hash_ptr *p);
 int     __consts1_encode_array(void *buf, int offset, int maxlen, const consts1 *p, int elements);
 int     __consts1_decode_array(const void *buf, int offset, int maxlen, consts1 *p, int elements);
 int     __consts1_decode_array_cleanup(consts1 *p, int elements);

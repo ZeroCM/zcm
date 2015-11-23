@@ -66,7 +66,8 @@ int nested2_publish(zcm_t *zcm, const char *channel, const nested2 *msg);
  *                This function is invoked by ZCM during calls to zcm_handle() and
  *                zcm_handle_timeout().
  * @param userdata An opaque pointer passed to @p handler when it is invoked.
- * @return 0 on success, <0 if an error occured
+ * @return pointer to subscription type, NULL if failure. Must clean up
+ *         dynamic memory by passing the pointer to nested2_unsubscribe.
  */
 nested2_subscription_t* nested2_subscribe(zcm_t *zcm, const char *channel, nested2_handler_t handler, void *userdata);
 
@@ -74,23 +75,6 @@ nested2_subscription_t* nested2_subscribe(zcm_t *zcm, const char *channel, neste
  * Removes and destroys a subscription created by nested2_subscribe()
  */
 int nested2_unsubscribe(zcm_t *zcm, nested2_subscription_t* hid);
-
-/**
- * Sets the queue capacity for a subscription.
- * Some ZCM providers (e.g., the default multicast provider) are implemented
- * using a background receive thread that constantly revceives messages from
- * the network.  As these messages are received, they are buffered on
- * per-subscription queues until dispatched by zcm_handle().  This function
- * how many messages are queued before dropping messages.
- *
- * @param subs the subscription to modify.
- * @param num_messages The maximum number of messages to queue
- *  on the subscription.
- * @return 0 on success, <0 if an error occured
- */
-int nested2_subscription_set_queue_capacity(nested2_subscription_t* subs,
-                              int num_messages);
-
 /**
  * Encode a message of type nested2 into binary form.
  *
@@ -130,7 +114,7 @@ int nested2_encoded_size(const nested2 *p);
 
 // ZCM support functions. Users should not call these
 int64_t __nested2_get_hash(void);
-int64_t __nested2_hash_recursive(const __zcm_hash_ptr *p);
+uint64_t __nested2_hash_recursive(const __zcm_hash_ptr *p);
 int     __nested2_encode_array(void *buf, int offset, int maxlen, const nested2 *p, int elements);
 int     __nested2_decode_array(const void *buf, int offset, int maxlen, nested2 *p, int elements);
 int     __nested2_decode_array_cleanup(nested2 *p, int elements);

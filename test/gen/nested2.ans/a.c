@@ -7,9 +7,9 @@
 #include "a.h"
 
 static int __a_hash_computed;
-static int64_t __a_hash;
+static uint64_t __a_hash;
 
-int64_t __a_hash_recursive(const __zcm_hash_ptr *p)
+uint64_t __a_hash_recursive(const __zcm_hash_ptr *p)
 {
     const __zcm_hash_ptr *fp;
     for (fp = p; fp != NULL; fp = fp->parent)
@@ -21,7 +21,7 @@ int64_t __a_hash_recursive(const __zcm_hash_ptr *p)
     cp.v = (void*)__a_get_hash;
     (void) cp;
 
-    int64_t hash = (int64_t)0xd21b643a1f224c57LL
+    uint64_t hash = (uint64_t)0xd21b643a1f224c57LL
          + __int32_t_hash_recursive(&cp)
         ;
 
@@ -31,7 +31,7 @@ int64_t __a_hash_recursive(const __zcm_hash_ptr *p)
 int64_t __a_get_hash(void)
 {
     if (!__a_hash_computed) {
-        __a_hash = __a_hash_recursive(NULL);
+        __a_hash = (int64_t)__a_hash_recursive(NULL);
         __a_hash_computed = 1;
     }
 
@@ -40,7 +40,8 @@ int64_t __a_get_hash(void)
 
 int __a_encode_array(void *buf, int offset, int maxlen, const a *p, int elements)
 {
-    int pos = 0, thislen, element;
+    int pos = 0, element;
+    int thislen;
 
     for (element = 0; element < elements; element++) {
 
@@ -168,6 +169,7 @@ int a_publish(zcm_t *lc, const char *channel, const a *p)
 struct _a_subscription_t {
     a_handler_t user_handler;
     void *userdata;
+    zcm_sub_t *z_sub;
 };
 static
 void a_handler_stub (const zcm_recv_buf_t *rbuf,
@@ -176,7 +178,7 @@ void a_handler_stub (const zcm_recv_buf_t *rbuf,
     int status;
     a p;
     memset(&p, 0, sizeof(a));
-    status = a_decode (rbuf->data, 0, rbuf->len, &p);
+    status = a_decode (rbuf->data, 0, rbuf->data_size, &p);
     if (status < 0) {
         fprintf (stderr, "error %d decoding a!!!\n", status);
         return;
@@ -196,32 +198,25 @@ a_subscription_t* a_subscribe (zcm_t *zcm,
                        malloc(sizeof(a_subscription_t));
     n->user_handler = f;
     n->userdata = userdata;
-/*    n->lc_h = */zcm_subscribe (zcm, channel,
-                                 a_handler_stub, n);
-//    if (n->lc_h == NULL) {
-//        fprintf (stderr,"couldn't reg a ZCM handler!\n");
-//        free (n);
-//        return NULL;
-//    }
+    n->z_sub = zcm_subscribe (zcm, channel,
+                              a_handler_stub, n);
+    if (n->z_sub == NULL) {
+        fprintf (stderr,"couldn't reg a ZCM handler!\n");
+        free (n);
+        return NULL;
+    }
     return n;
 }
 
-int a_subscription_set_queue_capacity (a_subscription_t* subs,
-                              int num_messages)
-{
-    return 0;//zcm_subscription_set_queue_capacity (subs->lc_h, num_messages);
-}
-
-
 int a_unsubscribe(zcm_t *zcm, a_subscription_t* hid)
 {
-//    int status = zcm_unsubscribe (zcm, hid->lc_h);
-//    if (0 != status) {
-//        fprintf(stderr,
-//           "couldn't unsubscribe a_handler %p!\n", hid);
-//        return -1;
-//    }
-//    free (hid);
+    int status = zcm_unsubscribe (zcm, hid->z_sub);
+    if (0 != status) {
+        fprintf(stderr,
+           "couldn't unsubscribe a_handler %p!\n", hid);
+        return -1;
+    }
+    free (hid);
     return 0;
 }
 

@@ -44,7 +44,6 @@ static string methods[] =
     "_publish",
     "_struct_size",
     "_subscribe",
-    //"_subscription_set_queue_capacity",
     "_unsubscribe"
 };
 

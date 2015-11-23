@@ -77,13 +77,13 @@ class array_const_size1
         inline int _encodeNoHash(void *buf, int offset, int maxlen) const;
         inline int _getEncodedSizeNoHash() const;
         inline int _decodeNoHash(const void *buf, int offset, int maxlen);
-        inline static int64_t _computeHash(const __zcm_hash_ptr *p);
+        inline static uint64_t _computeHash(const __zcm_hash_ptr *p);
 };
 
 int array_const_size1::encode(void *buf, int offset, int maxlen) const
 {
     int pos = 0, tlen;
-    int64_t hash = getHash();
+    int64_t hash = (int64_t)getHash();
 
     tlen = __int64_t_encode_array(buf, offset + pos, maxlen - pos, &hash, 1);
     if(tlen < 0) return tlen; else pos += tlen;
@@ -219,9 +219,9 @@ int array_const_size1::_getEncodedSizeNoHash() const
     return enc_size;
 }
 
-int64_t array_const_size1::_computeHash(const __zcm_hash_ptr *)
+uint64_t array_const_size1::_computeHash(const __zcm_hash_ptr *)
 {
-    int64_t hash = 0xbb93d1c57076cddbLL;
+    uint64_t hash = (uint64_t)0xbb93d1c57076cddbLL;
     return (hash<<1) + ((hash>>63)&1);
 }
 
