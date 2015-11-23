@@ -64,7 +64,8 @@ int a_publish(zcm_t *zcm, const char *channel, const a *msg);
  *                This function is invoked by ZCM during calls to zcm_handle() and
  *                zcm_handle_timeout().
  * @param userdata An opaque pointer passed to @p handler when it is invoked.
- * @return 0 on success, <0 if an error occured
+ * @return pointer to subscription type, NULL if failure. Must clean up
+ *         dynamic memory by passing the pointer to a_unsubscribe.
  */
 a_subscription_t* a_subscribe(zcm_t *zcm, const char *channel, a_handler_t handler, void *userdata);
 
@@ -72,23 +73,6 @@ a_subscription_t* a_subscribe(zcm_t *zcm, const char *channel, a_handler_t handl
  * Removes and destroys a subscription created by a_subscribe()
  */
 int a_unsubscribe(zcm_t *zcm, a_subscription_t* hid);
-
-/**
- * Sets the queue capacity for a subscription.
- * Some ZCM providers (e.g., the default multicast provider) are implemented
- * using a background receive thread that constantly revceives messages from
- * the network.  As these messages are received, they are buffered on
- * per-subscription queues until dispatched by zcm_handle().  This function
- * how many messages are queued before dropping messages.
- *
- * @param subs the subscription to modify.
- * @param num_messages The maximum number of messages to queue
- *  on the subscription.
- * @return 0 on success, <0 if an error occured
- */
-int a_subscription_set_queue_capacity(a_subscription_t* subs,
-                              int num_messages);
-
 /**
  * Encode a message of type a into binary form.
  *
@@ -128,7 +112,7 @@ int a_encoded_size(const a *p);
 
 // ZCM support functions. Users should not call these
 int64_t __a_get_hash(void);
-int64_t __a_hash_recursive(const __zcm_hash_ptr *p);
+uint64_t __a_hash_recursive(const __zcm_hash_ptr *p);
 int     __a_encode_array(void *buf, int offset, int maxlen, const a *p, int elements);
 int     __a_decode_array(const void *buf, int offset, int maxlen, a *p, int elements);
 int     __a_decode_array_cleanup(a *p, int elements);

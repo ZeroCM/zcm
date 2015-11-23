@@ -7,9 +7,9 @@
 #include "nested2.h"
 
 static int __nested2_hash_computed;
-static int64_t __nested2_hash;
+static uint64_t __nested2_hash;
 
-int64_t __nested2_hash_recursive(const __zcm_hash_ptr *p)
+uint64_t __nested2_hash_recursive(const __zcm_hash_ptr *p)
 {
     const __zcm_hash_ptr *fp;
     for (fp = p; fp != NULL; fp = fp->parent)
@@ -21,7 +21,7 @@ int64_t __nested2_hash_recursive(const __zcm_hash_ptr *p)
     cp.v = (void*)__nested2_get_hash;
     (void) cp;
 
-    int64_t hash = (int64_t)0xead96bf817b15699LL
+    uint64_t hash = (uint64_t)0xead96bf817b15699LL
          + __int8_t_hash_recursive(&cp)
          + __b_hash_recursive(&cp)
         ;
@@ -32,7 +32,7 @@ int64_t __nested2_hash_recursive(const __zcm_hash_ptr *p)
 int64_t __nested2_get_hash(void)
 {
     if (!__nested2_hash_computed) {
-        __nested2_hash = __nested2_hash_recursive(NULL);
+        __nested2_hash = (int64_t)__nested2_hash_recursive(NULL);
         __nested2_hash_computed = 1;
     }
 
@@ -41,7 +41,8 @@ int64_t __nested2_get_hash(void)
 
 int __nested2_encode_array(void *buf, int offset, int maxlen, const nested2 *p, int elements)
 {
-    int pos = 0, thislen, element;
+    int pos = 0, element;
+    int thislen;
 
     for (element = 0; element < elements; element++) {
 
@@ -207,6 +208,7 @@ int nested2_publish(zcm_t *lc, const char *channel, const nested2 *p)
 struct _nested2_subscription_t {
     nested2_handler_t user_handler;
     void *userdata;
+    zcm_sub_t *z_sub;
 };
 static
 void nested2_handler_stub (const zcm_recv_buf_t *rbuf,
@@ -215,7 +217,7 @@ void nested2_handler_stub (const zcm_recv_buf_t *rbuf,
     int status;
     nested2 p;
     memset(&p, 0, sizeof(nested2));
-    status = nested2_decode (rbuf->data, 0, rbuf->len, &p);
+    status = nested2_decode (rbuf->data, 0, rbuf->data_size, &p);
     if (status < 0) {
         fprintf (stderr, "error %d decoding nested2!!!\n", status);
         return;
@@ -235,32 +237,25 @@ nested2_subscription_t* nested2_subscribe (zcm_t *zcm,
                        malloc(sizeof(nested2_subscription_t));
     n->user_handler = f;
     n->userdata = userdata;
-/*    n->lc_h = */zcm_subscribe (zcm, channel,
-                                 nested2_handler_stub, n);
-//    if (n->lc_h == NULL) {
-//        fprintf (stderr,"couldn't reg nested2 ZCM handler!\n");
-//        free (n);
-//        return NULL;
-//    }
+    n->z_sub = zcm_subscribe (zcm, channel,
+                              nested2_handler_stub, n);
+    if (n->z_sub == NULL) {
+        fprintf (stderr,"couldn't reg nested2 ZCM handler!\n");
+        free (n);
+        return NULL;
+    }
     return n;
 }
 
-int nested2_subscription_set_queue_capacity (nested2_subscription_t* subs,
-                              int num_messages)
-{
-    return 0;//zcm_subscription_set_queue_capacity (subs->lc_h, num_messages);
-}
-
-
 int nested2_unsubscribe(zcm_t *zcm, nested2_subscription_t* hid)
 {
-//    int status = zcm_unsubscribe (zcm, hid->lc_h);
-//    if (0 != status) {
-//        fprintf(stderr,
-//           "couldn't unsubscribe nested2_handler %p!\n", hid);
-//        return -1;
-//    }
-//    free (hid);
+    int status = zcm_unsubscribe (zcm, hid->z_sub);
+    if (0 != status) {
+        fprintf(stderr,
+           "couldn't unsubscribe nested2_handler %p!\n", hid);
+        return -1;
+    }
+    free (hid);
     return 0;
 }
 

@@ -103,7 +103,8 @@ int array_var_size1_publish(zcm_t *zcm, const char *channel, const array_var_siz
  *                This function is invoked by ZCM during calls to zcm_handle() and
  *                zcm_handle_timeout().
  * @param userdata An opaque pointer passed to @p handler when it is invoked.
- * @return 0 on success, <0 if an error occured
+ * @return pointer to subscription type, NULL if failure. Must clean up
+ *         dynamic memory by passing the pointer to array_var_size1_unsubscribe.
  */
 array_var_size1_subscription_t* array_var_size1_subscribe(zcm_t *zcm, const char *channel, array_var_size1_handler_t handler, void *userdata);
 
@@ -111,23 +112,6 @@ array_var_size1_subscription_t* array_var_size1_subscribe(zcm_t *zcm, const char
  * Removes and destroys a subscription created by array_var_size1_subscribe()
  */
 int array_var_size1_unsubscribe(zcm_t *zcm, array_var_size1_subscription_t* hid);
-
-/**
- * Sets the queue capacity for a subscription.
- * Some ZCM providers (e.g., the default multicast provider) are implemented
- * using a background receive thread that constantly revceives messages from
- * the network.  As these messages are received, they are buffered on
- * per-subscription queues until dispatched by zcm_handle().  This function
- * how many messages are queued before dropping messages.
- *
- * @param subs the subscription to modify.
- * @param num_messages The maximum number of messages to queue
- *  on the subscription.
- * @return 0 on success, <0 if an error occured
- */
-int array_var_size1_subscription_set_queue_capacity(array_var_size1_subscription_t* subs,
-                              int num_messages);
-
 /**
  * Encode a message of type array_var_size1 into binary form.
  *
@@ -167,7 +151,7 @@ int array_var_size1_encoded_size(const array_var_size1 *p);
 
 // ZCM support functions. Users should not call these
 int64_t __array_var_size1_get_hash(void);
-int64_t __array_var_size1_hash_recursive(const __zcm_hash_ptr *p);
+uint64_t __array_var_size1_hash_recursive(const __zcm_hash_ptr *p);
 int     __array_var_size1_encode_array(void *buf, int offset, int maxlen, const array_var_size1 *p, int elements);
 int     __array_var_size1_decode_array(const void *buf, int offset, int maxlen, array_var_size1 *p, int elements);
 int     __array_var_size1_decode_array_cleanup(array_var_size1 *p, int elements);

@@ -14,26 +14,31 @@ command_failed () {
 trap command_failed ERR
 
 function usage() {
-    echo "Usage: $0 [-hv]"
+    echo "Usage: $0 [-hvg]"
     echo "    This script runs all set to zcmtypes through zcm-gen and verifies that"
     echo "    the output matches the pre-generated .ans files"
     echo
     echo "  OPTIONS"
     echo "    -h      Show help"
     echo "    -v      Enable verbose test output"
+    echo "    -g      Generate new .ans files"
     echo
 
     [ $# -eq 0 ] || exit $1
 }
 
 VERBOSE=0
-while getopts "hv" opt; do
+GENERATE=0
+while getopts "hvg" opt; do
     case $opt in
         v)
             VERBOSE=1
             ;;
         h)
             usage 0
+            ;;
+        g)
+            GENERATE=1
             ;;
         :)
             echo "Option $OPTARG requires an argument." >&2
@@ -79,6 +84,9 @@ check_all_ext() {
         fi
         if [ "$VERBOSE" == "1" ]; then
             echo "CHECK: '$cand' VS '$orig'"
+        fi
+        if [ "$GENERATE" == "1" ]; then
+            cp $cand $orig
         fi
         diff $cand $orig > /tmp/zcm-test.out 2>&1
         if [ "$?" != "0" ]; then
