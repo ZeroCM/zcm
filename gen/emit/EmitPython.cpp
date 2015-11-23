@@ -45,12 +45,12 @@ static int getPrimitiveTypeSize(const string& tn)
     return 0;
 }
 
-struct EmitStruct : public Emitter
+struct PyEmitStruct : public Emitter
 {
     ZCMGen& zcm;
     ZCMStruct& ls;
 
-    EmitStruct(ZCMGen& zcm, ZCMStruct& ls, const string& fname):
+    PyEmitStruct(ZCMGen& zcm, ZCMStruct& ls, const string& fname):
         Emitter(fname), zcm(zcm), ls(ls) {}
 
     void emitStruct()
@@ -576,15 +576,16 @@ struct EmitStruct : public Emitter
     }
 };
 
-struct EmitPack : public Emitter
+struct PyEmitPack : public Emitter
 {
     ZCMGen& zcm;
 
-    EmitPack(ZCMGen& zcm, const string& fname):
+    PyEmitPack(ZCMGen& zcm, const string& fname):
         Emitter(fname), zcm(zcm) {}
 
     int emitPackage(const string& packName, vector<ZCMStruct*>& packStructs)
     {
+        printf("Emitting package!\n");
         // create the package directory, if necessary
         vector<string> dirs = StringUtil::split(packName, '.');
         string pdname = StringUtil::join(dirs, '/');
@@ -686,7 +687,7 @@ struct EmitPack : public Emitter
             if (!zcm.needsGeneration(ls.zcmfile, path))
                 continue;
 
-            EmitStruct{zcm, ls, path}.emitStruct();
+            PyEmitStruct{zcm, ls, path}.emitStruct();
         }
 
         if(initPyFp)
@@ -698,6 +699,7 @@ struct EmitPack : public Emitter
 
 int emitPython(ZCMGen& zcm)
 {
+    printf("Emitting python!\n");
     unordered_map<string, vector<ZCMStruct*> > packages;
 
     // group the structs by package
@@ -707,8 +709,11 @@ int emitPython(ZCMGen& zcm)
     for (auto& kv : packages) {
         auto& name = kv.first;
         auto& pack = kv.second;
-        int ret = EmitPack{zcm, name}.emitPackage(name, pack);
+        int ret = PyEmitPack{zcm, name}.emitPackage(name, pack);
         if (ret != 0) return ret;
     }
+
+    printf("Done emitting python!\n");
+
     return 0;
 }
