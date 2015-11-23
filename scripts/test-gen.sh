@@ -61,7 +61,7 @@ gen_zcm() {(
     rm -fr $TMPDIR
     mkdir $TMPDIR
     cd $TMPDIR
-    $BASEDIR/build/gen/zcm-gen -c -x -j -p $file >/dev/null
+    $BASEDIR/build/gen/zcm-gen -c -x -j $file >/dev/null
 )}
 
 check_all_ext() {
@@ -114,17 +114,17 @@ compare_java() {
     check_all_ext $bname java
 }
 
-compare_python() {
-    bname=$1
-    check_all_ext $bname py
-}
+# compare_python() {
+#     bname=$1
+#     check_all_ext $bname py
+# }
 
 ## Add new language entries here
 compare() {
     bname=$1
     compare_c $bname
     compare_cpp $bname
-    compare_python $bname
+    #compare_python $bname
     compare_java $bname
 }
 

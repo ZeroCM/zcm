@@ -31,9 +31,9 @@ int main(int argc, char *argv[])
     gopt.addBool('j', "java",      0,     "Emit Java code");
     setupOptionsJava(gopt);
 
-    gopt.addSpacer("**** Python options ****");
-    gopt.addBool('p', "python",      0,     "Emit Python code");
-    setupOptionsPython(gopt);
+    // gopt.addSpacer("**** Python options ****");
+    // gopt.addBool('p', "python",      0,     "Emit Python code");
+    // setupOptionsPython(gopt);
 
     gopt.addSpacer("**** Node.js options ****");
     gopt.addBool('n', "node",      0,     "Emit Node.js code");
@@ -97,13 +97,13 @@ int main(int argc, char *argv[])
         }
     }
 
-    if (gopt.getBool("python")) {
-        did_something = 1;
-        if (emitPython(zcm)) {
-            printf("An error occurred while emitting Python code.\n");
-            ret = 1;
-        }
-    }
+    // if (gopt.getBool("python")) {
+    //     did_something = 1;
+    //     if (emitPython(zcm)) {
+    //         printf("An error occurred while emitting Python code.\n");
+    //         ret = 1;
+    //     }
+    // }
 
     if (gopt.getBool("node")) {
         did_something = 1;
