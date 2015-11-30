@@ -28,7 +28,7 @@ zcm_t *zcm_create(const char *url)
 {
 #ifndef ZCM_EMBEDDED
     zcm_t *z = malloc(sizeof(zcm_t));
-    if (!zcm_init(z, url)) {
+    if (zcm_init(z, url) == -1) {
         free(z);
         return NULL;
     }
@@ -41,7 +41,7 @@ zcm_t *zcm_create(const char *url)
 zcm_t *zcm_create_trans(zcm_trans_t *zt)
 {
     zcm_t *z = malloc(sizeof(zcm_t));
-    if (!zcm_init_trans(z, zt)) {
+    if (zcm_init_trans(z, zt) == -1) {
         free(z);
         return NULL;
     }
@@ -62,10 +62,10 @@ int zcm_init(zcm_t *zcm, const char *url)
         url = getenv("ZCM_DEFAULT_URL");
         if (!url) {
             ZCM_DEBUG("failed to determine the URL. You should pass it to the creator or set ZCM_DEFAULT_URL");
-            return 0;
+            return -1;
         }
     }
-    int ret = 0;
+    int ret = -1;
     zcm_url_t *u = zcm_url_create(url);
     const char *protocol = zcm_url_protocol(u);
 
@@ -95,22 +95,22 @@ int zcm_init_trans(zcm_t *zcm, zcm_trans_t *zt)
 #ifndef ZCM_EMBEDDED
             zcm->type = ZCM_BLOCKING;
             zcm->impl = zcm_blocking_create(zcm, zt);
-            return 1;
+            return 0;
 #else
             assert(0 && "the blocking api is not supported");
-            return 0;
+            return -1;
 #endif
         } break;
         case ZCM_NONBLOCKING: {
             zcm->type = ZCM_NONBLOCKING;
             zcm->impl = zcm_nonblocking_create(zcm, zt);
-            return 1;
+            return 0;
         } break;
         default: {
             assert(0 && "unexpected trans_type!");
         }
     }
-    return 0;
+    return -1;
 }
 
 void zcm_cleanup(zcm_t *zcm)
@@ -128,7 +128,7 @@ void zcm_cleanup(zcm_t *zcm)
     }
 }
 
-int zcm_publish(zcm_t *zcm, const char *channel, const char *data, uint32_t len)
+int zcm_publish(zcm_t *zcm, const char *channel, const void *data, uint32_t len)
 {
 #ifndef ZCM_EMBEDDED
     switch (zcm->type) {
