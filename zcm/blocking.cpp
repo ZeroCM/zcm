@@ -18,6 +18,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <atomic>
+#include <regex>
 using namespace std;
 
 #define RECV_TIMEOUT 100
@@ -118,6 +119,11 @@ struct zcm_blocking
         sendThread.join();
 
         zcm_trans_destroy(zt);
+
+        // Need to delete all regex objects
+        for (auto& sub : subRegex) {
+            delete (regex *) sub.regexobj;
+        }
     }
 
     void sendThreadFunc()
@@ -183,11 +189,9 @@ struct zcm_blocking
 
             // dispatch to any regex channels
             for (auto& sub : subRegex) {
-                if (strncmp(sub.channel, ".*", sizeof(sub.channel)/sizeof(sub.channel[0])) == 0) {
+                regex *r = (regex *)sub.regexobj;
+                if (regex_match(msg->channel, *r)) {
                     sub.callback(&rbuf, msg->channel, sub.usr);
-                } else {
-                    // TODO: Implement more regex
-                    ZCM_DEBUG("ZCM only supports the '.*' regex (aka subscribe-all)");
                 }
             }
         }
@@ -267,12 +271,17 @@ struct zcm_blocking
 
         if (rc == ZCM_EOK) {
             strncpy(sub.channel, channel.c_str(), sizeof(sub.channel)/sizeof(sub.channel[0]));
+            sub.regex = regex;
+            sub.regexobj = nullptr;
             sub.callback = cb;
             sub.usr = usr;
             if (regex) {
+                // XXX this is wrong. std::vector can be re-allocated and the pointer can be invalidated
+                sub.regexobj = (void *) new std::regex(sub.channel);
                 subRegex.emplace_back(forward<zcm_sub_t>(sub));
                 retptr = &subRegex.back();
             } else {
+                // XXX this is wrong. std::unordered_multimap can be re-allocated and the pointer can be invalidated
                 auto it = subs.emplace(channel, forward<zcm_sub_t>(sub));
                 retptr = &it->second;
             }
@@ -291,12 +300,9 @@ struct zcm_blocking
     int unsubscribe(zcm_sub_t *sub)
     {
         unique_lock<mutex> lk(submut);
-
-        string channel = sub->channel;
-        bool regex = isRegexChannel(channel);
         int rc = ZCM_EOK;
 
-        if (regex) {
+        if (sub->regex) {
             for (auto it = subRegex.begin(); it != subRegex.end(); ++it) {
                 if (&(*it) == sub) {
                     subRegex.erase(it);
@@ -308,6 +314,7 @@ struct zcm_blocking
                 rc = zcm_trans_recvmsg_enable(zt, NULL, false);
             }
         } else {
+            string channel = sub->channel;
             auto its = subs.equal_range(channel);
             for (auto it = its.first; it != its.second;) {
                 if (sub == &it->second) {
