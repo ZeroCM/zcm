@@ -44,6 +44,8 @@ struct zcm_sub_t
 {
     /* Note: this is static to avoid mallocing and allow use of sizeof */
     char channel[ZCM_CHANNEL_MAXLEN+1];
+    bool regex;
+    void *regexobj;
     zcm_msg_handler_t callback;
     void *usr;
 };
