@@ -90,6 +90,9 @@ int zcm_init(zcm_t *zcm, const char *url)
 
 int zcm_init_trans(zcm_t *zcm, zcm_trans_t *zt)
 {
+    if (zt == NULL)
+        return -1;
+
     switch (zt->trans_type) {
         case ZCM_BLOCKING: {
 #ifndef ZCM_EMBEDDED

@@ -67,6 +67,7 @@ struct zcm_blocking
     zcm_trans_t *zt;
     unordered_multimap<string, zcm_sub_t> subs;
     vector<zcm_sub_t> subRegex;
+    size_t mtu;
 
     typedef enum {
         MODE_NONE = 0,
@@ -99,6 +100,7 @@ struct zcm_blocking
     zcm_blocking(zcm_t *z, zcm_trans_t *zt_)
     {
         zt = zt_;
+        mtu = zcm_trans_get_mtu(zt);
 
         // Spawn the send thread
         sendRunning = true;
@@ -221,6 +223,10 @@ struct zcm_blocking
     // race to block on sendQueue.push()
     int publish(const string& channel, const char *data, uint32_t len)
     {
+        // Check the validity of the request
+        if (len > mtu) return -1;
+        if (channel.size() > ZCM_CHANNEL_MAXLEN) return -1;
+
         unique_lock<mutex> lk(pubmut);
 
         // TODO: publish should allow dropping of old messages
