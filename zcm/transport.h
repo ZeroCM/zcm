@@ -195,13 +195,6 @@ extern "C" {
 # define INLINE
 #endif
 
-/* Return codes */
-#define ZCM_EOK       0
-#define ZCM_EINVALID  1
-#define ZCM_EAGAIN    2
-#define ZCM_ECONNECT  3
-#define ZCM_EUNKNOWN  255
-
 typedef struct zcm_msg_t zcm_msg_t;
 typedef struct zcm_trans_methods_t zcm_trans_methods_t;
 

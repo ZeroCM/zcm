@@ -224,21 +224,20 @@ struct zcm_blocking
     int publish(const string& channel, const char *data, uint32_t len)
     {
         // Check the validity of the request
-        if (len > mtu) return -1;
-        if (channel.size() > ZCM_CHANNEL_MAXLEN) return -1;
+        if (len > mtu) return ZCM_EINVALID;
+        if (channel.size() > ZCM_CHANNEL_MAXLEN) return ZCM_EINVALID;
 
         unique_lock<mutex> lk(pubmut);
 
         // TODO: publish should allow dropping of old messages
         if (!sendQueue.hasFreeSpace()) {
             ZCM_DEBUG("sendQueue has no free space");
-            return -1;
+            return ZCM_EAGAIN;
         }
 
         // Note: push only fails if it was forcefully woken up, which means zcm is shutting down
         bool success = sendQueue.push(channel.c_str(), len, data);
-
-        return success ? 0 : -1;
+        return success ? ZCM_EOK : ZCM_EINTR;
     }
 
     static bool isRegexChannel(const string& channel)

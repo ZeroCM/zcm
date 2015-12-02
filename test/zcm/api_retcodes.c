@@ -7,7 +7,7 @@
 
 #define ENSURE(v) do {\
   if (!(v)) { \
-    fprintf(stderr, "ENSURE: failed for '" #v "'\n");  \
+      fprintf(stderr, "ENSURE: failed for '" #v "' at %s:%d\n", __FILE__, __LINE__); \
     exit(1);                                          \
   }\
 } while(0)
@@ -57,6 +57,24 @@ static zcm_trans_t *transport_generic_create(zcm_url_t *url)
     return &generic_trans;
 }
 
+static zcm_trans_methods_t pub_blockforever_methods;
+static zcm_trans_t pub_blockforever_trans;
+static int pub_blockforever_sendmsg(zcm_trans_t *zt, zcm_msg_t msg)
+{
+    // XXX this is probably a bug in the transport api
+    //     sendmsg() is allowed to block indefinately. This means that it might be impossible
+    //     to join the sending thread. We work-around this issue by setting a very high delay.
+    // XXX this should be fixed in the transport api spec
+    usleep(100000);
+    return ZCM_EOK;
+}
+static zcm_trans_t *transport_pub_blockforever_create(zcm_url_t *url)
+{
+    init_generic(&pub_blockforever_trans, &pub_blockforever_methods);
+    pub_blockforever_methods.sendmsg = pub_blockforever_sendmsg;
+    return &pub_blockforever_trans;
+}
+
 static zcm_trans_methods_t sub_methods;
 static zcm_trans_t sub_trans;
 static int sub_recvmsg_enable(zcm_trans_t *zt, const char *channel, bool enable)
@@ -87,6 +105,9 @@ static void register_transports(void)
         "test-generic", "", transport_generic_create));
 
     ENSURE(zcm_transport_register(
+        "test-pub-blockforever", "", transport_pub_blockforever_create));
+
+    ENSURE(zcm_transport_register(
         "test-sub", "", transport_sub_create));
 }
 
@@ -96,8 +117,14 @@ static void test_fail_construct(void)
     ENSURE(NULL == zcm_create_trans(NULL));
 
     zcm_t zcm;
+
+    memset(&zcm, 0, sizeof(zcm));
     ENSURE(-1 == zcm_init(&zcm, "test-fail"));
+    ENSURE(ZCM_ECONNECT == zcm_errno(&zcm));
+
+    memset(&zcm, 0, sizeof(zcm));
     ENSURE(-1 == zcm_init_trans(&zcm, NULL));
+    ENSURE(ZCM_ECONNECT == zcm_errno(&zcm));
 }
 
 static void test_publish(void)
@@ -115,11 +142,13 @@ static void test_publish(void)
         memset(channel, 'A', ZCM_CHANNEL_MAXLEN);
         channel[ZCM_CHANNEL_MAXLEN] = '\0';
         ENSURE(0 == zcm_publish(&zcm, channel, &data, 1));
+        ENSURE(ZCM_EOK == zcm_errno(&zcm));
 
         /* channel size 1 passed the limit */
         channel[ZCM_CHANNEL_MAXLEN] = 'A';
         channel[ZCM_CHANNEL_MAXLEN+1] = '\0';
         ENSURE(-1 == zcm_publish(&zcm, channel, &data, 1));
+        ENSURE(ZCM_EINVALID == zcm_errno(&zcm));
     }
 
     // Test data size limit checking
@@ -129,13 +158,39 @@ static void test_publish(void)
 
         /* data size at limit */
         ENSURE(0 == zcm_publish(&zcm, channel, data, GENERIC_MTU));
+        ENSURE(ZCM_EOK == zcm_errno(&zcm));
 
         /* data size 1 passed the limit */
         ENSURE(-1 == zcm_publish(&zcm, channel, data, GENERIC_MTU+1));
+        ENSURE(ZCM_EINVALID == zcm_errno(&zcm));
 
         free(data);
     }
 
+    zcm_stop(&zcm);
+    zcm_cleanup(&zcm);
+}
+
+static void test_publish_msgdrop(void)
+{
+    zcm_t zcm;
+    zcm_init(&zcm, "test-pub-blockforever");
+    zcm_start(&zcm);
+
+    // NOTE: We assume that 100000 publish calls are enought to overflow the send buffer
+    const int MAX_PUBS = 100000;
+    for (int i = 0; i < MAX_PUBS; i++) {
+        char data = 'a';
+        int ret = zcm_publish(&zcm, "CHANNEL", &data, 1);
+        if (ret == -1) {
+            ENSURE(ZCM_EAGAIN == zcm_errno(&zcm));
+            goto done;
+        }
+    }
+
+    FAIL("Failed to get an error return code from zcm_publish()");
+
+ done:
     zcm_stop(&zcm);
     zcm_cleanup(&zcm);
 }
@@ -166,5 +221,6 @@ int main(void)
 
     test_fail_construct();
     test_publish();
+    test_publish_msgdrop();
     test_sub();
 }

@@ -17,6 +17,17 @@ extern "C" {
 #define ZCM_CHANNEL_MAXLEN 32
 enum zcm_type { ZCM_BLOCKING, ZCM_NONBLOCKING };
 
+/* Return codes */
+enum zcm_return_codes {
+    ZCM_EOK       = 0,
+    ZCM_EINVALID  = 1,
+    ZCM_EAGAIN    = 2,
+    ZCM_ECONNECT  = 3,
+    ZCM_EINTR     = 4,
+    ZCM__RESERVED_COUNT,
+    ZCM_EUNKNOWN  = 255,
+};
+
 /* Forward typedef'd structs */
 typedef struct zcm_trans_t zcm_trans_t;
 typedef struct zcm_t zcm_t;
@@ -33,6 +44,7 @@ struct zcm_t
 {
     enum zcm_type type;
     void *impl;
+    int err; /* the last error code */
 };
 
 /* ZCM Receive buffer for one message */
@@ -70,6 +82,12 @@ int  zcm_init_trans(zcm_t *zcm, zcm_trans_t *zt);
 
 /* Cleanup a zcm object allocated by caller */
 void zcm_cleanup(zcm_t *zcm);
+
+/* Return the last error: a valid from enum zcm_return_codes */
+int zcm_errno(zcm_t *zcm);
+
+/* Return the last error in string format */
+const char *zcm_strerror(zcm_t *zcm);
 
 /* Publish a zcm message buffer
    Returns 0 on success, and -1 on failure */

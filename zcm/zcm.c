@@ -57,6 +57,7 @@ void zcm_destroy(zcm_t *zcm)
 int zcm_init(zcm_t *zcm, const char *url)
 {
 #ifndef ZCM_EMBEDDED
+    zcm->err = ZCM_ECONNECT;
     /* If we have no url, try to use the env var */
     if (!url) {
         url = getenv("ZCM_DEFAULT_URL");
@@ -91,13 +92,14 @@ int zcm_init(zcm_t *zcm, const char *url)
 int zcm_init_trans(zcm_t *zcm, zcm_trans_t *zt)
 {
     if (zt == NULL)
-        return -1;
+        goto fail;
 
     switch (zt->trans_type) {
         case ZCM_BLOCKING: {
 #ifndef ZCM_EMBEDDED
             zcm->type = ZCM_BLOCKING;
             zcm->impl = zcm_blocking_create(zcm, zt);
+            zcm->err = ZCM_EOK;
             return 0;
 #else
             assert(0 && "the blocking api is not supported");
@@ -107,12 +109,16 @@ int zcm_init_trans(zcm_t *zcm, zcm_trans_t *zt)
         case ZCM_NONBLOCKING: {
             zcm->type = ZCM_NONBLOCKING;
             zcm->impl = zcm_nonblocking_create(zcm, zt);
+            zcm->err = ZCM_EOK;
             return 0;
         } break;
         default: {
             assert(0 && "unexpected trans_type!");
         }
     }
+
+ fail:
+    zcm->err = ZCM_ECONNECT;
     return -1;
 }
 
@@ -131,11 +137,37 @@ void zcm_cleanup(zcm_t *zcm)
     }
 }
 
+int zcm_errno(zcm_t *zcm)
+{
+    return zcm->err;
+}
+
+static const char *errcode_str[] = {
+    "Okay, no errors",                          /* ZCM_EOK */
+    "Invalid arguments",                        /* ZCM_EINVALID */
+    "Resource unavailable, try again",          /* ZCM_EAGAIN */
+    "Transport connection failed",              /* ZCM_ECONNECT */
+    "Operation was unexpectedly interrupted",   /* ZCM_EINTR */
+};
+
+const char *zcm_strerror(zcm_t *zcm)
+{
+    unsigned err = (unsigned)zcm->err;
+    if (err >= ZCM__RESERVED_COUNT) {
+        return "Unknown error occurred";
+    } else {
+        return errcode_str[err];
+    }
+}
+
 int zcm_publish(zcm_t *zcm, const char *channel, const void *data, uint32_t len)
 {
 #ifndef ZCM_EMBEDDED
     switch (zcm->type) {
-        case ZCM_BLOCKING:    return zcm_blocking_publish   (zcm->impl, channel, data, len); break;
+        case ZCM_BLOCKING: {
+            zcm->err = zcm_blocking_publish(zcm->impl, channel, data, len);
+            return zcm->err == 0 ? 0 : -1;
+        } break;
         case ZCM_NONBLOCKING: return zcm_nonblocking_publish(zcm->impl, channel, data, len); break;
     }
 #else
