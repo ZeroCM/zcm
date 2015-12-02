@@ -57,6 +57,27 @@ static zcm_trans_t *transport_generic_create(zcm_url_t *url)
     return &generic_trans;
 }
 
+static zcm_trans_methods_t sub_methods;
+static zcm_trans_t sub_trans;
+static int sub_recvmsg_enable(zcm_trans_t *zt, const char *channel, bool enable)
+{
+    if (0 == strcmp(channel, "CANNOT_SUB")) {
+        return ZCM_EUNKNOWN;
+    }
+
+    if (0 == strcmp(channel, "CANNOT_UNSUB")) {
+        return enable ? ZCM_EOK : ZCM_EUNKNOWN;
+    }
+
+    return ZCM_EOK;
+}
+static zcm_trans_t *transport_sub_create(zcm_url_t *url)
+{
+    init_generic(&sub_trans, &sub_methods);
+    sub_methods.recvmsg_enable = sub_recvmsg_enable;
+    return &sub_trans;
+}
+
 static void register_transports(void)
 {
     ENSURE(zcm_transport_register(
@@ -64,6 +85,9 @@ static void register_transports(void)
 
     ENSURE(zcm_transport_register(
         "test-generic", "", transport_generic_create));
+
+    ENSURE(zcm_transport_register(
+        "test-sub", "", transport_sub_create));
 }
 
 static void test_fail_construct(void)
@@ -76,7 +100,7 @@ static void test_fail_construct(void)
     ENSURE(-1 == zcm_init_trans(&zcm, NULL));
 }
 
-static void test_send(void)
+static void test_publish(void)
 {
     zcm_t zcm;
     zcm_init(&zcm, "test-generic");
@@ -116,10 +140,31 @@ static void test_send(void)
     zcm_cleanup(&zcm);
 }
 
+static void test_sub(void)
+{
+    zcm_t zcm;
+    zcm_sub_t *sub;
+    zcm_init(&zcm, "test-sub");
+
+    /* can't subscribe */
+    ENSURE(NULL == zcm_subscribe(&zcm, "CANNOT_SUB", NULL, NULL));
+
+    /* can't unsubscribe */
+    ENSURE(NULL != (sub=zcm_subscribe(&zcm, "CANNOT_UNSUB", NULL, NULL)));
+    ENSURE(-1 == zcm_unsubscribe(&zcm, sub));
+
+    /* all good */
+    ENSURE(NULL != (sub=zcm_subscribe(&zcm, "ALL_GOOD", NULL, NULL)));
+    ENSURE(0 == zcm_unsubscribe(&zcm, sub));
+
+    zcm_cleanup(&zcm);
+}
+
 int main(void)
 {
     register_transports();
 
     test_fail_construct();
-    test_send();
+    test_publish();
+    test_sub();
 }
