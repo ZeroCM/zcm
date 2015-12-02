@@ -19,3 +19,9 @@ def build(ctx):
                 source = 'transtest.cpp',
                 rpath = ctx.env.RPATH_zcm,
                 install_path = None)
+
+    ctx.program(target = 'api_retcodes',
+                use = 'default zcm',
+                source = 'api_retcodes.c',
+                rpath = ctx.env.RPATH_zcm,
+                install_path = None)

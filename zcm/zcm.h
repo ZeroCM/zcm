@@ -13,36 +13,52 @@ extern "C" {
 #include "eventlog.h"
 #endif
 
+/* Important hardcoded values */
 #define ZCM_CHANNEL_MAXLEN 32
-
-typedef struct zcm_trans_t zcm_trans_t;
-
-typedef struct zcm_t zcm_t;
 enum zcm_type { ZCM_BLOCKING, ZCM_NONBLOCKING };
+
+/* Return codes */
+enum zcm_return_codes {
+    ZCM_EOK       = 0,
+    ZCM_EINVALID  = 1,
+    ZCM_EAGAIN    = 2,
+    ZCM_ECONNECT  = 3,
+    ZCM_EINTR     = 4,
+    ZCM__RESERVED_COUNT,
+    ZCM_EUNKNOWN  = 255,
+};
+
+/* Forward typedef'd structs */
+typedef struct zcm_trans_t zcm_trans_t;
+typedef struct zcm_t zcm_t;
+typedef struct zcm_recv_buf_t zcm_recv_buf_t;
+typedef struct zcm_sub_t zcm_sub_t;
+
+/* Generic message handler function type */
+typedef void (*zcm_msg_handler_t)(const zcm_recv_buf_t *rbuf,
+                                  const char *channel, void *usr);
+
+/* Primary ZCM object that handles all top-level interactions including
+   delegation between blocking and non-blocking interfaces */
 struct zcm_t
 {
     enum zcm_type type;
     void *impl;
+    int err; /* the last error code */
 };
 
-typedef struct zcm_recv_buf_t zcm_recv_buf_t;
+/* ZCM Receive buffer for one message */
 struct zcm_recv_buf_t
 {
-    /* TODO: consider changing these types to uint8_t for data and uint64_t for recv_utime
-     *       (I believe the current types are strictly to maintain consistency with LCM) */
-    char *data; /* do not free, recv_buf does not own this memory */
+    char *data;           /* NOTE: do not free, the library manages this memory */
     uint32_t data_size;
-    int64_t recv_utime; /* Only set properly in blocking API */
-
-    zcm_t *zcm; /* TODO: do we need the zcm pointer here? */
+    int64_t recv_utime;   /* NOTE: only set properly in blocking API */
+    zcm_t *zcm;
 };
 
-typedef void (*zcm_msg_handler_t)(const zcm_recv_buf_t *rbuf, const char *channel, void *usr);
-
-typedef struct zcm_sub_t zcm_sub_t;
+/* A subscription descriptor object */
 struct zcm_sub_t
 {
-    /* Note: this is static to avoid mallocing and allow use of sizeof */
     char channel[ZCM_CHANNEL_MAXLEN+1];
     bool regex;
     void *regexobj;
@@ -50,30 +66,53 @@ struct zcm_sub_t
     void *usr;
 };
 
+/* Standard create/destroy functions. These will malloc() and free() the zcm_t object.
+   Sets zcm errno on failure */
 zcm_t *zcm_create(const char *url);
 zcm_t *zcm_create_trans(zcm_trans_t *zt);
 void   zcm_destroy(zcm_t *zcm);
 
-/* XXX: need to lock down return values for each of these functions (init through unsub) */
-/* Returns 1 on success, and 0 on failure */
+/* Initialize a zcm object allocated by caller
+   Returns 0 on success, and -1 on failure
+   Sets zcm errno on failure */
 int  zcm_init(zcm_t *zcm, const char *url);
+
+/* Initialize a zcm instance allocated by caller using a transport provided by caller
+   Returns 0 on success, and -1 on failure
+   Sets zcm errno on failure */
 int  zcm_init_trans(zcm_t *zcm, zcm_trans_t *zt);
+
+/* Cleanup a zcm object allocated by caller */
 void zcm_cleanup(zcm_t *zcm);
 
-int        zcm_publish(zcm_t *zcm, const char *channel, const char *data, uint32_t len);
-zcm_sub_t *zcm_subscribe(zcm_t *zcm, const char *channel, zcm_msg_handler_t cb, void *usr);
-int        zcm_unsubscribe(zcm_t *zcm, zcm_sub_t *sub);
+/* Return the last error: a valid from enum zcm_return_codes */
+int zcm_errno(zcm_t *zcm);
 
-/* Note: should be used if and only if a block transport is also being used.
- *       The start/stop/become functions are recommended, but handle() is also
- *       provided for backwards compatibility to LCM */
+/* Return the last error in string format */
+const char *zcm_strerror(zcm_t *zcm);
+
+/* Publish a zcm message buffer
+   Returns 0 on success, and -1 on failure
+   Sets zcm errno on failure */
+int  zcm_publish(zcm_t *zcm, const char *channel, const void *data, uint32_t len);
+
+/* Subscribe to zcm messages
+   Returns a subscription object on success, and NULL on failure
+   Does NOT set zcm errno on failure */
+zcm_sub_t *zcm_subscribe(zcm_t *zcm, const char *channel, zcm_msg_handler_t cb, void *usr);
+
+/* Unsubscribe to zcm messages, freeing the subscription object
+   Returns 0 on success, and -1 on failure
+   Does NOT set zcm errno on failure */
+int zcm_unsubscribe(zcm_t *zcm, zcm_sub_t *sub);
+
+/* Blocking Mode Only: Functions for controlling the message dispatch loop */
 void   zcm_become(zcm_t *zcm);
 void   zcm_start(zcm_t *zcm);
 void   zcm_stop(zcm_t *zcm);
-int    zcm_handle(zcm_t *zcm); /* returns 0 nromally, and -1 when an error occurs. */
+int    zcm_handle(zcm_t *zcm); /* returns 0 normally, and -1 when an error occurs. */
 
-/* Note: Should be used if and only if a nonblock transport is also being used.
- *       Internally, this condition is checked. */
+/* Non-Blocking Mode Only: Functions checking and dispatching messages */
 /* Returns 1 if a message was dispatched, and 0 otherwise */
 int zcm_handle_nonblock(zcm_t *zcm);
 
