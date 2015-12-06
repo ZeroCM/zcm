@@ -72,10 +72,10 @@ allows LCM users to gradually migrate to ZCM.
 ### Known incompatibilities:
  - `zcm_get_fileno()` is not supported
  - `zcm_handle_timeout()` is not supported
- - Any applications using GLib via LCM may have build errors
-   - ZCM does *not* depend on GLib
+ - `zcm_subscription_set_queue_capacity` is not supported
  - LCMType-style enums are not supported
- - The `*_subscription_set_queue_capacity` method on zcmtypes is not currently supported
+ - The C-based logplayer is not currently supported
+   - However, the Java-based logplayer is supported
  - Language bindings not currently supported:
    - Python
    - Lua
@@ -85,7 +85,7 @@ allows LCM users to gradually migrate to ZCM.
    - OS X
    - Non-linux POSIX-1.2001 systems (e.g., Cygwin, Solaris, BSD, etc.)
 
-### Other minor issues
+### Other minor differences
  - The Java bindings now require JNI
  - The ZeroMQ library is currently required for the 'ipc' and 'inproc' transports
 

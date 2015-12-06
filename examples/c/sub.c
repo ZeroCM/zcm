@@ -51,7 +51,7 @@ int main(int argc, char *argv[])
 
     example_t_subscribe(zcm, channel, &my_handler, NULL);
 
-    zcm_become(zcm);
+    zcm_run(zcm);
     zcm_destroy(zcm);
     return 0;
 }

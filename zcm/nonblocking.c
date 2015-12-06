@@ -1,3 +1,4 @@
+#include "zcm/zcm_private.h"
 #include "zcm/transport.h"
 #include "zcm/nonblocking.h"
 

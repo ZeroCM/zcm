@@ -11,6 +11,7 @@
 #include <assert.h>
 
 #include "zcm/zcm.h"
+#include "zcm/zcm_private.h"
 #include "zcm/nonblocking.h"
 
 #ifndef ZCM_EMBEDDED
@@ -227,12 +228,12 @@ void zcm_stop(zcm_t *zcm)
 #endif
 }
 
-void zcm_become(zcm_t *zcm)
+void zcm_run(zcm_t *zcm)
 {
 #ifndef ZCM_EMBEDDED
     switch (zcm->type) {
-        case ZCM_BLOCKING:    return zcm_blocking_become(zcm->impl); break;
-        case ZCM_NONBLOCKING: assert(0 && "Cannot become() on a nonblocking ZCM interface"); break;
+        case ZCM_BLOCKING:    return zcm_blocking_run(zcm->impl); break;
+        case ZCM_NONBLOCKING: assert(0 && "Cannot run() on a nonblocking ZCM interface"); break;
     }
 #else
     assert(0 && "the blocking api is not supported");

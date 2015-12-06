@@ -1,4 +1,5 @@
 #include "zcm/zcm.h"
+#include "zcm/zcm_private.h"
 #include "zcm/blocking.h"
 #include "zcm/transport.h"
 #include "zcm/util/threadsafe_queue.hpp"
@@ -71,7 +72,7 @@ struct zcm_blocking
 
     typedef enum {
         MODE_NONE = 0,
-        MODE_BECOME,
+        MODE_RUN,
         MODE_SPAWN,
         MODE_HANDLE
     } Mode_t;
@@ -112,7 +113,7 @@ struct zcm_blocking
         if (mode == MODE_SPAWN) {
             stop();
         } else {
-            // XXX need to do something with 'mode == MODE_BECOME'
+            // XXX need to do something with 'mode == MODE_RUN'
         }
 
         // Shutdown send thread
@@ -341,13 +342,13 @@ struct zcm_blocking
         return 0;
     }
 
-    void become()
+    void run()
     {
         if (mode != MODE_NONE) {
-            ZCM_DEBUG("Err: call to become() when 'mode != MODE_NONE'");
+            ZCM_DEBUG("Err: call to run() when 'mode != MODE_NONE'");
             return;
         }
-        mode = MODE_BECOME;
+        mode = MODE_RUN;
 
         // Spawn the recv thread
         recvRunning = true;
@@ -456,9 +457,9 @@ int zcm_blocking_unsubscribe(zcm_blocking_t *zcm, zcm_sub_t *sub)
     return zcm->unsubscribe(sub);
 }
 
-void zcm_blocking_become(zcm_blocking_t *zcm)
+void zcm_blocking_run(zcm_blocking_t *zcm)
 {
-    zcm->become();
+    zcm->run();
 }
 
 void zcm_blocking_start(zcm_blocking_t *zcm)

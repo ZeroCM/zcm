@@ -18,12 +18,16 @@ class Subscription;
 struct ZCM
 {
     // TODO: update to match new url based zcm_create
-    inline ZCM(const std::string& transport="ipc");
+    inline ZCM();
+    inline ZCM(const std::string& transport);
     inline ~ZCM();
 
     inline bool good() const;
 
-    inline void become();
+    inline int err(); // get the latest zcm err code
+    inline const char *strerror();
+
+    inline void run();
     inline void start();
     inline void stop();
     inline int handle();
@@ -133,4 +137,3 @@ struct LogFile
 #undef __zcm_cpp_impl_ok__
 
 }
-

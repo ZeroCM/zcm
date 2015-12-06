@@ -316,7 +316,7 @@ For the blocking case, there are the following approaches:
     - `zcm_start()     /* starts a dispatch thread to be the mainloop */`
     - `zcm_stop()      /* stops the dispatch thread */`
   - Becoming the mainloop
-    - `zcm_become()    /* this thread becomes the mainloop and doesn't return */`
+    - `zcm_run()       /* this thread becomes the mainloop and doesn't return */`
   - LCM-style (only for API compatibility)
     - `zcm_handle()    /* block for a message, dispatch it, and return */`
 
