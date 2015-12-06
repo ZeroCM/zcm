@@ -74,6 +74,8 @@ allows LCM users to gradually migrate to ZCM.
  - `zcm_handle_timeout()` is not supported
  - `zcm_subscription_set_queue_capacity` is not supported
  - LCMType-style enums are not supported
+ - The C-based logplayer is not currently supported
+   - However, the Java-based logplayer is supported
  - Language bindings not currently supported:
    - Python
    - Lua
