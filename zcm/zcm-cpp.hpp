@@ -24,6 +24,9 @@ struct ZCM
 
     inline bool good() const;
 
+    inline int err(); // get the latest zcm err code
+    inline const char *strerror();
+
     inline void run();
     inline void start();
     inline void stop();

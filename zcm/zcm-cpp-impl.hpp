@@ -35,6 +35,16 @@ inline bool ZCM::good() const
     return zcm != nullptr;
 }
 
+inline int ZCM::err()
+{
+    return zcm_errno(zcm);
+}
+
+inline const char *ZCM::strerror()
+{
+    return zcm_strerror(zcm);
+}
+
 inline void ZCM::run()
 {
     zcm_run(zcm);
