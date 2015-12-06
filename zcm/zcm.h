@@ -5,9 +5,7 @@
 extern "C" {
 #endif
 
-#include <stdlib.h>
 #include <stdint.h>
-#include <stdbool.h>
 
 #ifndef ZCM_EMBEDDED
 #include "eventlog.h"
@@ -15,7 +13,10 @@ extern "C" {
 
 /* Important hardcoded values */
 #define ZCM_CHANNEL_MAXLEN 32
-enum zcm_type { ZCM_BLOCKING, ZCM_NONBLOCKING };
+enum zcm_type {
+    ZCM_BLOCKING,
+    ZCM_NONBLOCKING
+};
 
 /* Return codes */
 enum zcm_return_codes {
@@ -56,16 +57,6 @@ struct zcm_recv_buf_t
     zcm_t *zcm;
 };
 
-/* A subscription descriptor object */
-struct zcm_sub_t
-{
-    char channel[ZCM_CHANNEL_MAXLEN+1];
-    bool regex;
-    void *regexobj;
-    zcm_msg_handler_t callback;
-    void *usr;
-};
-
 /* Standard create/destroy functions. These will malloc() and free() the zcm_t object.
    Sets zcm errno on failure */
 zcm_t *zcm_create(const char *url);
@@ -91,11 +82,6 @@ int zcm_errno(zcm_t *zcm);
 /* Return the last error in string format */
 const char *zcm_strerror(zcm_t *zcm);
 
-/* Publish a zcm message buffer
-   Returns 0 on success, and -1 on failure
-   Sets zcm errno on failure */
-int  zcm_publish(zcm_t *zcm, const char *channel, const void *data, uint32_t len);
-
 /* Subscribe to zcm messages
    Returns a subscription object on success, and NULL on failure
    Does NOT set zcm errno on failure */
@@ -106,8 +92,13 @@ zcm_sub_t *zcm_subscribe(zcm_t *zcm, const char *channel, zcm_msg_handler_t cb, 
    Does NOT set zcm errno on failure */
 int zcm_unsubscribe(zcm_t *zcm, zcm_sub_t *sub);
 
+/* Publish a zcm message buffer
+   Returns 0 on success, and -1 on failure
+   Sets zcm errno on failure */
+int  zcm_publish(zcm_t *zcm, const char *channel, const void *data, uint32_t len);
+
 /* Blocking Mode Only: Functions for controlling the message dispatch loop */
-void   zcm_become(zcm_t *zcm);
+void   zcm_run(zcm_t *zcm);
 void   zcm_start(zcm_t *zcm);
 void   zcm_stop(zcm_t *zcm);
 int    zcm_handle(zcm_t *zcm); /* returns 0 normally, and -1 when an error occurs. */

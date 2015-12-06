@@ -9,7 +9,10 @@
 // Note: To prevent compiler "redefinition" issues, all functions in this file must be declared
 //       as `inline`
 
-// TODO: unify pointer style pref "Msg* msg" vs "Msg *msg", I'd tend toward the former
+inline ZCM::ZCM()
+{
+    zcm = zcm_create(nullptr);
+}
 
 inline ZCM::ZCM(const std::string& transport)
 {
@@ -32,9 +35,9 @@ inline bool ZCM::good() const
     return zcm != nullptr;
 }
 
-inline void ZCM::become()
+inline void ZCM::run()
 {
-    zcm_become(zcm);
+    zcm_run(zcm);
 }
 
 inline void ZCM::start()

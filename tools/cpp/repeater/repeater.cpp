@@ -134,7 +134,7 @@ struct Repeater
     void run()
     {
         zcm_subscribe(zcmSrc, getSubChannel(), &handler, this);
-        zcm_become(zcmSrc);
+        zcm_run(zcmSrc);
     }
 };
 

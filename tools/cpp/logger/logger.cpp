@@ -416,7 +416,7 @@ int main(int argc, char *argv[])
     }
 
     zcm_subscribe(zcm, logger.getSubChannel(), Logger::handler, &logger);
-    zcm_become(zcm);
+    zcm_run(zcm);
 
     fprintf(stderr, "Logger exiting\n");
     zcm_destroy(zcm);

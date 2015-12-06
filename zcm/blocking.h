@@ -18,7 +18,7 @@ zcm_sub_t *zcm_blocking_subscribe(zcm_blocking_t *zcm, const char *channel, zcm_
                                   void *usr);
 int        zcm_blocking_unsubscribe(zcm_blocking_t *zcm, zcm_sub_t *sub);
 
-void   zcm_blocking_become(zcm_blocking_t *zcm);
+void   zcm_blocking_run(zcm_blocking_t *zcm);
 void   zcm_blocking_start(zcm_blocking_t *zcm);
 void   zcm_blocking_stop(zcm_blocking_t *zcm);
 int    zcm_blocking_handle(zcm_blocking_t *zcm);

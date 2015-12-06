@@ -162,9 +162,9 @@ Now, in the main() function, we need to register this callback by subscribing:
 
 Finally, in order to dispatch messages to the callbacks, ZCM needs a thread. So, we
 call into zcm to tell it to consume the current thread and use it for dispatching any
-incoming messages (zcm\_become doesn't normally return):
+incoming messages (zcm\_run doesn't normally return):
 
-    zcm_become(zcm);
+    zcm_run(zcm);
 
 And that's it! Here's the full program (subscribe.c):
 
@@ -184,7 +184,7 @@ And that's it! Here's the full program (subscribe.c):
         zcm_t *zcm = zcm_create("ipc");
         msg_t_subscribe(zcm, "HELLO_WORLD", callback_handler, NULL);
 
-        zcm_become(zcm);
+        zcm_run(zcm);
 
         zcm_destroy(zcm);
         return 0;
