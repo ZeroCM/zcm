@@ -64,10 +64,12 @@ struct Msg
 
 struct zcm_blocking
 {
+    using SubList = vector<zcm_sub_t*>;
+
     zcm_t *z;
     zcm_trans_t *zt;
-    unordered_multimap<string, zcm_sub_t> subs;
-    vector<zcm_sub_t> subRegex;
+    unordered_map<string, SubList> subs;
+    SubList subRegex;
     size_t mtu;
 
     typedef enum {
@@ -123,9 +125,15 @@ struct zcm_blocking
 
         zcm_trans_destroy(zt);
 
-        // Need to delete all regex objects
+        // Need to delete all subs
+        for (auto& it : subs) {
+            for (auto& sub : it.second) {
+                delete sub;
+            }
+        }
         for (auto& sub : subRegex) {
-            delete (regex *) sub.regexobj;
+            delete (regex *) sub->regexobj;
+            delete sub;
         }
     }
 
@@ -176,25 +184,25 @@ struct zcm_blocking
 
         // XXX: the following needs to make it into high level docs:
         // Note: We use a lock on dispatch to ensure there is not
-        // a race on modifying and reading the 'subs' and
-        // 'subRegex' containers. This means users cannot call
-        // zcm_subscribe or zcm_unsubscribe from a callback without
-        // deadlocking.
+        // a race on modifying and reading the 'subs' container.
+        // This means users cannot call zcm_subscribe or
+        // zcm_unsubscribe from a callback without deadlocking.
         {
             unique_lock<mutex> lk(submut);
 
             // dispatch to a non regex channel
-            auto its = subs.equal_range(msg->channel);
-            for (auto it = its.first; it != its.second; ++it) {
-                auto& sub = it->second;
-                sub.callback(&rbuf, msg->channel, sub.usr);
+            auto it = subs.find(msg->channel);
+            if (it != subs.end()) {
+                for (zcm_sub_t *sub : it->second) {
+                    sub->callback(&rbuf, msg->channel, sub->usr);
+                }
             }
 
             // dispatch to any regex channels
-            for (auto& sub : subRegex) {
-                regex *r = (regex *)sub.regexobj;
+            for (zcm_sub_t *sub : subRegex) {
+                regex *r = (regex *)sub->regexobj;
                 if (regex_match(msg->channel, *r)) {
-                    sub.callback(&rbuf, msg->channel, sub.usr);
+                    sub->callback(&rbuf, msg->channel, sub->usr);
                 }
             }
         }
@@ -263,41 +271,67 @@ struct zcm_blocking
     {
         unique_lock<mutex> lk(submut);
         int rc;
-        zcm_sub_t  sub;
-        zcm_sub_t *retptr = NULL;
 
         bool regex = isRegexChannel(channel);
-
         if (regex) {
-            // TODO: this is dependenton all regex being ".*"
-            rc = zcm_trans_recvmsg_enable(zt, NULL, true);
+            if (subRegex.size() == 0) {
+                rc = zcm_trans_recvmsg_enable(zt, NULL, true);
+            } else {
+                rc = ZCM_EOK;
+            }
         } else {
             rc = zcm_trans_recvmsg_enable(zt, channel.c_str(), true);
         }
 
-        if (rc == ZCM_EOK) {
-            strncpy(sub.channel, channel.c_str(), sizeof(sub.channel)/sizeof(sub.channel[0]));
-            sub.regex = regex;
-            sub.regexobj = nullptr;
-            sub.callback = cb;
-            sub.usr = usr;
-            if (regex) {
-                // XXX this is wrong. std::vector can be re-allocated and the pointer can be invalidated
-                sub.regexobj = (void *) new std::regex(sub.channel);
-                subRegex.emplace_back(forward<zcm_sub_t>(sub));
-                retptr = &subRegex.back();
-            } else {
-                // XXX this is wrong. std::unordered_multimap can be re-allocated and the pointer can be invalidated
-                auto it = subs.emplace(channel, forward<zcm_sub_t>(sub));
-                retptr = &it->second;
-            }
-        }
-
         if (rc != ZCM_EOK) {
             ZCM_DEBUG("zcm_trans_recvmsg_enable() didn't return ZCM_EOK: %d", rc);
+            return nullptr;
         }
 
-        return retptr;
+        zcm_sub_t *sub = new zcm_sub_t();
+        strncpy(sub->channel, channel.c_str(), sizeof(sub->channel)/sizeof(sub->channel[0]));
+        sub->regex = regex;
+        sub->regexobj = nullptr;
+        sub->callback = cb;
+        sub->usr = usr;
+        if (regex) {
+            sub->regexobj = (void *) new std::regex(sub->channel);
+            subRegex.push_back(sub);
+        } else {
+            subs[channel].push_back(sub);
+        }
+
+        return sub;
+    }
+
+    bool deleteSubEntry(zcm_sub_t *sub, size_t nentriesleft)
+    {
+        int rc = ZCM_EOK;
+        if (sub->regex) {
+            delete (std::regex *) sub->regexobj;
+            if (nentriesleft == 0) {
+                rc = zcm_trans_recvmsg_enable(zt, NULL, false);
+            }
+        } else {
+            rc = zcm_trans_recvmsg_enable(zt, sub->channel, false);
+        }
+        delete sub;
+        return rc == ZCM_EOK;
+    }
+
+    bool deleteFromSubList(SubList& slist, zcm_sub_t *sub)
+    {
+        for (size_t i = 0; i < slist.size(); i++) {
+            if (slist[i] == sub) {
+                // shrink the array by moving the last element
+                size_t last = slist.size()-1;
+                slist[i] = slist[last];
+                slist.resize(last);
+                // delete the element
+                return deleteSubEntry(sub, slist.size());
+            }
+        }
+        return false;
     }
 
     // Note: We use a lock on unsubscribe() to make sure it can be
@@ -306,36 +340,23 @@ struct zcm_blocking
     int unsubscribe(zcm_sub_t *sub)
     {
         unique_lock<mutex> lk(submut);
-        int rc = ZCM_EOK;
 
+        bool success = true;
         if (sub->regex) {
-            for (auto it = subRegex.begin(); it != subRegex.end(); ++it) {
-                if (&(*it) == sub) {
-                    subRegex.erase(it);
-                    break;
-                }
-            }
-            // XXX: this is dependent on all regex being ".*" (only those are allowed as of now)
-            if (subRegex.empty()) {
-                rc = zcm_trans_recvmsg_enable(zt, NULL, false);
-            }
+            success = deleteFromSubList(subRegex, sub);
         } else {
-            string channel = sub->channel;
-            auto its = subs.equal_range(channel);
-            for (auto it = its.first; it != its.second;) {
-                if (sub == &it->second) {
-                    it = subs.erase(it);
-                } else {
-                    ++it;
-                }
+            auto it = subs.find(sub->channel);
+            if (it == subs.end()) {
+                ZCM_DEBUG("failed to find the subscription channel in unsubscribe()");
+                return -1;
             }
-            if (subs.count(channel) == 0) {
-                rc = zcm_trans_recvmsg_enable(zt, channel.c_str(), false);
-            }
+
+            SubList& slist = it->second;
+            success = deleteFromSubList(slist, sub);
         }
 
-        if (rc != ZCM_EOK) {
-            ZCM_DEBUG("zcm_trans_recvmsg_enable() didn't return ZCM_EOK: %d", rc);
+        if (!success) {
+            ZCM_DEBUG("failed to find the subscription entry in unsubscribe()");
             return -1;
         }
 
