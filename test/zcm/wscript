@@ -31,3 +31,9 @@ def build(ctx):
                 source = 'dispatch_loop.cpp',
                 rpath = ctx.env.RPATH_zcm,
                 install_path = None)
+
+    ctx.program(target = 'forking2',
+                use = 'default zcm',
+                source = 'forking2.cpp',
+                rpath = ctx.env.RPATH_zcm,
+                install_path = None)

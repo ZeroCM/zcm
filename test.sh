@@ -19,3 +19,5 @@ run   sub-unsub-c     ./build/test/zcm/sub_unsub_c
 run   sub-unsub-cpp   ./build/test/zcm/sub_unsub_cpp
 run   api-retcodes    ./build/test/zcm/api_retcodes
 run   run-dispatch    ./build/test/zcm/run_dispatch
+run   forking         ./build/test/zcm/forking
+run   forking2        ./build/test/zcm/forking2

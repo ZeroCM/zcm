@@ -145,10 +145,6 @@ zcm_blocking_t::zcm_blocking(zcm_t *z, zcm_trans_t *zt_)
 {
     zt = zt_;
     mtu = zcm_trans_get_mtu(zt);
-
-    // Spawn the send thread
-    sendRunning = true;
-    sendThread = thread{&zcm_blocking::sendThreadFunc, this};
 }
 
 zcm_blocking_t::~zcm_blocking()
@@ -157,9 +153,11 @@ zcm_blocking_t::~zcm_blocking()
     stop();
 
     // Shutdown send thread
-    sendRunning = false;
-    sendQueue.forceWakeups();
-    sendThread.join();
+    if (sendRunning) {
+        sendRunning = false;
+        sendQueue.forceWakeups();
+        sendThread.join();
+    }
 
     // Destroy the transport
     zcm_trans_destroy(zt);
@@ -237,6 +235,12 @@ int zcm_blocking_t::publish(const string& channel, const char *data, uint32_t le
     if (channel.size() > ZCM_CHANNEL_MAXLEN) return ZCM_EINVALID;
 
     unique_lock<mutex> lk(pubmut);
+
+    // If needed: spawn the send thread
+    if (!sendRunning) {
+        sendRunning = true;
+        sendThread = thread{&zcm_blocking::sendThreadFunc, this};
+    }
 
     // TODO: publish should allow dropping of old messages
     if (!sendQueue.hasFreeSpace()) {
