@@ -18,3 +18,4 @@ run   zcm-gen-test    ./scripts/test-gen.sh
 run   sub-unsub-c     ./build/test/zcm/sub_unsub_c
 run   sub-unsub-cpp   ./build/test/zcm/sub_unsub_cpp
 run   api-retcodes    ./build/test/zcm/api_retcodes
+run   run-dispatch    ./build/test/zcm/run_dispatch

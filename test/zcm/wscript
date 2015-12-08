@@ -25,3 +25,9 @@ def build(ctx):
                 source = 'api_retcodes.c',
                 rpath = ctx.env.RPATH_zcm,
                 install_path = None)
+
+    ctx.program(target = 'dispatch_loop',
+                use = 'default zcm',
+                source = 'dispatch_loop.cpp',
+                rpath = ctx.env.RPATH_zcm,
+                install_path = None)
