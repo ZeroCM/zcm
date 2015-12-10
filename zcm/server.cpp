@@ -9,6 +9,8 @@
 #include <arpa/inet.h>
 using namespace std;
 
+extern "C" zcm_trans_t *HAX_create_tcp_from_sock(int sock);
+
 static bool asint(const string& s, int& v)
 {
     if (s.size() == 1 && s[0] == '0') {
@@ -119,8 +121,8 @@ public:
     zcm_t *makeZCMFromSocket(int sock)
     {
         ZCM_DEBUG("Making socket!");
-        // TODO need to wrap into a proper zcm_t*
-        return (zcm_t*)(size_t)sock;
+        auto *trans = HAX_create_tcp_from_sock(sock);
+        return zcm_create_trans(trans);
     }
 
 private:

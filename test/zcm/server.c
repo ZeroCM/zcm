@@ -10,20 +10,21 @@ static void sighandler(int signo) { running = 0; }
 
 int main(int argc, char *argv[])
 {
-    signal(SIGINT, sighandler);
-    signal(SIGQUIT, sighandler);
-    signal(SIGTERM, sighandler);
+    /* signal(SIGINT, sighandler); */
+    /* signal(SIGQUIT, sighandler); */
+    /* signal(SIGTERM, sighandler); */
 
-    zcm_server_t *svr = zcm_server_create("tcp://localhost:4000");
+    zcm_server_t *svr = zcm_server_create("tcp://localhost:6700");
     assert(svr);
 
     while (running) {
         zcm_t *zcm = zcm_server_accept(svr, 500);
         if (zcm) {
-            int sock = (int)(size_t)zcm;
-            int n = write(sock, "hi", 2);
-            (void)n;
-            close(sock);
+            zcm_start(zcm);
+            zcm_publish(zcm, "CHANNEL", "FOOBAR", 6);
+            printf("%s\n", zcm_strerror(zcm));
+            zcm_stop(zcm);
+            zcm_destroy(zcm);
         }
     }
 
