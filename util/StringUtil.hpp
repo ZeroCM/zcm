@@ -4,6 +4,7 @@ using std::string;
 #include <vector>
 using std::vector;
 #include <sstream>
+#include <cstring>
 #include <cassert>
 #include <cstring>
 

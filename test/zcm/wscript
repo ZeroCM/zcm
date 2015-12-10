@@ -7,3 +7,9 @@ def build(ctx):
               source = 'multi_file.cpp',
               rpath = ctx.env.RPATH_zcm,
               install_path = None)
+
+    ctx.program(target = 'server',
+                use = 'default zcm',
+                source = 'server.c',
+                rpath = ctx.env.RPATH_zcm,
+                install_path = None)
