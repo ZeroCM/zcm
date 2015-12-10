@@ -149,15 +149,8 @@ zcm_blocking_t::zcm_blocking(zcm_t *z, zcm_trans_t *zt_)
 
 zcm_blocking_t::~zcm_blocking()
 {
-    // Shutdown dispatching
+    // Shutdown all threads
     stop();
-
-    // Shutdown send thread
-    if (sendRunning) {
-        sendRunning = false;
-        sendQueue.forceWakeups();
-        sendThread.join();
-    }
 
     // Destroy the transport
     zcm_trans_destroy(zt);
@@ -206,19 +199,30 @@ void zcm_blocking_t::start()
 
 void zcm_blocking_t::stop()
 {
+    // Shutdown recv and handle threads
     if (mode == MODE_RUN || mode == MODE_SPAWN) {
-        // Shutdown recv and handle threads
-        handleRunning = false;
-        recvQueue.forceWakeups();
-        if (mode == MODE_SPAWN)
-            handleThread.join();
+        if (handleRunning) {
+            handleRunning = false;
+            recvQueue.forceWakeups();
+            if (mode == MODE_SPAWN)
+                handleThread.join();
+        }
     }
 
-    if (mode == MODE_HANDLE) {
-        // Shutdown recv thread
-        recvRunning = false;
-        recvQueue.forceWakeups();
-        recvThread.join();
+    // Shutdown recv thread
+    else if (mode == MODE_HANDLE) {
+        if (recvRunning) {
+            recvRunning = false;
+            recvQueue.forceWakeups();
+            recvThread.join();
+        }
+    }
+
+    // Shutdown send thread
+    if (sendRunning) {
+        sendRunning = false;
+        sendQueue.forceWakeups();
+        sendThread.join();
     }
 
     // Restore the "non-running" state

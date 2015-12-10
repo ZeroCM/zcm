@@ -205,7 +205,7 @@ size_t UDPMSocket::getSendBufSize()
     return size;
 }
 
-bool UDPMSocket::waitUntilData()
+bool UDPMSocket::waitUntilData(int timeout)
 {
     assert(isOpen());
 
@@ -213,14 +213,22 @@ bool UDPMSocket::waitUntilData()
     FD_ZERO(&fds);
     FD_SET(fd, &fds);
 
-    if (select(fd + 1, &fds, NULL, NULL, NULL) <= 0) {
+    struct timeval tm = {
+        timeout / 1000,            /* seconds */
+        (timeout % 1000) * 1000    /* micros */
+    };
+
+    int status = select(fd + 1, &fds, 0, 0, &tm);
+    if (status == 0) {
+        // timeout
+        return false;
+    } else if (FD_ISSET(fd, &fds)) {
+        // data is available
+        return true;
+    } else {
         perror("udp_read_packet -- select:");
         return false;
     }
-
-    // there is incoming UDP data ready.
-    assert(FD_ISSET(fd, &fds));
-    return true;
 }
 
 size_t UDPMSocket::recvPacket(Packet *pkt)

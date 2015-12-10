@@ -314,11 +314,12 @@ For the blocking case, there are the following approaches:
 
   - Spawning a thread
     - `zcm_start()     /* starts a dispatch thread to be the mainloop */`
-    - `zcm_stop()      /* stops the dispatch thread */`
   - Becoming the mainloop
     - `zcm_run()       /* this thread becomes the mainloop and doesn't return */`
   - LCM-style (only for API compatibility)
     - `zcm_handle()    /* block for a message, dispatch it, and return */`
+  - Cleanup
+    - `zcm_stop()      /* stops the all threads, even those not used in message dispatching */`
 
 For the non-blocking case, there is a single approach:
 

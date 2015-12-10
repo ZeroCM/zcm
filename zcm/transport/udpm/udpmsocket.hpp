@@ -49,7 +49,7 @@ class UDPMSocket
     size_t getSendBufSize();
 
     // Returns true when there is a packet available for receiving
-    bool waitUntilData();
+    bool waitUntilData(int timeout);
     size_t recvPacket(Packet *pkt);
 
     ssize_t sendBuffers(const UDPMAddress& dest, const char *a, size_t alen);

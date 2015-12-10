@@ -32,6 +32,12 @@ def build(ctx):
                 rpath = ctx.env.RPATH_zcm,
                 install_path = None)
 
+    ctx.program(target = 'forking',
+                use = 'default zcm',
+                source = 'forking.cpp',
+                rpath = ctx.env.RPATH_zcm,
+                install_path = None)
+
     ctx.program(target = 'forking2',
                 use = 'default zcm',
                 source = 'forking2.cpp',
