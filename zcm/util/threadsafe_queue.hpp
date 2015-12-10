@@ -4,6 +4,7 @@
 
 #include <mutex>
 #include <condition_variable>
+#include <atomic>
 
 // A thread-safe C++ queue implementation designed for efficiency.
 // No unneeded copies or initializations.

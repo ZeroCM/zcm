@@ -85,7 +85,7 @@ struct UDPM
     // These returns non-null when a full message has been received
     Message *recvShort(Packet *pkt, u32 sz);
     Message *recvFragment(Packet *pkt, u32 sz);
-    Message *readMessage();
+    Message *readMessage(int timeout);
 
     bool selftest();
     void checkForMessageLoss();
@@ -229,7 +229,7 @@ void UDPM::checkForMessageLoss()
 }
 
 // read continuously until a complete message arrives
-Message *UDPM::readMessage()
+Message *UDPM::readMessage(int timeout)
 {
     Packet *pkt = pool.allocPacket(ZCM_MAX_UNFRAGMENTED_PACKET_SIZE);
     UDPM::checkForMessageLoss();
@@ -237,8 +237,8 @@ Message *UDPM::readMessage()
     Message *msg = NULL;
     while (!msg) {
         // // wait for either incoming UDP data, or for an abort message
-        if (!recvfd.waitUntilData())
-            continue;
+        if (!recvfd.waitUntilData(timeout))
+            break;
 
         size_t sz = recvfd.recvPacket(pkt);
         if (sz < 0) {
@@ -267,6 +267,7 @@ Message *UDPM::readMessage()
         }
     }
 
+    pool.freePacket(pkt);
     return msg;
 }
 
@@ -371,7 +372,7 @@ int UDPM::recvmsg(zcm_msg_t *msg, int timeout)
     if (m)
         pool.freeMessage(m);
 
-    m = readMessage();
+    m = readMessage(timeout);
     if (m == nullptr)
         return ZCM_EAGAIN;
 

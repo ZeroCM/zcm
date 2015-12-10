@@ -18,3 +18,6 @@ run   zcm-gen-test    ./scripts/test-gen.sh
 run   sub-unsub-c     ./build/test/zcm/sub_unsub_c
 run   sub-unsub-cpp   ./build/test/zcm/sub_unsub_cpp
 run   api-retcodes    ./build/test/zcm/api_retcodes
+run   dispatch-loop   ./build/test/zcm/dispatch_loop
+run   forking         ./build/test/zcm/forking
+run   forking2        ./build/test/zcm/forking2
