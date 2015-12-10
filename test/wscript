@@ -2,5 +2,6 @@
 # encoding: utf-8
 
 def build(ctx):
-    ctx.recurse('types');
-    ctx.recurse('zcm');
+    ctx.recurse('types')
+    ctx.recurse('zcm')
+    ctx.recurse('stress')

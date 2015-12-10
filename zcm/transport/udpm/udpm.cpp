@@ -267,6 +267,7 @@ Message *UDPM::readMessage(int timeout)
         }
     }
 
+    pool.freePacket(pkt);
     return msg;
 }
 

@@ -1,0 +1,9 @@
+#! /usr/bin/env python
+# encoding: utf-8
+
+def build(ctx):
+    ctx.program(target = 'udpm_high_rate_multifrag',
+                use = 'default zcm',
+                source = 'udpm_high_rate_multifrag.c',
+                rpath = ctx.env.RPATH_zcm,
+                install_path = None)
