@@ -11,6 +11,18 @@ extern "C" {
 /* Forward typedef'd structs */
 typedef struct zcm_server_t zcm_server_t;
 
+typedef struct zcm_server_methods_t zcm_server_methods_t;
+struct zcm_server_methods_t
+{
+    zcm_t *(*accept)(zcm_server_t *svr, int timeout);
+    void   (*destroy)(zcm_server_t *svr);
+};
+
+struct zcm_server_t
+{
+    zcm_server_methods_t *vtbl;
+};
+
 /* Create a new server and bind it on according to the url provided
     Returns NULL on failure */
 zcm_server_t *zcm_server_create(const char *url);
@@ -19,7 +31,7 @@ zcm_server_t *zcm_server_create(const char *url);
    A timeout of -1 means 'block-indefinately'
    Returns a new zcm_t* on success (must be cleaned up with zcm_destory)
    Return NULL on failure */
-zcm_t *zcm_server_accept(zcm_server_t *server, long timeout);
+zcm_t *zcm_server_accept(zcm_server_t *server, int timeout);
 
 /* Shutdown the server */
 void zcm_server_destroy(zcm_server_t *server);
