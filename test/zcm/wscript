@@ -13,3 +13,9 @@ def build(ctx):
                 source = 'server.c',
                 rpath = ctx.env.RPATH_zcm,
                 install_path = None)
+
+    ctx.program(target = 'client',
+                use = 'default zcm',
+                source = 'client.c',
+                rpath = ctx.env.RPATH_zcm,
+                install_path = None)

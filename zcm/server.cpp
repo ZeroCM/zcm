@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <string>
 #include <unistd.h>
+#include <fcntl.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
 using namespace std;
@@ -90,8 +91,8 @@ public:
         if (sock_ == -1)
             return NULL;
 
-        int len;
-        struct sockaddr_in client;
+        socklen_t len;
+        struct sockaddr client;
 
         fd_set fds;
         FD_ZERO(&fds);
@@ -109,19 +110,26 @@ public:
             return NULL;
         } else if (FD_ISSET(sock_, &fds)) {
             // a connection is available
-            int newsock = ::accept(sock_, (struct sockaddr *)&client, (socklen_t*)&len);
-            return makeZCMFromSocket(newsock);
-            return NULL;
+            int newsock = ::accept(sock_, &client, &len);
+            if(newsock == -1) {
+                perror("accept");
+                int ret = ::fcntl(sock_, F_GETFD);
+                ZCM_DEBUG("sock_ = %d, ret = %d", sock_, ret);
+                return NULL;
+            } else {
+                ZCM_DEBUG("accept returned!");
+                return makeZCMFromSocket(newsock);
+            }
         } else {
             perror("zcm_server_accept -- select:");
             return NULL;
         }
     }
 
-    zcm_t *makeZCMFromSocket(int sock)
+    zcm_t *makeZCMFromSocket(int newsock)
     {
         ZCM_DEBUG("Making socket!");
-        auto *trans = HAX_create_tcp_from_sock(sock);
+        auto *trans = HAX_create_tcp_from_sock(newsock);
         return zcm_create_trans(trans);
     }
 
