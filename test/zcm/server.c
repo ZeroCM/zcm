@@ -21,6 +21,7 @@ int main(int argc, char *argv[])
         zcm_t *zcm = zcm_server_accept(svr, 500);
         if (zcm) {
             zcm_publish(zcm, "CHANNEL", "FOOBAR", 7);
+            zcm_flush(zcm);
             zcm_destroy(zcm);
         }
     }
