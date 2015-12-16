@@ -401,9 +401,6 @@ public:
         if (sock_ == -1)
             return NULL;
 
-        socklen_t len;
-        struct sockaddr client;
-
         fd_set fds;
         FD_ZERO(&fds);
         FD_SET(sock_, &fds);
@@ -414,13 +411,12 @@ public:
         };
 
         int status = ::select(sock_ + 1, &fds, 0, 0, &tm);
-
         if (status == -1 || status == 0) {
             // timeout
             return NULL;
         } else if (FD_ISSET(sock_, &fds)) {
             // a connection is available
-            int newsock = ::accept(sock_, &client, &len);
+            int newsock = ::accept(sock_, NULL, NULL);
             if(newsock == -1) {
                 perror("accept");
                 int ret = ::fcntl(sock_, F_GETFD);

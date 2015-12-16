@@ -60,7 +60,7 @@ def build(ctx):
         after  = 'embed-tar-finish')
 
     ctx.install_files('${PREFIX}/include/zcm',
-                      ['zcm.h', 'zcm_coretypes.h', 'transport.h', 'transport_registrar.h',
+                      ['zcm.h', 'server.h', 'zcm_coretypes.h', 'transport.h', 'transport_registrar.h',
                        'url.h', 'eventlog.h', 'zcm-cpp.hpp', 'zcm-cpp-impl.hpp',
                        'transport_register.hpp', 'message_tracker.hpp'])
 

@@ -8,6 +8,7 @@
 
 #ifndef ZCM_EMBEDDED
 #include "zcm/eventlog.h"
+#include "zcm/server.h"
 #endif
 
 #if __cplusplus > 199711L
@@ -114,7 +115,19 @@ class ZCM
     std::vector<Subscription*> subscriptions;
 };
 
-// TODO: why not use or inherit from the existing zcm data structures for the below
+class ZCMServer
+{
+public:
+    inline ZCMServer(const std::string& url);
+    inline ~ZCMServer();
+    inline bool good() const;
+    inline ZCM accept(int timeout);
+
+private:
+    zcm_server_t *svr;
+};
+
+// TODO: why not use or inherrit from the existing zcm data structures for the below
 
 #ifndef ZCM_EMBEDDED
 struct LogEvent
