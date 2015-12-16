@@ -313,8 +313,8 @@ inline const LogEvent* LogFile::readNextEvent()
         return nullptr;
     curEvent.eventnum = evt->eventnum;
     curEvent.channel.assign(evt->channel, evt->channellen);
-    curEvent.utime = evt->timestamp;
-    curEvent.len = evt->datalen;
+    curEvent.timestamp = evt->timestamp;
+    curEvent.datalen = evt->datalen;
     curEvent.data = (char*)evt->data;
     return &curEvent;
 }
@@ -323,9 +323,9 @@ inline int LogFile::writeEvent(LogEvent* event)
 {
     zcm_eventlog_event_t evt;
     evt.eventnum = event->eventnum;
-    evt.timestamp = event->utime;
+    evt.timestamp = event->timestamp;
     evt.channellen = event->channel.size();
-    evt.datalen = event->len;
+    evt.datalen = event->datalen;
     evt.channel = (char*) event->channel.c_str();
     evt.data = event->data;
     return zcm_eventlog_write_event(eventlog, &evt);

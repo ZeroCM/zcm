@@ -103,11 +103,10 @@ class Subscription
 struct LogEvent
 {
     int64_t     eventnum;
+    int64_t     timestamp;
     std::string channel;
-
-    uint64_t    utime;
-    size_t      len;
-    char       *data;
+    int32_t     datalen;
+    char*       data;
 };
 
 struct LogFile
