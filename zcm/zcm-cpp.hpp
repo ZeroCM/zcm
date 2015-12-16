@@ -105,7 +105,7 @@ struct LogEvent
     int64_t     eventnum;
     int64_t     timestamp;
     std::string channel;
-    uint32_t    datalen;
+    int32_t     datalen;
     char*       data;
 };
 
