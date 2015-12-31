@@ -178,6 +178,17 @@ int zcm_publish(zcm_t *zcm, const char *channel, const void *data, uint32_t len)
     assert(0 && "unreachable");
 }
 
+void zcm_flush(zcm_t *zcm)
+{
+#ifndef ZCM_EMBEDDED
+    switch (zcm->type) {
+        case ZCM_BLOCKING:    return zcm_blocking_flush(zcm->impl);
+        case ZCM_NONBLOCKING: return;
+    }
+#else
+#endif
+}
+
 zcm_sub_t *zcm_subscribe(zcm_t *zcm, const char *channel, zcm_msg_handler_t cb, void *usr)
 {
 #ifndef ZCM_EMBEDDED

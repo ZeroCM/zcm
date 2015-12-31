@@ -43,3 +43,9 @@ def build(ctx):
                 source = 'forking2.cpp',
                 rpath = ctx.env.RPATH_zcm,
                 install_path = None)
+
+    ctx.program(target = 'flushing',
+                use = 'default zcm',
+                source = 'flushing.cpp',
+                rpath = ctx.env.RPATH_zcm,
+                install_path = None)

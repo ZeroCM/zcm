@@ -92,10 +92,18 @@ zcm_sub_t *zcm_subscribe(zcm_t *zcm, const char *channel, zcm_msg_handler_t cb, 
    Does NOT set zcm errno on failure */
 int zcm_unsubscribe(zcm_t *zcm, zcm_sub_t *sub);
 
-/* Publish a zcm message buffer
+/* Publish a zcm message buffer. Note: the message may not be completely
+   sent after this call has returned. To block until the messages are transmitted,
+   call the zcm_flush() method.
    Returns 0 on success, and -1 on failure
    Sets zcm errno on failure */
 int  zcm_publish(zcm_t *zcm, const char *channel, const void *data, uint32_t len);
+
+/* Blocking until all published messages have been sent. This should not be
+   called concurrently with zcm_publish(). This function may cause all calls to
+   zcm_publish() to block. This function is only useful in ZCM's blocking
+   transport mode */
+void zcm_flush(zcm_t *zcm);
 
 /* Blocking Mode Only: Functions for controlling the message dispatch loop */
 void   zcm_run(zcm_t *zcm);

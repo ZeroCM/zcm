@@ -16,7 +16,7 @@ class ThreadsafeQueue
 
     std::mutex mut;
     std::condition_variable cond;
-    int wakeupNum = 0;
+    volatile int wakeupNum = 0;
 
   public:
     ThreadsafeQueue(size_t size) : queue(size) {}
@@ -88,5 +88,15 @@ class ThreadsafeQueue
         std::unique_lock<std::mutex> lk(mut);
         wakeupNum++;
         cond.notify_all();
+    }
+
+    void waitForEmpty()
+    {
+        std::unique_lock<std::mutex> lk(mut);
+        int localWakeupNum = wakeupNum;
+        cond.wait(lk, [&](){
+            return localWakeupNum < wakeupNum ||
+                   !queue.hasMessage();
+        });
     }
 };

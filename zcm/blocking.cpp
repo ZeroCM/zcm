@@ -93,6 +93,7 @@ public:
     zcm_sub_t *subscribe(const string& channel, zcm_msg_handler_t cb, void *usr);
     int unsubscribe(zcm_sub_t *sub);
     int handle();
+    void flush();
 
 private:
     void sendThreadFunc();
@@ -344,6 +345,12 @@ int zcm_blocking_t::handle()
     return handleOneMessage();
 }
 
+void zcm_blocking_t::flush()
+{
+    unique_lock<mutex> lk(pubmut);
+    sendQueue.waitForEmpty();
+}
+
 void zcm_blocking_t::sendThreadFunc()
 {
     while (sendRunning) {
@@ -501,6 +508,11 @@ zcm_sub_t *zcm_blocking_subscribe(zcm_blocking_t *zcm, const char *channel, zcm_
 int zcm_blocking_unsubscribe(zcm_blocking_t *zcm, zcm_sub_t *sub)
 {
     return zcm->unsubscribe(sub);
+}
+
+void zcm_blocking_flush(zcm_blocking_t *zcm)
+{
+    zcm->flush();
 }
 
 void zcm_blocking_run(zcm_blocking_t *zcm)

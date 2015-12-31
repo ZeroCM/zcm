@@ -65,6 +65,11 @@ inline int ZCM::handle()
     return zcm_handle(zcm);
 }
 
+inline void ZCM::flush()
+{
+    zcm_flush(zcm);
+}
+
 inline int ZCM::publish(const std::string& channel, const char *data, uint32_t len)
 {
     return zcm_publish(zcm, channel.c_str(), (char*)data, len);
