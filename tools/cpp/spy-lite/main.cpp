@@ -64,6 +64,7 @@ private:
     int decode_index = 0;
     MsgInfo *decode_msg_info;
     const char *decode_msg_channel;
+    int view_id;
 };
 
 void SpyInfo::addMessage(const char *channel, const zcm_recv_buf_t *rbuf)
@@ -90,6 +91,13 @@ void SpyInfo::display()
         } break;
         case DisplayMode::Decode: {
             decode_msg_info->display();
+
+            if (is_selecting) {
+                printf("   Decode field: ");
+                if (view_id != -1)
+                    printf("%d", view_id );
+                fflush(stdout);
+            }
         } break;
         default:
             DEBUG(1, "ERR: unknown mode\n");
@@ -173,14 +181,46 @@ void SpyInfo::handleKeyboardDecode(char ch)
         } else {
             mode = DisplayMode::Overview;
         }
+        is_selecting = false;
+    } else if (ch == '-') {
+        is_selecting = true;
+        view_id = -1;
     } else if ('0' <= ch && ch <= '9') {
-        // if number is pressed, set and increase sub-msg decoding depth
-        size_t viewid = (ch - '0');
-        if (depth < MSG_DISPLAY_RECUR_MAX) {
-            minfo.incViewDepth(viewid);
+        // shortcut for single digit channels
+        if (!is_selecting) {
+            view_id = ch - '0';
+            // set and increase sub-msg decoding depth
+            if (depth < MSG_DISPLAY_RECUR_MAX) {
+                minfo.incViewDepth(view_id);
+            } else {
+                DEBUG(1, "INFO: cannot recurse further: reached maximum depth of %d\n",
+                      MSG_DISPLAY_RECUR_MAX);
+            }
         } else {
-            DEBUG(1, "INFO: cannot recurse further: reached maximum depth of %d\n",
-                  MSG_DISPLAY_RECUR_MAX);
+            if (view_id == -1) {
+                view_id = ch - '0';
+            } else if (view_id < 10000) {
+                view_id *= 10;
+                view_id += (ch - '0');
+            }
+        }
+    } else if (ch == '\n') {
+        if (is_selecting) {
+            // set and increase sub-msg decoding depth
+            if (depth < MSG_DISPLAY_RECUR_MAX) {
+                minfo.incViewDepth(view_id);
+            } else {
+                DEBUG(1, "INFO: cannot recurse further: reached maximum depth of %d\n",
+                      MSG_DISPLAY_RECUR_MAX);
+            }
+            is_selecting = false;
+        }
+    } else if (ch == '\b' || ch == DEL_KEY) {
+        if (is_selecting) {
+            if (view_id < 10)
+                view_id = -1;
+            else
+                view_id /= 10;
         }
     } else {
         DEBUG(1, "INFO: unrecognized input: '%c' (0x%2x)\n", ch, ch);
