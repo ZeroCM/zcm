@@ -144,7 +144,7 @@ static inline int __int16_t_encode_array(void *_buf, int offset, int maxlen, con
     if (maxlen < total_size)
         return -1;
 
-    const uint64_t *unsigned_p = (uint64_t*)p;
+    const uint16_t *unsigned_p = (uint16_t*)p;
     for (element = 0; element < elements; element++) {
         uint16_t v = unsigned_p[element];
         buf[pos++] = (v>>8) & 0xff;
