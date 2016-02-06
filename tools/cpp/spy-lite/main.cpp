@@ -1,3 +1,5 @@
+#include <getopt.h>
+
 #include "Common.hpp"
 #include "MsgDisplay.hpp"
 #include "TypeDb.hpp"
@@ -42,14 +44,177 @@ struct SpyInfo
         return (0 <= index && index < names.size());
     }
 
-    void addMessage(const char *channel, const zcm_recv_buf_t *rbuf);
+    void addMessage(const char *channel, const zcm_recv_buf_t *rbuf)
+    {
+        unique_lock<mutex> lk(mut);
 
-    void display();
-    void displayOverview();
+        MsgInfo *minfo = minfomap[channel];
+        if (minfo == NULL) {
+            minfo = new MsgInfo(typedb, channel);
+            names.push_back(channel);
+            std::sort(begin(names), end(names));
+            minfomap[channel] = minfo;
+        }
+        minfo->addMessage(TimeUtil::utime(), rbuf);
+    }
 
-    void handleKeyboard(char ch);
-    void handleKeyboardOverview(char ch);
-    void handleKeyboardDecode(char ch);
+    void display()
+    {
+        unique_lock<mutex> lk(mut);
+
+        switch (mode) {
+            case DisplayMode::Overview: {
+                displayOverview();
+            } break;
+            case DisplayMode::Decode: {
+                decode_msg_info->display();
+
+                if (is_selecting) {
+                    printf("   Decode field: ");
+                    if (view_id != -1)
+                        printf("%d", view_id );
+                    fflush(stdout);
+                }
+            } break;
+            default:
+                DEBUG(1, "ERR: unknown mode\n");
+        }
+    }
+
+    void displayOverview()
+    {
+        printf("         %-28s\t%12s\t%8s\n", "Channel", "Num Messages", "Hz (ave)");
+        printf("   ----------------------------------------------------------------\n");
+
+        DEBUG(5, "start-loop\n");
+
+        for (size_t i = 0; i < names.size(); i++) {
+            auto& channel = names[i];
+            MsgInfo **minfo = lookup(minfomap, channel);
+            assert(minfo != NULL);
+            float hz = (*minfo)->getHertz();
+            printf("   %3zu)  %-28s\t%9" PRIu64 "\t%7.2f\n", i, channel.c_str(), (*minfo)->getNumMsgs(), hz);
+        }
+
+        printf("\n");
+
+        if (is_selecting) {
+            printf("   Decode channel: ");
+            if (decode_index != -1)
+                printf("%d", decode_index);
+            fflush(stdout);
+        }
+    }
+
+    void handleKeyboardOverview(char ch)
+    {
+        if (ch == '-') {
+            is_selecting = true;
+            decode_index = -1;
+        } else if ('0' <= ch && ch <= '9') {
+            // shortcut for single digit channels
+            if (!is_selecting) {
+                decode_index = ch - '0';
+                if (isValidChannelnum(decode_index)) {
+                    decode_msg_info = getCurrentMsginfo(&decode_msg_channel);
+                    mode = DisplayMode::Decode;
+                }
+            } else {
+                if (decode_index == -1) {
+                    decode_index = ch - '0';
+                } else if (decode_index < 10000) {
+                    decode_index *= 10;
+                    decode_index += (ch - '0');
+                }
+            }
+        } else if (ch == '\n') {
+            if (is_selecting) {
+                if (isValidChannelnum(decode_index)) {
+                    decode_msg_info = getCurrentMsginfo(&decode_msg_channel);
+                    mode = DisplayMode::Decode;
+                }
+                is_selecting = false;
+            }
+        } else if (ch == '\b' || ch == DEL_KEY) {
+            if (is_selecting) {
+                if (decode_index < 10)
+                    decode_index = -1;
+                else
+                    decode_index /= 10;
+            }
+        } else {
+            DEBUG(1, "INFO: unrecognized input: '%c' (0x%2x)\n", ch, ch);
+        }
+    }
+
+    void handleKeyboardDecode(char ch)
+    {
+        MsgInfo& minfo = *decode_msg_info;
+        size_t depth = minfo.getViewDepth();
+
+        if (ch == ESCAPE_KEY) {
+            if (depth > 0) {
+                minfo.decViewDepth();
+            } else {
+                mode = DisplayMode::Overview;
+            }
+            is_selecting = false;
+        } else if (ch == '-') {
+            is_selecting = true;
+            view_id = -1;
+        } else if ('0' <= ch && ch <= '9') {
+            // shortcut for single digit channels
+            if (!is_selecting) {
+                view_id = ch - '0';
+                // set and increase sub-msg decoding depth
+                if (depth < MSG_DISPLAY_RECUR_MAX) {
+                    minfo.incViewDepth(view_id);
+                } else {
+                    DEBUG(1, "INFO: cannot recurse further: reached maximum depth of %d\n",
+                          MSG_DISPLAY_RECUR_MAX);
+                }
+            } else {
+                if (view_id == -1) {
+                    view_id = ch - '0';
+                } else if (view_id < 10000) {
+                    view_id *= 10;
+                    view_id += (ch - '0');
+                }
+            }
+        } else if (ch == '\n') {
+            if (is_selecting) {
+                // set and increase sub-msg decoding depth
+                if (depth < MSG_DISPLAY_RECUR_MAX) {
+                    minfo.incViewDepth(view_id);
+                } else {
+                    DEBUG(1, "INFO: cannot recurse further: reached maximum depth of %d\n",
+                          MSG_DISPLAY_RECUR_MAX);
+                }
+                is_selecting = false;
+            }
+        } else if (ch == '\b' || ch == DEL_KEY) {
+            if (is_selecting) {
+                if (view_id < 10)
+                    view_id = -1;
+                else
+                    view_id /= 10;
+            }
+        } else {
+            DEBUG(1, "INFO: unrecognized input: '%c' (0x%2x)\n", ch, ch);
+        }
+    }
+
+    void handleKeyboard(char ch)
+    {
+        unique_lock<mutex> lk(mut);
+
+        switch (mode) {
+            case DisplayMode::Overview: handleKeyboardOverview(ch); break;
+            case DisplayMode::Decode:   handleKeyboardDecode(ch);  break;
+            default:
+                DEBUG(1, "INFO: unrecognized keyboard mode: %d\n", (int)mode);
+        }
+    }
 
 private:
     vector<string>                  names;
@@ -66,178 +231,6 @@ private:
     const char *decode_msg_channel;
     int view_id;
 };
-
-void SpyInfo::addMessage(const char *channel, const zcm_recv_buf_t *rbuf)
-{
-    unique_lock<mutex> lk(mut);
-
-    MsgInfo *minfo = minfomap[channel];
-    if (minfo == NULL) {
-        minfo = new MsgInfo(typedb, channel);
-        names.push_back(channel);
-        std::sort(begin(names), end(names));
-        minfomap[channel] = minfo;
-    }
-    minfo->addMessage(TimeUtil::utime(), rbuf);
-}
-
-void SpyInfo::display()
-{
-    unique_lock<mutex> lk(mut);
-
-    switch (mode) {
-        case DisplayMode::Overview: {
-            displayOverview();
-        } break;
-        case DisplayMode::Decode: {
-            decode_msg_info->display();
-
-            if (is_selecting) {
-                printf("   Decode field: ");
-                if (view_id != -1)
-                    printf("%d", view_id );
-                fflush(stdout);
-            }
-        } break;
-        default:
-            DEBUG(1, "ERR: unknown mode\n");
-    }
-}
-
-void SpyInfo::displayOverview()
-{
-    printf("         %-28s\t%12s\t%8s\n", "Channel", "Num Messages", "Hz (ave)");
-    printf("   ----------------------------------------------------------------\n");
-
-    DEBUG(5, "start-loop\n");
-
-    for (size_t i = 0; i < names.size(); i++) {
-        auto& channel = names[i];
-        MsgInfo **minfo = lookup(minfomap, channel);
-        assert(minfo != NULL);
-        float hz = (*minfo)->getHertz();
-        printf("   %3zu)  %-28s\t%9" PRIu64 "\t%7.2f\n", i, channel.c_str(), (*minfo)->getNumMsgs(), hz);
-    }
-
-    printf("\n");
-
-    if (is_selecting) {
-        printf("   Decode channel: ");
-        if (decode_index != -1)
-            printf("%d", decode_index);
-        fflush(stdout);
-    }
-}
-
-void SpyInfo::handleKeyboardOverview(char ch)
-{
-    if (ch == '-') {
-        is_selecting = true;
-        decode_index = -1;
-    } else if ('0' <= ch && ch <= '9') {
-        // shortcut for single digit channels
-        if (!is_selecting) {
-            decode_index = ch - '0';
-            if (isValidChannelnum(decode_index)) {
-                decode_msg_info = getCurrentMsginfo(&decode_msg_channel);
-                mode = DisplayMode::Decode;
-            }
-        } else {
-            if (decode_index == -1) {
-                decode_index = ch - '0';
-            } else if (decode_index < 10000) {
-                decode_index *= 10;
-                decode_index += (ch - '0');
-            }
-        }
-    } else if (ch == '\n') {
-        if (is_selecting) {
-            if (isValidChannelnum(decode_index)) {
-                decode_msg_info = getCurrentMsginfo(&decode_msg_channel);
-                mode = DisplayMode::Decode;
-            }
-            is_selecting = false;
-        }
-    } else if (ch == '\b' || ch == DEL_KEY) {
-        if (is_selecting) {
-            if (decode_index < 10)
-                decode_index = -1;
-            else
-                decode_index /= 10;
-        }
-    } else {
-        DEBUG(1, "INFO: unrecognized input: '%c' (0x%2x)\n", ch, ch);
-    }
-}
-
-void SpyInfo::handleKeyboardDecode(char ch)
-{
-    MsgInfo& minfo = *decode_msg_info;
-    size_t depth = minfo.getViewDepth();
-
-    if (ch == ESCAPE_KEY) {
-        if (depth > 0) {
-            minfo.decViewDepth();
-        } else {
-            mode = DisplayMode::Overview;
-        }
-        is_selecting = false;
-    } else if (ch == '-') {
-        is_selecting = true;
-        view_id = -1;
-    } else if ('0' <= ch && ch <= '9') {
-        // shortcut for single digit channels
-        if (!is_selecting) {
-            view_id = ch - '0';
-            // set and increase sub-msg decoding depth
-            if (depth < MSG_DISPLAY_RECUR_MAX) {
-                minfo.incViewDepth(view_id);
-            } else {
-                DEBUG(1, "INFO: cannot recurse further: reached maximum depth of %d\n",
-                      MSG_DISPLAY_RECUR_MAX);
-            }
-        } else {
-            if (view_id == -1) {
-                view_id = ch - '0';
-            } else if (view_id < 10000) {
-                view_id *= 10;
-                view_id += (ch - '0');
-            }
-        }
-    } else if (ch == '\n') {
-        if (is_selecting) {
-            // set and increase sub-msg decoding depth
-            if (depth < MSG_DISPLAY_RECUR_MAX) {
-                minfo.incViewDepth(view_id);
-            } else {
-                DEBUG(1, "INFO: cannot recurse further: reached maximum depth of %d\n",
-                      MSG_DISPLAY_RECUR_MAX);
-            }
-            is_selecting = false;
-        }
-    } else if (ch == '\b' || ch == DEL_KEY) {
-        if (is_selecting) {
-            if (view_id < 10)
-                view_id = -1;
-            else
-                view_id /= 10;
-        }
-    } else {
-        DEBUG(1, "INFO: unrecognized input: '%c' (0x%2x)\n", ch, ch);
-    }
-}
-
-void SpyInfo::handleKeyboard(char ch)
-{
-    unique_lock<mutex> lk(mut);
-
-    switch (mode) {
-        case DisplayMode::Overview: handleKeyboardOverview(ch); break;
-        case DisplayMode::Decode:   handleKeyboardDecode(ch);  break;
-        default:
-            DEBUG(1, "INFO: unrecognized keyboard mode: %d\n", (int)mode);
-    }
-}
 
 void *keyboard_thread_func(void *arg)
 {
@@ -284,9 +277,6 @@ void *keyboard_thread_func(void *arg)
 
     return NULL;
 }
-//////////////////////////////////////////////////////////////////////
-////////////////////////// Helper Functions //////////////////////////
-//////////////////////////////////////////////////////////////////////
 
 void clearscreen()
 {
@@ -296,10 +286,6 @@ void clearscreen()
     // move cursor to (0, 0)
     printf("\033[0;0H");
 }
-
-//////////////////////////////////////////////////////////////////////
-//////////////////////////// Print Thread ////////////////////////////
-//////////////////////////////////////////////////////////////////////
 
 void printThreadFunc(SpyInfo *spy)
 {
@@ -324,20 +310,12 @@ void printThreadFunc(SpyInfo *spy)
     DEBUG(1, "INFO: %s: Ending\n", "print_thread");
 }
 
-//////////////////////////////////////////////////////////////////////
-///////////////////////////// LCM HANDLER ////////////////////////////
-//////////////////////////////////////////////////////////////////////
-
 void handler_all_zcm (const zcm_recv_buf_t *rbuf,
                       const char *channel, void *arg)
 {
     SpyInfo *spy = (SpyInfo *)arg;
     spy->addMessage(channel, rbuf);
 }
-
-//////////////////////////////////////////////////////////////////////
-////////////////////////////////// MAIN //////////////////////////////
-//////////////////////////////////////////////////////////////////////
 
 static void sighandler(int s)
 {
@@ -354,14 +332,70 @@ static void sighandler(int s)
     }
 }
 
+struct Args
+{
+    const char *zcmurl = nullptr;
+    bool debug = false;
+
+    bool parse(int argc, char *argv[])
+    {
+        // set some defaults
+        const char *optstring = "hu:d";
+        struct option long_opts[] = {
+            { "help", no_argument, 0, 'h' },
+            { "zcm-url", required_argument, 0, 'u' },
+            { "debug", no_argument, 0, 'd' },
+            { 0, 0, 0, 0 }
+        };
+
+        int c;
+        while ((c = getopt_long (argc, argv, optstring, long_opts, 0)) >= 0) {
+            switch (c) {
+                case 'u':
+                    zcmurl = optarg;
+                    break;
+                case 'd':
+                    debug = true;
+                    break;
+                case 'h':
+                default:
+                    return false;
+            };
+        }
+
+        return true;
+    }
+};
+
+static void usage()
+{
+    fprintf(stderr, "usage: zcm-repeater [options]\n"
+            "\n"
+            "    Terminal based spy utility.  Subscribes to all channels on a ZCM\n"
+            "    transport and displays them in an interactive terminal.\n"
+            "Example:\n"
+            "    zcm-spy-lite\n"
+            "\n"
+            "Options:\n"
+            "\n"
+            "  -h, --help                 Shows this help text and exits\n"
+            "  -u, --zcm-url=URL          Log messages on the specified ZCM URL\n"
+            "  -d, --debug                Run a dry run to ensure proper spy setup\n"
+            "\n");
+}
+
 int main(int argc, char *argv[])
 {
     DEBUG_INIT();
     bool debug = false;
 
-    // XXX get opt
-    if(argc > 1 && strcmp(argv[1], "--debug") == 0)
-        debug = true;
+    Args args;
+    if (!args.parse(argc, argv)) {
+        usage();
+        return 1;
+    }
+
+    if (args.debug) debug = true;
 
     // get the zcmtypes.so from ZCM_SPY_LITE_PATH
     const char *spy_lite_path = getenv("ZCM_SPY_LITE_PATH");
@@ -369,6 +403,7 @@ int main(int argc, char *argv[])
         printf("zcm_spy_lite_path='%s'\n", spy_lite_path);
     if (spy_lite_path == NULL) {
         fprintf(stderr, "ERR: invalid $ZCM_SPY_LITE_PATH\n");
+        fflush(stderr);
         return 1;
     }
 
@@ -384,9 +419,10 @@ int main(int argc, char *argv[])
     setvbuf(stdout, NULL, _IOFBF, 2048);
 
     // start zcm
-    zcm_t *zcm = zcm_create(NULL);
+    zcm_t *zcm = zcm_create(args.zcmurl);
     if (!zcm) {
-        DEBUG(1, "ERR: failed to create an zcm object!\n");
+        fprintf(stderr, "Couldn't initialize ZCM! Try providing a URL with the "
+                        "-u opt or setting the ZCM_DEFAULT_URL envvar\n");
         return 1;
     }
     zcm_subscribe(zcm, ".*", handler_all_zcm, &spy);

@@ -18,9 +18,11 @@ static void sighandler(int sig) { running_recv = false; }
 
 static zcm_trans_t *makeTransport()
 {
-    // XXX: if ZCM_DEFAULT_URL is not set, this aborts without a nice error message
     const char *url = getenv("ZCM_DEFAULT_URL");
-
+    if (!url) {
+        fprintf(stderr, "ERR: Unable to find environment variable ZCM_DEFAULT_URL\n");
+        return NULL;
+    }
     auto *u = zcm_url_create(url);
     auto *creator = zcm_transport_find(zcm_url_protocol(u));
     if (!creator) {
@@ -42,8 +44,12 @@ static zcm_msg_t makeMasterMsg()
     return msg;
 }
 
-#define fail(...) do {\
-    fprintf(stderr, "Err:"); fprintf(stderr, __VA_ARGS__); fprintf(stderr, "\n"); exit(1);\
+#define fail(...) \
+    do {\
+        fprintf(stderr, "Err:"); \
+        fprintf(stderr, __VA_ARGS__); \
+        fprintf(stderr, "\n"); \
+        exit(1); \
     } while(0)
 
 static void verifySame(zcm_msg_t *a, zcm_msg_t *b)
@@ -68,7 +74,7 @@ static void send()
     zcm_msg_t msg = makeMasterMsg();
     for (int i = 0; i < MSG_COUNT && running_send; i++) {
         zcm_trans_sendmsg(trans, msg);
-        usleep(1000000/HZ);
+        usleep(1000000 / HZ);
     }
 }
 
@@ -87,11 +93,9 @@ static void recv()
         int ret = zcm_trans_recvmsg(trans, &msg, 100);
         if (ret == ZCM_EOK) {
             verifySame(&master, &msg);
-            //printf("SUCCESS\n");
         }
     }
 
-    // XXX this is a hack for when the recvmsg timeout is not impl correctly
     running_send = false;
 }
 

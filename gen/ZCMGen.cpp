@@ -95,7 +95,6 @@ ZCMGen::ZCMGen()
 // "package" directive, like in Java.
 ZCMTypename::ZCMTypename(ZCMGen& zcmgen, const string& name)
 {
-    // XXX this is unfortunate
     ZCMTypename& t = *this;
 
     const string& thisPackage = zcmgen.package;
