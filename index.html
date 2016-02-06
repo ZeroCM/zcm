@@ -1,87 +1,96 @@
-<!doctype html>
-<html>
+<!DOCTYPE html>
+<html lang="en-us">
   <head>
-    <meta charset="utf-8">
-    <meta http-equiv="X-UA-Compatible" content="chrome=1">
-    <title>Zero Communications and Marshalling</title>
-
-    <link rel="stylesheet" href="stylesheets/styles.css">
-    <link rel="stylesheet" href="stylesheets/github-light.css">
-    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
-    <!--[if lt IE 9]>
-    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
-    <![endif]-->
+    <meta charset="UTF-8">
+    <title>Zcm by ZeroCM</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" type="text/css" href="stylesheets/normalize.css" media="screen">
+    <link href='https://fonts.googleapis.com/css?family=Open+Sans:400,700' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="stylesheets/github-light.css" media="screen">
   </head>
   <body>
-    <div class="wrapper">
-      <header>
-        <h1>ZCM</h1>
-        <p>Zero Communications and Marshalling</p>
+    <section class="page-header">
+      <h1 class="project-name">Zcm</h1>
+      <h2 class="project-tagline">Zero Communications and Marshalling</h2>
+      <a href="https://github.com/ZeroCM/zcm" class="btn">View on GitHub</a>
+      <a href="https://github.com/ZeroCM/zcm/zipball/master" class="btn">Download .zip</a>
+      <a href="https://github.com/ZeroCM/zcm/tarball/master" class="btn">Download .tar.gz</a>
+    </section>
 
-        <p class="view"><a href="https://github.com/ZeroCM/zcm">View the Project on GitHub <small>ZeroCM/zcm</small></a></p>
+    <section class="main-content">
+      <h1>
+<a id="zcm-zero-communications-and-marshalling" class="anchor" href="#zcm-zero-communications-and-marshalling" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>ZCM: Zero Communications and Marshalling</h1>
 
-
-        <ul>
-          <!-- <li><a href="https://github.com/ZeroCM/zcm/zipball/master">Download <strong>ZIP File</strong></a></li> -->
-          <!-- <li><a href="https://github.com/ZeroCM/zcm/tarball/master">Download <strong>TAR Ball</strong></a></li> -->
-          <li><a href="https://github.com/ZeroCM/zcm">View On <strong>GitHub</strong></a></li>
-        </ul>
-      </header>
-      <section>
-        <h1>
-<a id="zero-communications-and-marshalling-zcm" class="anchor" href="#zero-communications-and-marshalling-zcm" aria-hidden="true"><span class="octicon octicon-link"></span></a>Zero Communications and Marshalling (ZCM)</h1>
-
-<p>ZCM is a micro-framework for mesaage-passing and data-marshalling, designed originally
-for robotics systems where high-bandwidth and low latency are critical and the variance in
+<p>ZCM is a micro-framework for message-passing and data-marshalling, designed originally
+for robotics systems where high-bandwidth and low-latency are critical and the variance in
 compute platforms is large.</p>
 
-<p>ZCM provides a publish/subscribe message-passing model and automatic marshalling/unmarshalling
-code generation with bindings for a variety of programming languages. This message-type design
-respects language-specific coding idioms insofar as possible.</p>
+<p>ZCM is a publish/subscribe message-passing system with automatic message type-checking and
+serialization. It provides bindings for a variety of programming languages, and generates
+language-specific message serialization routines. Using a ZCM message feels natural
+in each language.</p>
 
-<p>ZCM is transport-agnostic. There is no single built-in transport backend. Every transport is
+<p>ZCM is transport-agnostic. There is no required built-in transport. Every transport is
 first-class. This is achieved by defining strict blocking and non-blocking transport APIs. As
 long as a transport implementation conforms to this API, it should work flawlessly with ZCM.
 This design allows ZCM to work well on anything from a high-end posix-based compute cluster
-to a low-end real-time embedded-system with no operating system.</p>
+with thousands of nodes to a low-end real-time embedded-system with no operating system.</p>
 
 <p>ZCM is a derivation of the LCM project created in 2006 by the MIT DARPA Urban Challenge
 team. The core message-type system, publish/subscribe APIs, and basic tools are ported
-directly from LCM and remain about 99% compatible. While there are a handful of subtle
+directly from LCM and remain about 95% compatible. While there are a handful of subtle
 differences between the two, the core distinguishing feature is ZCM's transport
-agnosticism. LCM is designed competely around UDP Multicast. This trasport makes a lot
+agnosticism. LCM is designed completely around UDP Multicast. This transport makes a lot
 of sense for LAN connected compute clusters (such the original 2006 MIT DGC Vechicle).
 However, there are many other applications that are interesting targets for ZCM messaging.
-These include, local system messaging (IPC), multi-threaded messaging (in-procees),
-embedded-system periphials (UART, I2C, etc), and web applications (Web Sockets).
+These include: local system messaging (IPC), multi-threaded messaging (in-process),
+embedded-system peripherals (UART, I2C, etc), and web applications (Web Sockets).
 By refusing to make hard assumptions about the transport layer, ZCM opens the door
-to a wide set of use-cases that were never possible or practical with LCM.</p>
+to a wide set of use-cases that were neither possible nor practical with LCM.</p>
 
-<h1>
-<a id="quick-links" class="anchor" href="#quick-links" aria-hidden="true"><span class="octicon octicon-link"></span></a>Quick Links</h1>
+<p>To learn more about what ZCM tries to be, and its guiding principles, check out the
+<a href="docs/philosophy.md">Project Philosphy</a>.</p>
+
+<p>To dive, in and see some examples, check out the <a href="docs/tutorial.md">Tutorial</a>.</p>
+
+<p>If you have previously used LCM, check out <a href="docs/lcm_to_zcm.md">From LCM to ZCM</a>.</p>
+
+<p>To learn how you can contribute to this project, check out <a href="docs/contributing.md">Contributing</a></p>
+
+<h2>
+<a id="quick-links" class="anchor" href="#quick-links" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Quick Links</h2>
 
 <ul>
-<li><a href="tutorial.html">Tutorial</a></li>
-</ul>
-
-<h1>
-<a id="features" class="anchor" href="#features" aria-hidden="true"><span class="octicon octicon-link"></span></a>Features</h1>
-
-<ul>
-<li>Type-safe message marshalling</li>
-<li>A useful suite of tools for logging, log-playback, real-time message inspection (spy)</li>
-<li>A wide set of built-in transports incl. UDP Multicast, IPC, In-Process, and Serial</li>
-<li>An easy-to-use and well-defined interface for building custom transports</li>
-<li>Strong support for embedded uses. The core embedded code is compliant C89.</li>
-<li>Only one true dependency: A reasonably modern C++11 compiler for the non-embedded code.</li>
-<li>Some of the transports are built-on top of ZeroMQ, but this dependency is opt-in.</li>
+<li><a href="docs/tutorial.md">Tutorial</a></li>
+<li><a href="docs/lcm_to_zcm.md">From LCM to ZCM</a></li>
+<li><a href="docs/zcmtypesys.md">ZCM Type System</a></li>
+<li><a href="docs/transports.md">Transport Layer</a></li>
+<li><a href="docs/embedded.md">Embedded Applications</a></li>
+<li>Web Applications (coming soon)</li>
+<li><a href="docs/building.md">Dependencies &amp; Building</a></li>
+<li><a href="docs/philosophy.md">Project Philosphy</a></li>
+<li><a href="docs/contributing.md">Contributing</a></li>
 </ul>
 
 <h2>
-<a id="supported-platforms-and-languages" class="anchor" href="#supported-platforms-and-languages" aria-hidden="true"><span class="octicon octicon-link"></span></a>Supported platforms and languages</h2>
+<a id="features" class="anchor" href="#features" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Features</h2>
 
 <ul>
-<li>Platforms:
+<li>Type-safe and version-safe message serialization</li>
+<li>A useful suite of tools for logging, log-playback, and real-time message inspection (spy)</li>
+<li>A wide set of optionally built-in transports including UDP Multicast, IPC, In-Process, Serial, and ZeroMQ</li>
+<li>A well-defined interface for building custom transports</li>
+<li>Strong support for embedded applications. The core embedded code is restricted to C89.</li>
+<li>Only one true dependency: A modern C++11 compiler for the non-embedded code.</li>
+</ul>
+
+<h2>
+<a id="supported-platforms-and-languages" class="anchor" href="#supported-platforms-and-languages" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Supported platforms and languages</h2>
+
+<ul>
+<li>
+<p>Platforms:</p>
 
 <ul>
 <li>GNU/Linux</li>
@@ -89,57 +98,83 @@ to a wide set of use-cases that were never possible or practical with LCM.</p>
 <li>Any C89 capable embedded system</li>
 </ul>
 </li>
-<li>Languages
+<li>
+<p>Languages</p>
 
 <ul>
-<li>C89 or greater</li>
+<li>C89 and greater</li>
 <li>C++</li>
 <li>Java</li>
 <li>MATLAB (using Java)</li>
-<li>Python</li>
 <li>NodeJS and Client-side Javascript</li>
 </ul>
 </li>
 </ul>
 
 <h2>
-<a id="roadmap" class="anchor" href="#roadmap" aria-hidden="true"><span class="octicon octicon-link"></span></a>Roadmap</h2>
+<a id="roadmap" class="anchor" href="#roadmap" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Roadmap</h2>
 
 <ul>
-<li><p>Port LCM UDP Multicast to achieve full backwards compatibility</p></li>
-<li>
-<p>Platform Support:</p>
+<li>Platform Support
 
 <ul>
-<li>OS X</li>
 <li>Windows</li>
+<li>OS X</li>
 <li>Any POSIX-1.2001 system (e.g., Cygwin, Solaris, BSD, etc.)</li>
 </ul>
 </li>
-<li>
-<p>Consider porting the rest of the LCM languages</p>
+<li>Consider porting the rest of the LCM languages
 
 <ul>
+<li>Python</li>
 <li>C#</li>
 <li>Lua</li>
 </ul>
 </li>
-<li><p>Explore alternative messaging types using ZCM Types, such as those found in ZeroMQ</p></li>
+<li>Explore alternative messaging paradigms using ZCM Types (e.g. those found in ZeroMQ)</li>
+<li>Break from the original LCM APIs to improve API consistency
+
+<ul>
+<li>Goal for v2.0</li>
+<li>v1.0 will <strong>always</strong> strive for API compatibility</li>
+</ul>
+</li>
 </ul>
 
 <h2>
-<a id="subtle-differences-to-lcm" class="anchor" href="#subtle-differences-to-lcm" aria-hidden="true"><span class="octicon octicon-link"></span></a>Subtle differences to LCM</h2>
+<a id="subtle-differences-to-lcm" class="anchor" href="#subtle-differences-to-lcm" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Subtle differences to LCM</h2>
+
+<p>ZCM is approximately 95% API compatible with LCM. Porting existing Unix-based LCM
+programs to ZCM is very easy in many cases. A quick <code>sed -i 's/lcm/zcm/g'</code> works for
+most applications. ZCM uses the same binary-compatible formats for UDP Multicast, Logging,
+and ZCMType encodings. Thus LCM and ZCM applications can communicate flawlessly. This
+allows LCM users to gradually migrate to ZCM.</p>
+
+<h3>
+<a id="known-incompatibilities" class="anchor" href="#known-incompatibilities" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Known incompatibilities:</h3>
 
 <ul>
-<li>TODO</li>
-</ul>
-      </section>
-      <footer>
-        <p>This project is maintained by <a href="https://github.com/ZeroCM">ZeroCM</a></p>
-        <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></small></p>
-      </footer>
-    </div>
-    <script src="javascripts/scale.fix.js"></script>
+<li>
+<code>zcm_get_fileno()</code> is not supported</li>
+<li>
+<code>zcm_handle_timeout()</code> is not supported</li>
+<li>Any applications using GLib via LCM may have build errors
 
+<ul>
+<li>ZCM does <em>not</em> depend on GLib</li>
+</ul>
+</li>
+<li>ZCMType drops support for the LCMType-style enums</li>
+</ul>
+
+      <footer class="site-footer">
+        <span class="site-footer-owner"><a href="https://github.com/ZeroCM/zcm">Zcm</a> is maintained by <a href="https://github.com/ZeroCM">ZeroCM</a>.</span>
+
+        <span class="site-footer-credits">This page was generated by <a href="https://pages.github.com">GitHub Pages</a> using the <a href="https://github.com/jasonlong/cayman-theme">Cayman theme</a> by <a href="https://twitter.com/jasonlong">Jason Long</a>.</span>
+      </footer>
+
+    </section>
+
+  
   </body>
 </html>
