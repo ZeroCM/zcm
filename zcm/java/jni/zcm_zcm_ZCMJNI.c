@@ -22,13 +22,13 @@ static Internal *getNativePtr(JNIEnv *env, jobject self)
 {
     jfieldID fld = getNativePtrField(env, self);
     jlong nativePtr = (*env)->GetLongField(env, self, fld);
-    return (Internal*) nativePtr;
+    return (Internal*) (intptr_t)nativePtr;
 }
 
 static void setNativePtr(JNIEnv *env, jobject self, Internal *zcm)
 {
     jfieldID fld = getNativePtrField(env, self);
-    (*env)->SetLongField(env, self, fld, (jlong)zcm);
+    (*env)->SetLongField(env, self, fld, (jlong)(intptr_t)zcm);
 }
 
 /*
