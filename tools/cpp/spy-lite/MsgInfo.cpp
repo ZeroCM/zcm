@@ -39,7 +39,7 @@ void MsgInfo::ensureHash(i64 h)
 
     // if this not the first message, warn user
     if (hash != 0) {
-        DEBUG(1, "WRN: hash changed, searching for new lcmtype on channel %s\n", channel.c_str());
+        DEBUG(1, "WRN: hash changed, searching for new zcmtype on channel %s\n", channel.c_str());
     }
 
     // cleanup old memory if needed
@@ -52,7 +52,7 @@ void MsgInfo::ensureHash(i64 h)
     hash = h;
     metadata = db.getByHash(h);
     if (metadata == NULL) {
-        DEBUG(1, "WRN: failed to find lcmtype for hash: 0x%" PRIx64 "\n", hash);
+        DEBUG(1, "WRN: failed to find zcmtype for hash: 0x%" PRIx64 "\n", hash);
         return;
     }
 }

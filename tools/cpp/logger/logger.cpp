@@ -33,14 +33,14 @@ struct Args
     int rotate             = -1;
     int fflush_interval_ms = 100;
 
-    string zcm_url;
     string input_fname;
 
     bool parse(int argc, char *argv[])
     {
         // set some defaults
-        const char *optstring = "b:c:fi:u:r:s:qvu:";
+        const char *optstring = "hb:c:fi:u:r:s:qvl:";
         struct option long_opts[] = {
+            { "help", no_argument, 0, 'h' },
             { "split-mb", required_argument, 0, 'b' },
             { "channel", required_argument, 0, 'c' },
             { "force", no_argument, 0, 'f' },
@@ -357,7 +357,7 @@ static void usage()
             "\n"
             "  -c, --channel=CHAN         Channel string to pass to zcm_subscribe.\n"
             "                             (default: \".*\")\n"
-            "      --flush-interval=MS    Flush the log file to disk every MS milliseconds.\n"
+            "  -l, --flush-interval=MS    Flush the log file to disk every MS milliseconds.\n"
             "                             (default: 100)\n"
             "  -f, --force                Overwrite existing files\n"
             "  -h, --help                 Shows this help text and exits\n"
@@ -365,17 +365,17 @@ static void usage()
             "                             such that the resulting filename does not\n"
             "                             already exist.  This option precludes -f and\n"
             "                             --rotate\n"
-            "  -l, --zcm-url=URL          Log messages on the specified ZCM URL\n"
+            "  -u, --zcm-url=URL          Log messages on the specified ZCM URL\n"
             "  -m, --max-unwritten-mb=SZ  Maximum size of received but unwritten\n"
             "                             messages to store in memory before dropping\n"
             "                             messages.  (default: 100 MB)\n"
-            "      --rotate=NUM           When creating a new log file, rename existing files\n"
+            "  -r, --rotate=NUM           When creating a new log file, rename existing files\n"
             "                             out of the way and always write to FILE.0.  If\n"
             "                             FILE.0 already exists, it is renamed to FILE.1.  If\n"
             "                             FILE.1 exists, it is renamed to FILE.2, etc.  If\n"
             "                             FILE.NUM exists, then it is deleted.  This option\n"
             "                             precludes -i.\n"
-            "      --split-mb=N           Automatically start writing to a new log\n"
+            "  -b, --split-mb=N           Automatically start writing to a new log\n"
             "                             file once the log file exceeds N MB in size\n"
             "                             (can be fractional).  This option requires -i\n"
             "                             or --rotate.\n"
@@ -411,7 +411,8 @@ int main(int argc, char *argv[])
     // begin logging
     zcm_t *zcm = zcm_create(logger.args.zcmurl.c_str());
     if (!zcm) {
-        fprintf(stderr, "Couldn't initialize ZCM! Try setting providing a URL with the -l opt or setting the ZCM_DEFAULT_URL envvar\n");
+        fprintf(stderr, "Couldn't initialize ZCM! Try providing a URL with the "
+                        "-u opt or setting the ZCM_DEFAULT_URL envvar\n");
         return 1;
     }
 
