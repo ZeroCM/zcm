@@ -1,0 +1,100 @@
+
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" type="text/css" href="../stylesheets/normalize.css" media="screen">
+    <link href="https://fonts.googleapis.com/css?family=Open+Sans:400,700" rel="stylesheet" type="text/css">
+    <link rel="stylesheet" type="text/css" href="../stylesheets/stylesheet.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="../stylesheets/github-light.css" media="screen">
+  </head>
+  <body>
+    <section class="page-header">
+      <h1 class="project-name">Zcm</h1>
+      <h2 class="project-tagline">Zero Communications and Marshalling</h2>
+      <a href="https://github.com/ZeroCM/zcm" class="btn">View on GitHub</a>
+      <a href="http://ci.zcm-project.org" class="btn">Monitor Builds</a>
+      <a href="https://gitter.im/ZeroCM/zcm" class="btn">Chat with the team</a>
+      <a href="https://github.com/ZeroCM/zcm/zipball/master" class="btn">Download .zip</a>
+      <a href="https://github.com/ZeroCM/zcm/tarball/master" class="btn">Download .tar.gz</a>
+    </section>
+
+    <section class="main-content">
+<p><a style="margin-right: 1rem;" href="javascript:history.go(-1)">Back</a>
+<a href="../index.html">Home</a></p>
+
+<h1>Embedded Applications</h1>
+
+<p>ZCM prides itself on strong support for embedded applications. This support allows
+embedded systems to construct and send zcmtypes though a custom embedded transport to
+other systems using ZCM.</p>
+
+<p>The core nonblock library code follows the following principles:</p>
+
+<ol>
+<li>Standard-compliant C89 code</li>
+<li>Absolutely no dependencies (this includes any OS primitives)</li>
+<li>No blocking for any reason</li>
+<li>Designed for single-threaded use</li>
+<li>Minimal malloc() use. Currently, on startup only.</li>
+</ol>
+
+<h2>Platform Requirements</h2>
+
+<p>While we strive to support many systems, there are a few requirements:</p>
+
+<ul>
+<li>byte-addressable memory</li>
+<li>8-bit, 16-bit, 32-bit and 64-bit signed and unsigned integer types
+<ul>
+<li>Some may be emulated, but the standard C integer types must be available</li>
+</ul></li>
+<li>a basic C standard library</li>
+<li>malloc implementation</li>
+</ul>
+
+<h2>Adding ZCM to a project</h2>
+
+<p>By default, the ZCM linux build gathers together the embedded-specific sources, checks them
+for C89 compliance, and creates <code>build/zcm/zcm-embed.tar.gz</code>. Using ZCM is as simple as untaring
+into your project's source tree. We recommend using the <code>zcm</code> subdir for all zcm library code.</p>
+
+<p>For the generation of zcmtypes, you will need a standard linux ZCM install. You can simply use
+<code>zcm-gen</code> and copy the resulting files into your project's source tree.</p>
+
+<p>With some scripting, most embedded environments can be configured to use <code>zcm-gen</code> as a build
+tool and all of the type generation can be made automatic.</p>
+
+<h2>Using ZCM in code</h2>
+
+<p>In embedded ZCM there are no built-in transports. To use ZCM in an embedded application,
+you must implement a nonblocking transport that uses your platform's hardware primatives.
+In addition, the transport registrar and the url system is disabled. To create a <code>zcm_t</code>
+object, you must use <code>zcm_create_trans()</code>. See the page on <a href="transports.html">Transport Layer</a>
+for details on implementing nonblocking transports. Once implemented and constructed, you
+should be able to use ZCM the same way you would on desktop systems!</p>
+
+<h2>Issues, Bugs, and Support</h2>
+
+<p>In embedded-land it's hard to guarantee that a library will work on any system. We care a lot
+about our compatibility on embedded, but issues do happen. We always try to be proactive in
+our handling of any issues that arise. If you find any violations with the principles and
+requirements above, don't hesitate to reach out to the ZCM community. See
+<a href="docs/contributing.html">Contributing</a> for details.</p>
+
+<p><hr>
+<a style="margin-right: 1rem;" href="javascript:history.go(-1)">Back</a>
+<a href="../index.html">Home</a></p>
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA-73394372-1', 'auto');
+  ga('send', 'pageview');
+
+</script>
+
+    </section>
+  </body>
+</html>

@@ -1,0 +1,614 @@
+
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" type="text/css" href="../stylesheets/normalize.css" media="screen">
+    <link href="https://fonts.googleapis.com/css?family=Open+Sans:400,700" rel="stylesheet" type="text/css">
+    <link rel="stylesheet" type="text/css" href="../stylesheets/stylesheet.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="../stylesheets/github-light.css" media="screen">
+  </head>
+  <body>
+    <section class="page-header">
+      <h1 class="project-name">Zcm</h1>
+      <h2 class="project-tagline">Zero Communications and Marshalling</h2>
+      <a href="https://github.com/ZeroCM/zcm" class="btn">View on GitHub</a>
+      <a href="http://ci.zcm-project.org" class="btn">Monitor Builds</a>
+      <a href="https://gitter.im/ZeroCM/zcm" class="btn">Chat with the team</a>
+      <a href="https://github.com/ZeroCM/zcm/zipball/master" class="btn">Download .zip</a>
+      <a href="https://github.com/ZeroCM/zcm/tarball/master" class="btn">Download .tar.gz</a>
+    </section>
+
+    <section class="main-content">
+<p><a style="margin-right: 1rem;" href="javascript:history.go(-1)">Back</a>
+<a href="../index.html">Home</a></p>
+
+<h1>ZCM Step-by-Step Tutorial</h1>
+
+<p>We believe the best way to learn new things is to just dive in and start making mistakes.
+It's only by making those early mistakes that one truly can understand the folly of one's
+ways and to grow as a result. So, without further ado, let's get started.</p>
+
+<h2>Basic Types</h2>
+
+<p>To understand ZCM, we must start by discussing its message type-system. Every message sent inside
+ZCM can be tied back to some message specification. Let's explore this with a simple, yet practical example.
+Imagine that we have a typical rotation sensor such as an IMU or Gyro. Our sensor produces
+yaw, pitch, and roll measurements as well as a few flags describing it's mode of operation. If we were
+programming in just C code, we might design a struct type as follows:</p>
+
+<pre><code>struct rotation_t
+{
+    double yaw;
+    double pitch;
+    double roll;
+    int   flags;
+};
+</code></pre>
+
+<p>In ZCM, we aim to retain this rich data structuring and layout while still being able to do
+powerful message-passing in numerous different programming languages. To do this, we use a
+programming-language-agnostic type specification language. Fortunately for our example above,
+it is very similar to C struct syntax. Here it is:</p>
+
+<pre><code>struct rotation_t
+{
+    double yaw;
+    double pitch;
+    double roll;
+    int32_t flags;
+};
+</code></pre>
+
+<p>The ZCM type is almost an exact copy. The key difference here is that in C 'int' is not
+strictly defined. An 'int' can be a different size depending on the machine the software
+runs on. Because a ZCM Type is a binary data-exchange format, it needs to have rigourously
+defined types that mean the same thing on each machine. Here's a brief table of the default
+built-in types:</p>
+
+<table>
+    <tr><td>  int8_t   </td><td>  8-bit signed integer              </td></tr>
+    <tr><td>  int16_t  </td><td>  16-bit signed integer             </td></tr>
+    <tr><td>  int32_t  </td><td>  32-bit signed integer             </td></tr>
+    <tr><td>  int64_t  </td><td>  64-bit signed integer             </td></tr>
+    <tr><td>  float    </td><td>  32-bit IEEE floating point value  </td></tr>
+    <tr><td>  double   </td><td>  64-bit IEEE floating point value  </td></tr>
+    <tr><td>  string   </td><td>  UTF-8 string                      </td></tr>
+    <tr><td>  boolean  </td><td>  true/false logical value          </td></tr>
+    <tr><td>  byte     </td><td>  8-bit value                       </td></tr>
+</table>
+
+<p>Believe it or not, this is all the basic knowledge needed to get started. Let's dive into
+code, and build a working program using ZCM!</p>
+
+<h2>Hello World</h2>
+
+<p>Let's build a canonical Hello World message-passing program on top of ZCM. For this we
+will need two programs. One program will create and <em>publish</em> new messages and the
+other program will <em>subscribe</em> to and receive those messages.</p>
+
+<h3>Hello World Types</h3>
+
+<p>First, let's create a new zcm type in the file <em>msg_t.zcm</em></p>
+
+<pre><code>struct msg_t
+{
+    string str;
+}
+</code></pre>
+
+<p>We can now use the <em>zcm-gen</em> tool to convert this type specification into bindings
+for many different programming languages. We will be using C code for this example, so run:</p>
+
+<pre><code>zcm-gen -c msg_t.zcm
+</code></pre>
+
+<p>This command will produce two new files in the current directory (msg_t.h and msg_t.c).
+Feel free to browse these files for a moment to get a rough idea of how zcm-gen works. Notice
+that zcm-gen has converted the <em>string</em> to a native C type. ZCM always tries to use the
+native data types in each programming langauge, so the programming experience doesn't feel foreign.</p>
+
+<pre><code>typedef struct _msg_t msg_t;
+struct _msg_t
+{
+     char*      str;
+};
+</code></pre>
+
+<h3>Hello World Publish</h3>
+
+<p>For most simple programs, the only include needed is the basic zcm, but we also need to include our msg_t header</p>
+
+<pre><code>#include &lt;zcm/zcm.h&gt;
+#include &lt;msg_t.h&gt;
+</code></pre>
+
+<p>In the main function we have to create a zcm instance that will manage the communications. Here, you decide which
+transport protocol to use and provide an appropriate url. For this example, we'll use Inter-process Communication (IPC):</p>
+
+<pre><code>zcm_t *zcm = zcm_create("ipc");
+</code></pre>
+
+<p>Finally, we simply construct a msg_t and then publish it repeatedly:</p>
+
+<pre><code>msg_t msg;
+msg.str = (char*)"Hello, World!";
+
+while (1) {
+    msg_t_publish(zcm, "HELLO_WORLD", &amp;msg);
+    usleep(1000000); /* sleep for a second */
+}
+</code></pre>
+
+<p>And that's it! Here's the full program (publish.c):</p>
+
+<pre><code>#include &lt;unistd.h&gt;
+#include &lt;zcm/zcm.h&gt;
+#include &lt;msg_t.h&gt;
+
+int main(int argc, char *argv[])
+{
+    zcm_t *zcm = zcm_create("ipc");
+
+    msg_t msg;
+    msg.str = (char*)"Hello, World!";
+
+    while (1) {
+        msg_t_publish(zcm, "HELLO_WORLD", &amp;msg);
+        usleep(1000000); /* sleep for a second */
+    }
+
+    zcm_destroy(zcm);
+    return 0;
+}
+</code></pre>
+
+<p>Building and running:</p>
+
+<pre><code>cc -o publish -I. publish.c msg_t.c -lzcm
+./publish
+</code></pre>
+
+<p>If you have the java ZCM tools installed, you should be able to run zcm-spy and
+see the published messages now!</p>
+
+<pre><code>zcm-spy --zcm-url ipc
+</code></pre>
+
+<h3>Hello World Subscribe</h3>
+
+<p>Let's build a program to receive those messages. We'll start off the same as before
+by adding the headers and creating a new zcm_t* instance. Then, we need to <em>subscribe</em>
+to the particular channel. But, first we need to create a callback function to handle all the
+received messages:</p>
+
+<pre><code>void callback_handler(const zcm_recv_buf_t *rbuf, const char *channel, const msg_t *msg, void *usr)
+{
+    printf("Received a message on channel '%s'\n", channel);
+    printf("msg-&gt;str = '%s'\n", msg-&gt;str);
+    printf("\n");
+}
+</code></pre>
+
+<p>Now, in the main() function, we need to register this callback by subscribing:</p>
+
+<pre><code>msg_t_subscribe(zcm, "HELLO_WORLD", callback_handler, NULL);
+</code></pre>
+
+<p>Finally, in order to dispatch messages to the callbacks, ZCM needs a thread. So, we
+call into zcm to tell it to consume the current thread and use it for dispatching any
+incoming messages (zcm_run doesn't normally return):</p>
+
+<pre><code>zcm_run(zcm);
+</code></pre>
+
+<p>And that's it! Here's the full program (subscribe.c):</p>
+
+<pre><code>#include &lt;stdio.h&gt;
+#include &lt;zcm/zcm.h&gt;
+#include &lt;msg_t.h&gt;
+
+void callback_handler(const zcm_recv_buf_t *rbuf, const char *channel, const msg_t *msg, void *usr)
+{
+    printf("Received a message on channel '%s'\n", channel);
+    printf("msg-&gt;str = '%s'\n", msg-&gt;str);
+    printf("\n");
+}
+
+int main(int argc, char *argv[])
+{
+    zcm_t *zcm = zcm_create("ipc");
+    msg_t_subscribe(zcm, "HELLO_WORLD", callback_handler, NULL);
+
+    zcm_run(zcm);
+
+    zcm_destroy(zcm);
+    return 0;
+}
+</code></pre>
+
+<p>Building and running:</p>
+
+<pre><code>cc -o subscribe -I. subscribe.c msg_t.c -lzcm
+./subscribe
+</code></pre>
+
+<p>Now, with both <code>./publish</code> and <code>./subscribe</code> running, you should successfully
+see a stream of data in the subscribe window!</p>
+
+<pre><code>Received a message on channel 'HELLO_WORLD'
+msg-&gt;str = 'Hello, World!'
+</code></pre>
+
+<h2>Type Safety</h2>
+
+<p>Another super useful feature of the ZCM type system is its type-checking capabilities.
+These type checks make it hard to accidentally change message types without updating
+programs that rely on them. For a mission critical system such as a robotics system, this
+is a crucial feature.</p>
+
+<p>Let's explore by example. Let's revisit our msg_t type and add a new field, changing
+it to look as follows:</p>
+
+<pre><code>struct msg_t
+{
+    boolean can_frobinate;
+    string str;
+};
+</code></pre>
+
+<p>Adding this new field has changed the type's encoding and any existing program not aware
+of the change might decode the wrong bytes! Let's regenerate the zcmtypes:</p>
+
+<pre><code>zcm-gen -c msg_t.zcm &amp;&amp; cat msg_t.h
+</code></pre>
+
+<p>The <code>msg_t.h</code> file now contains:</p>
+
+<pre><code>/* ... code removed ... */
+typedef struct _msg_t msg_t;
+struct _msg_t
+{
+    int8_t     can_frobinate;
+    char*      str;
+};
+/* ... code removed ... */
+</code></pre>
+
+<p>Evolving a message in this way would normally eliminate any chance at backward
+compatibility, but these things can happen accidentally and can introduce bugs
+that are tricky to track-down. To show how ZCM detects this issue. Let's change
+publish.c to use the new type:</p>
+
+<pre><code>msg.can_frobinate = 0;
+</code></pre>
+
+<p>If we rebuild the publisher and try running it with the old subscriber, the subscriber
+reports:</p>
+
+<pre><code>error -1 decoding msg_t!!!
+</code></pre>
+
+<p>The decoder was able to successfully determine a mismatch, and correctly rejected the
+incoming data. How does this work? Well, internally ZCM computes a hash code for each
+type based on the individual field types and their orderings. If any of these types
+change or get re-ordered, existing programs will detect a hashcode mismatch and will
+refuse to decode the received data!</p>
+
+<h2>ZCM Tools</h2>
+
+<p>ZCM ships with a convenient set of debugging and monitoring tools. In this section
+we demonstrate the usage of these tools.</p>
+
+<h3>Spy</h3>
+
+<p>Since ZCM makes data decoupling so easy, developers tend to build applications in
+several modules/processes and tie them together with ZCM message passing. In this
+model, a lot of the debugging takes place at the message-passing level. Often
+it's desirable to inspect/spy the messages in transit. This can be accomplished
+using the <code>zcm-spy</code> tool.</p>
+
+<!-- ADD MORE HERE -->
+
+<h3>Logger</h3>
+
+<p>It is often desirable to record the messaging data events and record them for later
+debugging. On a robotics system this is very important because often the developer
+cannot debug in real-time nor deterministically reproduce bugs that have previously
+occurred. By recording live events, debugging can be done after an issue occurs.
+ZCM ships with a built-in logging API using <code>zcm/eventlog.h</code>. ZCM also provides
+a stand-alone process <code>zcm-logger</code> that records all events it receives on the
+specified transport.</p>
+
+<h3>Log Player</h3>
+
+<p>After capturing a ZCM log, it can be <em>replayed</em> using the <code>zcm-logplayer</code> tool.
+This tool republishes the events back onto a ZCM transport. For here, any ZCM
+subscriber application can receive the data exactly as it would have live! This
+tool, combined with the logger creates a powerful development approach for
+systems with limited debug-ability.</p>
+
+<h2>ZCM Tools Example</h2>
+
+<p>For this example we'll use a special ZCM message type for counting (count_t.zcm):</p>
+
+<pre><code>struct count_t
+{
+     int32_t val;
+}
+</code></pre>
+
+<p>Generate the bindings:</p>
+
+<pre><code>zcm-gen -c count_t.zcm
+</code></pre>
+
+<p>Publisher application (publish.c):</p>
+
+<pre><code>#include &lt;unistd.h&gt;
+#include &lt;zcm/zcm.h&gt;
+#include &lt;count_t.h&gt;
+
+int main(int argc, char *argv[])
+{
+    zcm_t *zcm = zcm_create("ipc");
+    count_t cnt = {0};
+
+    while (1) {
+        count_t_publish(zcm, "COUNT", &amp;cnt);
+        cnt.val++;
+        usleep(1000000); /* sleep for a second */
+    }
+
+    zcm_destroy(zcm);
+    return 0;
+}
+</code></pre>
+
+<p>Building and running:</p>
+
+<pre><code>cc -o publish -I. publish.c count_t.c -lzcm
+./publish
+</code></pre>
+
+<p>We can now <em>spy</em> on the ZCM traffic with:</p>
+
+<pre><code>zcm-spy --zcm-url ipc
+</code></pre>
+
+<p>This should report ZCM events at 1 HZ.</p>
+
+<p>Record the ZCM messages for a few seconds:</p>
+
+<pre><code>zcm-logger --zcm-url ipc
+</code></pre>
+
+<p>This will produce a ZCM log file in the current directory
+named with the pattern: <code>zcmlog-{YEAR}-{MONTH}-{DAY}.00</code></p>
+
+<p>We can <em>replay</em> these captured events using the zcm-logplayer tool:</p>
+
+<pre><code>zcm-logplayer --zcm-url ipc zcmlog-*.00
+</code></pre>
+
+<p>The replay tool alone is not very interesting until we combine it
+with another application that will receive the data. For this purpose
+we can use the <code>zcm-spy</code> tool, running it before the replay tool:</p>
+
+<pre><code>zcm-spy --zcm-url ipc &amp;
+zcm-logplayer --zcm-url ipc zcmlog-*.00
+</code></pre>
+
+<h2>Advanced ZCM Types</h2>
+
+<p>With a firm grasp of the ZCM tools and environment, we can start exploring
+some of the more advanced topics in ZCM. Let's begin with the more
+advanced features of the ZCM type system.</p>
+
+<h3>Nested Types</h3>
+
+<p>As discussed earlier, ZCM types are
+strongly-typed statically-defined records that may contain any number of fields.
+These fields can use a wide set of primitive data types. However, this system
+is much more powerful than containing only primitive types.
+The ZCM type system can support nested types as well.</p>
+
+<p>Let's see an example (nested_types.zcm):</p>
+
+<pre><code>struct position_t
+{
+    double x, y, z;
+}
+
+struct cfg_t
+{
+    position_t cam1;
+    position_t laser1;
+}
+</code></pre>
+
+<p>Generate the bindings:</p>
+
+<pre><code>zcm-gen -c nested_types.zcm
+</code></pre>
+
+<p>This generates the types <code>position_t</code> and <code>cfg_t</code>.</p>
+
+<p>position_t.h:</p>
+
+<pre><code>/* ... code removed ... */
+typedef struct _position_t position_t;
+struct _position_t
+{
+    double     x;
+    double     y;
+    double     z;
+};
+/* ... code removed ... */
+</code></pre>
+
+<p>cfg.h:</p>
+
+<pre><code>/* ... code removed ... */
+typedef struct _cfg_t cfg_t;
+struct _cfg_t
+{
+    position_t cam1;
+    position_t laser1;
+};
+/* ... code removed ... */
+</code></pre>
+
+<p>As you can see, cfg_t can be used in the same same way as any
+other zcmtype. The type nesting <em>just works</em>!</p>
+
+<h3>Array Types</h3>
+
+<p>As with any programming language type system, array data types are
+often desired in a message. To this end, ZCM supports two different
+kinds of array types: static and dynamic sized. As you'd expect, statically
+size array use the same familiar C-style syntax:</p>
+
+<pre><code>struct st_array_t
+{
+    int32_t data[8];
+}
+</code></pre>
+
+<p>Dynamic arrays are similar with an additional size field:</p>
+
+<pre><code>struct dyn_array_t
+{
+    int64_t sz;
+    int32_t data[sz];
+}
+</code></pre>
+
+<p>For dynamic arrays, the size parameter may be any integer type: <code>int8_t</code>,
+<code>int16_t</code>, <code>int32_t</code>, or <code>int64_t</code></p>
+
+<p>Consistent with ZCM's philosophy, these types generate language bindings that
+use the language-specific idioms:</p>
+
+<p>C code:</p>
+
+<pre><code>/* ... code removed ... */
+typedef struct _st_array_t st_array_t;
+struct _st_array_t
+{
+    int32_t    data[8];
+};
+/* ... code removed ... */
+
+/* ... code removed ... */
+typedef struct _dyn_array_t dyn_array_t;
+struct _dyn_array_t
+{
+    int64_t    sz;
+    int32_t    *data;
+};
+/* ... code removed ... */
+</code></pre>
+
+<p>C++ code:</p>
+
+<pre><code>class st_array_t
+{
+    public:
+        int32_t    data[8];
+
+    /* ... code removed ... */
+};
+
+class dyn_array_t
+{
+    public:
+        int64_t    sz;
+
+        std::vector&lt; int32_t &gt; data;
+
+    /* ... code removed ... */
+};
+</code></pre>
+
+<h3>Multi-dimmension Arrays</h3>
+
+<p>ZCM also supports multiple dimensions on arrays. You can also mix
+static-sized and dynamic-sized arrays along different dimensions:</p>
+
+<pre><code>struct multdim_t
+{
+    int32_t dim1;
+    int32_t dim2;
+    int32_t dim3;
+
+    float array1[dim1][8][dim3];
+    float array2[2][dim2][5];
+}
+</code></pre>
+
+<h3>Constants</h3>
+
+<p>ZCM supports consts embedded in the type. These constants occupy no
+space in the resulting serialization: they are only present in the
+language-specific generated code. Common uses for consts are for
+emulating enum types and for defining flags and masks:</p>
+
+<pre><code>struct consts_t
+{
+    const int32_t VAL_FOO = 0;
+    const int32_t VAL_BAR = 1;
+    const int32_t VAL_BAZ = 2;
+    int32_t val;
+
+    const int32_t FLAG_A = 1;
+    const int32_t FLAG_B = 2;
+    const int32_t FLAG_C = 4;
+    const int32_t MASK_AB = 0x03;
+    int32_t flags;
+
+    const float secs_per_tick = 0.01;
+    float ticks;
+}
+</code></pre>
+
+<h3>Closing Thoughts on Types</h3>
+
+<p>The ZCM type system is incredibly rich, flexible, and composable. Nearly each
+of these features can be used independent of or in conjunction with the others.
+This allows users to create rich and interesting message types with ease. For a rigorous
+definition of the ZCM type system, see the <a href="zcmtypesys.html">ZCM Type System</a>.</p>
+
+<h2>Next Steps</h2>
+
+<p>At this point you should know enough about ZCM to implement many interesting
+applications. The essence of ZCM defining ZCMTypes, coding to the pub/sub APIs,
+and debugging using the built-in tool suite. This covers about 90% of the
+typical ZCM development workflow.</p>
+
+<p>But, there is much more to ZCM, so we recommend a few <em>next steps</em> below:</p>
+
+<ul>
+<li><a href="transports.html">Transport Layer</a></li>
+<li><a href="embedded.html">Embedded Applications</a>.</li>
+<li><a href="building.html">Dependencies &amp; Building</a></li>
+<li><a href="philosophy.html">Project Philosophy</a></li>
+<li><a href="contributing.html">Contributing</a></li>
+</ul>
+
+<p><hr>
+<a style="margin-right: 1rem;" href="javascript:history.go(-1)">Back</a>
+<a href="../index.html">Home</a></p>
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA-73394372-1', 'auto');
+  ga('send', 'pageview');
+
+</script>
+
+    </section>
+  </body>
+</html>
