@@ -37,6 +37,7 @@ If you have previously used LCM, check out [From LCM to ZCM](docs/lcm_to_zcm.md)
 To learn how you can contribute to this project, check out [Contributing](docs/contributing.md)
 
 ## Quick Links
+ - [Project Philosphy](docs/philosophy.md)
  - [Tutorial](docs/tutorial.md)
  - [From LCM to ZCM](docs/lcm_to_zcm.md)
  - [ZCM Type System](docs/zcmtypesys.md)
@@ -44,7 +45,7 @@ To learn how you can contribute to this project, check out [Contributing](docs/c
  - [Embedded Applications](docs/embedded.md)
  - Web Applications (coming soon)
  - [Dependencies & Building](docs/building.md)
- - [Project Philosphy](docs/philosophy.md)
+ - [Continuous Integration](http://ci.zcm-project.org)
  - [Contributing](docs/contributing.md)
 
 ## Features
