@@ -39,12 +39,12 @@ long as a transport implementation conforms to this API, it should work flawless
 This design allows ZCM to work well on anything from a high-end posix-based compute cluster
 with thousands of nodes to a low-end real-time embedded-system with no operating system.</p>
 
-<p>ZCM is a derivation of the LCM project created in 2006 by the MIT DARPA Urban Challenge
-team. The core message-type system, publish/subscribe APIs, and basic tools are ported
-directly from LCM and remain about 95% compatible. While there are a handful of subtle
-differences between the two, the core distinguishing feature is ZCM's transport
-agnosticism. LCM is designed completely around UDP Multicast. This transport makes a lot
-of sense for LAN connected compute clusters (such the original 2006 MIT DGC Vechicle).
+<p>ZCM is a derivation of the <a href="http://lcm-proj.github.io/">LCM project</a> created
+in 2006 by the MIT DARPA Urban Challenge team. The core message-type system, publish/subscribe
+APIs, and basic tools are ported directly from LCM and remain about 95% compatible. While there
+are a handful of subtle differences between the two, the core distinguishing feature is ZCM's
+transport agnosticism. LCM is designed completely around UDP Multicast. This transport makes a
+lot of sense for LAN connected compute clusters (such the original 2006 MIT DGC Vechicle).
 However, there are many other applications that are interesting targets for ZCM messaging.
 These include: local system messaging (IPC), multi-threaded messaging (in-process),
 embedded-system peripherals (UART, I2C, etc), and web applications (Web Sockets).
