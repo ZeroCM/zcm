@@ -51,7 +51,7 @@ In embedded-land it's hard to guarantee that a library will work on any system. 
 about our compatibility on embedded, but issues do happen. We always try to be proactive in
 our handling of any issues that arise. If you find any violations with the principles and
 requirements above, don't hesitate to reach out to the ZCM community. See
-[Contributing](docs/contributing.md) for details.
+[Contributing](contributing.md) for details.
 
 <hr>
 <a style="margin-right: 1rem;" href="javascript:history.go(-1)">Back</a>
