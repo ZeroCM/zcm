@@ -43,8 +43,10 @@ getHeader()
   </head>
   <body>
     <section class='page-header'>
-      <h1 class='project-name'>Zcm</h1>
-      <h2 class='project-tagline'>Zero Communications and Marshalling</h2>
+      <section style='cursor:pointer' onclick='window.location=\"$1index.html\";'>
+        <h1 class='project-name'>Zcm</h1>
+        <h2 class='project-tagline'>Zero Communications and Marshalling</h2>
+      </section>
       <a href='https://github.com/ZeroCM/zcm' class='btn'>View on GitHub</a>
       <a href='http://ci.zcm-project.org' class='btn'>Monitor Builds</a>
       <a href='https://gitter.im/ZeroCM/zcm' class='btn'>Chat with the team</a>
