@@ -1,28 +1,28 @@
+
 <!DOCTYPE html>
-<html lang="en-us">
+<html lang='en-us'>
   <head>
-    <meta charset="UTF-8">
+    <meta charset='UTF-8'>
     <title>Zcm by ZeroCM</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" type="text/css" href="stylesheets/normalize.css" media="screen">
+    <meta name='viewport' content='width=device-width, initial-scale=1'>
+    <link rel='stylesheet' type='text/css' href='stylesheets/normalize.css' media='screen'>
     <link href='https://fonts.googleapis.com/css?family=Open+Sans:400,700' rel='stylesheet' type='text/css'>
-    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen">
-    <link rel="stylesheet" type="text/css" href="stylesheets/github-light.css" media="screen">
+    <link rel='stylesheet' type='text/css' href='stylesheets/stylesheet.css' media='screen'>
+    <link rel='stylesheet' type='text/css' href='stylesheets/github-light.css' media='screen'>
   </head>
   <body>
-    <section class="page-header">
-      <h1 class="project-name">Zcm</h1>
-      <h2 class="project-tagline">Zero Communications and Marshalling</h2>
-      <a href="https://github.com/ZeroCM/zcm" class="btn">View on GitHub</a>
-      <a href="http://ci.zcm-project.org" class="btn">Monitor Builds</a>
-      <a href="https://gitter.im/ZeroCM/zcm" class="btn">Chat with the team</a>
-      <a href="https://github.com/ZeroCM/zcm/zipball/master" class="btn">Download .zip</a>
-      <a href="https://github.com/ZeroCM/zcm/tarball/master" class="btn">Download .tar.gz</a>
+    <section class='page-header'>
+      <h1 class='project-name'>Zcm</h1>
+      <h2 class='project-tagline'>Zero Communications and Marshalling</h2>
+      <a href='https://github.com/ZeroCM/zcm' class='btn'>View on GitHub</a>
+      <a href='http://ci.zcm-project.org' class='btn'>Monitor Builds</a>
+      <a href='https://gitter.im/ZeroCM/zcm' class='btn'>Chat with the team</a>
+      <a href='https://github.com/ZeroCM/zcm/zipball/master' class='btn'>Download .zip</a>
+      <a href='https://github.com/ZeroCM/zcm/tarball/master' class='btn'>Download .tar.gz</a>
     </section>
 
-    <section class="main-content">
-      <h1>
-<a id="zcm-zero-communications-and-marshalling" class="anchor" href="#zcm-zero-communications-and-marshalling" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>ZCM: Zero Communications and Marshalling</h1>
+    <section class='main-content'>
+<h1>ZCM: Zero Communications and Marshalling</h1>
 
 <p>ZCM is a micro-framework for message-passing and data-marshalling, designed originally
 for robotics systems where high-bandwidth and low-latency are critical and the variance in
@@ -39,17 +39,17 @@ long as a transport implementation conforms to this API, it should work flawless
 This design allows ZCM to work well on anything from a high-end posix-based compute cluster
 with thousands of nodes to a low-end real-time embedded-system with no operating system.</p>
 
-<p>ZCM is a derivation of the <a href="http://lcm-proj.github.io/">LCM project</a> created
-in 2006 by the MIT DARPA Urban Challenge team. The core message-type system, publish/subscribe
-APIs, and basic tools are ported directly from LCM and remain about 95% compatible. While there
-are a handful of subtle differences between the two, the core distinguishing feature is ZCM's
-transport agnosticism. LCM is designed completely around UDP Multicast. This transport makes a
-lot of sense for LAN connected compute clusters (such the original 2006 MIT DGC Vechicle).
-However, there are many other applications that are interesting targets for ZCM messaging.
-These include: local system messaging (IPC), multi-threaded messaging (in-process),
-embedded-system peripherals (UART, I2C, etc), and web applications (Web Sockets).
-By refusing to make hard assumptions about the transport layer, ZCM opens the door
-to a wide set of use-cases that were neither possible nor practical with LCM.</p>
+<p>ZCM is a derivation of the <a href="http://lcm-proj.github.io/">LCM project</a> created in 2006 by
+the MIT DARPA Urban Challenge team. The core message-type system, publish/subscribe APIs,
+and basic tools are ported directly from LCM and remain about 95% compatible. While there
+are a handful of subtle differences between the two, the core distinguishing feature is
+ZCM's transport agnosticism. LCM is designed completely around UDP Multicast. This transport
+makes a lot of sense for LAN connected compute clusters (such the original 2006 MIT DGC
+Vechicle).  However, there are many other applications that are interesting targets for
+ZCM messaging.  These include: local system messaging (IPC), multi-threaded messaging
+(in-process), embedded-system peripherals (UART, I2C, etc), and web applications
+(Web Sockets).  By refusing to make hard assumptions about the transport layer, ZCM opens
+the door to a wide set of use-cases that were neither possible nor practical with LCM.</p>
 
 <p>To learn more about what ZCM tries to be, and its guiding principles, check out the
 <a href="docs/philosophy.html">Project Philosphy</a>.</p>
@@ -60,8 +60,7 @@ to a wide set of use-cases that were neither possible nor practical with LCM.</p
 
 <p>To learn how you can contribute to this project, check out <a href="docs/contributing.html">Contributing</a></p>
 
-<h2>
-<a id="quick-links" class="anchor" href="#quick-links" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Quick Links</h2>
+<h2>Quick Links</h2>
 
 <ul>
 <li><a href="docs/philosophy.html">Project Philosphy</a></li>
@@ -76,8 +75,7 @@ to a wide set of use-cases that were neither possible nor practical with LCM.</p
 <li><a href="docs/contributing.html">Contributing</a></li>
 </ul>
 
-<h2>
-<a id="features" class="anchor" href="#features" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Features</h2>
+<h2>Features</h2>
 
 <ul>
 <li>Type-safe and version-safe message serialization</li>
@@ -88,21 +86,17 @@ to a wide set of use-cases that were neither possible nor practical with LCM.</p
 <li>Only one true dependency: A modern C++11 compiler for the non-embedded code.</li>
 </ul>
 
-<h2>
-<a id="supported-platforms-and-languages" class="anchor" href="#supported-platforms-and-languages" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Supported platforms and languages</h2>
+<h2>Supported platforms and languages</h2>
 
 <ul>
-<li>
-<p>Platforms:</p>
+<li><p>Platforms:</p>
 
 <ul>
 <li>GNU/Linux</li>
 <li>Web browsers supporting the Websocket API</li>
 <li>Any C89 capable embedded system</li>
-</ul>
-</li>
-<li>
-<p>Languages</p>
+</ul></li>
+<li><p>Languages</p>
 
 <ul>
 <li>C89 and greater</li>
@@ -110,42 +104,33 @@ to a wide set of use-cases that were neither possible nor practical with LCM.</p
 <li>Java</li>
 <li>MATLAB (using Java)</li>
 <li>NodeJS and Client-side Javascript</li>
-</ul>
-</li>
+</ul></li>
 </ul>
 
-<h2>
-<a id="roadmap" class="anchor" href="#roadmap" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Roadmap</h2>
+<h2>Roadmap</h2>
 
 <ul>
 <li>Platform Support
-
 <ul>
 <li>Windows</li>
 <li>OS X</li>
 <li>Any POSIX-1.2001 system (e.g., Cygwin, Solaris, BSD, etc.)</li>
-</ul>
-</li>
+</ul></li>
 <li>Consider porting the rest of the LCM languages
-
 <ul>
 <li>Python</li>
 <li>C#</li>
 <li>Lua</li>
-</ul>
-</li>
+</ul></li>
 <li>Explore alternative messaging paradigms using ZCM Types (e.g. those found in ZeroMQ)</li>
 <li>Break from the original LCM APIs to improve API consistency
-
 <ul>
 <li>Goal for v2.0</li>
 <li>v1.0 will <strong>always</strong> strive for API compatibility</li>
-</ul>
-</li>
+</ul></li>
 </ul>
 
-<h2>
-<a id="subtle-differences-to-lcm" class="anchor" href="#subtle-differences-to-lcm" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Subtle differences to LCM</h2>
+<h2>Subtle differences to LCM</h2>
 
 <p>ZCM is approximately 95% API compatible with LCM. Porting existing Unix-based LCM
 programs to ZCM is very easy in many cases. A quick <code>sed -i 's/lcm/zcm/g'</code> works for
@@ -153,41 +138,25 @@ most applications. ZCM uses the same binary-compatible formats for UDP Multicast
 and ZCMType encodings. Thus LCM and ZCM applications can communicate flawlessly. This
 allows LCM users to gradually migrate to ZCM.</p>
 
-<h3>
-<a id="known-incompatibilities" class="anchor" href="#known-incompatibilities" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Known incompatibilities:</h3>
+<h3>Known incompatibilities:</h3>
 
 <ul>
-<li>
-<code>zcm_get_fileno()</code> is not supported</li>
-<li>
-<code>zcm_handle_timeout()</code> is not supported</li>
+<li><code>zcm_get_fileno()</code> is not supported</li>
+<li><code>zcm_handle_timeout()</code> is not supported</li>
 <li>Any applications using GLib via LCM may have build errors
-
 <ul>
 <li>ZCM does <em>not</em> depend on GLib</li>
-</ul>
-</li>
+</ul></li>
 <li>ZCMType drops support for the LCMType-style enums</li>
 </ul>
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
 
-      <footer class="site-footer">
-        <span class="site-footer-owner"><a href="https://github.com/ZeroCM/zcm">Zcm</a> is maintained by <a href="https://github.com/ZeroCM">ZeroCM</a>.</span>
+  ga('create', 'UA-73394372-1', 'auto');
+  ga('send', 'pageview');
 
-        <span class="site-footer-credits">This page was generated by <a href="https://pages.github.com">GitHub Pages</a> using the <a href="https://github.com/jasonlong/cayman-theme">Cayman theme</a> by <a href="https://twitter.com/jasonlong">Jason Long</a>.</span>
-      </footer>
-
-    </section>
-
-    <script>
-      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
-      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
-      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
-      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
-
-      ga('create', 'UA-73394372-1', 'auto');
-      ga('send', 'pageview');
-
-    </script>
-
-  </body>
-</html>
+</script>
+</section> </body> </html>
