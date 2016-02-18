@@ -115,12 +115,12 @@ def setup_environment(ctx):
     WARNING_FLAGS = ['-Wall', '-Werror', '-Wno-unused-function', '-Wno-format-zero-length']
     SYM_FLAGS = ['-g']
     OPT_FLAGS = ['-O3']
-    ctx.env.CFLAGS_default   = ['-std=gnu99', '-fPIC', '-pthread'] + WARNING_FLAGS
-    ctx.env.CXXFLAGS_default = ['-std=c++11', '-fPIC', '-pthread'] + WARNING_FLAGS
-    ctx.env.INCLUDES_default = [ctx.path.abspath()]
+    ctx.env.CFLAGS_default    = ['-std=gnu99', '-fPIC', '-pthread'] + WARNING_FLAGS
+    ctx.env.CXXFLAGS_default  = ['-std=c++11', '-fPIC', '-pthread'] + WARNING_FLAGS
+    ctx.env.INCLUDES_default  = [ctx.path.abspath()]
     ctx.env.LINKFLAGS_default = ['-pthread']
 
-    ctx.env.DEFINES_default = []
+    ctx.env.DEFINES_default   = ['_LARGEFILE_SOURCE', '_FILE_OFFSET_BITS=64']
     for k in ctx.env.keys():
         if k.startswith('USING_'):
             if getattr(ctx.env, k):
