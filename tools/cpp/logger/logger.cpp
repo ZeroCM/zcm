@@ -409,7 +409,7 @@ int main(int argc, char *argv[])
     }
 
     // begin logging
-    zcm_t *zcm = zcm_create(logger.args.zcmurl.c_str());
+    zcm_t *zcm = zcm_create(logger.args.zcmurl == "" ? nullptr : logger.args.zcmurl.c_str());
     if (!zcm) {
         fprintf(stderr, "Couldn't initialize ZCM! Try providing a URL with the "
                         "-u opt or setting the ZCM_DEFAULT_URL envvar\n");

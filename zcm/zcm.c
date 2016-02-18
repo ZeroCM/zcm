@@ -36,6 +36,7 @@ zcm_t *zcm_create(const char *url)
     return z;
 #else
     assert(0 && "zcm_create() with a url is not supported");
+    return NULL;
 #endif
 }
 
@@ -87,6 +88,7 @@ int zcm_init(zcm_t *zcm, const char *url)
     return ret;
 #else
     assert(0 && "zcm_init() with a url is not supported");
+    return -1;
 #endif
 }
 

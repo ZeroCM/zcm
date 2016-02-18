@@ -56,8 +56,18 @@ struct Args
             };
         }
 
+        if (src_url == "") {
+            fprintf(stderr, "Please specify a source transport with the -s option\n");
+            return false;
+        }
+
+        if (dest_url == "") {
+            fprintf(stderr, "Please specify a destination transport with the -d option\n");
+            return false;
+        }
+
         if (src_url == dest_url) {
-            fprintf(stderr, "Destination network and source network must be unique\n");
+            fprintf(stderr, "Destination network and source transports must be unique\n");
             return false;
         }
 
@@ -69,8 +79,8 @@ struct Repeater
 {
     Args   args;
 
-    zcm_t *zcmSrc;
-    zcm_t *zcmDest;
+    zcm_t *zcmSrc = nullptr;
+    zcm_t *zcmDest = nullptr;
 
     // variables for inverted matching (e.g., logging all but some channels)
     regex invert_regex;
@@ -79,8 +89,10 @@ struct Repeater
 
     ~Repeater()
     {
-        zcm_destroy(zcmSrc);
-        zcm_destroy(zcmDest);
+        if (zcmSrc)
+            zcm_destroy(zcmSrc);
+        if (zcmDest)
+            zcm_destroy(zcmDest);
     }
 
     bool init(int argc, char *argv[])
@@ -91,14 +103,16 @@ struct Repeater
         // Source network
         zcmSrc = zcm_create(args.src_url.c_str());
         if (!zcmSrc) {
-            fprintf(stderr, "Couldn't initialize source ZCM! Try providing a source URL with the -s opt\n");
+            fprintf(stderr, "Couldn't initialize source ZCM! "
+                            "Please check your source transport url.\n\n");
             return false;
         }
 
         // Dest network
         zcmDest = zcm_create(args.dest_url.c_str());
         if (!zcmDest) {
-            fprintf(stderr, "Couldn't initialize destination ZCM! Try providing a destination URL with the -d opt\n");
+            fprintf(stderr, "Couldn't initialize destination ZCM! "
+                            "Please check your destination transport url.\n\n");
             return false;
         }
 
@@ -145,6 +159,7 @@ static void usage()
             "    ZCM repeater utility.  Subscribes to all channels on a source ZCM\n"
             "    network, and repeats all messages received on that network to\n"
             "    a destination ZCM network.\n"
+            "\n"
             "Example:\n"
             "    zcm-repeater -s ipc -d udpm://224.255.76.67:7667?ttl=0\n"
             "\n"
