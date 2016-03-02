@@ -3,6 +3,7 @@
 
 def build(ctx):
     ctx.recurse('logger');
+    ctx.recurse('pipe');
     ctx.recurse('repeater');
     ctx.recurse('spy-lite');
     ctx.recurse('spy-peek');
