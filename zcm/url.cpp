@@ -80,7 +80,7 @@ struct zcm_url
         }
 
         address = string(rest.c_str(), sep);
-        rest = string(rest.c_str()+(sep+1), rest.size()-(sep-1));
+        rest = string(rest.c_str()+(sep+1), rest.size()-(sep+1));
         for (auto& optstr : split(rest, '&'))
             opts.emplace_back(optstr);
     }

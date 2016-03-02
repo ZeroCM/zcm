@@ -46,7 +46,7 @@ struct Args
                     Aurl = optarg;
                     break;
                 case 'B':
-                    Aurl = optarg;
+                    Burl = optarg;
                     break;
                 case 'a':
                     Achannels.push_back(optarg);
@@ -132,17 +132,17 @@ struct Pipe
     void run()
     {
         if (args.Achannels.size() == 0) {
-            zcmA->subscribe(".*", &handler, zcmA);
+            zcmA->subscribe(".*", &handler, zcmB);
         } else {
             for (auto iter : args.Achannels)
                 zcmA->subscribe(iter, &handler, zcmB);
         }
 
         if (args.Bchannels.size() == 0) {
-            zcmB->subscribe(".*", &handler, zcmB);
+            zcmB->subscribe(".*", &handler, zcmA);
         } else {
             for (auto iter : args.Bchannels)
-                zcmB->subscribe(iter, &handler, zcmB);
+                zcmB->subscribe(iter, &handler, zcmA);
         }
 
         zcmA->start();
