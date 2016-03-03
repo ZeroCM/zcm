@@ -2,6 +2,9 @@
 
 PKGS=''
 
+## Basic C compiler dependency
+PKGS+='build-essential'
+
 ## Lib ZMQ
 PKGS+='libzmq3 libzmq3-dev '
 
