@@ -4,6 +4,12 @@
 #include <cassert>
 #include <cinttypes>
 #include <regex>
+#include <atomic>
+#include <mutex>
+#include <condition_variable>
+#include <thread>
+#include <queue>
+#include <signal.h>
 
 #include <errno.h>
 #include <time.h>
@@ -16,9 +22,18 @@
 #include "util/FileUtil.hpp"
 #include "util/TimeUtil.hpp"
 #include "util/Types.hpp"
+
 using namespace std;
 
 #include "platform.hpp"
+
+static atomic_int done {0};
+
+void sighandler(int signal)
+{
+    done++;
+    if (done == 3) exit(1);
+}
 
 struct Args
 {
@@ -138,8 +153,6 @@ struct Logger
     // variables for inverted matching (e.g., logging all but some channels)
     regex invert_regex;
 
-    size_t write_queue_size         = 0;
-
     // these members controlled by writing
     size_t nevents                  = 0;
     size_t logsize                  = 0;
@@ -155,7 +168,21 @@ struct Logger
 
     int num_splits                  = 0;
 
+    mutex lk;
+    condition_variable newEventCond;
+
+    queue<zcm_eventlog_event_t*> q;
+
     Logger() {}
+
+    ~Logger()
+    {
+        while (!q.empty()) {
+            zcm_eventlog_event_t* le = q.front();
+            q.pop();
+            delete le;
+        }
+    }
 
     bool init(int argc, char *argv[])
     {
@@ -277,13 +304,32 @@ struct Logger
                 return;
         }
 
-        zcm_eventlog_event_t le;
-        memset(&le, 0, sizeof(le));
-        le.timestamp = rbuf->recv_utime;
-        le.channellen = strlen(channel);
-        le.datalen = rbuf->data_size;
-        le.channel = (char *)channel;
-        le.data = rbuf->data;
+        zcm_eventlog_event_t *le = new zcm_eventlog_event_t();
+        le->timestamp = rbuf->recv_utime;
+        le->channellen = strlen(channel);
+        le->datalen = rbuf->data_size;
+        le->channel = (char *)channel;
+        le->data = rbuf->data;
+
+        {
+            unique_lock<mutex> lock{lk};
+            q.push(le);
+        }
+        newEventCond.notify_all();
+    }
+
+    void flushWhenReady()
+    {
+        zcm_eventlog_event_t *le = nullptr;
+        {
+            unique_lock<mutex> lock{lk};
+
+            while (q.empty())
+                newEventCond.wait(lock);
+
+            le = q.front();
+            q.pop();
+        }
 
         // Is it time to start a new logfile?
         if (args.auto_split_mb) {
@@ -301,7 +347,7 @@ struct Logger
             }
         }
 
-        if (0 != zcm_eventlog_write_event(log, &le)) {
+        if (zcm_eventlog_write_event(log, le) != 0) {
             static u64 last_spew_utime = 0;
             string reason = strerror(errno);
             u64 now = TimeUtil::utime();
@@ -311,21 +357,22 @@ struct Logger
             }
             if(errno == ENOSPC)
                 exit(1);
+            delete le;
             return;
         }
 
         if (args.fflush_interval_ms >= 0 &&
-            (le.timestamp - last_fflush_time) > (u64)args.fflush_interval_ms*1000) {
+            (le->timestamp - last_fflush_time) > (u64)args.fflush_interval_ms*1000) {
             Platform::fflush(zcm_eventlog_get_fileptr(log));
-            last_fflush_time = le.timestamp;
+            last_fflush_time = le->timestamp;
         }
 
         // bookkeeping, cleanup
         nevents++;
-        events_since_last_report ++;
-        logsize += 4 + 8 + 8 + 4 + le.channellen + 4 + le.datalen;
+        events_since_last_report++;
+        logsize += 4 + 8 + 8 + 4 + le->channellen + 4 + le->datalen;
 
-        i64 offset_utime = le.timestamp - time0;
+        i64 offset_utime = le->timestamp - time0;
         if (!args.quiet && (offset_utime - last_report_time > 1000000)) {
             double dt = (offset_utime - last_report_time)/1000000.0;
 
@@ -341,6 +388,8 @@ struct Logger
             events_since_last_report = 0;
             last_report_logsize = logsize;
         }
+
+        delete le;
     }
 };
 
@@ -417,10 +466,23 @@ int main(int argc, char *argv[])
     }
 
     zcm_subscribe(zcm, logger.getSubChannel(), Logger::handler, &logger);
-    zcm_run(zcm);
+
+    // Register signal handlers
+    signal(SIGINT, sighandler);
+    signal(SIGQUIT, sighandler);
+    signal(SIGTERM, sighandler);
+
+    zcm_start(zcm);
+
+    while (!done) {
+        logger.flushWhenReady();
+    }
+
+    zcm_stop(zcm);
+    zcm_flush(zcm);
+    zcm_destroy(zcm);
 
     fprintf(stderr, "Logger exiting\n");
-    zcm_destroy(zcm);
 
     return 0;
 }
