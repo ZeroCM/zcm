@@ -27,11 +27,14 @@ using namespace std;
 
 #include "platform.hpp"
 
+Logger logger{};
+
 static atomic_int done {0};
 
 void sighandler(int signal)
 {
     done++;
+    logger.wakeup();
     if (done == 3) exit(1);
 }
 
@@ -329,8 +332,12 @@ struct Logger
         {
             unique_lock<mutex> lock{lk};
 
-            while (q.empty())
+            while (q.empty()) {
+                if (done) return;
                 newEventCond.wait(lock);
+            }
+
+            if (done) return;
 
             le = q.front();
             q.pop();
@@ -401,6 +408,12 @@ struct Logger
         delete[] (char*)le->data;
         delete le;
     }
+
+    void wakeup()
+    {
+        unique_lock<mutex> lock(lk);
+        newEventCond.notify_all();
+    }
 };
 
 static void usage()
@@ -461,7 +474,6 @@ int main(int argc, char *argv[])
 {
     Platform::setstreambuf();
 
-    Logger logger{};
     if (!logger.init(argc, argv)) {
         usage();
         return 1;
