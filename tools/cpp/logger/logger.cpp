@@ -180,6 +180,8 @@ struct Logger
         while (!q.empty()) {
             zcm_eventlog_event_t* le = q.front();
             q.pop();
+            delete[] le->channel;
+            delete[] (char*)le->data;
             delete le;
         }
     }
@@ -308,8 +310,11 @@ struct Logger
         le->timestamp = rbuf->recv_utime;
         le->channellen = strlen(channel);
         le->datalen = rbuf->data_size;
-        le->channel = (char *)channel;
-        le->data = rbuf->data;
+        le->channel = new char[le->channellen + 1];
+        le->channel[le->channellen] = '\0'; // terminate the cstr with null char
+        memcpy(le->channel, channel, sizeof(char) * le->channellen);
+        le->data = new char[rbuf->data_size];
+        memcpy(le->data, rbuf->data, sizeof(char) * rbuf->data_size);
 
         {
             unique_lock<mutex> lock{lk};
@@ -357,6 +362,9 @@ struct Logger
             }
             if(errno == ENOSPC)
                 exit(1);
+
+            delete[] le->channel;
+            delete[] (char*)le->data;
             delete le;
             return;
         }
@@ -389,6 +397,8 @@ struct Logger
             last_report_logsize = logsize;
         }
 
+        delete[] le->channel;
+        delete[] (char*)le->data;
         delete le;
     }
 };
