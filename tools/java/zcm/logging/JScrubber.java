@@ -36,6 +36,8 @@ public class JScrubber extends JComponent
     JPopupMenu popupMenu = new JPopupMenu();
     double popupPosition;
 
+    boolean enabled = true;
+
     public static final int BOOKMARK_PLAIN = 0, BOOKMARK_LREPEAT = 1, BOOKMARK_RREPEAT = 2;
     class Bookmark
     {
@@ -78,6 +80,13 @@ public class JScrubber extends JComponent
 
         popupMenu.addSeparator();
         popupMenu.add(new ExportAction());
+    }
+
+    @Override
+    public void setEnabled(boolean enabled)
+    {
+        super.setEnabled(enabled);
+        this.enabled = enabled;
     }
 
     public void clearBookmarks()
@@ -138,10 +147,10 @@ public class JScrubber extends JComponent
                 }
             }
 
-           
+
             for (JScrubberListener jsl : listeners)
                 jsl.scrubberExportRegion(JScrubber.this, b0.position, b1.position);
-            
+
         }
     }
 
@@ -427,6 +436,8 @@ public class JScrubber extends JComponent
 
         public void mousePressed(MouseEvent e)
         {
+            if (!enabled) return;
+
             double position = getPosition(e.getX(), e.getY());
             double tolerance = getPosition(e.getX()+CLICK_CLOSENESS, e.getY()) - position;
 
@@ -438,6 +449,8 @@ public class JScrubber extends JComponent
 
         public void mouseReleased(MouseEvent e)
         {
+            if (!enabled) return;
+
             if (trackbookmark != null)
             {
                 if (trackbookmark.position == 0 || trackbookmark.position == 1)
@@ -454,6 +467,8 @@ public class JScrubber extends JComponent
 
         public void mouseClicked(MouseEvent e)
         {
+            if (!enabled) return;
+
             int mods=e.getModifiersEx();
             boolean shift = (mods&MouseEvent.SHIFT_DOWN_MASK)>0;
             boolean ctrl = (mods&MouseEvent.CTRL_DOWN_MASK)>0;
@@ -501,6 +516,8 @@ public class JScrubber extends JComponent
 
         public void mouseDragged(MouseEvent e)
         {
+            if (!enabled) return;
+
             double position = getPosition(e.getX(), e.getY());
             int row = getRow(e.getX(), e.getY());
 

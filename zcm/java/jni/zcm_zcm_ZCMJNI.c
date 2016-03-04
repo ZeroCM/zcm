@@ -70,13 +70,15 @@ JNIEXPORT jint JNICALL Java_zcm_zcm_ZCMJNI_publish
 
     const char *channel = (*env)->GetStringUTFChars(env, channelJ, 0);
 
-    jboolean isCopy;
-    jbyte* data = (*env)->GetByteArrayElements(env, dataJ,&isCopy);
+    jbyte* data = (*env)->GetByteArrayElements(env, dataJ, NULL);
 
     assert(offsetJ == 0);
     int ret = zcm_publish(I->zcm, channel, (char*)data, lenJ);
 
     (*env)->ReleaseStringUTFChars(env, channelJ, channel);
+
+    (*env)->ReleaseByteArrayElements(env, dataJ, data, JNI_ABORT);
+
     return ret;
 }
 
