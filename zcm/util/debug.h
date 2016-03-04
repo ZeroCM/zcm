@@ -2,6 +2,7 @@
 #define _ZCM_DEBUG_H
 
 #include <stdlib.h>
+#include <stdbool.h>
 
 #define ZCM_DEBUG_ENV_ENABLE
 

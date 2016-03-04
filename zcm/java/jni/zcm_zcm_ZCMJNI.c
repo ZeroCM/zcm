@@ -1,5 +1,6 @@
 #include "zcm/java/jni/zcm_zcm_ZCMJNI.h"
 #include "zcm/zcm.h"
+#include "zcm/util/debug.h"
 #include <assert.h>
 #include <stdbool.h>
 
@@ -7,8 +8,13 @@ typedef struct Internal Internal;
 struct Internal
 {
     JavaVM *jvm;
-    jobject self;
     zcm_t *zcm;
+};
+
+typedef struct SubscriptionUsr SubscriptionUsr;
+struct SubscriptionUsr {
+    Internal* I;
+    jobject self;
 };
 
 // J is the type signature for long
@@ -82,10 +88,11 @@ JNIEXPORT jint JNICALL Java_zcm_zcm_ZCMJNI_publish
     return ret;
 }
 
-static void handler(const zcm_recv_buf_t *rbuf, const char *channel, void *usr)
+static void handler(const zcm_recv_buf_t *rbuf, const char *channel, void *_usr)
 {
-    Internal *I = (Internal *)usr;
-    jobject self = I->self;
+    SubscriptionUsr *usr = (SubscriptionUsr *)_usr;
+    Internal *I = (Internal *)usr->I;
+    jobject self = usr->self;
 
     bool isAttached = false;
     JavaVM *vm = I->jvm;
@@ -137,12 +144,15 @@ JNIEXPORT jint JNICALL Java_zcm_zcm_ZCMJNI_subscribe
 {
     Internal *I = getNativePtr(env, self);
     assert(I);
-    I->self = (*env)->NewGlobalRef(env, zcmObjJ);
+    // XXX: Should delete usr and call DeleteGlobalRef on an unsubscribe call
+    SubscriptionUsr* usr = malloc(sizeof(SubscriptionUsr));
+    usr->self = (*env)->NewGlobalRef(env, zcmObjJ);
+    usr->I = I;
 
     const char *channel = (*env)->GetStringUTFChars(env, channelJ, 0);
 
     // XXX: need to handle the subscription type returned from subscribe
-    zcm_subscribe(I->zcm, channel, handler, (void*)I);
+    zcm_subscribe(I->zcm, channel, handler, (void*)usr);
 
     (*env)->ReleaseStringUTFChars(env, channelJ, channel);
     return 0;
