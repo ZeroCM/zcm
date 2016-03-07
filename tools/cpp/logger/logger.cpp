@@ -22,21 +22,13 @@
 #include "util/FileUtil.hpp"
 #include "util/TimeUtil.hpp"
 #include "util/Types.hpp"
+#include "Debug.hpp"
 
 using namespace std;
 
 #include "platform.hpp"
 
-Logger logger{};
-
 static atomic_int done {0};
-
-void sighandler(int signal)
-{
-    done++;
-    logger.wakeup();
-    if (done == 3) exit(1);
-}
 
 struct Args
 {
@@ -329,6 +321,7 @@ struct Logger
     void flushWhenReady()
     {
         zcm_eventlog_event_t *le = nullptr;
+        size_t qSize = 0;
         {
             unique_lock<mutex> lock{lk};
 
@@ -336,12 +329,14 @@ struct Logger
                 if (done) return;
                 newEventCond.wait(lock);
             }
-
             if (done) return;
 
             le = q.front();
             q.pop();
+            qSize = q.size();
         }
+        if (qSize != 0)
+            DEBUG(1, "Queue size = %lu\n", qSize);
 
         // Is it time to start a new logfile?
         if (args.auto_split_mb) {
@@ -363,11 +358,11 @@ struct Logger
             static u64 last_spew_utime = 0;
             string reason = strerror(errno);
             u64 now = TimeUtil::utime();
-            if(now - last_spew_utime > 500000) {
+            if (now - last_spew_utime > 500000) {
                 fprintf(stderr, "zcm_eventlog_write_event: %s\n", reason.c_str());
                 last_spew_utime = now;
             }
-            if(errno == ENOSPC)
+            if (errno == ENOSPC)
                 exit(1);
 
             delete[] le->channel;
@@ -415,6 +410,15 @@ struct Logger
         newEventCond.notify_all();
     }
 };
+
+Logger logger{};
+
+void sighandler(int signal)
+{
+    done++;
+    logger.wakeup();
+    if (done == 3) exit(1);
+}
 
 static void usage()
 {
@@ -472,6 +476,7 @@ static void usage()
 
 int main(int argc, char *argv[])
 {
+    DEBUG_INIT();
     Platform::setstreambuf();
 
     if (!logger.init(argc, argv)) {
