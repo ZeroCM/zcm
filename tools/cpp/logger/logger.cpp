@@ -17,12 +17,12 @@
 
 #include "zcm/zcm.h"
 #include "zcm/eventlog.h"
+#include "zcm/util/debug.h"
 
 #include <string>
 #include "util/FileUtil.hpp"
 #include "util/TimeUtil.hpp"
 #include "util/Types.hpp"
-#include "Debug.hpp"
 
 using namespace std;
 
@@ -42,13 +42,14 @@ struct Args
     bool invert_channels   = false;
     int rotate             = -1;
     int fflush_interval_ms = 100;
+    long max_target_memory = 0;
 
     string input_fname;
 
     bool parse(int argc, char *argv[])
     {
         // set some defaults
-        const char *optstring = "hb:c:fi:u:r:s:qvl:";
+        const char *optstring = "hb:c:fi:u:r:s:qvl:m:";
         struct option long_opts[] = {
             { "help", no_argument, 0, 'h' },
             { "split-mb", required_argument, 0, 'b' },
@@ -61,6 +62,7 @@ struct Args
             { "quiet", no_argument, 0, 'q' },
             { "invert-channels", no_argument, 0, 'v' },
             { "flush-interval", required_argument, 0, 'l'},
+            { "max-target-memory", required_argument, 0, 'm'},
             { 0, 0, 0, 0 }
         };
 
@@ -103,6 +105,9 @@ struct Args
                     fflush_interval_ms = atol(optarg);
                     if (fflush_interval_ms <= 0)
                         return false;
+                    break;
+                case 'm':
+                    max_target_memory = atol(optarg);
                     break;
                 case 'h':
                 default:
@@ -162,6 +167,8 @@ struct Logger
     size_t last_drop_report_count   = 0;
 
     int num_splits                  = 0;
+
+    long totalMemoryUsage = 0;
 
     mutex lk;
     condition_variable newEventCond;
@@ -286,11 +293,6 @@ struct Logger
             perror("Error: fopen failed");
             return false;
         }
-        FILE* fp = zcm_eventlog_get_fileptr(log);
-        if (setvbuf(fp, NULL, _IOFBF, 0) != 0) {
-            perror("Error: Unable to set file buffer mode to fully buffered.");
-            return false;
-        }
         return true;
     }
 
@@ -306,19 +308,35 @@ struct Logger
                 return;
         }
 
-        zcm_eventlog_event_t *le = new zcm_eventlog_event_t();
-        le->timestamp = rbuf->recv_utime;
-        le->channellen = strlen(channel);
-        le->datalen = rbuf->data_size;
-        le->channel = new char[le->channellen + 1];
-        le->channel[le->channellen] = '\0'; // terminate the cstr with null char
-        memcpy(le->channel, channel, sizeof(char) * le->channellen);
-        le->data = new char[rbuf->data_size];
-        memcpy(le->data, rbuf->data, sizeof(char) * rbuf->data_size);
+        bool stillRoom;
+        {
+            unique_lock<mutex> lock{lk};
+            stillRoom = (args.max_target_memory == 0) ? true :
+                (totalMemoryUsage + rbuf->data_size < args.max_target_memory);
+        }
+
+        zcm_eventlog_event_t *le;
+        if (stillRoom) {
+            le = new zcm_eventlog_event_t();
+            le->timestamp = rbuf->recv_utime;
+            le->channellen = strlen(channel);
+            le->datalen = rbuf->data_size;
+            le->channel = new char[le->channellen + 1];
+            le->channel[le->channellen] = '\0'; // terminate the cstr with null char
+            memcpy(le->channel, channel, sizeof(char) * le->channellen);
+            le->data = new char[rbuf->data_size];
+            memcpy(le->data, rbuf->data, sizeof(char) * rbuf->data_size);
+        }
 
         {
             unique_lock<mutex> lock{lk};
-            q.push(le);
+            if (stillRoom) {
+                q.push(le);
+                totalMemoryUsage += le->datalen + le->channellen + sizeof(zcm_eventlog_event_t);
+            } else {
+                ZCM_DEBUG("Dropping message due to enforced memory constraints");
+                ZCM_DEBUG("Current memory estimations are at %lu bytes", totalMemoryUsage);
+            }
         }
         newEventCond.notify_all();
     }
@@ -339,9 +357,10 @@ struct Logger
             le = q.front();
             q.pop();
             qSize = q.size();
+            totalMemoryUsage -= (le->datalen + le->channellen + sizeof(zcm_eventlog_event_t));
         }
         if (qSize != 0)
-            DEBUG(1, "Queue size = %lu\n", qSize);
+            ZCM_DEBUG("Queue size = %lu\n", qSize);
 
         // Is it time to start a new logfile?
         if (args.auto_split_mb) {
@@ -377,7 +396,7 @@ struct Logger
         }
 
         if (args.fflush_interval_ms >= 0 &&
-            (le->timestamp - last_fflush_time) > (u64)args.fflush_interval_ms*1000) {
+            (le->timestamp - last_fflush_time) > (u64)args.fflush_interval_ms * 1000) {
             Platform::fflush(zcm_eventlog_get_fileptr(log));
             last_fflush_time = le->timestamp;
         }
@@ -464,6 +483,11 @@ static void usage()
             "  -s, --strftime             Format FILE with strftime.\n"
             "  -v, --invert-channels      Invert channels.  Log everything that CHAN\n"
             "                             does not match.\n"
+            "  -m, --max-target-memory    Attempt to limit the total buffer usage to this amount of\n"
+            "                             memory. If specified, ensure that this number is at least\n"
+            "                             as large as the maximum message size you expect to receive.\n"
+            "                             This argument is specified in bytes. Suffices are not yet \n"
+            "                             supported yet."
             "\n"
             "Rotating / splitting log files\n"
             "==============================\n"
@@ -481,7 +505,6 @@ static void usage()
 
 int main(int argc, char *argv[])
 {
-    DEBUG_INIT();
     Platform::setstreambuf();
 
     if (!logger.init(argc, argv)) {
@@ -506,9 +529,8 @@ int main(int argc, char *argv[])
 
     zcm_start(zcm);
 
-    while (!done) {
+    while (!done)
         logger.flushWhenReady();
-    }
 
     zcm_stop(zcm);
     zcm_flush(zcm);
