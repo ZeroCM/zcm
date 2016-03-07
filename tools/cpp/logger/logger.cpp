@@ -286,6 +286,11 @@ struct Logger
             perror("Error: fopen failed");
             return false;
         }
+        FILE* fp = zcm_eventlog_get_fileptr(log);
+        if (setvbuf(fp, NULL, _IOFBF, 0) != 0) {
+            perror("Error: Unable to set file buffer mode to fully buffered.");
+            return false;
+        }
         return true;
     }
 
