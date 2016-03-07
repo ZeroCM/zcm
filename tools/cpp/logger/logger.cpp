@@ -515,8 +515,14 @@ int main(int argc, char *argv[])
     // begin logging
     zcm_t *zcm = zcm_create(logger.args.zcmurl == "" ? nullptr : logger.args.zcmurl.c_str());
     if (!zcm) {
-        fprintf(stderr, "Couldn't initialize ZCM! Try providing a URL with the "
-                        "-u opt or setting the ZCM_DEFAULT_URL envvar\n");
+        fprintf(stderr, "Couldn't initialize ZCM!\n");
+        if (logger.args.zcmurl != "") {
+            fprintf(stderr, "Unable to parse url: %s\n", logger.args.zcmurl.c_str());
+            fprintf(stderr, "Try running with ZCM_DEBUG=1 for more info\n");
+        } else {
+            fprintf(stderr, "Please provide a valid zcm url either with the ZCM_DEFAULT_URL\n"
+                            "environment variable, or with the '-u' command line argument.\n");
+        }
         return 1;
     }
 
