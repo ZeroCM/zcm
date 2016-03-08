@@ -155,7 +155,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         if (diff > 0)
             usleep(diff);
 
-        lastDispatchUtime = now;
+        lastDispatchUtime = TimeUtil::utime();
         lastMsgUtime = msg->utime;
 
         return ZCM_EOK;
