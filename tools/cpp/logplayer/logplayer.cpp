@@ -1,14 +1,18 @@
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <getopt.h>
 
-#include <zcm/zcm.h>
+#include <zcm/zcm-cpp.hpp>
+
+using namespace std;
 
 struct Args
 {
     double speed = 1.0;
     bool verbose = false;
     string zcmUrlOut = "";
+    string filename = "";
     string zcmUrlIn = "";
 
     bool init(int argc, char *argv[])
@@ -21,6 +25,7 @@ struct Args
             { 0, 0, 0, 0 }
         };
 
+        int c;
         while ((c = getopt_long(argc, argv, "hs:vu:", long_opts, 0)) >= 0)
         {
             switch (c) {
@@ -35,23 +40,25 @@ struct Args
                     break;
                 case 'h':
                 default:
-                    usage (argv[0]);
                     return false;
             };
         }
 
         if (optind != argc - 1) {
-            usage (argv[0]);
+            cerr << "Please specify a logfile" << endl;
             return false;
         }
 
-        string filename = string(argv[optind]);
+        filename = string(argv[optind]);
 
-        zcmUrlIn = string("file://") + filename + string("?speed=") + speed;
+        std::stringstream ss;
+        ss << "file://" << filename << "?speed=" << speed;
+        zcmUrlIn = ss.str();
+
+        return true;
     }
-}
+};
 
-typedef struct logplayer logplayer_t;
 struct LogPlayer
 {
     Args args;
@@ -71,61 +78,64 @@ struct LogPlayer
         if (!args.init(argc, argv))
             return false;
 
-        printf("Using playback speed %f\n", args.speed);
+        cout << "Using playback speed " << args.speed << endl;
 
         zcmIn = new zcm::ZCM(args.zcmUrlIn);
-        if (!zcmIn.good()) {
-            fprintf(stderr, "Error: Failed to open %s\n", file);
+        if (!zcmIn->good()) {
+            cerr << "Error: Failed to open '" << args.filename << "'" << endl;
             return false;
         }
 
         zcmOut = new zcm::ZCM(args.zcmUrlOut);
-        if (!zcmOut.good()) {
+        if (!zcmOut->good()) {
             fprintf(stderr, "Error: Failed to create output ZCM\n");
             return false;
         }
+
+        return true;
     }
 
     void run()
     {
-        zcmIn.subscribe(".*", &handler, this);
+        zcmIn->subscribe(".*", &handler, this);
 
-        zcmIn.run();
+        zcmIn->run();
 
         delete zcmIn;
         delete zcmOut;
     }
 
-    static void handler(const zcm_recv_buf_t *rbuf, const char *channel, void *usr)
+    static void handler(const zcm::ReceiveBuffer *rbuf, const string& channel, void *usr)
     {
-        LogPlayer* lp = (LogPlayer *) u;
-        if (lp->verbose)
-            printf ("%.3f Channel %-20s size %d\n", rbuf->recv_utime / 1000000.0,
-                    channel, rbuf->data_size);
-        zcm_publish(lp->zcmOut, channel, rbuf->data, rbuf->data_size);
+        LogPlayer* lp = (LogPlayer *) usr;
+        if (lp->args.verbose)
+            printf("%.3f Channel %-20s size %d\n", rbuf->recv_utime / 1000000.0,
+                    channel.c_str(), rbuf->data_size);
+       lp->zcmOut->publish(channel, rbuf->data, rbuf->data_size);
     }
 };
 
-static void usage (char * cmd)
+void usage(char * cmd)
 {
-    fprintf (stderr, "\
-Usage: %s [OPTION...] FILE\n\
-  Reads packets from an ZCM log file and publishes them to ZCM.\n\
-\n\
-Options:\n\
-  -v, --verbose       Print information about each packet.\n\
-  -s, --speed=NUM     Playback speed multiplier.  Default is 1.0.\n\
-  -u, --zcm-url=URL   Play logged messages on the specified ZCM URL.\n\
-  -h, --help          Shows some help text and exits.\n\
-  \n", cmd);
+    fprintf(stderr, "usage: zcm-logplayer [options] [FILE]\n"
+            "\n"
+            "    Reads packets from an ZCM log file and publishes them to a \n"
+            "    ZCM transport.\n"
+            "\n"
+            "Options:\n"
+            "\n"
+            "  -s, --speed=NUM     Playback speed multiplier.  Default is 1.\n"
+            "  -u, --zcm-url=URL   Play logged messages on the specified ZCM URL.\n"
+            "  -v, --verbose       Print information about each packet.\n"
+            "  -h, --help          Shows some help text and exits.\n"
+            "\n");
 }
 
-int
-main(int argc, char* argv[])
+int main(int argc, char* argv[])
 {
     LogPlayer lp;
     if (!lp.init(argc, argv)) {
-        cerr << "Unable to initialize zcm-logplayer" << endl;
+        usage(argv[0]);
         return 1;
     }
 
