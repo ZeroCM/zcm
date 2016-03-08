@@ -28,9 +28,10 @@ def add_zcm_configure_options(ctx):
     def add_trans_option(name, desc):
         gr.add_option('--use-'+name, dest='use_'+name, default=False, action='store_true', help=desc)
 
-    add_use_option('all',  'Attempt to enable every ZCM feature')
-    add_use_option('java', 'Enable java features')
-    add_use_option('zmq',  'Enable ZeroMQ features')
+    add_use_option('all',    'Attempt to enable every ZCM feature')
+    add_use_option('java',   'Enable java features')
+    add_use_option('nodejs', 'Enable nodejs features')
+    add_use_option('zmq',    'Enable ZeroMQ features')
 
     add_trans_option('inproc', 'Enable the In-Process transport (Requires ZeroMQ)')
     add_trans_option('ipc',    'Enable the IPC transport (Requires ZeroMQ)')
@@ -61,9 +62,10 @@ def process_zcm_configure_options(ctx):
 
     env.VERSION='1.0.0'
 
-    env.USING_CPP  = True
-    env.USING_JAVA = hasopt('use_java') and attempt_use_java(ctx)
-    env.USING_ZMQ  = hasopt('use_zmq')  and attempt_use_zmq(ctx)
+    env.USING_CPP    = True
+    env.USING_JAVA   = hasopt('use_java') and attempt_use_java(ctx)
+    env.USING_NODEJS = hasopt('use_nodejs') and attempt_use_nodejs(ctx)
+    env.USING_ZMQ    = hasopt('use_zmq')  and attempt_use_zmq(ctx)
 
     env.USING_TRANS_IPC    = hasopt('use_ipc')
     env.USING_TRANS_INPROC = hasopt('use_inproc')
@@ -84,6 +86,7 @@ def process_zcm_configure_options(ctx):
     Logs.pprint('BLUE', '\nDependency Configuration:')
     print_entry("C/C++",  env.USING_CPP)
     print_entry("Java",   env.USING_JAVA)
+    print_entry("NodeJs", env.USING_NODEJS)
     print_entry("ZeroMQ", env.USING_ZMQ)
 
     Logs.pprint('BLUE', '\nTransport Configuration:')
@@ -97,6 +100,14 @@ def process_zcm_configure_options(ctx):
 def attempt_use_java(ctx):
     ctx.load('java')
     ctx.check_jni_headers()
+    return True
+
+def attempt_use_nodejs(ctx):
+    # nodejs isn't really required for build, but it felt weird to leave it
+    # out since the user is expecting zcm to build for nodejs. It will
+    # technically build, but you wont be able to run it without the nodejs package
+    ctx.find_program('nodejs', var='NODEJS',  mandatory=True)
+    ctx.find_program('npm',    var='NPM',     mandatory=True)
     return True
 
 def attempt_use_zmq(ctx):
