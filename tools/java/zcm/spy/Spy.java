@@ -440,7 +440,7 @@ public class Spy
         System.err.println("unrecognized messages.");
         System.err.println("");
         System.err.println("Options:");
-        System.err.println("  -l, --zcm-url=URL      Use the specified ZCM URL");
+        System.err.println("  -u, --zcm-url=URL      Use the specified ZCM URL");
         System.err.println("  -h, --help             Shows this help text and exits");
         System.err.println("");
         System.exit(1);
@@ -459,7 +459,7 @@ public class Spy
             String c = args[optind];
             if(c.equals("-h") || c.equals("--help")) {
                 usage();
-            } else if(c.equals("-l") || c.equals("--zcm-url") || c.startsWith("--zcm-url=")) {
+            } else if(c.equals("-u") || c.equals("--zcm-url") || c.startsWith("--zcm-url=")) {
                 String optarg = null;
                 if(c.startsWith("--zcm-url=")) {
                     optarg=c.substring(10);
