@@ -413,8 +413,8 @@ struct Logger
 
             double tps =  events_since_last_report / dt;
             double kbps = (logsize - last_report_logsize) / dt / 1024.0;
-            printf("Summary: %s ti:%4" PRId64 "sec Events: %-9zu ( %4zu MB )    "
-                   "TPS: %8.2f    KB/s: %8.2f    Buf Size: %" PRId64 "KB\n",
+            printf("Summary: %s ti:%4" PRId64 " sec  |  Events: %-9zu ( %4zu MB )  |  "
+                   "TPS: %8.2f  |  KB/s: %8.2f  |  Buf Size: % 8" PRId64 " KB\n",
                    filename.c_str(),
                    offset_utime / 1000000,
                    nevents, logsize/1048576,
