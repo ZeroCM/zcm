@@ -8,10 +8,11 @@
 
 // Define this the class name you want
 //#define ZCM_TRANS_NAME YourClassNameHere
+//#define MTU (SSIZE_MAX)
 
 struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 {
-    ZCM_TRANS_CLASSNAME(/* Add any methods here */)
+    ZCM_TRANS_CLASSNAME(/* Add any args here (e.g. 'const char* url' */)
     {
         vtbl = &methods;
     }
@@ -96,12 +97,12 @@ zcm_trans_methods_t ZCM_TRANS_CLASSNAME::methods = {
 };
 
 /** Add a create method here and initialize the register, like this:
-static zcm_trans_t *createTransName()
+static zcm_trans_t *create()
 {
     return new ZCM_TRANS_CLASSNAME();
 }
 
-const TransportRegister ZCM_TRANS_CLASSNAME::regIpc(
-    "TransName", "Trans description (especially url components)", createTransName);
+const TransportRegister ZCM_TRANS_CLASSNAME::reg(
+    "TransName", "Trans description (especially url components)", create);
 **/
 

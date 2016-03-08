@@ -2,10 +2,20 @@
 #include <sstream>
 #include <string>
 #include <getopt.h>
+#include <atomic>
+#include <signal.h>
 
 #include <zcm/zcm-cpp.hpp>
 
 using namespace std;
+
+static atomic_int done {0};
+
+static void sighandler(int signal)
+{
+    done++;
+    if (done == 3) exit(1);
+}
 
 struct Args
 {
@@ -78,19 +88,23 @@ struct LogPlayer
         if (!args.init(argc, argv))
             return false;
 
-        cout << "Using playback speed " << args.speed << endl;
-
         zcmIn = new zcm::ZCM(args.zcmUrlIn);
         if (!zcmIn->good()) {
             cerr << "Error: Failed to open '" << args.filename << "'" << endl;
             return false;
         }
 
-        zcmOut = new zcm::ZCM(args.zcmUrlOut);
+        if (args.zcmUrlOut == "") {
+            zcmOut = new zcm::ZCM();
+        } else {
+            zcmOut = new zcm::ZCM(args.zcmUrlOut);
+        }
         if (!zcmOut->good()) {
             fprintf(stderr, "Error: Failed to create output ZCM\n");
             return false;
         }
+
+        cout << "Using playback speed " << args.speed << endl;
 
         return true;
     }
@@ -99,10 +113,11 @@ struct LogPlayer
     {
         zcmIn->subscribe(".*", &handler, this);
 
-        zcmIn->run();
+        zcmIn->start();
 
-        delete zcmIn;
-        delete zcmOut;
+        while (!done) usleep(1e6);
+
+        zcmIn->stop();
     }
 
     static void handler(const zcm::ReceiveBuffer *rbuf, const string& channel, void *usr)
@@ -139,5 +154,14 @@ int main(int argc, char* argv[])
         return 1;
     }
 
+    // Register signal handlers
+    signal(SIGINT, sighandler);
+    signal(SIGQUIT, sighandler);
+    signal(SIGTERM, sighandler);
+
     lp.run();
+
+    fprintf(stdout, "zcm-logplayer exiting\n");
+
+    return 0;
 }
