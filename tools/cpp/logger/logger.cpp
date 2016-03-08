@@ -345,6 +345,7 @@ struct Logger
     {
         zcm_eventlog_event_t *le = nullptr;
         size_t qSize = 0;
+        i64 memUsed = 0;
         {
             unique_lock<mutex> lock{lk};
 
@@ -357,6 +358,7 @@ struct Logger
             le = q.front();
             q.pop();
             qSize = q.size();
+            memUsed = totalMemoryUsage; // want to capture the max mem used, not post flush
             totalMemoryUsage -= (le->datalen + le->channellen + sizeof(zcm_eventlog_event_t));
         }
         if (qSize != 0) ZCM_DEBUG("Queue size = %zu\n", qSize);
@@ -411,12 +413,12 @@ struct Logger
 
             double tps =  events_since_last_report / dt;
             double kbps = (logsize - last_report_logsize) / dt / 1024.0;
-            printf("Summary: %s ti:%4" PRIi64 "sec Events: %-9zu ( %4zu MB )      "
-                   "TPS: %8.2f       KB/s: %8.2f\n",
+            printf("Summary: %s ti:%4" PRId64 "sec Events: %-9zu ( %4zu MB )    "
+                   "TPS: %8.2f    KB/s: %8.2f    Buf Size: %" PRId64 "KB\n",
                    filename.c_str(),
                    offset_utime / 1000000,
                    nevents, logsize/1048576,
-                   tps, kbps);
+                   tps, kbps, memUsed / 1024);
             last_report_time = offset_utime;
             events_since_last_report = 0;
             last_report_logsize = logsize;
