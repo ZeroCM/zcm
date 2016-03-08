@@ -518,8 +518,8 @@ static zcm_trans_t *createUdpm(zcm_url_t *url)
     auto *opts = zcm_url_opts(url);
     auto *ttl = optFind(opts, "ttl");
     if (!ttl) {
-        ZCM_DEBUG("No ttl!");
-        return nullptr;
+        ZCM_DEBUG("No ttl specified. Using default ttl=0");
+        ttl = "0";
     }
     size_t recv_buf_size = 1024;
     auto *trans = new ZCM_TRANS_CLASSNAME(address, atoi(port.c_str()), recv_buf_size, atoi(ttl));
