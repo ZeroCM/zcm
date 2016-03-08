@@ -32,17 +32,17 @@ static atomic_int done {0};
 
 struct Args
 {
-    double auto_split_mb   = 0.0;
-    bool force_overwrite   = false;
-    string chan            = ".*";
-    bool auto_increment    = false;
-    bool use_strftime      = false;
-    string zcmurl          = "";
-    bool quiet             = false;
-    bool invert_channels   = false;
-    int rotate             = -1;
-    int fflush_interval_ms = 100;
-    long max_target_memory = 0;
+    double auto_split_mb      = 0.0;
+    bool   force_overwrite    = false;
+    string chan               = ".*";
+    bool   auto_increment     = false;
+    bool   use_strftime       = false;
+    string zcmurl             = "";
+    bool   quiet              = false;
+    bool   invert_channels    = false;
+    int    rotate             = -1;
+    int    fflush_interval_ms = 100;
+    i64    max_target_memory  = 0;
 
     string input_fname;
 
@@ -107,7 +107,7 @@ struct Args
                         return false;
                     break;
                 case 'm':
-                    max_target_memory = atol(optarg);
+                    max_target_memory = atoll(optarg);
                     break;
                 case 'h':
                 default:
@@ -166,9 +166,9 @@ struct Logger
     u64    last_drop_report_utime   = 0;
     size_t last_drop_report_count   = 0;
 
-    int num_splits                  = 0;
+    int    num_splits               = 0;
 
-    long totalMemoryUsage = 0;
+    i64    totalMemoryUsage         = 0;
 
     mutex lk;
     condition_variable newEventCond;
@@ -359,8 +359,7 @@ struct Logger
             qSize = q.size();
             totalMemoryUsage -= (le->datalen + le->channellen + sizeof(zcm_eventlog_event_t));
         }
-        if (qSize != 0)
-            ZCM_DEBUG("Queue size = %lu\n", qSize);
+        if (qSize != 0) ZCM_DEBUG("Queue size = %zu\n", qSize);
 
         // Is it time to start a new logfile?
         if (args.auto_split_mb) {
