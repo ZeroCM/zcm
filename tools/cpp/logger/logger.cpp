@@ -335,7 +335,7 @@ struct Logger
                 totalMemoryUsage += le->datalen + le->channellen + sizeof(zcm_eventlog_event_t);
             } else {
                 ZCM_DEBUG("Dropping message due to enforced memory constraints");
-                ZCM_DEBUG("Current memory estimations are at %lu bytes", totalMemoryUsage);
+                ZCM_DEBUG("Current memory estimations are at %" PRId64 " bytes", totalMemoryUsage);
             }
         }
         newEventCond.notify_all();
