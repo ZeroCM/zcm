@@ -966,7 +966,7 @@ public class LogPlayer extends JComponent
         System.err.println("speeds, channel suppression and remapping, and more.");
         System.err.println("");
         System.err.println("Options:");
-        System.err.println("  -l, --zcm-url=URL      Use the specified ZCM URL");
+        System.err.println("  -u, --zcm-url=URL      Use the specified ZCM URL");
         System.err.println("  -p, --paused           Start with the log paused.");
         System.err.println("  -f, --filter=CHAN      Disable channels that match the regex in CHAN.");
         System.err.println("                         (default: \"\")");
@@ -998,7 +998,8 @@ public class LogPlayer extends JComponent
             if(c.equals("-h") || c.equals("--help")) {
                 usage();
             } else if (c.equals("-p") || c.equals("--paused")){
-            } else if (c.equals("-l") || c.equals("--zcm-url") || c.startsWith("--zcm-url=")){
+                startPaused = true;
+            } else if (c.equals("-u") || c.equals("--zcm-url") || c.startsWith("--zcm-url=")){
             	String optarg = null;
                 if(c.startsWith("--zcm-url=")) {
                     optarg=c.split("=")[1];
