@@ -224,7 +224,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         int baud = 0;
         auto *baudStr = findOption("baud");
         if (!baudStr) {
-            ZCM_DEBUG("Baud unspecified. Baud set to default 0");
+            fprintf(stderr, "Baud unspecified. Bypassing serial baud setup.\n");
         } else {
             baud = atoi(baudStr->c_str());
             if (baud == 0) {
