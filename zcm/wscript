@@ -38,7 +38,8 @@ def build(ctx):
     if ctx.env.USING_JAVA:
         ctx.recurse('java');
 
-    ctx.recurse('js');
+    if ctx.env.USING_NODEJS:
+        ctx.recurse('js');
 
 def exec_test_embedded(tsk):
     src = tsk.inputs[0].abspath()
