@@ -59,8 +59,11 @@ struct Serial
 
 bool Serial::open(const string& port_, int baud)
 {
-    if (!baudIsValid(baud))
+    if (baud == 0) {
+        fprintf(stderr, "Serial baud rate not specified in url. Proceeding without setting baud\n");
+    } else if (!baudIsValid(baud)) {
         return false;
+    }
 
     if (!lockfile_trylock(port_.c_str())) {
         ZCM_DEBUG("failed to create lock file, refusing to open serial device (%s)", port_.c_str());
@@ -89,8 +92,10 @@ bool Serial::open(const string& port_, int baud)
         goto fail;
     }
 
-    cfsetispeed(&opts, baud);
-    cfsetospeed(&opts, baud);
+    if (baud != 0) {
+        cfsetispeed(&opts, baud);
+        cfsetospeed(&opts, baud);
+    }
     cfmakeraw(&opts);
 
     opts.c_cflag &= ~CSTOPB;
@@ -216,16 +221,16 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         for (size_t i = 0; i < opts->numopts; i++)
             options[opts->name[i]] = opts->value[i];
 
+        int baud = 0;
         auto *baudStr = findOption("baud");
         if (!baudStr) {
-            ZCM_DEBUG("requires a 'baud' argument");
-            return;
-        }
-
-        int baud = atoi(baudStr->c_str());
-        if (baud == 0) {
-            ZCM_DEBUG("expected integer argument for 'baud'");
-            return;
+            fprintf(stderr, "Baud unspecified. Bypassing serial baud setup.\n");
+        } else {
+            baud = atoi(baudStr->c_str());
+            if (baud == 0) {
+                ZCM_DEBUG("expected integer argument for 'baud'");
+                return;
+            }
         }
 
         auto address = zcm_url_address(url);
