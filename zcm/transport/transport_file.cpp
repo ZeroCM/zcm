@@ -29,6 +29,9 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     string mode = "r";
     double speed = 1.0;
 
+    u64 lastMsgUtime = 0;
+    u64 lastDispatchUtime = 0;
+
     string *findOption(const string& s)
     {
         auto it = options.find(s);
@@ -124,9 +127,6 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             return ZCM_ECONNECT;
         }
 
-        static u64 lastMsgUtime = 0;
-        static u64 lastDispatchUtime = 0;
-
         const zcm::LogEvent* le = log->readNextEvent();
         if (!le) {
             delete log;
@@ -184,7 +184,6 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     static void _destroy(zcm_trans_t *zt)
     { delete cast(zt); }
 
-    /** If you choose to use the registrar, use a static registration member **/
     static const TransportRegister reg;
 };
 
