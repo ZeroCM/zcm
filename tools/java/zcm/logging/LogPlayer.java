@@ -203,7 +203,7 @@ public class LogPlayer extends JComponent
     	invertFilteredPattern = true;
     }
 
-    public LogPlayer() throws IOException
+    public LogPlayer(String zcmurl) throws IOException
     {
         setLayout(new GridBagLayout());
         GridBagConstraints gbc = new GridBagConstraints();
@@ -214,7 +214,7 @@ public class LogPlayer extends JComponent
         Insets insets = new Insets(0,0,0,0);
         int row = 0;
 
-        logName.setText("No log loaded");
+        logName.setText("Double click to load log");
         logName.setFont(new Font("SansSerif", Font.PLAIN, 10));
 
         timeLabel.setFont(new Font("SansSerif", Font.PLAIN, 10));
@@ -331,7 +331,7 @@ public class LogPlayer extends JComponent
             }
 	    });
 
-        zcm = new ZCM();
+        zcm = new ZCM(zcmurl);
 
         logName.addMouseListener(new MouseAdapter() {
             public void mouseClicked(MouseEvent e) {
@@ -349,7 +349,12 @@ public class LogPlayer extends JComponent
         js.addScrubberListener(new MyScrubberListener());
 
         filterTable.getColumnModel().getColumn(2).setMaxWidth(50);
+
         playButton.setEnabled(false);
+        stepButton.setEnabled(false);
+        fasterButton.setEnabled(false);
+        slowerButton.setEnabled(false);
+        js.setEnabled(false);
 
         new UDPThread().start();
         new QueueThread().start();
@@ -613,6 +618,10 @@ public class LogPlayer extends JComponent
             Log.Event e = log.readNext();
             timeOffset = e.utime;
             playButton.setEnabled(true);
+            stepButton.setEnabled(true);
+            fasterButton.setEnabled(true);
+            slowerButton.setEnabled(true);
+            js.setEnabled(true);
 
             log.seekPositionFraction(.10);
             Log.Event e10 = log.readNext();
@@ -748,7 +757,7 @@ public class LogPlayer extends JComponent
             this.stopOnChannel = stopOnChannel;
         }
 
-        public void requestStop()
+        public synchronized void requestStop()
         {
             stopflag = true;
         }
@@ -768,8 +777,12 @@ public class LogPlayer extends JComponent
             }
 
             try {
-                while (!stopflag)
+                while (true)
                 {
+                    synchronized(this) {
+                        if (stopflag) break;
+                    }
+
                     Log.Event e = log.readNext();
 
                     if (speed != lastspeed) {
@@ -830,12 +843,14 @@ public class LogPlayer extends JComponent
                     // the stop flag before we blindly proceed.
                     // (This ameliorates but does not solve an
                     // intrinsic race condition)
-                    if (stopflag)
-                        break;
+                    synchronized (this) {
+                        if (stopflag)
+                            break;
+                    }
 
                     Filter f = filterMap.get(e.channel);
                     if (f == null) {
-                    	f = addChannelFilter(e.channel, !invertFilteredPattern);
+                    	f = addChannelFilter(new String(e.channel), !invertFilteredPattern);
                     }
 
                     if (f.enabled && f.outchannel.length() > 0)
@@ -941,8 +956,6 @@ public class LogPlayer extends JComponent
         }
     }
 
-    static LogPlayer p;
-
     public static void usage()
     {
         System.err.println("usage: zcm-logplayer-gui [options] [log-name]");
@@ -953,7 +966,7 @@ public class LogPlayer extends JComponent
         System.err.println("speeds, channel suppression and remapping, and more.");
         System.err.println("");
         System.err.println("Options:");
-        System.err.println("  -l, --zcm-url=URL      Use the specified ZCM URL");
+        System.err.println("  -u, --zcm-url=URL      Use the specified ZCM URL");
         System.err.println("  -p, --paused           Start with the log paused.");
         System.err.println("  -f, --filter=CHAN      Disable channels that match the regex in CHAN.");
         System.err.println("                         (default: \"\")");
@@ -974,6 +987,7 @@ public class LogPlayer extends JComponent
             System.err.println("         The Sun JRE is recommended.");
         }
 
+        String zcmurl = null;
         String logFile = null;
         boolean startPaused = false;
         int optind;
@@ -984,16 +998,29 @@ public class LogPlayer extends JComponent
             if(c.equals("-h") || c.equals("--help")) {
                 usage();
             } else if (c.equals("-p") || c.equals("--paused")){
-            	startPaused = true;
-            }else if(c.equals("-f") || c.equals("--filter") || c.startsWith("--filter=")) {
+                startPaused = true;
+            } else if (c.equals("-u") || c.equals("--zcm-url") || c.startsWith("--zcm-url=")){
             	String optarg = null;
-                if(c.startsWith("--filter=")) {
+                if(c.startsWith("--zcm-url=")) {
                     optarg=c.split("=")[1];
                 } else if(optind < args.length) {
                     optind++;
                     optarg = args[optind];
                 }
-                if(null == optarg) {
+                if (optarg == null) {
+                    usage();
+                } else {
+                	zcmurl = optarg;
+                }
+            } else if (c.equals("-f") || c.equals("--filter") || c.startsWith("--filter=")) {
+            	String optarg = null;
+                if (c.startsWith("--filter=")) {
+                    optarg=c.split("=")[1];
+                } else if(optind < args.length) {
+                    optind++;
+                    optarg = args[optind];
+                }
+                if (optarg == null) {
                     usage();
                 } else {
                 	channelFilterRegex = optarg;
@@ -1010,7 +1037,7 @@ public class LogPlayer extends JComponent
         }
 
         try {
-            p = new LogPlayer();
+            final LogPlayer p = new LogPlayer(zcmurl);
             f = new JFrame("LogPlayer");
             f.setLayout(new BorderLayout());
             f.add(p, BorderLayout.CENTER);
@@ -1028,12 +1055,13 @@ public class LogPlayer extends JComponent
                     System.exit(0);
                 }});
 
-            if (channelFilterRegex!=null)
+            if (channelFilterRegex != null)
             	p.setChannelFilter(channelFilterRegex);
+
             if (invertChannelFilter)
             	p.invertChannelFilter();
 
-            if (logFile !=null)
+            if (logFile != null)
                 p.setLog(logFile, !startPaused);
             else
                 p.openDialog();
