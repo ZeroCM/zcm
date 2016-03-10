@@ -231,7 +231,7 @@ bool UDPMSocket::waitUntilData(int timeout)
     }
 }
 
-size_t UDPMSocket::recvPacket(Packet *pkt)
+int UDPMSocket::recvPacket(Packet *pkt)
 {
     struct iovec vec;
     vec.iov_base = pkt->buf.data;
@@ -254,7 +254,7 @@ size_t UDPMSocket::recvPacket(Packet *pkt)
     msg.msg_flags = 0;
 #endif
 
-    size_t ret = ::recvmsg(fd, &msg, 0);
+    int ret = ::recvmsg(fd, &msg, 0);
     pkt->fromlen = msg.msg_namelen;
 
     bool got_utime = false;

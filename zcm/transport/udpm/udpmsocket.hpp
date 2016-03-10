@@ -50,7 +50,7 @@ class UDPMSocket
 
     // Returns true when there is a packet available for receiving
     bool waitUntilData(int timeout);
-    size_t recvPacket(Packet *pkt);
+    int recvPacket(Packet *pkt);
 
     ssize_t sendBuffers(const UDPMAddress& dest, const char *a, size_t alen);
     ssize_t sendBuffers(const UDPMAddress& dest, const char *a, size_t alen,

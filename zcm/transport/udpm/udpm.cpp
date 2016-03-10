@@ -87,6 +87,8 @@ struct UDPM
     Message *recvFragment(Packet *pkt, u32 sz);
     Message *readMessage(int timeout);
 
+    Message *m = nullptr;
+
     bool selftest();
     void checkForMessageLoss();
 };
@@ -240,16 +242,16 @@ Message *UDPM::readMessage(int timeout)
         if (!recvfd.waitUntilData(timeout))
             break;
 
-        size_t sz = recvfd.recvPacket(pkt);
+        int sz = recvfd.recvPacket(pkt);
         if (sz < 0) {
             ZCM_DEBUG("udp_read_packet -- recvmsg");
             udp_discarded_bad++;
             continue;
         }
 
-        ZCM_DEBUG("Got packet of size %zu", sz);
+        ZCM_DEBUG("Got packet of size %d", sz);
 
-        if (sz < sizeof(MsgHeaderShort)) {
+        if (sz < (int)sizeof(MsgHeaderShort)) {
             // packet too short to be ZCM
             udp_discarded_bad++;
             continue;
@@ -368,7 +370,6 @@ int UDPM::sendmsg(zcm_msg_t msg)
 
 int UDPM::recvmsg(zcm_msg_t *msg, int timeout)
 {
-    static Message *m = NULL;
     if (m)
         pool.freeMessage(m);
 
@@ -452,13 +453,13 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     }
 
     static size_t _getMtu(zcm_trans_t *zt)
-    { cast(zt); return MTU; }
+    { return MTU; }
 
     static int _sendmsg(zcm_trans_t *zt, zcm_msg_t msg)
     { return cast(zt)->udpm.sendmsg(msg); }
 
     static int _recvmsgEnable(zcm_trans_t *zt, const char *channel, bool enable)
-    { cast(zt); return ZCM_EOK; }
+    { return ZCM_EOK; }
 
     static int _recvmsg(zcm_trans_t *zt, zcm_msg_t *msg, int timeout)
     { return cast(zt)->udpm.recvmsg(msg, timeout); }
