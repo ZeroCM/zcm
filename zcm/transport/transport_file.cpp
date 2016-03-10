@@ -52,11 +52,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         string* speedStr = findOption("speed");
         if (speedStr) {
             speed = atof(speedStr->c_str());
-            // RRR: would be interestion to be able to set a "no wait" speed
-            //      that just flushes messages as fast as possible (maybe for
-            //      something like a csvwriter pipe)
-            // RRR: should probably protect against negative values here
-            if (speed == 0) {
+            if (speed <= 0) {
                 ZCM_DEBUG("Expected double argument for 'speed'");
                 return;
             }
@@ -125,12 +121,9 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     {
         assert(mode == "r");
         if (!good()) {
-            // XXX Not sure what to do here since zcm can't handle a transport
-            //     telling it that it's done
-            // RRR: please clarify a bit, what exactly do you mean by "done"
-            //      done creating the file? done sending the last message?
-            //      what might have to change about the api to make this better?
-            //      (so we can consider it for the future)
+            // XXX Not sure what to do here since this function has no way of
+            //     communicating to the caller that this function shouldn't be
+            //     called anymore
             usleep(1e6);
             return ZCM_ECONNECT;
         }
@@ -139,9 +132,6 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         if (!le) {
             delete log;
             log = nullptr;
-            // RRR: it's a little weird that "haven't opened log" and "log done"
-            //      return the same error code, though given our existing error codes
-            //      not sure what else could be done
             return ZCM_ECONNECT;
         }
 
@@ -163,10 +153,6 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         u64 logDiffSpeed = logDiff / this->speed;
         u64 diff = logDiffSpeed > localDiff ? logDiffSpeed - localDiff : 0;
 
-        // RRR: I get a slight slow down on the reported frequencies of messages when
-        //      using logplayer vs logplayer-gui. You may want to look at the way
-        //      logplayer-gui handles the real time publishing and see if there is a
-        //      better way to get the messages out at the right rate.
         if (diff > 0)
             usleep(diff);
 

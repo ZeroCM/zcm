@@ -94,14 +94,9 @@ struct LogPlayer
             return false;
         }
 
-        if (args.zcmUrlOut == "") {
-            // RRR: it sucks that we have to do this ... we should interpret "" as ZCM_DEFAULT_URL
-            zcmOut = new zcm::ZCM();
-        } else {
-            zcmOut = new zcm::ZCM(args.zcmUrlOut);
-        }
+        zcmOut = new zcm::ZCM(args.zcmUrlOut);
         if (!zcmOut->good()) {
-            fprintf(stderr, "Error: Failed to create output ZCM\n");
+            cerr << "Error: Failed to create output ZCM" << endl;
             return false;
         }
 
@@ -116,9 +111,6 @@ struct LogPlayer
 
         zcmIn->start();
 
-        // RRR: I'd actually advocate for a zcmIn->run() here because that will
-        //      cause the program to exit when the log file ends (though you'll want to be
-        //      sure to call zcmOut->flush before returning
         while (!done) usleep(1e6);
 
         zcmIn->stop();
@@ -128,7 +120,7 @@ struct LogPlayer
     {
         LogPlayer* lp = (LogPlayer *) usr;
         if (lp->args.verbose)
-            printf("%.3f Channel %-20s size %d\n", rbuf->recv_utime / 1000000.0,
+            printf("%.3f Channel %-20s size %d\n", rbuf->recv_utime / 1e6,
                     channel.c_str(), rbuf->data_size);
        lp->zcmOut->publish(channel, rbuf->data, rbuf->data_size);
     }
@@ -136,18 +128,18 @@ struct LogPlayer
 
 void usage(char * cmd)
 {
-    fprintf(stderr, "usage: zcm-logplayer [options] [FILE]\n"
-            "\n"
-            "    Reads packets from an ZCM log file and publishes them to a \n"
-            "    ZCM transport.\n"
-            "\n"
-            "Options:\n"
-            "\n"
-            "  -s, --speed=NUM     Playback speed multiplier.  Default is 1.\n"
-            "  -u, --zcm-url=URL   Play logged messages on the specified ZCM URL.\n"
-            "  -v, --verbose       Print information about each packet.\n"
-            "  -h, --help          Shows some help text and exits.\n"
-            "\n");
+    cerr << "usage: zcm-logplayer [options] [FILE]" << endl
+         << "" << endl
+         << "    Reads packets from an ZCM log file and publishes them to a " << endl
+         << "    ZCM transport." << endl
+         << "" << endl
+         << "Options:" << endl
+         << "" << endl
+         << "  -s, --speed=NUM     Playback speed multiplier.  Default is 1." << endl
+         << "  -u, --zcm-url=URL   Play logged messages on the specified ZCM URL." << endl
+         << "  -v, --verbose       Print information about each packet." << endl
+         << "  -h, --help          Shows some help text and exits." << endl
+         << endl;
 }
 
 int main(int argc, char* argv[])
@@ -165,9 +157,7 @@ int main(int argc, char* argv[])
 
     lp.run();
 
-    // RRR: fair bit of mixing between fprintf and cout / cerr in this file. Unless you're
-    //      dealing with formatting numbers, I'd tend to just stick to the c++ versions.
-    fprintf(stdout, "zcm-logplayer exiting\n");
+    cout << "zcm-logplayer exiting" << endl;
 
     return 0;
 }
