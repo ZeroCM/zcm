@@ -95,6 +95,7 @@ struct LogPlayer
         }
 
         if (args.zcmUrlOut == "") {
+            // RRR: it sucks that we have to do this ... we should interpret "" as ZCM_DEFAULT_URL
             zcmOut = new zcm::ZCM();
         } else {
             zcmOut = new zcm::ZCM(args.zcmUrlOut);
@@ -115,6 +116,9 @@ struct LogPlayer
 
         zcmIn->start();
 
+        // RRR: I'd actually advocate for a zcmIn->run() here because that will
+        //      cause the program to exit when the log file ends (though you'll want to be
+        //      sure to call zcmOut->flush before returning
         while (!done) usleep(1e6);
 
         zcmIn->stop();
@@ -161,6 +165,8 @@ int main(int argc, char* argv[])
 
     lp.run();
 
+    // RRR: fair bit of mixing between fprintf and cout / cerr in this file. Unless you're
+    //      dealing with formatting numbers, I'd tend to just stick to the c++ versions.
     fprintf(stdout, "zcm-logplayer exiting\n");
 
     return 0;
