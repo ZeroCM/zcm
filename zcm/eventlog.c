@@ -20,7 +20,7 @@ zcm_eventlog_t *zcm_eventlog_create(const char *path, const char *mode)
     zcm_eventlog_t *l = (zcm_eventlog_t*) calloc(1, sizeof(zcm_eventlog_t));
 
     l->f = fopen(path, mode);
-    if (l->f == NULL) {
+    if (!l->f) {
         free (l);
         return NULL;
     }

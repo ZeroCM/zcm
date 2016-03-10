@@ -61,7 +61,7 @@ int zcm_init(zcm_t *zcm, const char *url)
 #ifndef ZCM_EMBEDDED
     zcm->err = ZCM_ECONNECT;
     /* If we have no url, try to use the env var */
-    if (!url) {
+    if (!url || url[0] == '\0') {
         url = getenv("ZCM_DEFAULT_URL");
         if (!url) {
             ZCM_DEBUG("failed to determine the URL. You should pass it to the creator or set ZCM_DEFAULT_URL");
