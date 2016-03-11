@@ -23,7 +23,8 @@ using namespace std;
 
 // Define this the class name you want
 #define ZCM_TRANS_CLASSNAME TransportZmqLocal
-#define MTU (1<<20)
+#define MTU (1<<28)
+#define START_BUF_SIZE (1 << 20)
 #define ZMQ_IO_THREADS 1
 #define IPC_NAME_PREFIX "zcm-channel-zmq-ipc-"
 #define IPC_ADDR_PREFIX "ipc:///tmp/" IPC_NAME_PREFIX
@@ -42,7 +43,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     bool recvAllChannels = false;
 
     string recvmsgChannel;
-    char recvmsgBuffer[MTU];
+    size_t recvmsgBufferSize = START_BUF_SIZE; // Start at 1MB but allow it to grow to MTU
+    char* recvmsgBuffer;
 
     // Mutex used to protect 'subsocks' while allowing
     // recvmsgEnable() and recvmsg() to be called
@@ -53,6 +55,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     {
         trans_type = ZCM_BLOCKING;
         vtbl = &methods;
+
+        recvmsgBuffer = new char[recvmsgBufferSize];
 
         ctx = zmq_init(ZMQ_IO_THREADS);
         assert(ctx != nullptr);
@@ -99,6 +103,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         if (rc == -1) {
             ZCM_DEBUG("failed to terminate context: %s", zmq_strerror(errno));
         }
+
+        delete[] recvmsgBuffer;
     }
 
     string getAddress(const string& channel)
@@ -135,7 +141,9 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             return it->second;
         // Before we create a pubsock, we need to acquire the lock file for this
         if (!acquirePubLockfile(channel)) {
-            ZCM_DEBUG("failed to acquire publish lock on %s, are you attempting multiple publishers?", channel.c_str());
+            fprintf(stderr, "Failed to acquire publish lock on %s! "
+                            "Are you attempting multiple publishers?\n",
+                            channel.c_str());
             return nullptr;
         }
         void *sock = zmq_socket(ctx, ZMQ_PUB);
@@ -356,13 +364,26 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             for (size_t i = 0; i < pitems.size(); i++) {
                 auto& p = pitems[i];
                 if (p.revents != 0) {
-                    int rc = zmq_recv(p.socket, recvmsgBuffer, MTU, 0);
+                    // NOTE: zmq_recv can return an integer > the len parameter passed in
+                    //       (in this case recvmsgBufferSize); however, all bytes past
+                    //       len are truncated and not placed in the buffer. This means
+                    //       that you will always lose the first message you get that is
+                    //       larger than recvmsgBufferSize
+                    int rc = zmq_recv(p.socket, recvmsgBuffer, recvmsgBufferSize, 0);
                     if (rc == -1) {
-                        ZCM_DEBUG("zmq_recv failed with: %s", zmq_strerror(errno));
+                        fprintf(stderr, "zmq_recv failed with: %s", zmq_strerror(errno));
                         // XXX: implement error handling, don't just assert
                         assert(0 && "unexpected codepath");
                     }
-                    assert(0 < rc && rc < MTU);
+                    assert(0 < rc);
+                    assert(rc < MTU && "Received message that is bigger than a legally-published message could be");
+                    if (rc > (int)recvmsgBufferSize) {
+                        ZCM_DEBUG("Reallocating recv buffer to handle larger messages. Size is now %d", rc);
+                        recvmsgBufferSize = rc;
+                        delete[] recvmsgBuffer;
+                        recvmsgBuffer = new char[recvmsgBufferSize];
+                        return ZCM_EAGAIN;
+                    }
                     recvmsgChannel = pchannels[i];
                     msg->channel = recvmsgChannel.c_str();
                     msg->len = rc;
