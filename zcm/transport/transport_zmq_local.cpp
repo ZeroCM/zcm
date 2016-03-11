@@ -375,8 +375,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
                         // XXX: implement error handling, don't just assert
                         assert(0 && "unexpected codepath");
                     }
-                    ZCM_DEBUG("Received message that is bigger than a legally-published message could be");
-                    assert(0 < rc && rc < MTU);
+                    assert(0 < rc);
+                    assert(rc < MTU && "Received message that is bigger than a legally-published message could be");
                     if (rc > (int)recvmsgBufferSize) {
                         recvmsgBufferSize = rc;
                         delete[] recvmsgBuffer;
