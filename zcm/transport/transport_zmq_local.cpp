@@ -24,6 +24,7 @@ using namespace std;
 // Define this the class name you want
 #define ZCM_TRANS_CLASSNAME TransportZmqLocal
 #define MTU (1<<28)
+#define START_BUF_SIZE (1 << 20)
 #define ZMQ_IO_THREADS 1
 #define IPC_NAME_PREFIX "zcm-channel-zmq-ipc-"
 #define IPC_ADDR_PREFIX "ipc:///tmp/" IPC_NAME_PREFIX
@@ -42,9 +43,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     bool recvAllChannels = false;
 
     string recvmsgChannel;
-    // RRR: make this another define up by MTU
-    size_t recvmsgBufferSize = (1 << 20); // Start at 1MB but allow it to grow to MTU
-    char *recvmsgBuffer;
+    size_t recvmsgBufferSize = START_BUF_SIZE; // Start at 1MB but allow it to grow to MTU
+    char* recvmsgBuffer;
 
     // Mutex used to protect 'subsocks' while allowing
     // recvmsgEnable() and recvmsg() to be called
@@ -141,7 +141,9 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             return it->second;
         // Before we create a pubsock, we need to acquire the lock file for this
         if (!acquirePubLockfile(channel)) {
-            ZCM_DEBUG("failed to acquire publish lock on %s, are you attempting multiple publishers?", channel.c_str());
+            fprintf(stderr, "Failed to acquire publish lock on %s! "
+                            "Are you attempting multiple publishers?\n",
+                            channel.c_str());
             return nullptr;
         }
         void *sock = zmq_socket(ctx, ZMQ_PUB);
@@ -362,34 +364,25 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             for (size_t i = 0; i < pitems.size(); i++) {
                 auto& p = pitems[i];
                 if (p.revents != 0) {
-                    // RRR: (change to Note when merged) zmq_recv can return an integer
-                    //      > the len parameter passed in (in this case recvmsgBufferSize);
-                    //      however, all bytes passed len are truncated and not placed
-                    //      in the buffer. This means that you will always lose the first
-                    //      message you get that is larger than recvmsgBufferSize
-                    // RRR: I don't think there is any way in zmq to ask it how bit its
-                    //      next message will be ... but not 100% sure
+                    // NOTE: zmq_recv can return an integer > the len parameter passed in
+                    //       (in this case recvmsgBufferSize); however, all bytes past
+                    //       len are truncated and not placed in the buffer. This means
+                    //       that you will always lose the first message you get that is
+                    //       larger than recvmsgBufferSize
                     int rc = zmq_recv(p.socket, recvmsgBuffer, recvmsgBufferSize, 0);
                     if (rc == -1) {
-                        // RRR: since we are asserting might be worth printing this no matter
-                        //      what (not just if the ZCM debug flag is set)
-                        ZCM_DEBUG("zmq_recv failed with: %s", zmq_strerror(errno));
+                        fprintf(stderr, "zmq_recv failed with: %s", zmq_strerror(errno));
                         // XXX: implement error handling, don't just assert
                         assert(0 && "unexpected codepath");
                     }
-                    // RRR: it might be wise to not assert here but instead print debug
-                    //      messages and drop the message
+                    ZCM_DEBUG("Received message that is bigger than a legally-published message could be");
                     assert(0 < rc && rc < MTU);
-                    if (MTU < rc) {
+                    if (rc > (int)recvmsgBufferSize) {
                         recvmsgBufferSize = rc;
-                        // RRR: look into doing a realloc without copying because as stated
-                        //      above, we actually won't be able to decode the message anyway
-                        //      so no point in copying all it's data
-                        recvmsgBuffer = (char*) realloc(recvmsgBuffer, recvmsgBufferSize);
+                        delete[] recvmsgBuffer;
+                        recvmsgBuffer = new char[recvmsgBufferSize];
+                        return ZCM_EAGAIN;
                     }
-                    // RRR: as mentioned above, unless we can figure out a way to correctly
-                    //      get the end of the truncated message, we shouldn't actually return
-                    //      a message here (should actually return an EAGAIN or something)
                     recvmsgChannel = pchannels[i];
                     msg->channel = recvmsgChannel.c_str();
                     msg->len = rc;
