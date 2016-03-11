@@ -23,7 +23,7 @@ using namespace std;
 
 // Define this the class name you want
 #define ZCM_TRANS_CLASSNAME TransportZmqLocal
-#define MTU (1<<20)
+#define MTU (1<<28)
 #define ZMQ_IO_THREADS 1
 #define IPC_NAME_PREFIX "zcm-channel-zmq-ipc-"
 #define IPC_ADDR_PREFIX "ipc:///tmp/" IPC_NAME_PREFIX
@@ -42,7 +42,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     bool recvAllChannels = false;
 
     string recvmsgChannel;
-    char recvmsgBuffer[MTU];
+    size_t recvmsgBufferSize = (1 << 20); // Start at 1MB but allow it to grow to MTU
+    char *recvmsgBuffer;
 
     // Mutex used to protect 'subsocks' while allowing
     // recvmsgEnable() and recvmsg() to be called
@@ -53,6 +54,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     {
         trans_type = ZCM_BLOCKING;
         vtbl = &methods;
+
+        recvmsgBuffer = new char[recvmsgBufferSize];
 
         ctx = zmq_init(ZMQ_IO_THREADS);
         assert(ctx != nullptr);
@@ -99,6 +102,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         if (rc == -1) {
             ZCM_DEBUG("failed to terminate context: %s", zmq_strerror(errno));
         }
+
+        delete[] recvmsgBuffer;
     }
 
     string getAddress(const string& channel)
@@ -356,13 +361,17 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             for (size_t i = 0; i < pitems.size(); i++) {
                 auto& p = pitems[i];
                 if (p.revents != 0) {
-                    int rc = zmq_recv(p.socket, recvmsgBuffer, MTU, 0);
+                    int rc = zmq_recv(p.socket, recvmsgBuffer, recvmsgBufferSize, 0);
                     if (rc == -1) {
                         ZCM_DEBUG("zmq_recv failed with: %s", zmq_strerror(errno));
                         // XXX: implement error handling, don't just assert
                         assert(0 && "unexpected codepath");
                     }
                     assert(0 < rc && rc < MTU);
+                    if (MTU < rc) {
+                        recvmsgBufferSize = rc;
+                        recvmsgBuffer = (char*) realloc(recvmsgBuffer, recvmsgBufferSize);
+                    }
                     recvmsgChannel = pchannels[i];
                     msg->channel = recvmsgChannel.c_str();
                     msg->len = rc;
