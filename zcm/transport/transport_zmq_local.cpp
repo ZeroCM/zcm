@@ -378,6 +378,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
                     assert(0 < rc);
                     assert(rc < MTU && "Received message that is bigger than a legally-published message could be");
                     if (rc > (int)recvmsgBufferSize) {
+                        ZCM_DEBUG("Reallocating recv buffer to handle larger messages. Size is now %d", rc);
                         recvmsgBufferSize = rc;
                         delete[] recvmsgBuffer;
                         recvmsgBuffer = new char[recvmsgBufferSize];
