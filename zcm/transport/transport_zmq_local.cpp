@@ -42,6 +42,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     bool recvAllChannels = false;
 
     string recvmsgChannel;
+    // RRR: make this another define up by MTU
     size_t recvmsgBufferSize = (1 << 20); // Start at 1MB but allow it to grow to MTU
     char *recvmsgBuffer;
 
@@ -361,17 +362,34 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             for (size_t i = 0; i < pitems.size(); i++) {
                 auto& p = pitems[i];
                 if (p.revents != 0) {
+                    // RRR: (change to Note when merged) zmq_recv can return an integer
+                    //      > the len parameter passed in (in this case recvmsgBufferSize);
+                    //      however, all bytes passed len are truncated and not placed
+                    //      in the buffer. This means that you will always lose the first
+                    //      message you get that is larger than recvmsgBufferSize
+                    // RRR: I don't think there is any way in zmq to ask it how bit its
+                    //      next message will be ... but not 100% sure
                     int rc = zmq_recv(p.socket, recvmsgBuffer, recvmsgBufferSize, 0);
                     if (rc == -1) {
+                        // RRR: since we are asserting might be worth printing this no matter
+                        //      what (not just if the ZCM debug flag is set)
                         ZCM_DEBUG("zmq_recv failed with: %s", zmq_strerror(errno));
                         // XXX: implement error handling, don't just assert
                         assert(0 && "unexpected codepath");
                     }
+                    // RRR: it might be wise to not assert here but instead print debug
+                    //      messages and drop the message
                     assert(0 < rc && rc < MTU);
                     if (MTU < rc) {
                         recvmsgBufferSize = rc;
+                        // RRR: look into doing a realloc without copying because as stated
+                        //      above, we actually won't be able to decode the message anyway
+                        //      so no point in copying all it's data
                         recvmsgBuffer = (char*) realloc(recvmsgBuffer, recvmsgBufferSize);
                     }
+                    // RRR: as mentioned above, unless we can figure out a way to correctly
+                    //      get the end of the truncated message, we shouldn't actually return
+                    //      a message here (should actually return an EAGAIN or something)
                     recvmsgChannel = pchannels[i];
                     msg->channel = recvmsgChannel.c_str();
                     msg->len = rc;
