@@ -21,7 +21,7 @@ public class ClassDiscoverer
         findClasses(cp, visitor);
     }
 
-    private static void visitDirectory(ClassVisitor visitor, URLClassLoader cldr, 
+    private static void visitDirectory(ClassVisitor visitor, URLClassLoader cldr,
             String classpath_entry, File dir, String visiting_classpath) {
         if(!dir.canRead())
             return;
@@ -108,9 +108,9 @@ public class ClassDiscoverer
                                 visitor.classFound(item, cls);
 
                             } catch (Throwable ex) {
-                                System.out.println("ClassDiscoverer: "+ex);
-                                System.out.println("                 jar: "+item);
-                                System.out.println("                 class: "+n);
+                                //System.out.println("ClassDiscoverer: "+ex);
+                                //System.out.println("                 jar: "+item);
+                                //System.out.println("                 class: "+n);
                             }
                         }
                     }
