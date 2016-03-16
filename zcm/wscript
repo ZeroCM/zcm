@@ -34,6 +34,7 @@ def build(ctx):
                       ['zcm.h', 'zcm_coretypes.h', 'transport.h', 'transport_registrar.h',
                        'url.h', 'eventlog.h', 'zcm-cpp.hpp', 'zcm-cpp-impl.hpp',
                        'transport_register.hpp', 'message_tracker.hpp'])
+    ctx.install_files('${PREFIX}/include/zcm/util', ['util/circular.hpp'])
 
     ctx.recurse('util')
 

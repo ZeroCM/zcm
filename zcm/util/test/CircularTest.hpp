@@ -2,7 +2,7 @@
 
 #include "cxxtest/TestSuite.h"
 
-#include "Circular.hpp"
+#include "circular.hpp"
 
 using namespace std;
 

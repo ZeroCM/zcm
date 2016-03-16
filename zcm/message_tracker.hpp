@@ -6,8 +6,7 @@
 #include <atomic>
 
 #include <zcm/zcm-cpp.hpp>
-
-#include "util/Circular.hpp"
+#include <zcm/util/circular.hpp>
 
 template <typename T>
 class MessageTracker
@@ -36,7 +35,6 @@ class MessageTracker
             if (done) return;
             onMsg(localMsg, usr);
         }
-
     }
 
     void handle(const zcm::ReceiveBuffer* rbuf, const std::string& chan, const T* _msg)
@@ -58,11 +56,11 @@ class MessageTracker
     MessageTracker() {}
 
   public:
-    MessageTracker(zcm::ZCM* zcmLocal, std::string channel,
+    MessageTracker(zcm::ZCM* zcmLocal, std::string channel, size_t numMsgs = 1,
                    callback onMsg = nullptr, void* usr = nullptr)
         : zcmLocal(zcmLocal), onMsg(onMsg), usr(usr)
     {
-        buf = new Circular<T>(20);
+        buf = new Circular<T>(numMsgs);
         if (onMsg != nullptr)
             thr = new std::thread(&MessageTracker<T>::callbackThreadFunc, this);
         s = zcmLocal->subscribe(channel, &MessageTracker<T>::handle, this);
@@ -83,18 +81,6 @@ class MessageTracker
     }
 
     // You must free the memory returned here
-    T* getNonBlocking()
-    {
-        T* ret = nullptr;
-        {
-            std::unique_lock<std::mutex> lk(bufLock);
-            if (!buf->isEmpty())
-                ret = new T(*buf->back());
-        }
-        return ret;
-    }
-
-    // You must free the memory returned here
     T* get()
     {
         T* ret;
@@ -107,6 +93,18 @@ class MessageTracker
             ret = new T(*buf->back());
         }
 
+        return ret;
+    }
+
+    // You must free the memory returned here
+    T* getNonBlocking()
+    {
+        T* ret = nullptr;
+        {
+            std::unique_lock<std::mutex> lk(bufLock);
+            if (!buf->isEmpty())
+                ret = new T(*buf->back());
+        }
         return ret;
     }
 };
