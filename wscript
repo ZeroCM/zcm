@@ -28,10 +28,11 @@ def add_zcm_configure_options(ctx):
     def add_trans_option(name, desc):
         gr.add_option('--use-'+name, dest='use_'+name, default=False, action='store_true', help=desc)
 
-    add_use_option('all',    'Attempt to enable every ZCM feature')
-    add_use_option('java',   'Enable java features')
-    add_use_option('nodejs', 'Enable nodejs features')
-    add_use_option('zmq',    'Enable ZeroMQ features')
+    add_use_option('all',     'Attempt to enable every ZCM feature')
+    add_use_option('java',    'Enable java features')
+    add_use_option('nodejs',  'Enable nodejs features')
+    add_use_option('zmq',     'Enable ZeroMQ features')
+    add_use_option('cxxtest', 'Enable build of cxxtests')
 
     add_trans_option('inproc', 'Enable the In-Process transport (Requires ZeroMQ)')
     add_trans_option('ipc',    'Enable the IPC transport (Requires ZeroMQ)')
@@ -62,10 +63,11 @@ def process_zcm_configure_options(ctx):
 
     env.VERSION='1.0.0'
 
-    env.USING_CPP    = True
-    env.USING_JAVA   = hasopt('use_java') and attempt_use_java(ctx)
-    env.USING_NODEJS = hasopt('use_nodejs') and attempt_use_nodejs(ctx)
-    env.USING_ZMQ    = hasopt('use_zmq')  and attempt_use_zmq(ctx)
+    env.USING_CPP     = True
+    env.USING_JAVA    = hasopt('use_java') and attempt_use_java(ctx)
+    env.USING_NODEJS  = hasopt('use_nodejs') and attempt_use_nodejs(ctx)
+    env.USING_ZMQ     = hasopt('use_zmq')  and attempt_use_zmq(ctx)
+    env.USING_CXXTEST = hasopt('use_cxxtest')  and attempt_use_cxxtest(ctx)
 
     env.USING_TRANS_IPC    = hasopt('use_ipc')
     env.USING_TRANS_INPROC = hasopt('use_inproc')
@@ -84,10 +86,11 @@ def process_zcm_configure_options(ctx):
             Logs.pprint("RED", "Disabled")
 
     Logs.pprint('BLUE', '\nDependency Configuration:')
-    print_entry("C/C++",  env.USING_CPP)
-    print_entry("Java",   env.USING_JAVA)
-    print_entry("NodeJs", env.USING_NODEJS)
-    print_entry("ZeroMQ", env.USING_ZMQ)
+    print_entry("C/C++",   env.USING_CPP)
+    print_entry("Java",    env.USING_JAVA)
+    print_entry("NodeJs",  env.USING_NODEJS)
+    print_entry("ZeroMQ",  env.USING_ZMQ)
+    print_entry("CxxTest", env.USING_CXXTEST)
 
     Logs.pprint('BLUE', '\nTransport Configuration:')
     print_entry("ipc",    env.USING_TRANS_IPC)
@@ -112,6 +115,10 @@ def attempt_use_nodejs(ctx):
 
 def attempt_use_zmq(ctx):
     ctx.check_cfg(package='libzmq', args='--cflags --libs', uselib_store='zmq')
+    return True
+
+def attempt_use_cxxtest(ctx):
+    ctx.load('cxxtest')
     return True
 
 def process_zcm_build_options(ctx):
@@ -143,6 +150,10 @@ def setup_environment(ctx):
     if ctx.env.USING_SYM:
         ctx.env.CFLAGS_default   += SYM_FLAGS
         ctx.env.CXXFLAGS_default += SYM_FLAGS
+
+    ## Run special compiler-specific configuration
+    if ctx.env.USING_CXXTEST:
+        ctx.setup_cxxtest()
 
     ctx.env.ENVIRONMENT_SETUP = True
 

@@ -35,11 +35,16 @@ def build(ctx):
                        'url.h', 'eventlog.h', 'zcm-cpp.hpp', 'zcm-cpp-impl.hpp',
                        'transport_register.hpp'])
 
+    ctx.recurse('util')
+
     if ctx.env.USING_JAVA:
         ctx.recurse('java');
 
     if ctx.env.USING_NODEJS:
         ctx.recurse('js');
+
+    if ctx.env.USING_CXXTEST:
+        ctx.cxxtest(use = ['zcm', 'testzcmtypes'])
 
 def exec_test_embedded(tsk):
     src = tsk.inputs[0].abspath()
