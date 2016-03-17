@@ -10,17 +10,6 @@
 #include <zcm/zcm-cpp.hpp>
 #include <zcm/util/circular.hpp>
 
-namespace TimeUtil {
-
-static uint64_t utime()
-{
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    return (uint64_t)tv.tv_sec * 1000000 + tv.tv_usec;
-}
-
-}
-
 // *****************************************************************************
 // Insanely hacky trick to determine at compile time if a zcmtype has a
 // field called "utime"
@@ -33,7 +22,9 @@ template <typename F> struct hasUtime {
     template <typename C>
     static uint64_t f(ChT<void* Fallback::*, &C::utime>*, const F* msg)
     {
-        return TimeUtil::utime();
+        struct timeval tv;
+        gettimeofday(&tv, NULL);
+        return (uint64_t)tv.tv_sec * 1000000 + tv.tv_usec;
     };
     template <typename C>
     static uint64_t f(void*, ...)
