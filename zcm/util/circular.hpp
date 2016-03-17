@@ -148,7 +148,7 @@ class Circular
         if (i >= size())
             return nullptr;
 
-        int idx = i + this->_front;
+        size_t idx = i + this->_front;
         if (idx >= this->_capacity)
             idx -= this->_capacity;
 
