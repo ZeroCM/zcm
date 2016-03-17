@@ -149,7 +149,7 @@ class Circular
             return nullptr;
 
         int idx = i + this->_front;
-        if (idx > this->_capacity)
+        if (idx >= this->_capacity)
             idx -= this->_capacity;
 
         return this->_data[idx];
