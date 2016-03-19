@@ -111,7 +111,6 @@ class MessageTracker
                            const T* A, uint64_t utimeA,
                            const T* B, uint64_t utimeB)
     {
-        std::cout << "Interpolating" << std::endl;
         return utimeTarget - utimeA < utimeB - utimeTarget ? new T(*A) : new T(*B);
     }
 
