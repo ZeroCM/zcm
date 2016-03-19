@@ -1,48 +1,24 @@
 #pragma once
 
+#include <iostream>
+#include <string>
 #include <thread>
 #include <mutex>
 #include <condition_variable>
 #include <atomic>
+#include <typeinfo>
+#include <cxxabi.h>
 #include <sys/time.h>
 #include <stdarg.h>
 
 #include <zcm/zcm-cpp.hpp>
 #include <zcm/util/circular.hpp>
 
-// *****************************************************************************
-// Insanely hacky trick to determine at compile time if a zcmtype has a
-// field called "utime"
-template <typename F> struct hasUtime {
-    struct Fallback { void* utime; }; // introduce member name "utime"
-    struct Derived : F, Fallback {};
-
-    template <typename C, C> struct ChT;
-
-    template <typename C>
-    static uint64_t f(ChT<void* Fallback::*, &C::utime>*, const F* msg)
-    {
-        struct timeval tv;
-        gettimeofday(&tv, NULL);
-        return (uint64_t)tv.tv_sec * 1000000 + tv.tv_usec;
-    };
-    template <typename C>
-    static uint64_t f(void*, ...)
-    {
-        va_list args;
-        va_start(args, 1);
-        const F* msg = va_arg(args, const F*);
-        va_end(args);
-        return msg->utime;
-    }
-
-    static uint64_t const utime(const F* msg)
-    {
-        return f<Derived>(0,msg);
-    }
-};
-// *****************************************************************************
-
+static bool ZCM_DEBUG_ENABLED = (NULL != getenv("ZCM_DEBUG"));
+#define ZCM_DEBUG(...) \
+    do {\
+        __ZCM_PRINT_OBFUSCATE__(std::cout, "ZCM-DEBUG: ", __VA_ARGS__, '\n'); \
+    } while(0)
 
 template <typename T>
 class MessageTracker
@@ -123,6 +99,16 @@ class MessageTracker
                    callback onMsg = nullptr, void* usr = nullptr)
         : zcmLocal(zcmLocal), maxTimeErr_us(maxTimeErr_us), onMsg(onMsg), usr(usr)
     {
+        if (hasUtime<T>::present == true) {
+            T tmp;
+            std::string name = demangle(getType(tmp));
+            ZCM_DEBUG("Message trackers using 'utime' field of zcmtype ", name);
+        } else {
+            T tmp;
+            std::string name = demangle(getType(tmp));
+            ZCM_DEBUG("Message trackers using local system receive utime for ",
+                      "tracking zcmtype ", name);
+        }
         buf = new Circular<T>(maxMsgs);
         if (onMsg != nullptr)
             thr = new std::thread(&MessageTracker<T>::callbackThreadFunc, this);
@@ -233,4 +219,68 @@ class MessageTracker
 
         return nullptr;
     }
+
+  private:
+    // *****************************************************************************
+    // Insanely hacky trick to determine at compile time if a zcmtype has a
+    // field called "utime"
+    template <typename F> struct hasUtime {
+        struct Fallback { void* utime; }; // introduce member name "utime"
+        struct Derived : F, Fallback {};
+
+        template <typename C, C> struct ChT;
+
+        template <typename C>
+        static uint64_t _utime(ChT<void* Fallback::*, &C::utime>*, const F* msg)
+        {
+            struct timeval tv;
+            gettimeofday(&tv, NULL);
+            return (uint64_t)tv.tv_sec * 1000000 + tv.tv_usec;
+        };
+        template <typename C>
+        static uint64_t _utime(void*, ...)
+        {
+            va_list args;
+            va_start(args, 1);
+            const F* msg = va_arg(args, const F*);
+            va_end(args);
+            return msg->utime;
+        }
+
+        template<typename C> static char (&f(ChT<int Fallback::*, &C::x>*))[1];
+        template<typename C> static char (&f(...))[2];
+
+        static bool const present = sizeof(f<Derived>(0)) == 2;
+
+        static uint64_t const utime(const F* msg)
+        {
+            return _utime<Derived>(0,msg);
+        }
+    };
+
+    template<typename F>
+    static inline std::string getType(const F t) { return typeid(t).name(); }
+
+    static inline std::string demangle(std::string name)
+    {
+        int status = -4; // some arbitrary value to eliminate the compiler warning
+        std::unique_ptr<char, void(*)(void*)> res {
+            abi::__cxa_demangle(name.c_str(), NULL, NULL, &status),
+            std::free
+        };
+        return (status==0) ? res.get() : name ;
+    }
+
+    static void __ZCM_PRINT_OBFUSCATE__(std::ostream& o) { }
+
+    template<typename First, typename ...Rest>
+    static void __ZCM_PRINT_OBFUSCATE__(std::ostream& o, First && first, Rest && ...rest)
+    {
+        o << std::forward<First>(first);
+        __ZCM_PRINT_OBFUSCATE__(o, std::forward<Rest>(rest)...);
+    }
+    // *****************************************************************************
+
 };
+
+#undef ZCM_DEBUG
