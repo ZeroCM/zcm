@@ -16,8 +16,9 @@
 
 static bool ZCM_DEBUG_ENABLED = (NULL != getenv("ZCM_DEBUG"));
 #define ZCM_DEBUG(...) \
-    do {\
-        __ZCM_PRINT_OBFUSCATE__(std::cout, "ZCM-DEBUG: ", __VA_ARGS__, '\n'); \
+    do { \
+        if (ZCM_DEBUG_ENABLED) \
+            __ZCM_PRINT_OBFUSCATE__(std::cout, "ZCM-DEBUG: ", __VA_ARGS__, '\n'); \
     } while(0)
 
 template <typename T>
