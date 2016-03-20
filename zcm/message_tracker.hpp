@@ -25,7 +25,22 @@ template <typename T>
 class MessageTracker
 {
   public:
-    typedef void (*callback)(const T* msg, void* usr);
+    typedef void (*callback)(T* msg, uint64_t utime, void* usr);
+    static const bool NONBLOCKING = false;
+    static const bool BLOCKING = true;
+
+  protected:
+    virtual uint64_t getMsgUtime(const T* msg)
+    {
+        return hasUtime<T>::utime(msg);
+    }
+
+    virtual T* interpolate(uint64_t utimeTarget,
+                           const T* A, uint64_t utimeA,
+                           const T* B, uint64_t utimeB)
+    {
+        return utimeTarget - utimeA < utimeB - utimeTarget ? new T(*A) : new T(*B);
+    }
 
   private:
     zcm::ZCM* zcmLocal = nullptr;
@@ -37,6 +52,9 @@ class MessageTracker
     std::condition_variable newMsg;
     zcm::Subscription *s;
 
+    std::mutex callbackLock;
+    std::condition_variable callbackCv;
+    T* callbackMsg = nullptr;
     std::thread *thr = nullptr;
     callback onMsg;
     void* usr;
@@ -45,10 +63,16 @@ class MessageTracker
 
     void callbackThreadFunc()
     {
+        std::unique_lock<std::mutex> lk(callbackLock);
         while (!done) {
-            T* localMsg = get();
-            if (done) return;
-            onMsg(localMsg, usr);
+            if (!callbackMsg) {
+                callbackCv.wait(lk, [&](){ return callbackMsg != nullptr || done; });
+                if (done) return;
+            }
+            onMsg(callbackMsg, getMsgUtime(callbackMsg), usr);
+            // Intentionally not deleting callbackMsg as it is the
+            // responsibility of the callback to delete the memory
+            callbackMsg = nullptr;
         }
     }
 
@@ -74,27 +98,18 @@ class MessageTracker
             buf->pushBack(tmp);
         }
         newMsg.notify_all();
+
+        if (callbackLock.try_lock()) {
+            if (callbackMsg) delete callbackMsg;
+            callbackMsg = new T(*_msg);
+            callbackLock.unlock();
+            callbackCv.notify_all();
+        }
     }
 
     MessageTracker() {}
 
-  protected:
-    virtual uint64_t getMsgUtime(const T* msg)
-    {
-        return hasUtime<T>::utime(msg);
-    }
-
-    virtual T* interpolate(uint64_t utimeTarget,
-                           const T* A, uint64_t utimeA,
-                           const T* B, uint64_t utimeB)
-    {
-        return utimeTarget - utimeA < utimeB - utimeTarget ? new T(*A) : new T(*B);
-    }
-
   public:
-    static const bool NONBLOCKING = false;
-    static const bool BLOCKING = true;
-
     MessageTracker(zcm::ZCM* zcmLocal, std::string channel,
                    uint64_t maxTimeErr_us = 0.25e6, size_t maxMsgs = 1,
                    callback onMsg = nullptr, void* usr = nullptr)

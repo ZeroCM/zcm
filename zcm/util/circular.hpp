@@ -17,6 +17,8 @@ class Circular
     Element** _data;
 
   public:
+    Circular() : Circular(1) {}
+
     Circular(size_t capacity)
     {
         assert(capacity > 0);
@@ -30,6 +32,8 @@ class Circular
 
     ~Circular()
     {
+        while (this->_size > 0)
+            removeBack();
         delete[] this->_data;
     }
 
@@ -141,6 +145,14 @@ class Circular
         popBack();
 
         delete this->_data[this->_back];
+    }
+
+    void changeSize(size_t size)
+    {
+        this->_capacity = size;
+        while (this->_size > size);
+            removeFront();
+        realloc(this->_data, sizeof(Element*) * this->_capacity);
     }
 
     Element* operator[](size_t i)
