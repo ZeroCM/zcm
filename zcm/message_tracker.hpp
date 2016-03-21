@@ -14,12 +14,14 @@
 #include <zcm/zcm-cpp.hpp>
 #include <zcm/util/circular.hpp>
 
-static bool ZCM_DEBUG_ENABLED = (NULL != getenv("ZCM_DEBUG"));
+static bool __ZCM_DEBUG_ENABLED__ = (NULL != getenv("ZCM_DEBUG"));
 #define ZCM_DEBUG(...) \
     do { \
-        if (ZCM_DEBUG_ENABLED) \
+        if (__ZCM_DEBUG_ENABLED__) \
             __ZCM_PRINT_OBFUSCATE__(std::cout, "ZCM-DEBUG: ", __VA_ARGS__, '\n'); \
     } while(0)
+
+namespace zcm {
 
 template <typename T>
 class MessageTracker
@@ -298,5 +300,7 @@ class MessageTracker
     // *****************************************************************************
 
 };
+
+}
 
 #undef ZCM_DEBUG
