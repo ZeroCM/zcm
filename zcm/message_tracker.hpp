@@ -166,6 +166,7 @@ class MessageTracker
         return ret;
     }
 
+    // This may return nullptr even in the blocking case
     virtual T* get(uint64_t utime, bool blocking = NONBLOCKING)
     {
         T *m0 = nullptr, *m1 = nullptr; // two poses bracketing the desired utime
@@ -175,8 +176,19 @@ class MessageTracker
             std::unique_lock<std::mutex> lk(bufLock);
 
             if (blocking == BLOCKING) {
-                if (buf->isEmpty())
-                    newMsg.wait(lk, [&]{ return !buf->isEmpty() || done; });
+                // XXX This is technically not okay. "done" can't be an
+                //     atomic as it can change after we've checked it in the
+                //     wait. If it does change, and we go back to sleep,
+                //     we'll never wake up
+                newMsg.wait(lk, [&]{
+                            if (done) return true;
+                            if (buf->isEmpty())
+                                return false;
+                            uint64_t recentUtime = getMsgUtime(buf->back());
+                            if (recentUtime < utime)
+                                return false;
+                            return true;
+                        });
                 if (done) return nullptr;
             }
 
