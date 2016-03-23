@@ -6,6 +6,8 @@
 // A C++ circular buffer implementation designed for efficiency.
 // No unneeded copies or initializations.
 // Note: Nothing about this circular buffer is thread-safe
+class CircularTest;
+
 template <typename Element>
 class Circular
 {
@@ -40,6 +42,11 @@ class Circular
     size_t size() const
     {
         return this->_size;
+    }
+
+    size_t capacity() const
+    {
+        return this->_capacity;
     }
 
     bool isEmpty() const
@@ -147,12 +154,39 @@ class Circular
         delete this->_data[this->_back];
     }
 
-    void changeSize(size_t size)
+    void resize(size_t capacity)
     {
-        this->_capacity = size;
-        while (this->_size > size);
+        assert(capacity > 0);
+
+        while (this->_size > capacity)
             removeFront();
-        realloc(this->_data, sizeof(Element*) * this->_capacity);
+        Element** temp = new Element*[capacity]();
+        if (this->_size > 0) {
+            if (this->_front < this->_back) {
+                memcpy(temp,
+                       this->_data + this->_front,
+                       this->_size * sizeof(Element*));
+                this->_front = 0;
+                this->_back = this->_size;
+            } else if (this->_front >= this->_back) {
+                size_t nWrapAround = this->_capacity - this->_front;
+                size_t nWrapAroundBytes = nWrapAround * sizeof(Element*);
+                memcpy(temp,
+                       this->_data + this->_front,
+                       nWrapAroundBytes);
+                memcpy(temp + nWrapAround,
+                       this->_data,
+                       this->_back * sizeof(Element*));
+                this->_front = 0;
+                this->_back = this->_size;
+            }
+        } else {
+            this->_front = 0;
+            this->_back = 0;
+        }
+        this->_capacity = capacity;
+        delete[] this->_data;
+        this->_data = temp;
     }
 
     Element* operator[](size_t i)
@@ -166,4 +200,6 @@ class Circular
 
         return this->_data[idx];
     }
+
+    friend class CircularTest;
 };
