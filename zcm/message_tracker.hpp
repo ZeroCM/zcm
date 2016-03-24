@@ -113,9 +113,9 @@ class MessageTracker
 
   public:
     MessageTracker(zcm::ZCM* zcmLocal, std::string channel,
-                   uint64_t maxTimeErr_us = 0.25e6, size_t maxMsgs = 1,
+                   double maxTimeErr = 0.25, size_t maxMsgs = 1,
                    callback onMsg = nullptr, void* usr = nullptr)
-        : zcmLocal(zcmLocal), maxTimeErr_us(maxTimeErr_us), onMsg(onMsg), usr(usr)
+        : zcmLocal(zcmLocal), maxTimeErr_us(maxTimeErr * 1e6), onMsg(onMsg), usr(usr)
     {
         if (hasUtime<T>::present == true) {
             T tmp;
