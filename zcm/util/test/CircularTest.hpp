@@ -137,7 +137,7 @@ class CircularTest: public CxxTest::TestSuite
     }
 
     void testResizeWrap2()
-   {
+    {
         Circular<int> c(10);
 
         memset(c._data, 0, c.capacity() * sizeof(int*));
@@ -148,8 +148,8 @@ class CircularTest: public CxxTest::TestSuite
             c.pushBack(new int(i));
         c.removeFront();
         c.removeFront();
-            c.pushBack(new int(10));
-            c.pushBack(new int(11));
+        c.pushBack(new int(10));
+        c.pushBack(new int(11));
 
         c.resize(5);
 
@@ -167,6 +167,33 @@ class CircularTest: public CxxTest::TestSuite
         c.removeBack();
 
         TS_ASSERT_EQUALS(*c.front(), *c.back());
+
+        c.removeBack();
+        TS_ASSERT(c.isEmpty());
+    }
+
+    void testResizeTo1()
+    {
+        Circular<int> c(10);
+
+        memset(c._data, 0, c.capacity() * sizeof(int*));
+
+        c.pushFront(new int(1));
+        c.pushFront(new int(0));
+        for (int i = 2; i < 10; ++i)
+            c.pushBack(new int(i));
+        c.removeFront();
+        c.removeFront();
+        c.pushBack(new int(10));
+        c.pushBack(new int(11));
+
+        c.resize(100);
+        for (int i = 12; i < 102; ++i)
+            c.pushBack(new int(i));
+        c.resize(1);
+
+        for (size_t i = 0; i < c.size(); ++i)
+            TS_ASSERT_EQUALS(*c[i], 101);
 
         c.removeBack();
         TS_ASSERT(c.isEmpty());
