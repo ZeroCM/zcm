@@ -67,10 +67,8 @@ class MessageTracker
     {
         std::unique_lock<std::mutex> lk(callbackLock);
         while (!done) {
-            if (!callbackMsg) {
-                callbackCv.wait(lk, [&](){ return callbackMsg != nullptr || done; });
-                if (done) return;
-            }
+            callbackCv.wait(lk, [&](){ return callbackMsg || done; });
+            if (done) return;
             onMsg(callbackMsg, getMsgUtime(callbackMsg), usr);
             // Intentionally not deleting callbackMsg as it is the
             // responsibility of the callback to delete the memory
@@ -138,6 +136,7 @@ class MessageTracker
         zcmLocal->unsubscribe(s);
         done = true;
         newMsg.notify_all();
+        callbackCv.notify_all();
         if (thr) {
             thr->join();
             delete thr;
