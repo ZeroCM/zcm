@@ -34,8 +34,8 @@ class Circular
 
     ~Circular()
     {
-        while (this->_size > 0)
-            removeBack();
+        while (this->_size > 0) removeBack();
+
         delete[] this->_data;
     }
 
@@ -59,6 +59,7 @@ class Circular
         return this->_size == this->_capacity;
     }
 
+    // RRR: a little weird that this doesn't delete the elements
     void clear()
     {
         this->_size = 0;
@@ -66,10 +67,10 @@ class Circular
         this->_back = 0;
     }
 
+    // RRR: I would note that elt has to be dynamic
     bool pushBack(Element* elt)
     {
-        if (isFull())
-            return false;
+        if (isFull()) return false;
 
         this->_data[this->_back] = elt;
 
@@ -83,8 +84,7 @@ class Circular
 
     bool pushFront(Element* elt)
     {
-        if (isFull())
-            return false;
+        if (isFull()) return false;
 
         this->_size++;
         if (this->_front != 0) this->_front -= 1;
@@ -97,16 +97,14 @@ class Circular
 
     Element* front()
     {
-        if (isEmpty())
-            return nullptr;
+        if (isEmpty()) return nullptr;
 
         return this->_data[this->_front];
     }
 
     Element* back()
     {
-        if (isEmpty())
-            return nullptr;
+        if (isEmpty()) return nullptr;
 
         size_t temp;
         if (this->_back == 0) temp = this->_capacity - 1;
@@ -117,6 +115,8 @@ class Circular
 
     void popFront()
     {
+        // RRR: this should probably be an isEmpty() -> return. Could return a
+        //      bool based on whether the container has any remaining elts
         assert(!isEmpty());
 
         this->_size--;
@@ -128,6 +128,8 @@ class Circular
 
     void popBack()
     {
+        // RRR: this should probably be an isEmpty() -> return. Could return a
+        //      bool based on whether the container has any remaining elts
         assert(!isEmpty());
 
         this->_size--;
@@ -136,8 +138,18 @@ class Circular
         else this->_back--;
     }
 
+    // RRR: I'd change the names of these to "deleteFront()" and "deleteBack()"
+    //      another thing that's a little weird is whether the destructor and/or
+    //      clear should be deleting the elements (because they never do). So it's
+    //      a little weird that sometimes this class handles the dynamic mem, but not
+    //      always. It'd almost be better to be able to pass in an element destructor
+    //      on construction to better handle the (potentially) virtual memory
+    // RRR: on reading the rest of the file, it seems that you intended all the elements
+    //      to be dynamic, need to make that clearer
     void removeFront()
     {
+        // RRR: this should probably be an isEmpty() -> return. Could return a
+        //      bool based on whether the container has any remaining elts
         assert(!isEmpty());
 
         delete this->_data[this->_front];
@@ -147,6 +159,8 @@ class Circular
 
     void removeBack()
     {
+        // RRR: this should probably be an isEmpty() -> return. Could return a
+        //      bool based on whether the container has any remaining elts
         assert(!isEmpty());
 
         popBack();
@@ -158,8 +172,8 @@ class Circular
     {
         assert(capacity > 0);
 
-        while (this->_size > capacity)
-            removeFront();
+        while (this->_size > capacity) removeFront();
+
         Element** temp = new Element*[capacity]();
         if (this->_size > 0) {
             if (this->_front < this->_back) {
@@ -195,8 +209,7 @@ class Circular
             return nullptr;
 
         size_t idx = i + this->_front;
-        if (idx >= this->_capacity)
-            idx -= this->_capacity;
+        if (idx >= this->_capacity) idx -= this->_capacity;
 
         return this->_data[idx];
     }

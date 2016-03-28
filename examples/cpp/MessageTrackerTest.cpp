@@ -7,6 +7,8 @@
 
 using namespace std;
 
+// RRR: would be nice to have an example/test that uses a callback
+
 int main(int argc, char *argv[])
 {
     zcm::ZCM zcmLocal;

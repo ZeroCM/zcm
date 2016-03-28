@@ -14,6 +14,10 @@
 #include <zcm/zcm-cpp.hpp>
 #include <zcm/util/circular.hpp>
 
+// RRR: kinda applies to a lot of this repo, but I wish we named the files with
+//      the approapriate capitalization (ie exactly like the class names) but I
+//      realize that it's a repo-wide problem, not just this file
+
 static bool __ZCM_DEBUG_ENABLED__ = (NULL != getenv("ZCM_DEBUG"));
 #define ZCM_DEBUG(...) \
     do { \
@@ -37,6 +41,7 @@ class MessageTracker
         return hasUtime<T>::utime(msg);
     }
 
+    // RRR: note that the returned value must be "new" in all cases
     virtual T* interpolate(uint64_t utimeTarget,
                            const T* A, uint64_t utimeA,
                            const T* B, uint64_t utimeB)
@@ -78,20 +83,17 @@ class MessageTracker
 
     void handle(const zcm::ReceiveBuffer* rbuf, const std::string& chan, const T* _msg)
     {
-        if (done)
-            return;
+        if (done) return;
 
         T* tmp = new T(*_msg);
 
         {
             std::unique_lock<std::mutex> lk(bufLock);
 
-            if (buf->isFull())
-                buf->removeFront();
+            if (buf->isFull()) buf->removeFront();
 
             while (!buf->isEmpty()) {
-                if (getMsgUtime(buf->front()) + maxTimeErr_us > getMsgUtime(_msg))
-                    break;
+                if (getMsgUtime(buf->front()) + maxTimeErr_us > getMsgUtime(_msg)) break;
                 buf->removeFront();
             }
 
@@ -99,6 +101,8 @@ class MessageTracker
         }
         newMsg.notify_all();
 
+        // RRR: might be interesting to have a derived version of this class with a set
+        //      number of buffered callbackMsg's but definitely not required for this one
         if (callbackLock.try_lock()) {
             if (callbackMsg) delete callbackMsg;
             callbackMsg = new T(*_msg);
@@ -126,8 +130,12 @@ class MessageTracker
                       "tracking zcmtype ", name);
         }
         buf = new Circular<T>(maxMsgs);
-        if (onMsg != nullptr)
-            thr = new std::thread(&MessageTracker<T>::callbackThreadFunc, this);
+
+        // RRR: technically you don't need to use dynamic memory for the thread, you can see
+        //      an example of doing it the other way in kestrel/src/cpp-c/util/ThreadUtil.hpp
+        //      (basically thread has a move constructor and you just check for thr.joinable()
+        //      before calling .join())
+        if (onMsg != nullptr) thr = new std::thread(&MessageTracker<T>::callbackThreadFunc, this);
         s = zcmLocal->subscribe(channel, &MessageTracker<T>::handle, this);
     }
 
@@ -141,8 +149,7 @@ class MessageTracker
             thr->join();
             delete thr;
         }
-        while (!buf->isEmpty())
-            buf->removeFront();
+        while (!buf->isEmpty()) buf->removeFront();
         delete buf;
     }
 
@@ -175,17 +182,18 @@ class MessageTracker
             std::unique_lock<std::mutex> lk(bufLock);
 
             if (blocking == BLOCKING) {
+                // RRR: I think I know what you are talking about, but this comment isn't
+                //      very clearly worded
                 // XXX This is technically not okay. "done" can't be an
                 //     atomic as it can change after we've checked it in the
                 //     wait. If it does change, and we go back to sleep,
                 //     we'll never wake up
                 newMsg.wait(lk, [&]{
                             if (done) return true;
-                            if (buf->isEmpty())
-                                return false;
+                            if (buf->isEmpty()) return false;
                             uint64_t recentUtime = getMsgUtime(buf->back());
-                            if (recentUtime < utime)
-                                return false;
+                            // RRR: there should probably be an epsilon on this
+                            if (recentUtime < utime) return false;
                             return true;
                         });
                 if (done) return nullptr;
@@ -196,26 +204,28 @@ class MessageTracker
             const T *_m0 = nullptr;
             const T *_m1 = nullptr;
 
+            // RRR: I guess if you aren't assuming ordering of the messages based on utime
+            //      this is necessary, but you could search faster if you assumed (or enforced)
+            //      an ordering
             for (size_t i = 0; i < size; ++i) {
                 const T* m = (*buf)[i];
                 uint64_t mUtime = getMsgUtime(m);
 
                 if (mUtime <= utime && (_m0 == nullptr || mUtime > m0Utime)) {
                     _m0 = m;
+                    // RRR: here getMsgUtime(_m0) == mUtime no?
                     m0Utime = getMsgUtime(_m0);
                 }
 
                 if (mUtime >= utime && (_m1 == nullptr || mUtime < m1Utime)) {
                     _m1 = m;
+                    // RRR: here getMsgUtime(_m1) == mUtime no?
                     m1Utime = getMsgUtime(_m1);
                 }
             }
 
-            if (_m0 != nullptr)
-                m0 = new T(*_m0);
-
-            if (_m1 != nullptr)
-                m1 = new T(*_m1);
+            if (_m0 != nullptr) m0 = new T(*_m0);
+            if (_m1 != nullptr) m1 = new T(*_m1);
 
         }
 
@@ -253,6 +263,9 @@ class MessageTracker
     // *****************************************************************************
     // Insanely hacky trick to determine at compile time if a zcmtype has a
     // field called "utime"
+    // TODO: I think c++11 has some utilities to make this a bit easier (I have not
+    //       looked into them much at all, but worth looking at <type_traits>
+    //       and what you can do with things like std::true_type and the like)
     template <typename F> struct hasUtime {
         struct Fallback { void* utime; }; // introduce member name "utime"
         struct Derived : F, Fallback {};
