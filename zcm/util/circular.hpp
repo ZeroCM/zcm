@@ -12,16 +12,17 @@ template <typename Element>
 class Circular
 {
   private:
-    size_t   _capacity;
-    size_t   _front;
-    size_t   _back;
-    size_t   _size;
+    bool      _delete;
+    size_t    _capacity;
+    size_t    _front;
+    size_t    _back;
+    size_t    _size;
     Element** _data;
 
   public:
     Circular() : Circular(1) {}
 
-    Circular(size_t capacity)
+    Circular(size_t capacity, bool deleteWhenDone = true)
     {
         assert(capacity > 0);
 
@@ -29,7 +30,11 @@ class Circular
         this->_data = new Element*[this->_capacity];
         assert(this->_data);
 
-        clear();
+        this->_size = 0;
+        this->_front = 0;
+        this->_back = 0;
+
+        this->_delete = deleteWhenDone;
     }
 
     ~Circular()
@@ -59,15 +64,12 @@ class Circular
         return this->_size == this->_capacity;
     }
 
-    // RRR: a little weird that this doesn't delete the elements
     void clear()
     {
-        this->_size = 0;
-        this->_front = 0;
-        this->_back = 0;
+        while (!isEmpty())
+            removeFront();
     }
 
-    // RRR: I would note that elt has to be dynamic
     bool pushBack(Element* elt)
     {
         if (isFull()) return false;
@@ -115,8 +117,6 @@ class Circular
 
     void popFront()
     {
-        // RRR: this should probably be an isEmpty() -> return. Could return a
-        //      bool based on whether the container has any remaining elts
         assert(!isEmpty());
 
         this->_size--;
@@ -128,8 +128,6 @@ class Circular
 
     void popBack()
     {
-        // RRR: this should probably be an isEmpty() -> return. Could return a
-        //      bool based on whether the container has any remaining elts
         assert(!isEmpty());
 
         this->_size--;
@@ -138,34 +136,24 @@ class Circular
         else this->_back--;
     }
 
-    // RRR: I'd change the names of these to "deleteFront()" and "deleteBack()"
-    //      another thing that's a little weird is whether the destructor and/or
-    //      clear should be deleting the elements (because they never do). So it's
-    //      a little weird that sometimes this class handles the dynamic mem, but not
-    //      always. It'd almost be better to be able to pass in an element destructor
-    //      on construction to better handle the (potentially) virtual memory
-    // RRR: on reading the rest of the file, it seems that you intended all the elements
-    //      to be dynamic, need to make that clearer
     void removeFront()
     {
-        // RRR: this should probably be an isEmpty() -> return. Could return a
-        //      bool based on whether the container has any remaining elts
         assert(!isEmpty());
 
-        delete this->_data[this->_front];
+        if (_delete)
+            delete this->_data[this->_front];
 
         popFront();
     }
 
     void removeBack()
     {
-        // RRR: this should probably be an isEmpty() -> return. Could return a
-        //      bool based on whether the container has any remaining elts
         assert(!isEmpty());
 
         popBack();
 
-        delete this->_data[this->_back];
+        if (_delete)
+            delete this->_data[this->_back];
     }
 
     void resize(size_t capacity)

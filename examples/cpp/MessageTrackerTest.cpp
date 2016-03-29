@@ -1,4 +1,5 @@
 #include <iostream>
+#include <sys/time.h>
 
 #include <zcm/zcm-cpp.hpp>
 #include <zcm/message_tracker.hpp>
@@ -7,15 +8,21 @@
 
 using namespace std;
 
-// RRR: would be nice to have an example/test that uses a callback
+atomic_bool done {false};
+
+static void callback(example_t* msg, uint64_t utime, void* usr)
+{
+    done = true;
+}
 
 int main(int argc, char *argv[])
 {
     zcm::ZCM zcmLocal;
-    MessageTracker<example_t> mt(&zcmLocal, "EXAMPLE");
+    zcm::MessageTracker<example_t> mt(&zcmLocal, "EXAMPLE", 0.25, 1, callback);
     zcmLocal.start();
     cout << "Waiting to receive EXAMPLE message" << endl;
     auto tmp = mt.get();
+    while (!done) usleep(1e5);
     cout << "Success!" << endl;
     zcmLocal.stop();
     delete tmp;

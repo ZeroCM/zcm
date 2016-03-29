@@ -14,10 +14,6 @@
 #include <zcm/zcm-cpp.hpp>
 #include <zcm/util/circular.hpp>
 
-// RRR: kinda applies to a lot of this repo, but I wish we named the files with
-//      the approapriate capitalization (ie exactly like the class names) but I
-//      realize that it's a repo-wide problem, not just this file
-
 static bool __ZCM_DEBUG_ENABLED__ = (NULL != getenv("ZCM_DEBUG"));
 #define ZCM_DEBUG(...) \
     do { \
@@ -41,7 +37,7 @@ class MessageTracker
         return hasUtime<T>::utime(msg);
     }
 
-    // RRR: note that the returned value must be "new" in all cases
+    // The returned value must be "new" in all cases
     virtual T* interpolate(uint64_t utimeTarget,
                            const T* A, uint64_t utimeA,
                            const T* B, uint64_t utimeB)
@@ -101,8 +97,6 @@ class MessageTracker
         }
         newMsg.notify_all();
 
-        // RRR: might be interesting to have a derived version of this class with a set
-        //      number of buffered callbackMsg's but definitely not required for this one
         if (callbackLock.try_lock()) {
             if (callbackMsg) delete callbackMsg;
             callbackMsg = new T(*_msg);
@@ -131,10 +125,6 @@ class MessageTracker
         }
         buf = new Circular<T>(maxMsgs);
 
-        // RRR: technically you don't need to use dynamic memory for the thread, you can see
-        //      an example of doing it the other way in kestrel/src/cpp-c/util/ThreadUtil.hpp
-        //      (basically thread has a move constructor and you just check for thr.joinable()
-        //      before calling .join())
         if (onMsg != nullptr) thr = new std::thread(&MessageTracker<T>::callbackThreadFunc, this);
         s = zcmLocal->subscribe(channel, &MessageTracker<T>::handle, this);
     }
@@ -173,6 +163,8 @@ class MessageTracker
     }
 
     // This may return nullptr even in the blocking case
+    // TODO: Should consider how to allow the user to ask for an extrapolated
+    //       message if bracketted messages arent available
     virtual T* get(uint64_t utime, bool blocking = NONBLOCKING)
     {
         T *m0 = nullptr, *m1 = nullptr; // two poses bracketing the desired utime
@@ -182,17 +174,18 @@ class MessageTracker
             std::unique_lock<std::mutex> lk(bufLock);
 
             if (blocking == BLOCKING) {
-                // RRR: I think I know what you are talking about, but this comment isn't
-                //      very clearly worded
                 // XXX This is technically not okay. "done" can't be an
                 //     atomic as it can change after we've checked it in the
                 //     wait. If it does change, and we go back to sleep,
-                //     we'll never wake up
+                //     we'll never wake up. In other words, if done changes
+                //     to true between the "if (done) return false;" and the
+                //     end of the wait function, we would go back to sleep and
+                //     never wake up again because this class would have already
+                //     cleaned up
                 newMsg.wait(lk, [&]{
                             if (done) return true;
                             if (buf->isEmpty()) return false;
                             uint64_t recentUtime = getMsgUtime(buf->back());
-                            // RRR: there should probably be an epsilon on this
                             if (recentUtime < utime) return false;
                             return true;
                         });
@@ -204,23 +197,22 @@ class MessageTracker
             const T *_m0 = nullptr;
             const T *_m1 = nullptr;
 
-            // RRR: I guess if you aren't assuming ordering of the messages based on utime
-            //      this is necessary, but you could search faster if you assumed (or enforced)
-            //      an ordering
+            // The reason why we do a linear search is to support the ability
+            // to skip around in logs. We want to support messages with
+            // non-monitonically increasing utimes and this is the easiest way.
+            // This can be made much faster if needed
             for (size_t i = 0; i < size; ++i) {
                 const T* m = (*buf)[i];
                 uint64_t mUtime = getMsgUtime(m);
 
                 if (mUtime <= utime && (_m0 == nullptr || mUtime > m0Utime)) {
                     _m0 = m;
-                    // RRR: here getMsgUtime(_m0) == mUtime no?
-                    m0Utime = getMsgUtime(_m0);
+                    m0Utime = mUtime;
                 }
 
                 if (mUtime >= utime && (_m1 == nullptr || mUtime < m1Utime)) {
                     _m1 = m;
-                    // RRR: here getMsgUtime(_m1) == mUtime no?
-                    m1Utime = getMsgUtime(_m1);
+                    m1Utime = mUtime;
                 }
             }
 
