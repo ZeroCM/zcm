@@ -34,6 +34,13 @@ def add_zcm_configure_options(ctx):
     add_use_option('zmq',     'Enable ZeroMQ features')
     add_use_option('cxxtest', 'Enable build of cxxtests')
 
+    gr.add_option('--hash-members',  dest='hash_members', default=False,
+                  type='choice', choices=['true', 'false'],
+                  action='store', help='Include the zcmtype members names in the hash generation')
+    gr.add_option('--hash-typename', dest='hash_typename', default=True,
+                  type='choice', choices=['true', 'false'],
+                  action='store', help='Include the zcmtype name in the hash generation')
+
     add_trans_option('inproc', 'Enable the In-Process transport (Requires ZeroMQ)')
     add_trans_option('ipc',    'Enable the IPC transport (Requires ZeroMQ)')
     add_trans_option('udpm',   'Enable the UDP Multicast transport (LCM-compatible)')
@@ -74,6 +81,9 @@ def process_zcm_configure_options(ctx):
     env.USING_TRANS_UDPM   = hasopt('use_udpm')
     env.USING_TRANS_SERIAL = hasopt('use_serial')
 
+    env.HASH_TYPENAME = getattr(opt, 'hash_typename')
+    env.HASH_MEMBERS = getattr(opt, 'hash_members')
+
     ZMQ_REQUIRED = env.USING_TRANS_IPC or env.USING_TRANS_INPROC
     if ZMQ_REQUIRED and not env.USING_ZMQ:
         raise WafError("Using ZeroMQ is required for some of the selected transports (--use-zmq)")
@@ -97,6 +107,10 @@ def process_zcm_configure_options(ctx):
     print_entry("inproc", env.USING_TRANS_INPROC)
     print_entry("udpm",   env.USING_TRANS_UDPM)
     print_entry("serial", env.USING_TRANS_SERIAL)
+
+    Logs.pprint('BLUE', '\nType Configuration:')
+    print_entry("hash-typename", env.HASH_TYPENAME)
+    print_entry("hash-members",  env.HASH_MEMBERS)
 
     Logs.pprint('NORMAL', '')
 
@@ -143,6 +157,11 @@ def setup_environment(ctx):
         if k.startswith('USING_'):
             if getattr(ctx.env, k):
                 ctx.env.DEFINES_default.append(k)
+
+    if ctx.env.HASH_TYPENAME:
+        ctx.env.DEFINES_default.append("ENABLE_TYPENAME_HASHING")
+    if ctx.env.HASH_MEMBERS:
+        ctx.env.DEFINES_default.append("ENABLE_MEMBERNAME_HASHING")
 
     if ctx.env.USING_OPT:
         ctx.env.CFLAGS_default   += OPT_FLAGS
