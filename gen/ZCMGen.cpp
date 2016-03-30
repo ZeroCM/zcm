@@ -154,7 +154,7 @@ i64 ZCMStruct::computeHash()
     // In contrast, we DO hash the types of a structs members (and their names).
 
     #ifdef ENABLE_TYPENAME_HASHING
-    v = hashUpdate(v, structname);
+    v = hashUpdate(v, structname.shortname);
     #endif
 
     for (auto& m : members) {
