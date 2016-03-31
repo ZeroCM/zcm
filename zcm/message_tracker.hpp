@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <string>
+#include <deque>
 #include <thread>
 #include <mutex>
 #include <condition_variable>
@@ -12,7 +13,6 @@
 #include <stdarg.h>
 
 #include <zcm/zcm-cpp.hpp>
-#include <zcm/util/circular.hpp>
 
 static bool __ZCM_DEBUG_ENABLED__ = (NULL != getenv("ZCM_DEBUG"));
 #define ZCM_DEBUG(...) \
@@ -50,7 +50,8 @@ class MessageTracker
 
     std::atomic_bool done {false};
 
-    Circular<T> *buf;
+    std::deque<T*> buf;
+    size_t bufMax;
     std::mutex bufLock;
     std::condition_variable newMsg;
     zcm::Subscription *s;
@@ -86,14 +87,14 @@ class MessageTracker
         {
             std::unique_lock<std::mutex> lk(bufLock);
 
-            if (buf->isFull()) buf->removeFront();
+            if (buf.size() == bufMax) buf.pop_front();
 
-            while (!buf->isEmpty()) {
-                if (getMsgUtime(buf->front()) + maxTimeErr_us > getMsgUtime(_msg)) break;
-                buf->removeFront();
+            while (!buf.empty()) {
+                if (getMsgUtime(buf.front()) + maxTimeErr_us > getMsgUtime(_msg)) break;
+                buf.pop_front();
             }
 
-            buf->pushBack(tmp);
+            buf.push_back(tmp);
         }
         newMsg.notify_all();
 
@@ -123,7 +124,8 @@ class MessageTracker
             ZCM_DEBUG("Message trackers using local system receive utime for ",
                       "tracking zcmtype ", name);
         }
-        buf = new Circular<T>(maxMsgs);
+
+        bufMax = maxMsgs;
 
         if (onMsg != nullptr) thr = new std::thread(&MessageTracker<T>::callbackThreadFunc, this);
         s = zcmLocal->subscribe(channel, &MessageTracker<T>::handle, this);
@@ -139,8 +141,7 @@ class MessageTracker
             thr->join();
             delete thr;
         }
-        while (!buf->isEmpty()) buf->removeFront();
-        delete buf;
+        while (!buf.empty()) buf.pop_front();
     }
 
     // You must free the memory returned here
@@ -151,12 +152,12 @@ class MessageTracker
         {
             std::unique_lock<std::mutex> lk(bufLock);
             if (blocking == BLOCKING) {
-                if (buf->isEmpty())
-                    newMsg.wait(lk, [&]{ return !buf->isEmpty() || done; });
+                if (buf.empty())
+                    newMsg.wait(lk, [&]{ return !buf.empty() || done; });
                 if (done) return nullptr;
             }
-            if (!buf->isEmpty())
-                ret = new T(*buf->back());
+            if (!buf.empty())
+                ret = new T(*buf.back());
         }
 
         return ret;
@@ -184,15 +185,15 @@ class MessageTracker
                 //     cleaned up
                 newMsg.wait(lk, [&]{
                             if (done) return true;
-                            if (buf->isEmpty()) return false;
-                            uint64_t recentUtime = getMsgUtime(buf->back());
+                            if (buf.empty()) return false;
+                            uint64_t recentUtime = getMsgUtime(buf.back());
                             if (recentUtime < utime) return false;
                             return true;
                         });
                 if (done) return nullptr;
             }
 
-            size_t size = buf->size();
+            size_t size = buf.size();
 
             const T *_m0 = nullptr;
             const T *_m1 = nullptr;
@@ -202,7 +203,7 @@ class MessageTracker
             // non-monitonically increasing utimes and this is the easiest way.
             // This can be made much faster if needed
             for (size_t i = 0; i < size; ++i) {
-                const T* m = (*buf)[i];
+                const T* m = buf[i];
                 uint64_t mUtime = getMsgUtime(m);
 
                 if (mUtime <= utime && (_m0 == nullptr || mUtime > m0Utime)) {
