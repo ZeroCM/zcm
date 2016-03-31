@@ -34,7 +34,7 @@ def add_zcm_configure_options(ctx):
     add_use_option('zmq',     'Enable ZeroMQ features')
     add_use_option('cxxtest', 'Enable build of cxxtests')
 
-    gr.add_option('--hash-members',  dest='hash_members', default=False,
+    gr.add_option('--hash-member-names',  dest='hash_members', default=False,
                   type='choice', choices=['true', 'false'],
                   action='store', help='Include the zcmtype members names in the hash generation')
     gr.add_option('--hash-typename', dest='hash_typename', default=True,
