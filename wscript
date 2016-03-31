@@ -34,10 +34,10 @@ def add_zcm_configure_options(ctx):
     add_use_option('zmq',     'Enable ZeroMQ features')
     add_use_option('cxxtest', 'Enable build of cxxtests')
 
-    gr.add_option('--hash-member-names',  dest='hash_members', default=False,
+    gr.add_option('--hash-member-names',  dest='hash_member_names', default='false',
                   type='choice', choices=['true', 'false'],
                   action='store', help='Include the zcmtype members names in the hash generation')
-    gr.add_option('--hash-typename', dest='hash_typename', default=True,
+    gr.add_option('--hash-typename', dest='hash_typename', default='true',
                   type='choice', choices=['true', 'false'],
                   action='store', help='Include the zcmtype name in the hash generation')
 
@@ -82,14 +82,14 @@ def process_zcm_configure_options(ctx):
     env.USING_TRANS_SERIAL = hasopt('use_serial')
 
     env.HASH_TYPENAME = getattr(opt, 'hash_typename')
-    env.HASH_MEMBERS = getattr(opt, 'hash_members')
+    env.HASH_MEMBER_NAMES = getattr(opt, 'hash_member_names')
 
     ZMQ_REQUIRED = env.USING_TRANS_IPC or env.USING_TRANS_INPROC
     if ZMQ_REQUIRED and not env.USING_ZMQ:
         raise WafError("Using ZeroMQ is required for some of the selected transports (--use-zmq)")
 
     def print_entry(name, enabled):
-        Logs.pprint("NORMAL", "    {:15}".format(name), sep='')
+        Logs.pprint("NORMAL", "    {:20}".format(name), sep='')
         if enabled:
             Logs.pprint("GREEN", "Enabled")
         else:
@@ -109,8 +109,8 @@ def process_zcm_configure_options(ctx):
     print_entry("serial", env.USING_TRANS_SERIAL)
 
     Logs.pprint('BLUE', '\nType Configuration:')
-    print_entry("hash-typename", env.HASH_TYPENAME)
-    print_entry("hash-members",  env.HASH_MEMBERS)
+    print_entry("hash-typename", env.HASH_TYPENAME == 'true')
+    print_entry("hash-member-names",  env.HASH_MEMBER_NAMES == 'true')
 
     Logs.pprint('NORMAL', '')
 
@@ -158,9 +158,9 @@ def setup_environment(ctx):
             if getattr(ctx.env, k):
                 ctx.env.DEFINES_default.append(k)
 
-    if ctx.env.HASH_TYPENAME:
+    if ctx.env.HASH_TYPENAME == 'true':
         ctx.env.DEFINES_default.append("ENABLE_TYPENAME_HASHING")
-    if ctx.env.HASH_MEMBERS:
+    if ctx.env.HASH_MEMBER_NAMES == 'true':
         ctx.env.DEFINES_default.append("ENABLE_MEMBERNAME_HASHING")
 
     if ctx.env.USING_OPT:
