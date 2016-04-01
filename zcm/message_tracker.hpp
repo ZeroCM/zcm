@@ -87,10 +87,16 @@ class MessageTracker
         {
             std::unique_lock<std::mutex> lk(bufLock);
 
-            if (buf.size() == bufMax) buf.pop_front();
+            if (buf.size() == bufMax){
+                T* tmp = buf.front();
+                delete tmp;
+                buf.pop_front();
+            }
 
             while (!buf.empty()) {
                 if (getMsgUtime(buf.front()) + maxTimeErr_us > getMsgUtime(_msg)) break;
+                T* tmp = buf.front();
+                delete tmp;
                 buf.pop_front();
             }
 
@@ -141,7 +147,11 @@ class MessageTracker
             thr->join();
             delete thr;
         }
-        while (!buf.empty()) buf.pop_front();
+        while (!buf.empty()) {
+            T* tmp = buf.front();
+            delete tmp;
+            buf.pop_front();
+        }
     }
 
     // You must free the memory returned here
