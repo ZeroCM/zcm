@@ -33,13 +33,18 @@ def build(ctx):
     ctx.install_files('${PREFIX}/include/zcm',
                       ['zcm.h', 'zcm_coretypes.h', 'transport.h', 'transport_registrar.h',
                        'url.h', 'eventlog.h', 'zcm-cpp.hpp', 'zcm-cpp-impl.hpp',
-                       'transport_register.hpp'])
+                       'transport_register.hpp', 'message_tracker.hpp'])
+
+    ctx.recurse('util')
 
     if ctx.env.USING_JAVA:
         ctx.recurse('java');
 
     if ctx.env.USING_NODEJS:
         ctx.recurse('js');
+
+    if ctx.env.USING_CXXTEST:
+        ctx.cxxtest(use = ['zcm', 'testzcmtypes'])
 
 def exec_test_embedded(tsk):
     src = tsk.inputs[0].abspath()

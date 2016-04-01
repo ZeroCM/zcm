@@ -21,3 +21,7 @@ def build(ctx):
     ctx.program(target = 'serial',
                 use = 'default zcm examplezcmtypes_cpp',
                 source = 'Serial.cpp')
+
+    ctx.program(target = 'tracker',
+                use = 'default zcm examplezcmtypes_cpp',
+                source = 'MessageTrackerTest.cpp')

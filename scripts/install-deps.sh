@@ -14,5 +14,8 @@ PKGS+='default-jdk default-jre '
 ## Node
 PKGS+='nodejs nodejs-legacy npm '
 
+## CxxTest
+PKGS+='cxxtest '
+
 sudo apt-get update
 sudo apt-get install -yq $PKGS
