@@ -15,3 +15,4 @@ def build(ctx):
     ctx.install_as('${PREFIX}/bin/zcm-spy', 'zcm-spy', chmod=Utils.O755)
     ctx.install_as('${PREFIX}/bin/zcm-logplayer-gui', 'zcm-logplayer-gui', chmod=Utils.O755)
     ctx.install_as('${PREFIX}/bin/zcm-csv-writer', 'zcm-csv-writer', chmod=Utils.O755)
+    ctx.install_as('${PREFIX}/bin/zcm-csv-reader', 'zcm-csv-reader', chmod=Utils.O755)
