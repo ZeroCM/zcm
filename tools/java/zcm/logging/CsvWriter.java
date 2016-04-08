@@ -12,7 +12,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 
 import zcm.zcm.*;
-import zcm.logging.*;
 import zcm.spy.*;
 import zcm.util.*;
 
@@ -22,17 +21,15 @@ public class CsvWriter implements ZCMSubscriber
 {
     private ZCMTypeDatabase handlers;
 
-    PrintWriter output;
-    Log log;
-    boolean verbose = false;
-    CsvWriterPlugin plugin = null;
-    boolean printAllZcmTypes;
+    private PrintWriter output;
+    private Log log;
+    private CsvWriterPlugin plugin = null;
 
-    boolean done = false;
+    private boolean verbose = false;
+    private boolean done = false;
 
-    HashMap<String, Long[]> plugins = new HashMap<String, Long[]>();
-
-    public CsvWriter(PrintWriter output, Log log, Constructor pluginCtr, boolean verbose)
+    public CsvWriter(PrintWriter output, Log log, String zcm_url,
+                     Constructor pluginCtr, boolean verbose)
     {
         this.log = log;
         this.output = output;
@@ -54,8 +51,13 @@ public class CsvWriter implements ZCMSubscriber
         handlers = new ZCMTypeDatabase();
 
         if (log == null) {
-            System.out.println("Generating csv from live zcm data. Press ctrl+C to end.");
-            ZCM.getSingleton().subscribeAll(this);
+            try {
+                new ZCM(zcm_url).subscribeAll(this);
+                System.out.println("Generating csv from live zcm data. Press ctrl+C to end.");
+            } catch (IOException e) {
+                System.err.println("Unable to parse zcm url for input");
+                System.exit(1);
+            }
         } else {
             System.out.println("Generating csv from logfile");
         }
@@ -94,9 +96,9 @@ public class CsvWriter implements ZCMSubscriber
             Object o = cls.getConstructor(DataInput.class).newInstance(dins);
 
             if (this.plugin != null) {
-                this.plugin.printZcmType(o, channel, utime, output);
+                this.plugin.printCustom(o, channel, utime, output);
             } else {
-                printMessage(o, channel, utime);
+                CsvWriterPlugin.printDefault(o, channel, utime, output);
             }
 
             output.flush();
@@ -105,71 +107,6 @@ public class CsvWriter implements ZCMSubscriber
             System.err.println("Encountered error while decoding " + channel + " zcm type");
             e.printStackTrace();
         }
-    }
-
-    public void printMessage(Object o, String channel, long utime)
-    {
-        output.print(channel + ",");
-        output.print(utime + ",");
-        printZcmType(o);
-        output.println("");
-    }
-
-    public void printArray(Object o)
-    {
-        int length = Array.getLength(o);
-        for (int i = 0; i < length; ++i) {
-            Object item = Array.get(o, i);
-            if (item.getClass().isArray()) printZcmType(item);
-            else output.print(item + ",");
-        }
-    }
-
-    public void printZcmType(Object o)
-    {
-        Field fields[] = o.getClass().getFields();
-        verbosePrint("Found fields: ");
-        boolean isZcmType = false;
-        for (Field field : fields) {
-            String name = field.getName();
-            // The first field should always be the fingerprint
-            if(name == "ZCM_FINGERPRINT") {
-                isZcmType = true;
-                verbosePrintln("Found zcm fingerprint");
-                break;
-            }
-        }
-
-        if (isZcmType == false) {
-            verbosePrintln("Found no zcm fingerprint. Attempting to print value");
-            if(o.getClass().isArray()) {
-                printArray(o);
-            } else {
-                output.print(o + ",");
-            }
-            return;
-        }
-
-        for (Field field : fields) {
-            String name = field.getName();
-            verbosePrintln(name);
-
-            // Dont want to print out the fingerprint
-            if(name.startsWith("ZCM_FINGERPRINT"))
-                continue;
-
-            Object value = null;
-            try {
-                value = field.get(o);
-            } catch(IllegalAccessException e) {
-                System.err.println("Catastrophic error. Shoudln't be able to get here");
-                System.exit(1);
-            }
-            output.print(name + ",");
-            verbosePrintln("Attempting to print next zcmtype " + name);
-            printZcmType(value);
-        }
-        output.flush();
     }
 
     public void run()
@@ -352,30 +289,55 @@ public class CsvWriter implements ZCMSubscriber
             }
         }
 
-        Constructor pluginCtr = null;
-        if (list_plugins || pluginName != null) {
+        if (list_plugins) {
             System.out.println("Searching path for plugins");
             PluginClassVisitor pcv = new PluginClassVisitor();
-            if (list_plugins) {
-                pcv.print();
-                System.exit(0);
-            }
-            if (pluginName != null)
-                pluginCtr = pcv.plugins.get(pluginName);
+            pcv.print();
+            System.exit(0);
         }
 
+        Constructor pluginCtr = null;
+        if (pluginName != null) {
+            try {
+                Class c = Class.forName(pluginName);
+                pluginCtr = c.getConstructor();
+                if (!CsvReaderPlugin.class.isAssignableFrom(c)) {
+                    System.err.println("Invalid plugin. Exiting.");
+                    System.exit(1);
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+                System.err.println("Unable to find specified plugin");
+                System.exit(1);
+            }
+        }
+
+        // Check input getopt
         if (zcm_url != null && logfile != null) {
             System.err.println("Please specify only one source of zcm data");
             usage();
             System.exit(1);
         }
 
+        // Check output getopt
         if (outfile == null) {
             System.err.println("Please specify output file");
             usage();
             System.exit(1);
         }
 
+        // Setup input file
+        Log input = null;
+        if (logfile != null) {
+            try {
+                input = new Log(logfile, "r");
+            } catch(Exception e) {
+                System.err.println("Unable to open " + logfile);
+                System.exit(1);
+            }
+        }
+
+        // Setup output file.
         PrintWriter output = null;
         try {
             output = new PrintWriter(outfile, "UTF-8");
@@ -384,16 +346,6 @@ public class CsvWriter implements ZCMSubscriber
             System.exit(1);
         }
 
-        Log log = null;
-        if (logfile != null) {
-            try {
-                log = new Log(logfile, "r");
-            } catch(Exception e) {
-                System.err.println("Unable to open " + logfile);
-                System.exit(1);
-            }
-        }
-
-        new CsvWriter(output, log, pluginCtr, verbose).run();
+        new CsvWriter(output, input, zcm_url, pluginCtr, verbose).run();
     }
 }
