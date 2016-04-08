@@ -15,8 +15,6 @@ import zcm.zcm.*;
 import zcm.spy.*;
 import zcm.util.*;
 
-import skyspecs.common.util.TimeUtil;
-
 public class CsvWriter implements ZCMSubscriber
 {
     private ZCMTypeDatabase handlers;
@@ -35,7 +33,7 @@ public class CsvWriter implements ZCMSubscriber
         this.output = output;
         if (pluginCtr != null) {
             try {
-                this.plugin = (CsvWriterPlugin) pluginCtr.newInstance(this);
+                this.plugin = (CsvWriterPlugin) pluginCtr.newInstance();
                 System.out.println("Found plugin: " + this.plugin.getClass().getName());
             } catch (Exception ex) {
                 System.out.println("ex: " + ex);
@@ -49,6 +47,7 @@ public class CsvWriter implements ZCMSubscriber
 
         System.out.println("Searching for zcmtypes in your path...");
         handlers = new ZCMTypeDatabase();
+        if (this.verbose) handlers.print();
 
         if (log == null) {
             try {
@@ -75,8 +74,8 @@ public class CsvWriter implements ZCMSubscriber
 
     public void messageReceived(ZCM zcm, String channel, ZCMDataInputStream dins)
     {
-        verbosePrintln(channel);
-        _messageReceived(zcm, channel, TimeUtil.utime(), dins);
+        verbosePrintln("Received message on channel: " + channel);
+        _messageReceived(zcm, channel, System.currentTimeMillis() * 1000, dins);
     }
 
     private void _messageReceived(ZCM zcm, String channel, long utime, ZCMDataInputStream dins)
@@ -90,7 +89,8 @@ public class CsvWriter implements ZCMSubscriber
 
             if (cls == null) {
                 verbosePrintln("Unable to find class on channel " + channel
-                               + " based on fingerprint " + fingerprint);
+                               + " based on fingerprint " +
+                               Long.toHexString(fingerprint));
                 return;
             }
             Object o = cls.getConstructor(DataInput.class).newInstance(dins);
@@ -114,7 +114,8 @@ public class CsvWriter implements ZCMSubscriber
         Runtime.getRuntime().addShutdownHook(new Thread() {
             public void run() {
                 done = true;
-                System.out.println("\rCleaning up and quitting ");
+                System.out.println("\b\b  ");
+                System.out.println("Cleaning up and quitting");
             }
         });
         if(log == null) {
@@ -125,7 +126,7 @@ public class CsvWriter implements ZCMSubscriber
                 try {
                     Log.Event ev = log.readNext();
                     Double percent = log.getPositionFraction() * 100;
-                    long now = TimeUtil.utime();
+                    long now = System.currentTimeMillis() * 1000;
                     if (lastPrintTime + 5e5 < now) {
                         lastPrintTime = now;
                         System.out.print("\rProgress: " + String.format("%.2f", percent) + "%");
@@ -159,8 +160,8 @@ public class CsvWriter implements ZCMSubscriber
             Class<?> c = cls;
             if (!c.equals(CsvWriterPlugin.class) && CsvWriterPlugin.class.isAssignableFrom(c)) {
                 try {
-                    Constructor ctr = c.getConstructor(CsvWriter.class);
-                    CsvWriterPlugin plugin = (CsvWriterPlugin) ctr.newInstance((CsvWriter)null);
+                    Constructor ctr = c.getConstructor();
+                    CsvWriterPlugin plugin = (CsvWriterPlugin) ctr.newInstance();
                     plugins.put(plugin.getClass().getName(), ctr);
                 } catch (Exception ex) {
                     System.out.println("ex: " + ex);
@@ -183,7 +184,7 @@ public class CsvWriter implements ZCMSubscriber
                 System.out.println("Found " + name + " that handles:");
                 Constructor ctr = plugins.get(name);
                 try {
-                    CsvWriterPlugin plugin = (CsvWriterPlugin) ctr.newInstance((CsvWriter)null);
+                    CsvWriterPlugin plugin = (CsvWriterPlugin) ctr.newInstance();
                     for (Long l : plugin.handleFingerprints()) {
                         Class<?> cls = null;
                         try {
@@ -289,24 +290,18 @@ public class CsvWriter implements ZCMSubscriber
             }
         }
 
+        System.out.println("Searching path for plugins");
+        PluginClassVisitor pcv = new PluginClassVisitor();
+
         if (list_plugins) {
-            System.out.println("Searching path for plugins");
-            PluginClassVisitor pcv = new PluginClassVisitor();
             pcv.print();
             System.exit(0);
         }
 
         Constructor pluginCtr = null;
         if (pluginName != null) {
-            try {
-                Class c = Class.forName(pluginName);
-                pluginCtr = c.getConstructor();
-                if (!CsvReaderPlugin.class.isAssignableFrom(c)) {
-                    System.err.println("Invalid plugin. Exiting.");
-                    System.exit(1);
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
+            pluginCtr = pcv.plugins.get(pluginName);
+            if (pluginCtr == null) {
                 System.err.println("Unable to find specified plugin");
                 System.exit(1);
             }
