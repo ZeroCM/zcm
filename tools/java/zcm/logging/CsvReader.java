@@ -48,6 +48,16 @@ public class CsvReader
         }
     }
 
+    private void verbosePrintln(String str)
+    {
+        if(verbose) System.out.println(str);
+    }
+
+    private void verbosePrint(String str)
+    {
+        if(verbose) System.out.print(str);
+    }
+
     public void run()
     {
         String line;
@@ -192,24 +202,18 @@ public class CsvReader
             }
         }
 
+        System.out.println("Searching path for plugins");
+        PluginClassVisitor pcv = new PluginClassVisitor();
+
         if (list_plugins) {
-            System.out.println("Searching path for plugins");
-            PluginClassVisitor pcv = new PluginClassVisitor();
             pcv.print();
             System.exit(0);
         }
 
         Constructor pluginCtr = null;
         if (pluginName != null) {
-            try {
-                Class c = Class.forName(pluginName);
-                pluginCtr = c.getConstructor();
-                if (!CsvReaderPlugin.class.isAssignableFrom(c)) {
-                    System.err.println("Invalid plugin. Exiting.");
-                    System.exit(1);
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
+            pluginCtr = pcv.plugins.get(pluginName);
+            if (pluginCtr == null) {
                 System.err.println("Unable to find specified plugin");
                 System.exit(1);
             }
