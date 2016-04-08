@@ -2,6 +2,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <cassert>
+#include <unistd.h>
 #include <cinttypes>
 #include <regex>
 #include <atomic>

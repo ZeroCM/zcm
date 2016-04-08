@@ -4,6 +4,10 @@
 #error "Don't include this file"
 #endif
 
+#ifdef ZCM_EMBEDDED
+#define nullptr NULL
+#endif
+
 // =============== implementation ===============
 
 // Note: To prevent compiler "redefinition" issues, all functions in this file must be declared
@@ -19,13 +23,20 @@ inline ZCM::ZCM(const std::string& transport)
     zcm = zcm_create(transport.c_str());
 }
 
+inline ZCM::ZCM(zcm_trans_t *zt)
+{
+    zcm = (zcm_t*) malloc(sizeof(zcm_t));
+    zcm_init_trans(zcm, zt);
+}
+
 inline ZCM::~ZCM()
 {
     if (zcm != nullptr)
         zcm_destroy(zcm);
 
-    auto end = subscriptions.end();
-    for (auto it = subscriptions.begin(); it != end; ++it) delete *it;
+    std::vector<Subscription*>::iterator end = subscriptions.end(),
+                                          it = subscriptions.begin();
+    for (;it != end; ++it) delete *it;
 
     zcm = nullptr;
 }
@@ -261,8 +272,9 @@ inline Subscription *ZCM::subscribe(const std::string& channel,
 
 inline void ZCM::unsubscribe(Subscription *sub)
 {
-    auto end = subscriptions.end();
-    for (auto it = subscriptions.begin(); it != end; ++it) {
+    std::vector<Subscription*>::iterator end = subscriptions.end(),
+                                          it = subscriptions.begin();
+    for (; it != end; ++it) {
         if (*it == sub) {
             zcm_unsubscribe(zcm, sub->c_sub);
             subscriptions.erase(it);
@@ -277,6 +289,7 @@ inline zcm_t *ZCM::getUnderlyingZCM()
     return zcm;
 }
 
+#ifndef ZCM_EMBEDDED
 inline LogFile::LogFile(const std::string& path, const std::string& mode)
 {
     this->eventlog = zcm_eventlog_create(path.c_str(), mode.c_str());
@@ -335,3 +348,4 @@ inline int LogFile::writeEvent(LogEvent* event)
     evt.data = event->data;
     return zcm_eventlog_write_event(eventlog, &evt);
 }
+#endif

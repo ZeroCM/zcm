@@ -1,5 +1,6 @@
 #include <iostream>
 #include <string>
+#include <unistd.h>
 #include <vector>
 #include <atomic>
 #include <signal.h>
