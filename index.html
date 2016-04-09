@@ -29,68 +29,74 @@
 
 <h1>ZCMType Hashing Scheme Change</h1>
 
-<p>
-Hi All,
+<p> Hi All, </p>
 
-Zcm is about to go through a relatively minor change, but one that you should be aware of.
+<p> Zcm is about to go through a relatively minor change, but one that you should be aware of. </p>
 
-Zcm employs a hashing scheme to help with the decoding of messages. This is meant to ensure that you don't accidentally try to decode a message that has a structural makeup different than the makeup you're expecting.
+<p> Zcm employs a hashing scheme to help with the decoding of messages. This is meant to ensure that you don't accidentally try to decode a message that has a structural makeup different than the makeup you're expecting. </p>
 
-The current hashing scheme takes into account all variable types and variable names in your zcmtype. For example, if you have a zcm type that looks like the following:
+<p> The current hashing scheme takes into account all variable types and variable names in your zcmtype. For example, if you have a zcm type that looks like the following: </p>
 
-struct example_t
+<pre><code>struct example_t
 {
     int64_t utime;
     float q[4];
     int8_t flags;
     const int8_t FLAGS_VALID = 0x01;
-}
+};
+</code></pre>
 
-and you change the "q" field to be an array of 3 floats, instead of 4, we want to be able to catch that in the decoding stage, and warn the user that there is a type mismatch.
+<p> and you change the <code>q</code> field to be an array of 3 floats, instead of 4, we want to be able to catch that in the decoding stage, and warn the user that there is a type mismatch. </p>
 
-Here's how the current system works.
+<p> Here's how the current system works. </p>
 
-We hash (in order) all of the types of all of the variables **as well as their names** (we do not include const variables in the creation of the hash). This means that if you change the name of a variable, the hash for that type changes. The system was intentionally designed that way so you could have 10 different types all with individually unique hashes, even if their only member was 1 float (as long as that member had different names for each type). For example, we could have the following two zcmtypes used in one system without chance of accidentally decoding one for the other.
+<p> We hash (in order) all of the types of all of the variables **as well as their names** (we do not include const variables in the creation of the hash). This means that if you change the name of a variable, the hash for that type changes. The system was intentionally designed that way so you could have 10 different types all with individually unique hashes, even if their only member was 1 float (as long as that member had different names for each type). For example, we could have the following two zcmtypes used in one system without chance of accidentally decoding one for the other. </p>
 
-struct system_flags_t
+<pre><code>struct system_flags_t
 {
     int8_t system_flags;
     const int8_t FLAGS_SYSTEM_ON = 0x01;
-}
+};
+</code></pre>
 
-struct vehicle_flags_t
+<pre><code>struct vehicle_flags_t
 {
     int8_t vehicle_flags;
     const int8_t FLAGS_VEHICLE_DRIVING = 0x01;
-}
+};
+</code></pre>
 
-The problem with this though, is that a user might want to change the name of a variable without invalidating all of their old logs. The assumption here is that a change in variable name doesn't necessarily mean that the underlying data is different. So we decided to give the user the option to choose which hashing scheme is desired.
+<p> The problem with this though, is that a user might want to change the name of a variable without invalidating all of their old logs. The assumption here is that a change in variable name doesn't necessarily mean that the underlying data is different. So we decided to give the user the option to choose which hashing scheme is desired. </p>
 
-ZCM can create the type hashes using any of the following information. Some of these are hard coded to always be used because it has been deemed unsafe to ignore them. Others are optional and may be configured by the user at configure-time.
+<p> ZCM can create the type hashes using any of the following information. Some of these are hard coded to always be used because it has been deemed unsafe to ignore them. Others are optional and may be configured by the user at configure-time. </p>
 
-Always On Hash Scheme:
-member types (in order)
+<p> Always On Hash Scheme: </p>
+<ul>
+  <li> member types (in order) </li>
+</ul>
 
-Configureable Hash Scheme:
-zcmtype name (default is ON)
-member names (in order) (default is OFF)
+<p> Configureable Hash Scheme: </p>
+<ul>
+  <li> zcmtype name (default is ON) </li>
+  <li> member names (in order) (default is OFF) </li>
+</ul>
 
-Previously, the default values for the two configurable hash schemes were inverted. However, we've recently decided that using the new scheme is more stable and intuitive. In any case, both of these options may be configured during your  ./waf configure  call:
+<p> Previously, the default values for the two configurable hash schemes were inverted. However, we've recently decided that using the new scheme is more stable and intuitive. In any case, both of these options may be configured during your <code> ./waf configure </code> call: </p>
 
-option:  --hash-typename={true,false}               set to true to have zcmtype hashing use the typename in the computed hash
-option:  --hash-member-names={true,false}     set to true to have zcmtype hashing use the member variable names (in order) in the computed hash
+<p> option: <code> --hash-typename={true,false} </code> </p>
+<p> set to true to have zcmtype hashing use the typename in the computed hash </p>
+<p> option: <code> --hash-member-names={true,false} </code> </p>
+<p> set to true to have zcmtype hashing use the member variable names (in order) in the computed hash </p>
 
-If you want to remain compatible with the zcmtype hashs in your previous logs, configure with
---hash-typename=false --hash-member-names=true
-However, we believe that it will benefit you to switch to the new default scheme:
---use-typename=true --use-member-names=false
+<p> If you want to remain compatible with the zcmtype hashs in your previous logs, configure with </p>
+<p> <code> --hash-typename=false --hash-member-names=true </code> </p>
+<p> However, we believe that it will benefit you to switch to the new default scheme: </p>
+<p> <code> --use-typename=true --use-member-names=false </code> </p>
 
-A utility to run through zcm logs and update old hashes to the new hashes has been made, but it is still in it's early stages. If you are interested in switching to the new hash scheme but need to migrate old logs, let us know and we can make that utility a higher development priority.
+<p> A utility to run through zcm logs and update old hashes to the new hashes has been made, but it is still in it's early stages. If you are interested in switching to the new hash scheme but need to migrate old logs, let us know and we can make that utility a higher development priority. </p>
 
-
-As always, feel free to reach out here on on gitter with any questions!
-~The ZCM Team
-http://zcm-project.org
+<p> As always, feel free to reach out here on on gitter with any questions! </p>
+<p> ~The ZCM Team </p>
 </p>
 
 <p><hr>
