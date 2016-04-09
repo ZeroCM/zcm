@@ -91,37 +91,62 @@ def zcmgen(ctx, **kw):
         raise WafError('zcmgen requires keword argument: "lang"')
 
     # Add .zcm files to build so the process_zcmtypes rule picks them up
-    tg = ctx(source  = kw['source'],
-             lang    = kw['lang'],
-             javapkg = javapkg_name)
-
-    ctx.add_group()
+    genfiles_name = uselib_name + '_genfiles'
+    tg = ctx(name     = genfiles_name,
+             source   = kw['source'],
+             lang     = kw['lang'],
+             javapkg  = javapkg_name)
+    tg.post()
 
     bld = ctx.path.get_bld().abspath()
     inc = os.path.dirname(bld)
 
-    if 'c' in kw['lang']:
-        # Note: We are currently only building a static library to remove runtime linking issues,
-        #       but if the user desires a shared library for any reason, adding a "ctx.shlib" rule
-        #       here would be trivial, just don't forget to change the "name" as conflicting names
-        #       will confuse waf.
-        ctx.stlib(name            = uselib_name + '_c',
-                  target          = uselib_name,
-                  use             = ['default', 'zcm'],
-                  includes        = inc,
-                  export_includes = inc,
-                  source          = [src.change_ext('.c') for src in tg.source])
+    if 'c_stlib' in kw['lang']:
+        cstlibtg = ctx.stlib(name            = uselib_name + '_c_stlib',
+                             target          = uselib_name,
+                             use             = ['default', 'zcm'],
+                             includes        = inc,
+                             export_includes = inc,
+                             source          = [src.change_ext('.c') for src in tg.source])
+        cstlibtg.post()
+        for cstlibtask in cstlibtg.tasks:
+            for task in tg.tasks:
+                cstlibtask.set_run_after(task)
+
+    if 'c_shlib' in kw['lang']:
+        cshlibtg = ctx.shlib(name            = uselib_name + '_c_shlib',
+                             target          = uselib_name,
+                             use             = ['default', 'zcm'],
+                             includes        = inc,
+                             export_includes = inc,
+                             source          = [src.change_ext('.c') for src in tg.source])
+        cshlibtg.post()
+        for cshlibtask in cshlibtg.tasks:
+            for task in tg.tasks:
+                cshlibtask.set_run_after(task)
+
     if 'cpp' in kw['lang']:
-        ctx(name            = uselib_name + '_cpp',
-            export_includes = inc)
+        cpptg = ctx(target          = uselib_name + '_cpp',
+                    rule            = 'touch ${TGT}',
+                    export_includes = inc)
+        cpptg.post()
+        for cpptask in cpptg.tasks:
+            for task in tg.tasks:
+                cpptask.set_run_after(task)
+
     if 'java' in kw['lang']:
-        ctx(name       = uselib_name + '_java',
-            features   = 'javac jar',
-            use        = 'zcmjar',
-            srcdir     = ctx.path.find_or_declare('java/' + javapkg_name.split('.')[0]),
-            outdir     = 'java/classes',  # path to output (for .class)
-            basedir    = 'java/classes',  # basedir for jar
-            destfile   = uselib_name + '.jar')
+        javatg = ctx(name       = uselib_name + '_java',
+                     features   = 'javac jar',
+                     use        = ['zcmjar'],
+                     srcdir     = ctx.path.find_or_declare('java/' +
+                                                           javapkg_name.split('.')[0]),
+                     outdir     = 'java/classes',  # path to output (for .class)
+                     basedir    = 'java/classes',  # basedir for jar
+                     destfile   = uselib_name + '.jar')
+        javatg.post()
+        for javatask in javatg.tasks:
+            for task in tg.tasks:
+                javatask.set_run_after(task)
 
 @extension('.zcm')
 def process_zcmtypes(self, node):
@@ -139,7 +164,7 @@ class zcmgen(Task.Task):
         gen = self.generator
         inp = self.inputs[0]
 
-        if 'c' in gen.lang:
+        if ('c_stlib' in gen.lang) or ('c_shlib' in gen.lang):
             self.set_outputs(inp.change_ext(ext='.h'))
             self.set_outputs(inp.change_ext(ext='.c'))
         if 'cpp' in gen.lang:
@@ -173,7 +198,7 @@ class zcmgen(Task.Task):
         inc = bld.split('/')[-1]
 
         langs = {}
-        if 'c' in gen.lang:
+        if ('c_stlib' in gen.lang) or ('c_shlib' in gen.lang):
             langs['c'] = '--c --c-typeinfo --c-cpath %s --c-hpath %s --c-include %s' % (bld, bld, inc)
         if 'cpp' in gen.lang:
             langs['cpp'] = '--cpp --cpp-hpath %s --cpp-include %s' % (bld, inc)
