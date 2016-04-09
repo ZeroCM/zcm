@@ -152,13 +152,17 @@ i64 ZCMStruct::computeHash()
     // this allows people to rename data types and still have them work.
     //
     // In contrast, we DO hash the types of a structs members (and their names).
-#ifdef ENABLE_TYPENAME_HASHING
-    v = hashUpdate(v, structname);
-#endif
+
+    #ifdef ENABLE_TYPENAME_HASHING
+    v = hashUpdate(v, structname.shortname);
+    #endif
 
     for (auto& m : members) {
+
+        #ifdef ENABLE_MEMBERNAME_HASHING
         // hash the member name
         v = hashUpdate(v, m.membername);
+        #endif
 
         // if the member is a primitive type, include the type
         // signature in the hash. Do not include them for compound

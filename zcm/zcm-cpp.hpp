@@ -15,8 +15,9 @@ class Subscription;
 
 // TODO: unify pointer style pref "Msg* msg" vs "Msg *msg", I'd tend toward the former
 
-struct ZCM
+class ZCM
 {
+  public:
     // TODO: update to match new url based zcm_create
     inline ZCM();
     inline ZCM(const std::string& transport);

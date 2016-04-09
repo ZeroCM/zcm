@@ -41,7 +41,7 @@ struct SpyInfo
 
     bool isValidChannelnum(size_t index)
     {
-        return (0 <= index && index < names.size());
+        return index < names.size();
     }
 
     void addMessage(const char *channel, const zcm_recv_buf_t *rbuf)

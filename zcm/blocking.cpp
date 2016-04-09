@@ -77,11 +77,12 @@ static bool isRegexChannel(const string& channel)
     return false;
 }
 
-class zcm_blocking
+struct zcm_blocking
 {
+  private:
     using SubList = vector<zcm_sub_t*>;
 
-public:
+  public:
     zcm_blocking(zcm_t *z, zcm_trans_t *zt_);
     ~zcm_blocking();
 
