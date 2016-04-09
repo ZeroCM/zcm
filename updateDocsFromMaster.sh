@@ -17,7 +17,7 @@ rm -rf __tmp
 mkdir -p __tmp/docs
 rm -rf __tmp/docs/*
 
-markdown README.md > __tmp/docs/index.html
+markdown README.md > __tmp/docs/homepage.html
 for doc in `ls docs/*`; do
     markdown $doc > __tmp/${doc%.md}.html
 done
@@ -43,7 +43,7 @@ getHeader()
   </head>
   <body>
     <section class='page-header'>
-      <section style='cursor:pointer' onclick='window.location=\"$1index.html\";'>
+      <section style='cursor:pointer' onclick='window.location=\"$1homepage.html\";'>
         <h1 class='project-name'>Zcm</h1>
         <h2 class='project-tagline'>Zero Communications and Marshalling</h2>
       </section>
@@ -71,7 +71,7 @@ mkdir -p __tmp/newDocs
 
 for doc in `ls __tmp/docs/`; do
     newDoc="__tmp/newDocs/$doc"
-    if [ "$doc" == "index.html" ]; then
+    if [ "$doc" == "homepage.html" ]; then
         header=$(getHeader "" "Zcm by ZeroCM")
     else
         header=$(getHeader "../" "${doc%.html}")
@@ -82,10 +82,10 @@ for doc in `ls __tmp/docs/`; do
     footer=$(getFooter)
     echo "$footer" >> $newDoc && \
     sed -i "s:\([a-zA-Z]*\)\.md:\1.html:g" $newDoc && \
-    sed -i "s:README\.html:index.html:g" $newDoc
+    sed -i "s:README\.html:homepage.html:g" $newDoc
 done
 
-mv __tmp/newDocs/index.html .
+mv __tmp/newDocs/homepage.html .
 mv __tmp/newDocs/* docs/
 git add --all docs/*
 rm -rf __tmp
