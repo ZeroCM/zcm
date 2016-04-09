@@ -109,8 +109,9 @@ def zcmgen(ctx, **kw):
                              export_includes = inc,
                              source          = [src.change_ext('.c') for src in tg.source])
         cstlibtg.post()
-        for task in tg.tasks:
-            cstlibtg.tasks[0].set_run_after(task)
+        for cstlibtask in cstlibtg.tasks:
+            for task in tg.tasks:
+                cstlibtask.set_run_after(task)
 
     if 'c_shlib' in kw['lang']:
         cshlibtg = ctx.shlib(name            = uselib_name + '_c_shlib',
@@ -120,16 +121,18 @@ def zcmgen(ctx, **kw):
                              export_includes = inc,
                              source          = [src.change_ext('.c') for src in tg.source])
         cshlibtg.post()
-        for task in tg.tasks:
-            cshlibtg.tasks[0].set_run_after(task)
+        for cshlibtask in cshlibtg.tasks:
+            for task in tg.tasks:
+                cshlibtask.set_run_after(task)
 
     if 'cpp' in kw['lang']:
         cpptg = ctx(target          = uselib_name + '_cpp',
                     rule            = 'touch ${TGT}',
                     export_includes = inc)
         cpptg.post()
-        for task in tg.tasks:
-            cpptg.tasks[0].set_run_after(task)
+        for cpptask in cpptg.tasks:
+            for task in tg.tasks:
+                cpptask.set_run_after(task)
 
     if 'java' in kw['lang']:
         javatg = ctx(name       = uselib_name + '_java',
@@ -141,8 +144,9 @@ def zcmgen(ctx, **kw):
                      basedir    = 'java/classes',  # basedir for jar
                      destfile   = uselib_name + '.jar')
         javatg.post()
-        for task in tg.tasks:
-            javatg.tasks[0].set_run_after(task)
+        for javatask in javatg.tasks:
+            for task in tg.tasks:
+                javatask.set_run_after(task)
 
 @extension('.zcm')
 def process_zcmtypes(self, node):
