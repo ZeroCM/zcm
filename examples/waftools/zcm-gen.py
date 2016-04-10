@@ -96,7 +96,6 @@ def zcmgen(ctx, **kw):
              source   = kw['source'],
              lang     = kw['lang'],
              javapkg  = javapkg_name)
-    tg.post()
 
     bld = ctx.path.get_bld().abspath()
     inc = os.path.dirname(bld)
@@ -108,10 +107,6 @@ def zcmgen(ctx, **kw):
                              includes        = inc,
                              export_includes = inc,
                              source          = [src.change_ext('.c') for src in tg.source])
-        cstlibtg.post()
-        for cstlibtask in cstlibtg.tasks:
-            for task in tg.tasks:
-                cstlibtask.set_run_after(task)
 
     if 'c_shlib' in kw['lang']:
         cshlibtg = ctx.shlib(name            = uselib_name + '_c_shlib',
@@ -120,33 +115,21 @@ def zcmgen(ctx, **kw):
                              includes        = inc,
                              export_includes = inc,
                              source          = [src.change_ext('.c') for src in tg.source])
-        cshlibtg.post()
-        for cshlibtask in cshlibtg.tasks:
-            for task in tg.tasks:
-                cshlibtask.set_run_after(task)
 
     if 'cpp' in kw['lang']:
         cpptg = ctx(target          = uselib_name + '_cpp',
                     rule            = 'touch ${TGT}',
                     export_includes = inc)
-        cpptg.post()
-        for cpptask in cpptg.tasks:
-            for task in tg.tasks:
-                cpptask.set_run_after(task)
 
     if 'java' in kw['lang']:
         javatg = ctx(name       = uselib_name + '_java',
                      features   = 'javac jar',
-                     use        = ['zcmjar'],
+                     use        = ['zcmjar', genfiles_name],
                      srcdir     = ctx.path.find_or_declare('java/' +
                                                            javapkg_name.split('.')[0]),
                      outdir     = 'java/classes',  # path to output (for .class)
                      basedir    = 'java/classes',  # basedir for jar
                      destfile   = uselib_name + '.jar')
-        javatg.post()
-        for javatask in javatg.tasks:
-            for task in tg.tasks:
-                javatask.set_run_after(task)
 
 @extension('.zcm')
 def process_zcmtypes(self, node):
@@ -165,10 +148,10 @@ class zcmgen(Task.Task):
         inp = self.inputs[0]
 
         if ('c_stlib' in gen.lang) or ('c_shlib' in gen.lang):
-            self.set_outputs(inp.change_ext(ext='.h'))
-            self.set_outputs(inp.change_ext(ext='.c'))
+            self.outputs.append(inp.change_ext(ext='.h'))
+            self.outputs.append(inp.change_ext(ext='.c'))
         if 'cpp' in gen.lang:
-            self.set_outputs(inp.change_ext(ext='.hpp'))
+            self.outputs.append(inp.change_ext(ext='.hpp'))
         if 'java' in gen.lang:
             if not getattr(gen, 'javapkg', None):
                 raise WafError('Java ZCMtypes must define a "javapkg"')
