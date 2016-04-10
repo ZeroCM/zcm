@@ -9,3 +9,6 @@ def build(ctx):
                 includes = '.', # need this because some files under emit include up to base dir
                 use = 'default',
                 source = ctx.path.ant_glob('*.c *.cpp **/*.c **/*.cpp', excl='disabled/*'))
+
+    ctx.install_files('${PREFIX}/share/waf/',
+                      ['../examples/waftools/zcm-gen.py'])
