@@ -12,7 +12,7 @@ run()
 }
 
 ## Test type generation
-run   zcm-gen-test    ./scripts/test-gen.sh
+# run   zcm-gen-test    ./scripts/test-gen.sh
 
 ## Test subscribe and unsubscribe
 run   sub-unsub-c     ./build/test/zcm/sub_unsub_c
