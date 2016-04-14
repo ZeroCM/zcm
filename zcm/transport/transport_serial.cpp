@@ -330,6 +330,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
     int recvmsg(zcm_msg_t *msg, int timeout)
     {
+        u64 now = TimeUtil::utime();
+
         u8 buffer[1024];
         size_t index = 0, size = 0;
         u8 sum = 0;  // TODO introduce better checksum
@@ -387,16 +389,22 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         u8 channelLen = readByte();
         u32 dataLen = readU32();
 
+        u64 diff = TimeUtil::utime() - now;
+
         // Validate the lengths received
         if (channelLen > ZCM_CHANNEL_MAXLEN) {
             ZCM_DEBUG("serial recvmsg: channel is too long: %d", channelLen);
+            if (timeout > 0 && diff > timeout)
+                return ZCM_EAGAIN;
             // retry the recvmsg via tail-recursion
-            return recvmsg(msg, timeout);
+            return recvmsg(msg, timeout - diff);
         }
         if (dataLen > MTU) {
             ZCM_DEBUG("serial recvmsg: data is too long: %d", dataLen);
+            if (timeout > 0 && diff > timeout)
+                return ZCM_EAGAIN;
             // retry the recvmsg via tail-recursion
-            return recvmsg(msg, timeout);
+            return recvmsg(msg, timeout - diff);
         }
 
         // Lengths are good! Recv the data
@@ -406,17 +414,24 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         // Set the null-terminator
         recvChannelMem[channelLen] = '\0';
 
+        diff = TimeUtil::utime() - now;
+
         // Check the checksum
         if (!checkFinish()) {
             ZCM_DEBUG("serial recvmsg: checksum failed!");
+            if (timeout > 0 && diff > timeout)
+                return ZCM_EAGAIN;
             // retry the recvmsg via tail-recursion
-            return recvmsg(msg, timeout);
+            return recvmsg(msg, timeout - diff);
         }
 
         // Has this channel been enabled?
         if (!isChannelEnabled((char*)recvChannelMem)) {
+            ZCM_DEBUG("serial recvmsg: %s is not enabled!", recvChannelMem);
+            if (timeout > 0 && diff > timeout)
+                return ZCM_EAGAIN;
             // retry the recvmsg via tail-recursion
-            return recvmsg(msg, timeout);
+            return recvmsg(msg, timeout - diff);
         }
 
         // Good! Return it
