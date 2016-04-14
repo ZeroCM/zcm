@@ -4,6 +4,8 @@
 #include "zcm/util/lockfile.h"
 #include "zcm/util/debug.h"
 
+#include "util/TimeUtil.hpp"
+
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -389,7 +391,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         u8 channelLen = readByte();
         u32 dataLen = readU32();
 
-        u64 diff = TimeUtil::utime() - now;
+        int diff = TimeUtil::utime() - now;
 
         // Validate the lengths received
         if (channelLen > ZCM_CHANNEL_MAXLEN) {
