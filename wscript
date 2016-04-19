@@ -13,6 +13,12 @@ out = 'build'
 
 # Allow import of custom tools
 sys.path.append('examples/waftools')
+sys.path.append('.waf/CustomTools')
+
+variants = {'local' : 'local',
+             'asan' : 'local',  ## Core Sanitizers (Address, Undefined-Behavior)
+             'tsan' : 'local',  ## Thread Sanitizer
+}
 
 def options(ctx):
     ctx.load('compiler_c')
@@ -39,6 +45,7 @@ def add_zcm_configure_options(ctx):
     add_use_option('elf',         'Enable runtime loading of shared libs')
     gr.add_option('--use-third-party', dest='use_third_party', default=False, \
                   action='store_true', help='Enable inclusion of 3rd party transports.')
+    add_use_option('clang',   'Enable build using clang sanitizers')
 
     gr.add_option('--hash-member-names',  dest='hash_member_names', default='false',
                   type='choice', choices=['true', 'false'],
@@ -61,13 +68,22 @@ def add_zcm_build_options(ctx):
                    help='Compile all C/C++ code in debug mode: no optimizations and full symbols')
 
 def configure(ctx):
+    for e in variants:
+        ctx.setenv(e) # start with a copy instead of a new env
+
+    ctx.setenv('')
+
     ctx.load('compiler_c')
     ctx.load('compiler_cxx')
     ctx.recurse('gen')
     ctx.recurse('config')
     ctx.load('zcm-gen')
+
+    ctx.env.configuredEnv = []
+
     process_zcm_configure_options(ctx)
 
+<<<<<<< 281d4855f342fec5d19d0bab6e66b3d509e94ecc
 def processCppVersion(ctx, f):
     version = ctx.cmd_and_log('grep VERSION %s | cut -d \' \' -f3' % (f),
                               output=waflib.Context.STDOUT,
@@ -95,6 +111,9 @@ def version(ctx):
 
     Logs.pprint('RED','ZCM Version: %s' % (versionZCM))
 
+    for e in ctx.env.configuredEnv:
+        ctx.setenv(e, env=ctx.env.derive()) # start with a copy instead of a new env
+
     return versionZCM
 
 def process_zcm_configure_options(ctx):
@@ -113,6 +132,7 @@ def process_zcm_configure_options(ctx):
     env.USING_CXXTEST     = hasopt('use_cxxtest') and attempt_use_cxxtest(ctx)
     env.USING_ELF         = hasopt('use_elf') and attempt_use_elf(ctx)
     env.USING_THIRD_PARTY = getattr(opt, 'use_third_party') and attempt_use_third_party(ctx)
+    env.USING_CLANG   = hasopt('use_clang')  and attempt_use_clang(ctx)
 
     env.USING_TRANS_IPC    = hasopt('use_ipc')
     env.USING_TRANS_INPROC = hasopt('use_inproc')
@@ -163,6 +183,9 @@ def process_zcm_configure_options(ctx):
     print_entry("hash-typename", env.HASH_TYPENAME == 'true')
     print_entry("hash-member-names",  env.HASH_MEMBER_NAMES == 'true', '', True)
 
+    Logs.pprint('BLUE', '\nDev Configuration:')
+    print_entry("Clang",   env.USING_CLANG)
+
     Logs.pprint('NORMAL', '')
 
 def attempt_use_java(ctx):
@@ -211,12 +234,51 @@ def attempt_use_third_party(ctx):
         raise WafError('Failed to find all required submodules. You should run: \n' + \
                        'git submodule update --init --recursive\n' + \
                        'and then reconfigure')
+
+def attempt_use_clang(ctx):
+    ctx.load('clang-custom')
+    ctx.env.CLANG_VERSION = ctx.check_clang_version()
+    ctx.env.configuredEnv.append('asan')
+    ctx.env.configuredEnv.append('tsan')
     return True
 
 def process_zcm_build_options(ctx):
     opt = waflib.Options.options
     ctx.env.USING_OPT = not opt.debug
     ctx.env.USING_SYM = opt.debug or opt.symbols
+
+def setup_environment_gnu(ctx):
+    FLAGS = ['-Wno-unused-local-typedefs',
+            ]
+    ctx.env.CFLAGS_default   += FLAGS
+    ctx.env.CXXFLAGS_default += FLAGS
+
+def setup_environment_asan(ctx):
+    ctx.env['LINK_CC'] = ctx.env['COMPILER_CC'] = ctx.env['CC'] = ctx.env['CLANG']
+    ctx.env['LINK_CXX'] = ctx.env['COMPILER_CXX'] = ctx.env['CXX'] = ctx.env['CLANG++']
+
+    FLAGS = ['-fcolor-diagnostics',
+             '-fsanitize=address',    # AddressSanitizer, a memory error detector.
+             '-fsanitize=integer',    # Enables checks for undefined or suspicious integer behavior.
+             '-fsanitize=undefined',  # Fast and compatible undefined behavior checker.
+    ]
+
+    ctx.env.CFLAGS_default    += FLAGS
+    ctx.env.CXXFLAGS_default  += FLAGS
+    ctx.env.LINKFLAGS_default += FLAGS
+
+def setup_environment_tsan(ctx):
+    ctx.env['LINK_CC'] = ctx.env['COMPILER_CC'] = ctx.env['CC'] = ctx.env['CLANG']
+    ctx.env['LINK_CXX'] = ctx.env['COMPILER_CXX'] = ctx.env['CXX'] = ctx.env['CLANG++']
+
+    FLAGS = ['-fcolor-diagnostics',
+             '-fsanitize=thread',     # ThreadSanitizer, a data race detector.
+    ]
+
+    ctx.env.CFLAGS_default    += FLAGS
+    ctx.env.CXXFLAGS_default  += FLAGS
+    ctx.env.LINKFLAGS_default += FLAGS
+
 
 def setup_environment(ctx):
     ctx.post_mode = waflib.Build.POST_LAZY
@@ -252,6 +314,15 @@ def setup_environment(ctx):
     if ctx.env.USING_CXXTEST:
         ctx.setup_cxxtest()
 
+    ## Building for asan?
+    if ctx.variant == 'asan':
+        setup_environment_asan(ctx)
+    ## Building for tsan?
+    elif ctx.variant == 'tsan':
+        setup_environment_tsan(ctx)
+    else:
+        setup_environment_gnu(ctx)
+
     ctx.env.ENVIRONMENT_SETUP = True
 
 def generate_signature(ctx):
@@ -269,7 +340,19 @@ def generate_signature(ctx):
 
     ctx.install_files('${PREFIX}/lib/', ['zcm.gitid'])
 
+from waflib.Build import BuildContext, CleanContext, InstallContext, UninstallContext
+for x in variants:
+    for y in (BuildContext, CleanContext, InstallContext, UninstallContext):
+        name = y.__name__.replace('Context','').lower()
+        class tmp(y):
+            cmd = name + '_' + x
+            variant = x
+
 def build(ctx):
+    if ctx.variant:
+        if not ctx.variant in ctx.env.configuredEnv:
+            ctx.fatal('Please configure for %s build' % (ctx.variant))
+
     if not ctx.env.ENVIRONMENT_SETUP:
         setup_environment(ctx)
 

@@ -5,6 +5,7 @@ def configure(ctx):
     ctx.env.ZCMGEN = ctx.path.get_bld().abspath() + '/zcm-gen'
 
 def build(ctx):
+    ctx.env.ZCMGEN = ctx.path.get_bld().abspath() + '/zcm-gen'
     ctx.program(target = 'zcm-gen',
                 includes = '.', # need this because some files under emit include up to base dir
                 use = 'default',
