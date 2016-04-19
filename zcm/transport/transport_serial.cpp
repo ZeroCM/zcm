@@ -355,6 +355,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
     int recvmsg(zcm_msg_t *msg, int timeout)
     {
+        if (timeout < 0) return ZCM_EAGAIN;
+
         u64 now = TimeUtil::utime();
 
         u8 buffer[1024];
@@ -380,6 +382,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         auto readByte = [&]() {
             if (index == size)
                 refillBuffer();
+            if (size == 0) return buffer[0];
             return buffer[index++];
         };
         auto readU32 = [&]() {
