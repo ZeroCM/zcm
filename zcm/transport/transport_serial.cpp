@@ -31,6 +31,8 @@ using namespace std;
 #define MTU (1<<20)
 #define ESCAPE_CHAR 0xcc
 
+#define SERIAL_TIMEOUT_US 1e5 // u-seconds
+
 using u8  = uint8_t;
 using u16 = uint16_t;
 using u32 = uint32_t;
@@ -46,7 +48,7 @@ struct Serial
     void close();
 
     int write(const u8 *buf, size_t sz);
-    int read(u8 *buf, size_t sz);
+    int read(u8 *buf, size_t sz, u64 timeoutMs);
     static bool baudIsValid(int baud);
 
     Serial(const Serial&) = delete;
@@ -160,14 +162,33 @@ int Serial::write(const u8 *buf, size_t sz)
     return ret;
 }
 
-int Serial::read(u8 *buf, size_t sz)
+int Serial::read(u8 *buf, size_t sz, u64 timeoutUs)
 {
     assert(this->isOpen());
-    int ret = ::read(fd, buf, sz);
-    if(ret == -1) {
-        ZCM_DEBUG("ERR: read failed: %s", strerror(errno));
+    fd_set fds;
+    FD_ZERO(&fds);
+    FD_SET(fd, &fds);
+
+    // The program gets stuck in the "select" call, at the moment.
+    u64 tOut = max((u64)SERIAL_TIMEOUT_US, timeoutUs);
+    //ZCM_DEBUG("serial read: Timing out for %lu microseconds", tOut);
+
+    struct timeval timeout;
+    timeout.tv_sec = tOut / 1000000;
+    timeout.tv_usec = tOut % 1000000;
+    int status = ::select(fd + 1, &fds, NULL, NULL, &timeout);
+
+    if (status > 0) {
+        int ret = status;
+        if (FD_ISSET(fd, &fds)) {
+            ret = ::read(fd, buf, sz);
+            if (ret == -1)
+                ZCM_DEBUG("ERR: read failed: %s", strerror(errno));
+        }
+        return ret;
+    } else {
+        return status;
     }
-    return ret;
 }
 
 bool Serial::baudIsValid(int baud)
@@ -330,6 +351,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         return ZCM_EOK;
     }
 
+#define MILLISECONDS(a) (a)/1e3
+
     int recvmsg(zcm_msg_t *msg, int timeout)
     {
         u64 now = TimeUtil::utime();
@@ -337,11 +360,21 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         u8 buffer[1024];
         size_t index = 0, size = 0;
         u8 sum = 0;  // TODO introduce better checksum
+        bool timedOut = false;
 
         auto refillBuffer = [&]() {
             while (index == size) {
-                size = ser.read(buffer, sizeof(buffer));
-                index = 0;
+                int n = ser.read(buffer, sizeof(buffer), timeout * 1e3);
+                if (n <= 0) {
+                    ZCM_DEBUG("serial recvmsg: read timed out");
+                    size = 0;
+                    index = 0;
+                    timedOut = true;
+                    break;
+                } else {
+                    index = 0;
+                    size = n;
+                }
             }
         };
         auto readByte = [&]() {
@@ -357,7 +390,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             return a<<24 | b<<16 | c<<8 | d<<0;
         };
         auto syncStream = [&]() {
-            while (1) {
+            while (!timedOut) {
                 u8 c = readByte();
                 if (c != ESCAPE_CHAR)
                     continue;
@@ -391,7 +424,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         u8 channelLen = readByte();
         u32 dataLen = readU32();
 
-        int diff = TimeUtil::utime() - now;
+        int diff = MILLISECONDS(TimeUtil::utime() - now);
 
         // Validate the lengths received
         if (channelLen > ZCM_CHANNEL_MAXLEN) {
@@ -416,7 +449,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         // Set the null-terminator
         recvChannelMem[channelLen] = '\0';
 
-        diff = TimeUtil::utime() - now;
+        diff = MILLISECONDS(TimeUtil::utime() - now);
 
         // Check the checksum
         if (!checkFinish()) {
@@ -429,7 +462,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
         // Has this channel been enabled?
         if (!isChannelEnabled((char*)recvChannelMem)) {
-            ZCM_DEBUG("serial recvmsg: %s is not enabled!", recvChannelMem);
+            //ZCM_DEBUG("serial recvmsg: %s is not enabled!", recvChannelMem);
             if (timeout > 0 && diff > timeout)
                 return ZCM_EAGAIN;
             // retry the recvmsg via tail-recursion
