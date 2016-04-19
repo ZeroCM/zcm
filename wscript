@@ -13,7 +13,6 @@ out = 'build'
 
 # Allow import of custom tools
 sys.path.append('examples/waftools')
-sys.path.append('.waf/CustomTools')
 
 variants = {'local' : 'local',
              'asan' : 'local',  ## Core Sanitizers (Address, Undefined-Behavior)
