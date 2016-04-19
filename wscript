@@ -31,10 +31,12 @@ def add_zcm_configure_options(ctx):
     gr = ctx.add_option_group('ZCM Configuration Options')
 
     def add_use_option(name, desc):
-        gr.add_option('--use-'+name, dest='use_'+name, default=False, action='store_true', help=desc)
+        gr.add_option('--use-'+name, dest='use_'+name, default=False,
+                      action='store_true', help=desc)
 
     def add_trans_option(name, desc):
-        gr.add_option('--use-'+name, dest='use_'+name, default=False, action='store_true', help=desc)
+        gr.add_option('--use-'+name, dest='use_'+name, default=False,
+                      action='store_true', help=desc)
 
     add_use_option('all',         'Attempt to enable every ZCM feature')
     add_use_option('java',        'Enable java features')
@@ -83,7 +85,6 @@ def configure(ctx):
 
     process_zcm_configure_options(ctx)
 
-<<<<<<< 281d4855f342fec5d19d0bab6e66b3d509e94ecc
 def processCppVersion(ctx, f):
     version = ctx.cmd_and_log('grep VERSION %s | cut -d \' \' -f3' % (f),
                               output=waflib.Context.STDOUT,
@@ -237,7 +238,7 @@ def attempt_use_third_party(ctx):
 
 def attempt_use_clang(ctx):
     ctx.load('clang-custom')
-    ctx.env.CLANG_VERSION = ctx.check_clang_version()
+    ctx.env.CLANG_VERSION = ctx.assert_clang_version(3.6)
     ctx.env.configuredEnv.append('asan')
     ctx.env.configuredEnv.append('tsan')
     return True
@@ -366,7 +367,8 @@ def build(ctx):
     ctx.add_group()
 
     # RRR (Tom) can't do this ... tis a catch 22
-    #ctx.recurse('test')
+    # if not ctx.variant in ['asan']:
+    #     ctx.recurse('test')
 
 def distclean(ctx):
     ctx.exec_command('rm -f examples/waftools/*.pyc')
