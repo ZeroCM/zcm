@@ -86,6 +86,11 @@ def zcmgen(ctx, **kw):
     if 'javapkg' in kw:
         javapkg_name = kw['javapkg']
 
+    building = True
+    if 'build' in kw:
+        building = kw['build']
+
+
     if 'lang' not in kw:
         # TODO: this should probably be a more specific error type
         raise WafError('zcmgen requires keword argument: "lang"')
@@ -96,6 +101,9 @@ def zcmgen(ctx, **kw):
              source   = kw['source'],
              lang     = kw['lang'],
              javapkg  = javapkg_name)
+
+    if not building:
+        return
 
     bld = ctx.path.get_bld().abspath()
     inc = os.path.dirname(bld)
