@@ -1,21 +1,15 @@
 package zcm.logging;
 
 import java.io.*;
-import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-import java.lang.reflect.Type;
-import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Iterator;
 
 import zcm.zcm.*;
 import zcm.spy.*;
 import zcm.util.*;
 
-public class Transcoder implements ZCMSubscriber
+public class Transcoder
 {
     private ZCMTypeDatabase handlers;
 
@@ -57,13 +51,7 @@ public class Transcoder implements ZCMSubscriber
         if(verbose) System.out.print(str);
     }
 
-    public void messageReceived(ZCM zcm, String channel, ZCMDataInputStream dins)
-    {
-        verbosePrintln("Received message on channel: " + channel);
-        _messageReceived(zcm, channel, System.currentTimeMillis() * 1000, dins);
-    }
-
-    private void _messageReceived(ZCM zcm, String channel, long utime, ZCMDataInputStream dins)
+    private void messageReceived(ZCM zcm, String channel, long utime, ZCMDataInputStream dins)
     {
         try {
             int msgSize = dins.available();
@@ -115,9 +103,9 @@ public class Transcoder implements ZCMSubscriber
                     System.out.print("\rProgress: " + String.format("%.2f", percent) + "%");
                     System.out.flush();
                 }
-                _messageReceived(null, ev.channel, ev.utime,
-                                 new ZCMDataInputStream(ev.data, 0,
-                                                        ev.data.length));
+                messageReceived(null, ev.channel, ev.utime,
+                                new ZCMDataInputStream(ev.data, 0,
+                                                       ev.data.length));
             } catch (EOFException ex) {
                 System.out.println("\rProgress: 100%        ");
                 done = true;
