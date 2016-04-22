@@ -1,5 +1,6 @@
 #include <iostream>
 #include <sys/time.h>
+#include <unistd.h>
 
 #include <zcm/zcm-cpp.hpp>
 #include <zcm/message_tracker.hpp>
