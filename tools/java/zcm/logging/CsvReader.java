@@ -65,12 +65,16 @@ public class CsvReader
             try {
                 line = input.readLine();
                 if (line == null) break;
-                Log.Event event = plugin.readZcmType(line);
-                if (event == null) continue;
+                ArrayList<Log.Event> events = plugin.readZcmType(line);
+                if (events == null || events.size() == 0) continue;
                 if (outputLog != null) {
-                    outputLog.write(event);
+                    for (int i = 0; i < events.size(); ++i)
+                        outputLog.write(events.get(i));
                 } else {
-                    outputZcm.publish(event.channel, event.data, 0, event.data.length);
+                    for (int i = 0; i < events.size(); ++i) {
+                        Log.Event event = events.get(i);
+                        outputZcm.publish(event.channel, event.data, 0, event.data.length);
+                    }
                 }
             } catch (Exception e) {
                 e.printStackTrace();
@@ -202,21 +206,11 @@ public class CsvReader
             }
         }
 
-        System.out.println("Searching path for plugins");
-        PluginClassVisitor pcv = new PluginClassVisitor();
-
         if (list_plugins) {
+            System.out.println("Searching path for plugins");
+            PluginClassVisitor pcv = new PluginClassVisitor();
             pcv.print();
             System.exit(0);
-        }
-
-        Constructor pluginCtr = null;
-        if (pluginName != null) {
-            pluginCtr = pcv.plugins.get(pluginName);
-            if (pluginCtr == null) {
-                System.err.println("Unable to find specified plugin");
-                System.exit(1);
-            }
         }
 
         // Check input getopt
@@ -231,6 +225,17 @@ public class CsvReader
             System.err.println("Please specify only one source of zcm data");
             usage();
             System.exit(1);
+        }
+
+        Constructor pluginCtr = null;
+        if (pluginName != null) {
+            System.out.println("Searching path for plugins");
+            PluginClassVisitor pcv = new PluginClassVisitor();
+            pluginCtr = pcv.plugins.get(pluginName);
+            if (pluginCtr == null) {
+                System.err.println("Unable to find specified plugin");
+                System.exit(1);
+            }
         }
 
         // Setup input file
