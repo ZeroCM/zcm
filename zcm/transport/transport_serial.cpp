@@ -44,7 +44,7 @@ struct Serial
     ~Serial() { close(); }
 
     bool open(const string& port, int baud);
-    bool isOpen() { return fd > 0; }
+    bool isOpen() { return fd > 0; };
     void close();
 
     int write(const u8 *buf, size_t sz);
@@ -284,7 +284,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         if (msg.len > MTU)
             return ZCM_EINVALID;
 
-        u8 buffer[1024 << 1];
+        u8 buffer[1024];
         size_t index = 0;
         u8 sum = 0;  // TODO introduce better checksum
 
@@ -367,8 +367,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         auto refillBuffer = [&]() {
             while (index == size) {
                 int n = ser.read(buffer, sizeof(buffer), timeout * 1e3);
-
                 if (n <= 0) {
+                    ZCM_DEBUG("serial recvmsg: read timed out");
                     size = 0;
                     index = 0;
                     timedOut = true;
@@ -379,64 +379,53 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
                 }
             }
         };
-        auto readByte = [&](u8& b) {
+        auto readByte = [&]() {
             if (index == size)
                 refillBuffer();
-            if (size == 0) return false;
-            b = buffer[index++];
-            return true;
+            if (size == 0) return buffer[0];
+            return buffer[index++];
         };
-        auto readU32 = [&](u32& x) {
-            u8 a, b, c, d;
-            if (readByte(a) && readByte(b) && readByte(c) && readByte(d)) {
-                x = u32(a)<<24 | u32(b)<<16 | u32(c)<<8 | u32(d)<<0;
-                return true;
-            }
-            return false;
+        auto readU32 = [&]() {
+            u32 a = readByte();
+            u32 b = readByte();
+            u32 c = readByte();
+            u32 d = readByte();
+            return a<<24 | b<<16 | c<<8 | d<<0;
         };
         auto syncStream = [&]() {
             while (!timedOut) {
-                u8 c;
-                if (!readByte(c)) return false;
-
+                u8 c = readByte();
                 if (c != ESCAPE_CHAR)
                     continue;
                 // We got one escape char, see if it's
                 // followed by a zero
-                if (!readByte(c)) return false;
-                if (c == 0) return true;
+                c = readByte();
+                if (c == 0)
+                    return;
             }
-            return false;
         };
-        auto readByteUnescape = [&](u8& b) {
-            u8 c;
-            if (!readByte(c)) return false;
-            if (c != ESCAPE_CHAR) {
-                b = c;
-                return true;
-            }
+        auto readByteUnescape = [&]() {
+            u8 c = readByte();
+            if (c != ESCAPE_CHAR)
+                return c;
             // Byte was escaped, strip off the escape char
-            return readByte(b);
+            return readByte();
         };
         auto readBytes = [&](u8 *buffer, size_t sz) {
-            u8 c;
             for (size_t i = 0; i < sz; i++) {
-                if (!readByteUnescape(c)) return false;
+                u8 c = readByteUnescape();
                 sum += c;
                 buffer[i] = c;
             }
-            return true;
         };
         auto checkFinish = [&]() {
-            u8 expect;
-            if (!readByte(expect)) return false;
+            u8 expect = readByte();
             return expect == sum;
         };
 
-        u8 channelLen;
-        u32 dataLen;
-        if (!syncStream() || !readByte(channelLen) || !readU32(dataLen))
-            return ZCM_EAGAIN;
+        syncStream();
+        u8 channelLen = readByte();
+        u32 dataLen = readU32();
 
         int diff = MILLISECONDS(TimeUtil::utime() - now);
 
@@ -457,9 +446,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         }
 
         // Lengths are good! Recv the data
-        if (!readBytes(recvChannelMem, (size_t)channelLen) ||
-            !readBytes(recvDataMem,    (size_t)dataLen))
-            return ZCM_EAGAIN;
+        readBytes(recvChannelMem, (size_t)channelLen);
+        readBytes(recvDataMem,    (size_t)dataLen);
 
         // Set the null-terminator
         recvChannelMem[channelLen] = '\0';
