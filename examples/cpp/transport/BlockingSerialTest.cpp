@@ -1,49 +1,15 @@
 #include <iostream>
-#include <queue>
+#include <cassert>
 #include <sys/time.h>
 
 #include "zcm/zcm-cpp.hpp"
 
-#include "generic_serial_transport.h"
 #include "types/example_t.hpp"
 
 using namespace std;
 using namespace zcm;
 
 #define PUBLISH_DT (1e6)/(500)
-#define BUFFER_SIZE 200
-#define MIN(A, B) ((A) < (B)) ? (A) : (B)
-
-#define MAX_FIFO 12
-
-queue<uint8_t> fifo;
-
-static uint32_t get(uint8_t* data, uint32_t nData)
-{
-    unsigned n = MIN(MAX_FIFO, nData);
-    n = MIN(fifo.size(), n);
-
-    unsigned i;
-
-    for (i = 0; i < n; i++) {
-        data[i] = fifo.front();
-        fifo.pop();
-    }
-
-    return n;
-}
-
-static uint32_t put(const uint8_t* data, uint32_t nData)
-{
-    unsigned n = MIN(MAX_FIFO - fifo.size(), nData);
-    //cout << "Put " << n << " bytes" << endl;
-
-    unsigned i;
-    for (i = 0; i < n; i++)
-        fifo.push(data[i]);
-
-    return n;
-}
 
 static uint64_t utime()
 {
@@ -59,11 +25,11 @@ class Handler
   public:
     void handle(const ReceiveBuffer* rbuf, const string& chan, const example_t* msg)
     {
-        cout << "Got one" << endl;
+        cout << "Got one: " << msg->timestamp << endl;
 
         if (msg->timestamp <= lastHost)  {
             cout << "ERROR" << endl;
-            while(1);
+            assert(false && "Got negative dt");
         }
         lastHost = msg->timestamp;
 
@@ -72,7 +38,7 @@ class Handler
 
 int main(int argc, const char *argv[])
 {
-    ZCM zcmLocal(zcm_trans_generic_serial_create(&get, &put));
+    ZCM zcmLocal("serial:///dev/ftdi-cable?baud=115200");
 
     example_t example;
     example.num_ranges = 1;
@@ -81,6 +47,8 @@ int main(int argc, const char *argv[])
 
     Handler handler;
     auto sub = zcmLocal.subscribe("EXAMPLE", &Handler::handle, &handler);
+
+    zcmLocal.start();
 
     uint64_t nextPublish = utime();
     while (true)
@@ -93,8 +61,9 @@ int main(int argc, const char *argv[])
             nextPublish = now + PUBLISH_DT;
         }
 
-        zcm_handle_nonblock(zcmLocal.getUnderlyingZCM());
     }
+
+    zcmLocal.stop();
 
     zcmLocal.unsubscribe(sub);
 

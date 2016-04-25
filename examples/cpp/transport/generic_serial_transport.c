@@ -8,7 +8,7 @@
 #include <string.h>
 
 #define MTU 128
-#define BUFFER_SIZE 3*MTU+3*ZCM_CHANNEL_MAXLEN
+#define BUFFER_SIZE 10*MTU+10*ZCM_CHANNEL_MAXLEN
 #define ESCAPE_CHAR (0xcc)
 
 // Framing (size = 5 + chan_len + data_len)
@@ -67,6 +67,71 @@ void cb_pop(circBuffer_t* cb, uint32_t num)
     cb->front += num;
     if (cb->front >= BUFFER_SIZE) cb->front -= BUFFER_SIZE;
 }
+
+#define MIN(a, b) (a < b ? a : b)
+uint32_t cb_flush_out(circBuffer_t* cb, uint32_t (*write)(const uint8_t* data, uint32_t num))
+{
+	uint32_t written = 0;
+	uint32_t n;
+
+    //printf("Flushing out\n");
+
+    uint32_t f2b = MIN(BUFFER_SIZE - cb->front, cb_size(cb));
+    uint32_t b2e = cb_size(cb) - f2b;
+
+    n = write(cb->data + cb->front, f2b);
+    written += n;
+    cb_pop(cb, n);
+
+    if (written != f2b) return written;
+
+    n = write(cb->data, b2e);
+    written += n;
+    cb_pop(cb, n);
+    return written;
+}
+
+uint32_t cb_flush_in(circBuffer_t* cb, uint32_t bytes,
+		uint32_t (*read)(uint8_t* data, uint32_t num))
+{
+	uint32_t bytesRead = 0;
+	uint32_t n;
+
+    //printf("Flushing in\n");
+
+    // First, don't bother trying to read more bytes than there are room for
+    bytes = MIN(bytes, cb_room(cb));
+
+    // Next, find out how much room is left between back and end of buffer or back and front
+    // of buffer. Because we already know there's room for whatever we're about to place,
+    // if back < front, we can just read in every byte starting at "back".
+    if (cb->back < cb->front) {
+        //printf("it all fits\n");
+    	bytesRead += read(cb->data + cb->back, bytes);
+        cb->back += bytesRead;
+        return bytesRead;
+    }
+
+    // Otherwise, we need to be a bit more careful about overflowing the back of the buffer.
+    uint32_t b2b = MIN(BUFFER_SIZE - cb->back, bytes);
+    uint32_t b2e = bytes - b2b;
+
+    n = read(cb->data + cb->back, b2b);
+    bytesRead += n;
+    cb->back += n;
+    if (n != b2b) {
+        //printf("didn't read to back\n");
+        return bytesRead;
+    }
+
+    if (cb->back >= BUFFER_SIZE) cb->back = 0;
+    n = read(cb->data, b2e);
+    bytesRead += n;
+    cb->back += n;
+    return bytesRead;
+}
+
+#undef MIN
 
 typedef struct zcm_trans_generic_serial_t zcm_trans_generic_serial_t;
 struct zcm_trans_generic_serial_t
@@ -162,17 +227,25 @@ int recvmsg_enable(zcm_trans_generic_serial_t *zt, const char *channel, bool ena
 
 int recvmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t *msg, int timeout)
 {
+    //printf("checking frame bytes\n");
+
     int incomingSize = cb_size(&zt->recvBuffer);
     if (incomingSize < FRAME_BYTES)
         return ZCM_EAGAIN;
 
+    //printf("Receiving message\n");
+
     uint32_t consumed = 0;
 
     // Sync
-    if (cb_top(&zt->recvBuffer, consumed++) != ESCAPE_CHAR)
+    if (cb_top(&zt->recvBuffer, consumed++) != ESCAPE_CHAR) {
+        //printf("no escape character \n");
         goto fail;
-    if (cb_top(&zt->recvBuffer, consumed++) != 0x00)
+    }
+    if (cb_top(&zt->recvBuffer, consumed++) != 0x00) {
+        //printf("buffer full\n");
         goto fail;
+    }
 
     // Msg sizes
     uint8_t chan_len = cb_top(&zt->recvBuffer, consumed++);
@@ -181,10 +254,14 @@ int recvmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t *msg, int timeout)
     msg->len |= cb_top(&zt->recvBuffer, consumed++) << 8;
     msg->len |= cb_top(&zt->recvBuffer, consumed++);
 
-    if (chan_len > ZCM_CHANNEL_MAXLEN)
+    if (chan_len > ZCM_CHANNEL_MAXLEN) {
+        //printf("channel too long\n");
         goto fail;
-    if (msg->len > MTU)
+    }
+    if (msg->len > MTU) {
+        //printf("msg too long\n");
         goto fail;
+    }
 
     if (incomingSize < FRAME_BYTES + chan_len + msg->len)
         return ZCM_EAGAIN;
@@ -250,25 +327,15 @@ int recvmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t *msg, int timeout)
     }
 
   fail:
+    //printf("Failed Receiving message\n");
     cb_pop(&zt->recvBuffer, consumed);
     return recvmsg(zt, msg, timeout);
 }
 
 int update(zcm_trans_generic_serial_t *zt)
 {
-    uint8_t data;
-
-    while (cb_room(&zt->recvBuffer) && zt->get(&data, 1))
-        cb_push(&zt->recvBuffer, data);
-
-    // While we successfully move a byte into the buffer, keep doing so
-    while(cb_size(&zt->sendBuffer)) {
-        data = cb_top(&zt->sendBuffer, 0);
-        if (zt->put(&data, 1))
-            cb_pop(&zt->sendBuffer, 1);
-        else
-            break;
-    }
+    cb_flush_in(&zt->recvBuffer, cb_room(&zt->recvBuffer), zt->get);
+    cb_flush_out(&zt->sendBuffer, zt->put);
 
     return ZCM_EOK;
 }

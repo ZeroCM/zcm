@@ -16,6 +16,8 @@
 #include <cassert>
 #include <cstring>
 
+#include <iostream>
+#include <queue>
 #include <string>
 #include <unordered_map>
 #include <mutex>
@@ -38,13 +40,16 @@ using u16 = uint16_t;
 using u32 = uint32_t;
 using u64 = uint64_t;
 
+std::queue<u8> fifo;
+std::mutex     fifoLk;
+
 struct Serial
 {
     Serial(){}
     ~Serial() { close(); }
 
     bool open(const string& port, int baud);
-    bool isOpen() { return fd > 0; }
+    bool isOpen() { return true; } //return fd > 0; };
     void close();
 
     int write(const u8 *buf, size_t sz);
@@ -63,6 +68,7 @@ struct Serial
 
 bool Serial::open(const string& port_, int baud)
 {
+    return true;
     if (baud == 0) {
         fprintf(stderr, "Serial baud rate not specified in url. Proceeding without setting baud\n");
     } else if (!baudIsValid(baud)) {
@@ -140,6 +146,7 @@ bool Serial::open(const string& port_, int baud)
 
 void Serial::close()
 {
+    return;
     if (isOpen()) {
         ZCM_DEBUG("Closing!\n");
         ::close(fd);
@@ -256,8 +263,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             }
         }
 
-        auto address = zcm_url_address(url);
-        ser.open(address, baud);
+        //auto address = zcm_url_address(url);
+        //ser.open(address, baud);
     }
 
     ~ZCM_TRANS_CLASSNAME()
@@ -289,10 +296,14 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         u8 sum = 0;  // TODO introduce better checksum
 
         auto writeBytes = [&](const u8 *data, size_t len) {
+            //ZCM_DEBUG("Writing %lu bytes", len);
             for (size_t i = 0; i < len; i++) {
+                //printf("%02x ", buffer[i]);
                 // Less than 2 bytes of buffer left? Flush it.
                 if (index >= sizeof(buffer)-1) {
-                    ser.write(buffer, index);
+                    for (unsigned j = 0; j < index; j++)
+                        fifo.push(buffer[j]);
+                    //ser.write(buffer, index);
                     index = 0;
                 }
                 u8 c = data[i];
@@ -305,14 +316,18 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
                     buffer[index++] = c;
                 }
             }
+            //printf("\n");
         };
 
         auto finish = [&]() {
             if (index != 0) {
-                ser.write(buffer, index);
+                //ser.write(buffer, index);
+                for (unsigned j = 0; j < index; j++)
+                    fifo.push(buffer[j]);
                 index = 0;
             }
-            ser.write(&sum, 1);
+            //ser.write(&sum, 1);
+            fifo.push(sum);
         };
 
         // Sync bytes are Escape and 1 zero
@@ -334,9 +349,12 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         buffer[index++] = (len>>8)&0xff;
         buffer[index++] = (len>>0)&0xff;
 
-        writeBytes((u8*)channel.c_str(), channel.size());
-        writeBytes((u8*)msg.buf, msg.len);
-        finish();
+        {
+            std::unique_lock<std::mutex> lk(fifoLk);
+            writeBytes((u8*)channel.c_str(), channel.size());
+            writeBytes((u8*)msg.buf, msg.len);
+            finish();
+        }
 
         return ZCM_EOK;
     }
@@ -355,6 +373,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
     int recvmsg(zcm_msg_t *msg, int timeout)
     {
+        //ZCM_DEBUG("Attempting receive message");
         if (timeout < 0) return ZCM_EAGAIN;
 
         u64 now = TimeUtil::utime();
@@ -365,15 +384,35 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         bool timedOut = false;
 
         auto refillBuffer = [&]() {
+            //ZCM_DEBUG("refilling the buffer");
             while (index == size) {
-                int n = ser.read(buffer, sizeof(buffer), timeout * 1e3);
+                int n = 0;
+                for (unsigned i = 0; i < sizeof(buffer); i++)  {
+                    //ZCM_DEBUG("attempting to read a byte");
+                    if (!fifo.empty()) {
+                        buffer[i] = fifo.front();
+                        fifo.pop();
+                    } else {
+                        //ZCM_DEBUG("cleared the fifo");
+                        n = i;
+                        break;
+                    }
+                }
+                //int n = ser.read(buffer, sizeof(buffer), timeout * 1e3);
 
                 if (n <= 0) {
+                    //ZCM_DEBUG("serial recvmsg: read timed out");
                     size = 0;
                     index = 0;
                     timedOut = true;
                     break;
                 } else {
+                    //ZCM_DEBUG("READ %d bytes", n);
+                    //for (int i = 0; i < n; i++) {
+                        //printf("%02x ", buffer[i]);
+                    //}
+                    //printf("\n");
+
                     index = 0;
                     size = n;
                 }
@@ -385,6 +424,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             if (size == 0) return false;
             b = buffer[index++];
             return true;
+                //return buffer[0];
+            //return buffer[index++];
         };
         auto readU32 = [&](u32& x) {
             u8 a, b, c, d;
@@ -438,8 +479,11 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
         u8 channelLen;
         u32 dataLen;
-        if (!syncStream() || !readByte(channelLen) || !readU32(dataLen))
-            return ZCM_EAGAIN;
+        {
+            std::unique_lock<std::mutex> lk(fifoLk);
+            if (!syncStream() || !readByte(channelLen) || !readU32(dataLen))
+                return ZCM_EAGAIN;
+        }
 
         int diff = MILLISECONDS(TimeUtil::utime() - now);
 
@@ -460,9 +504,12 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         }
 
         // Lengths are good! Recv the data
-        if (!readBytes(recvChannelMem, (size_t)channelLen) ||
-            !readBytes(recvDataMem,    (size_t)dataLen))
-            return ZCM_EAGAIN;
+        {
+            std::unique_lock<std::mutex> lk(fifoLk);
+            if (!readBytes(recvChannelMem, (size_t)channelLen) ||
+                !readBytes(recvDataMem,    (size_t)dataLen))
+                return ZCM_EAGAIN;
+        }
 
         // Set the null-terminator
         recvChannelMem[channelLen] = '\0';
