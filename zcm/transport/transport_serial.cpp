@@ -404,10 +404,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
                 // We got one escape char, see if it's
                 // followed by a zero
                 if (!readByte(c)) return false;
-                if (c == 0) {
-                    ZCM_DEBUG("successfully synced stream");
-                    return true;
-                }
+                if (c == 0) return true;
             }
             return false;
         };
