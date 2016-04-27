@@ -8,7 +8,7 @@
 #include <string.h>
 
 #define MTU 128
-#define BUFFER_SIZE 20*MTU+20*ZCM_CHANNEL_MAXLEN
+#define BUFFER_SIZE 5*MTU+5*ZCM_CHANNEL_MAXLEN
 #define ESCAPE_CHAR (0xcc)
 
 // Framing (size = 8 + chan_len + data_len)

@@ -171,7 +171,6 @@ int Serial::read(u8 *buf, size_t sz, u64 timeoutUs)
 
     // The program gets stuck in the "select" call, at the moment.
     u64 tOut = max((u64)SERIAL_TIMEOUT_US, timeoutUs);
-    //ZCM_DEBUG("serial read: Timing out for %lu microseconds", tOut);
 
     struct timeval timeout;
     timeout.tv_sec = tOut / 1000000;
@@ -479,6 +478,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
         return ZCM_EOK;
     }
+
+#undef MILLISECONDS
 
     /********************** STATICS **********************/
     static zcm_trans_methods_t methods;

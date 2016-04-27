@@ -135,7 +135,7 @@ private:
     std::atomic<bool> recvRunning   {false}; // operates on the recvQueue
     std::atomic<bool> handleRunning {false}; // operates on the recvQueue
 
-    static constexpr size_t QUEUE_SIZE = 32;
+    static constexpr size_t QUEUE_SIZE = 16;
     ThreadsafeQueue<Msg> sendQueue {QUEUE_SIZE};
     ThreadsafeQueue<Msg> recvQueue {QUEUE_SIZE};
 
