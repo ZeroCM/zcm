@@ -4,7 +4,7 @@
 def build(ctx):
     ctx.recurse('logger');
     ctx.recurse('logplayer');
-    ctx.recurse('pipe');
+    ctx.recurse('bridge');
     ctx.recurse('repeater');
     ctx.recurse('spy-lite');
     ctx.recurse('spy-peek');

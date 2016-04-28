@@ -79,16 +79,16 @@ struct Args
     }
 };
 
-struct Pipe
+struct Bridge
 {
     Args   args;
 
     zcm::ZCM *zcmA = nullptr;
     zcm::ZCM *zcmB = nullptr;
 
-    Pipe() {}
+    Bridge() {}
 
-    ~Pipe()
+    ~Bridge()
     {
         if (zcmA)
             delete zcmA;
@@ -160,33 +160,33 @@ struct Pipe
 
 static void usage()
 {
-    cerr << "usage: zcm-pipe [options]" << endl
+    cerr << "usage: zcm-bridge [options]" << endl
          << "" << endl
-         << "    ZCM pipe utility. Pipes all data from one ZCM network to another." << endl
+         << "    ZCM bridge utility. Bridges all data from one ZCM network to another." << endl
          << "" << endl
          << "Example:" << endl
-         << "    zcm-pipe -A ipc -B udpm://239.255.76.67:7667?ttl=0" << endl
+         << "    zcm-bridge -A ipc -B udpm://239.255.76.67:7667?ttl=0" << endl
          << "" << endl
          << "Options:" << endl
          << "" << endl
          << "  -h, --help                 Shows this help text and exits" << endl
-         << "  -A, --A-enpt=URL           One end of the pipe. Ex: zcm-pipe -A ipc" << endl
-         << "  -B, --B-endpt=URL          One end of the pipe. Ex: zcm-pipe -B udpm://239.255.76.67:7667?ttl=0" << endl
+         << "  -A, --A-enpt=URL           One end of the bridge. Ex: zcm-bridge -A ipc" << endl
+         << "  -B, --B-endpt=URL          One end of the bridge. Ex: zcm-bridge -B udpm://239.255.76.67:7667?ttl=0" << endl
          << "  -a, --A-channel=CHANNEL    One channel to subscribe to on A and repeat to B." << endl
          << "                             This argument can be specified multiple times. If this option is not," << endl
          << "                             present then we subscribe to all messages on the A interface." << endl
-         << "                             Ex: zcm-pipe -A ipc -a EXAMPLE -B udpm://239.255.76.67:7667?ttl=0" << endl
+         << "                             Ex: zcm-bridge -A ipc -a EXAMPLE -B udpm://239.255.76.67:7667?ttl=0" << endl
          << "  -b, --B-channel=CHANNEL    One channel to subscribe to on B and repeat to A." << endl
          << "                             This argument can be specified multiple times. If this option is not," << endl
          << "                             present then we subscribe to all messages on the B interface." << endl
-         << "                             Ex: zcm-pipe -A ipc -B udpm://239.255.76.67:7667?ttl=0 -b EXAMPLE" << endl
+         << "                             Ex: zcm-bridge -A ipc -B udpm://239.255.76.67:7667?ttl=0 -b EXAMPLE" << endl
          << "" << endl << endl;
 }
 
 int main(int argc, char *argv[])
 {
-    Pipe pipe{};
-    if (!pipe.init(argc, argv)) {
+    Bridge bridge{};
+    if (!bridge.init(argc, argv)) {
         usage();
         return 1;
     }
@@ -196,9 +196,9 @@ int main(int argc, char *argv[])
     signal(SIGQUIT, sighandler);
     signal(SIGTERM, sighandler);
 
-    pipe.run();
+    bridge.run();
 
-    cerr << "Pipe exiting" << endl;
+    cerr << "Bridge exiting" << endl;
 
     return 0;
 }

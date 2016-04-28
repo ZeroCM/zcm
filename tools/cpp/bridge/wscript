@@ -2,6 +2,6 @@
 # encoding: utf-8
 
 def build(ctx):
-    ctx.program(target = 'zcm-pipe',
+    ctx.program(target = 'zcm-bridge',
                 use = ['default', 'zcm'],
                 source = ctx.path.ant_glob('*.cpp'))
