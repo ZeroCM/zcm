@@ -17,10 +17,12 @@ public class Transcoder
     private Log output;
     private TranscoderPlugin plugin = null;
 
+    private int numEventsWritten = 0;
+
     private boolean verbose = false;
     private boolean done = false;
 
-    public Transcoder(Log output, Log log, Constructor pluginCtr, boolean verbose)
+    public Transcoder(Log output, Log input, Constructor pluginCtr, boolean verbose)
     {
         this.input  = input;
         this.output = output;
@@ -68,9 +70,10 @@ public class Transcoder
             }
             Object o = cls.getConstructor(DataInput.class).newInstance(dins);
 
-            ArrayList<Log.Event> events;
+            ArrayList<Log.Event> events = null;
             events = this.plugin.transcodeMessage(channel, o, utime);
             if (events == null || events.size() == 0) return;
+            numEventsWritten += events.size();
             for (int i = 0; i < events.size(); ++i)
                 output.write(events.get(i));
 
@@ -85,7 +88,13 @@ public class Transcoder
         Runtime.getRuntime().addShutdownHook(new Thread() {
             public void run() {
                 done = true;
-                System.out.println("\b\b  ");
+                System.out.print("\b\b  ");
+                try {
+                    output.close();
+                    System.out.println("Transcoded " + numEventsWritten + " events");
+                } catch (IOException e) {
+                    System.err.println("Unable to close output file");
+                }
                 System.out.println("Cleaning up and quitting");
             }
         });
@@ -108,7 +117,7 @@ public class Transcoder
                                                        ev.data.length));
             } catch (EOFException ex) {
                 System.out.println("\rProgress: 100%        ");
-                done = true;
+                break;
             } catch (IOException e) {
                 System.err.println("Unable to decode zcmtype entry in log file");
             }
@@ -254,7 +263,7 @@ public class Transcoder
             System.exit(0);
         }
 
-        // Check output getopt
+        // Check input getopt
         if (infile == null) {
             System.err.println("Please specify input log file");
             usage();
@@ -284,24 +293,20 @@ public class Transcoder
 
         // Setup input file
         Log input = null;
-        if (infile != null) {
-            try {
-                input = new Log(infile, "r");
-            } catch(Exception e) {
-                System.err.println("Unable to open " + infile);
-                System.exit(1);
-            }
+        try {
+            input = new Log(infile, "r");
+        } catch(Exception e) {
+            System.err.println("Unable to open " + infile);
+            System.exit(1);
         }
 
         // Setup output file.
         Log output = null;
-        if (outfile != null) {
-            try {
-                output = new Log(outfile, "r");
-            } catch(Exception e) {
-                System.err.println("Unable to open " + outfile);
-                System.exit(1);
-            }
+        try {
+            output = new Log(outfile, "rw");
+        } catch(Exception e) {
+            System.err.println("Unable to open " + outfile);
+            System.exit(1);
         }
 
         new Transcoder(output, input, pluginCtr, verbose).run();

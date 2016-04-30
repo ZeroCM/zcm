@@ -23,6 +23,8 @@ public class CsvWriter implements ZCMSubscriber
     private Log log;
     private CsvWriterPlugin plugin = null;
 
+    private int numLinesWritten = 0;
+
     private boolean verbose = false;
     private boolean done = false;
 
@@ -96,9 +98,9 @@ public class CsvWriter implements ZCMSubscriber
             Object o = cls.getConstructor(DataInput.class).newInstance(dins);
 
             if (this.plugin != null) {
-                this.plugin.printCustom(o, channel, utime, output);
+                numLinesWritten += this.plugin.printCustom(channel, o, utime, output);
             } else {
-                CsvWriterPlugin.printDefault(o, channel, utime, output);
+                numLinesWritten += CsvWriterPlugin.printDefault(channel, o, utime, output);
             }
 
             output.flush();
@@ -114,12 +116,15 @@ public class CsvWriter implements ZCMSubscriber
         Runtime.getRuntime().addShutdownHook(new Thread() {
             public void run() {
                 done = true;
-                System.out.println("\b\b  ");
+                output.close();
+                System.out.print("\b\b  ");
+                System.out.println("Wrote " + numLinesWritten + " events");
                 System.out.println("Cleaning up and quitting");
             }
         });
+
         if(log == null) {
-            while (!done) try { Thread.sleep(1000); } catch(Exception e){}
+            while (true) try { Thread.sleep(1000); } catch(Exception e){}
         } else {
             long lastPrintTime = 0;
             while (!done) {
@@ -137,7 +142,7 @@ public class CsvWriter implements ZCMSubscriber
                                                             ev.data.length));
                 } catch (EOFException ex) {
                     System.out.println("\rProgress: 100%        ");
-                    done = true;
+                    break;
                 } catch (IOException e) {
                     System.err.println("Unable to decode zcmtype entry in log file");
                 }

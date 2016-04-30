@@ -1,0 +1,10 @@
+struct example2_t
+{
+    int64_t  timestamp2;
+    double   position2[3];
+    double   orientation2[4];
+    int32_t  num_ranges2;
+    int16_t  ranges2[num_ranges2];
+    string   name2;
+    boolean  enabled2;
+}

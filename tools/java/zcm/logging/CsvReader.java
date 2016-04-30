@@ -11,21 +11,26 @@ import zcm.util.*;
 public class CsvReader
 {
     private BufferedReader input;
+    private long inputSize = 0;
     private Log outputLog = null;
     private ZCM outputZcm = null;
     private CsvReaderPlugin plugin;
 
+    private int numEventsRead = 0;
+
     private boolean verbose = false;
     private boolean done = false;
 
-    public CsvReader(Log outputLog, String zcm_url, BufferedReader input,
+    public CsvReader(Log outputLog, String zcm_url,
+                     BufferedReader input, long inputSize,
                      Constructor pluginCtr, boolean verbose)
     {
         this.input = input;
+        this.inputSize = inputSize;
         this.outputLog = outputLog;
         if (pluginCtr != null) {
             try {
-                this.plugin = (CsvReaderPlugin) pluginCtr.newInstance(this);
+                this.plugin = (CsvReaderPlugin) pluginCtr.newInstance();
                 System.out.println("Found plugin: " + this.plugin.getClass().getName());
             } catch (Exception ex) {
                 System.out.println("ex: " + ex);
@@ -45,6 +50,8 @@ public class CsvReader
                 System.err.println("Unable to parse zcm url output");
                 System.exit(1);
             }
+        } else {
+            System.out.println("Generating logfile from csv");
         }
     }
 
@@ -60,25 +67,51 @@ public class CsvReader
 
     public void run()
     {
-        String line;
-        while (true) {
+        Runtime.getRuntime().addShutdownHook(new Thread() {
+            public void run() {
+                System.out.print("\b\b  ");
+                try {
+                    if (outputLog != null)
+                        outputLog.close();
+                } catch (IOException e) {
+                    System.err.println("Unable to close output file");
+                }
+                System.out.println("Read " + numEventsRead + " events");
+                System.out.println("Cleaning up and quitting");
+            }
+        });
+        long lastPrintTime = 0;
+        long bytesRead = 0;
+        while (!done) {
             try {
-                line = input.readLine();
-                if (line == null) break;
+                String line = input.readLine();
+                if (line == null) {
+                    System.out.println("\rProgress: 100%        ");
+                    break;
+                }
                 ArrayList<Log.Event> events = plugin.readZcmType(line);
                 if (events == null || events.size() == 0) continue;
+                numEventsRead += events.size();
                 if (outputLog != null) {
                     for (int i = 0; i < events.size(); ++i)
                         outputLog.write(events.get(i));
-                } else {
+                }
+                if (outputZcm != null) {
                     for (int i = 0; i < events.size(); ++i) {
                         Log.Event event = events.get(i);
                         outputZcm.publish(event.channel, event.data, 0, event.data.length);
                     }
                 }
-            } catch (Exception e) {
-                e.printStackTrace();
-                continue;
+                bytesRead += line.length();
+                Double percent = (double) bytesRead / (double) this.inputSize * 100;
+                long now = System.currentTimeMillis() * 1000;
+                if (lastPrintTime + 5e5 < now) {
+                    lastPrintTime = now;
+                    System.out.print("\rProgress: " + String.format("%.2f", percent) + "%");
+                    System.out.flush();
+                }
+            } catch (IOException e) {
+                System.err.println("Unable to read line from csv");
             }
         }
     }
@@ -221,8 +254,8 @@ public class CsvReader
         }
 
         // Check output getopt
-        if (zcm_url != null && logfile != null) {
-            System.err.println("Please specify only one source of zcm data");
+        if (zcm_url == null && logfile == null) {
+            System.err.println("Please specify at least one source of zcm data");
             usage();
             System.exit(1);
         }
@@ -240,8 +273,11 @@ public class CsvReader
 
         // Setup input file
         BufferedReader input = null;
+        long fileSize = 0;
         try {
-            input = new BufferedReader(new FileReader(csvfile));
+            File inputFile = new File(csvfile);
+            fileSize = inputFile.length();
+            input = new BufferedReader(new FileReader(inputFile));
         } catch(Exception e) {
             System.err.println("Unable to open " + csvfile);
             System.exit(1);
@@ -258,6 +294,6 @@ public class CsvReader
             }
         }
 
-        new CsvReader(output, zcm_url, input, pluginCtr, verbose).run();
+        new CsvReader(output, zcm_url, input, fileSize, pluginCtr, verbose).run();
     }
 }
