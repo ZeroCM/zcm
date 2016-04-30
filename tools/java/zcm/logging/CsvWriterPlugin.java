@@ -11,17 +11,19 @@ public abstract class CsvWriterPlugin
 
     // Can call c.printZcmType or c.printArray for any submembers of the
     // zcmtype or types that this class can handle for default printing behavior
-    public abstract void printCustom(Object o, String channel, long utime, PrintWriter output);
+    // Returns number of lines written to csv
+    public abstract int printCustom(String channel, Object o, long utime, PrintWriter output);
 
-    public static void printDefault(Object o, String channel, long utime, PrintWriter output)
+    public static int printDefault(String channel, Object o, long utime, PrintWriter output)
     {
         output.print(channel + ",");
         output.print(utime + ",");
         printZcmType(o, output);
         output.println("");
+        return 1;
     }
 
-    private static void printArray(Object o, PrintWriter output)
+    public static void printArray(Object o, PrintWriter output)
     {
         int length = Array.getLength(o);
         for (int i = 0; i < length; ++i) {
@@ -31,7 +33,7 @@ public abstract class CsvWriterPlugin
         }
     }
 
-    private static void printZcmType(Object o, PrintWriter output)
+    public static void printZcmType(Object o, PrintWriter output)
     {
         Field fields[] = o.getClass().getFields();
         boolean isZcmType = false;
