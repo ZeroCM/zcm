@@ -4,7 +4,7 @@
 
 #include "zcm/zcm-cpp.hpp"
 
-#include "generic_serial_transport.h"
+#include "zcm/transport/generic_serial_transport.h"
 #include "types/example_t.hpp"
 
 using namespace std;
@@ -93,8 +93,7 @@ int main(int argc, const char *argv[])
             nextPublish = now + PUBLISH_DT;
         }
 
-        // RRR: we should probably add a handle_nonblock call to the c++ api
-        zcm_handle_nonblock(zcmLocal.getUnderlyingZCM());
+        zcmLocal.handleNonblock();
     }
 
     zcmLocal.unsubscribe(sub);

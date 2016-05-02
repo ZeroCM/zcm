@@ -4,4 +4,4 @@
 def build(ctx):
     ctx.program(target = 'generic-serial',
                 use = 'default zcm examplezcmtypes_cpp',
-                source = 'SerialTransportTest.cpp generic_serial_transport.c')
+                source = 'SerialTransportTest.cpp')

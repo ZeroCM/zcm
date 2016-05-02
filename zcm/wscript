@@ -21,7 +21,9 @@ def build(ctx):
     ## Collect files for Embedded
     ctx(rule = 'tar cfz ${TGT} ${SRC}',
         name = 'embed-tar',
-        source = 'zcm.h zcm_private.h zcm.c zcm_coretypes.h transport.h nonblocking.h nonblocking.c',
+        source = ['zcm.h', 'zcm_private.h', 'zcm.c', 'zcm_coretypes.h', 'transport.h',
+                  'nonblocking.h', 'nonblocking.c', 'transport/generic_serial_transport.h',
+                  'transport/generic_serial_transport.c'],
         target = 'zcm-embed.tar.gz')
 
     ## Test the embedded export
@@ -34,6 +36,9 @@ def build(ctx):
                       ['zcm.h', 'zcm_coretypes.h', 'transport.h', 'transport_registrar.h',
                        'url.h', 'eventlog.h', 'zcm-cpp.hpp', 'zcm-cpp-impl.hpp',
                        'transport_register.hpp', 'message_tracker.hpp'])
+
+    ctx.install_files('${PREFIX}/include/zcm/transport',
+                      ['transport/generic_serial_transport.h'])
 
     ctx.recurse('util')
 

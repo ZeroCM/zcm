@@ -56,16 +56,14 @@ void cb_push(circBuffer_t* cb, uint8_t d)
 uint8_t cb_top(circBuffer_t* cb, uint32_t offset)
 {
     int val = cb->front + offset;
-    // RRR: one easy and free protection agains offset > BUFFER_SIZE would be to change if->while
-    if (val >= BUFFER_SIZE) val -= BUFFER_SIZE;
+    while (val >= BUFFER_SIZE) val -= BUFFER_SIZE;
     return cb->data[val];
 }
 
 void cb_pop(circBuffer_t* cb, uint32_t num)
 {
     cb->front += num;
-    // RRR: one easy and free protection agains num > BUFFER_SIZE would be to change if->while
-    if (cb->front >= BUFFER_SIZE) cb->front -= BUFFER_SIZE;
+    while (cb->front >= BUFFER_SIZE) cb->front -= BUFFER_SIZE;
 }
 
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
@@ -74,18 +72,18 @@ uint32_t cb_flush_out(circBuffer_t* cb, uint32_t (*write)(const uint8_t* data, u
 	uint32_t written = 0;
 	uint32_t n;
 
-    // RRR: these variable names are a little misleading, maybe "contiguous" and "wrapped"
-    uint32_t f2b = MIN(BUFFER_SIZE - cb->front, cb_size(cb));
-    uint32_t b2e = cb_size(cb) - f2b;
+    uint32_t contiguous = MIN(BUFFER_SIZE - cb->front, cb_size(cb));
+    uint32_t wrapped    = cb_size(cb) - contiguous;
 
-    n = write(cb->data + cb->front, f2b);
+    n = write(cb->data + cb->front, contiguous);
     written += n;
     cb_pop(cb, n);
 
-    if (written != f2b) return written;
+    // If we failed to write everything we tried to write, or if there's nothing
+    // left to write, return.
+    if (written != contiguous || wrapped == 0) return written;
 
-    // RRR: might consider doing a zero check on b2e here (and not even calling write)
-    n = write(cb->data, b2e);
+    n = write(cb->data, wrapped);
     written += n;
     cb_pop(cb, n);
     return written;
@@ -110,18 +108,21 @@ uint32_t cb_flush_in(circBuffer_t* cb, uint32_t bytes,
     }
 
     // Otherwise, we need to be a bit more careful about overflowing the back of the buffer.
-    // RRR: again, these names are a little misleading
-    uint32_t b2b = MIN(BUFFER_SIZE - cb->back, bytes);
-    uint32_t b2e = bytes - b2b;
+    uint32_t contiguous = MIN(BUFFER_SIZE - cb->back, bytes);
+    uint32_t wrapped    = bytes - contiguous;
 
-    n = read(cb->data + cb->back, b2b);
+    n = read(cb->data + cb->back, contiguous);
     bytesRead += n;
-    cb->back += n;
-    if (n != b2b) return bytesRead;
 
-    // RRR: at this point in the code, the condition should ALWAYS be true
-    if (cb->back >= BUFFER_SIZE) cb->back = 0;
-    n = read(cb->data, b2e);
+    if (n != contiguous) {
+        cb->back += n;
+        return bytesRead;
+    }
+
+    cb->back = 0;
+    if (wrapped == 0) return bytesRead;
+
+    n = read(cb->data, wrapped);
     bytesRead += n;
     cb->back += n;
     return bytesRead;
@@ -353,9 +354,6 @@ static zcm_trans_generic_serial_t *cast(zcm_trans_t *zt)
     return (zcm_trans_generic_serial_t*)zt;
 }
 
-// RRR: do you mean once period? What if there are multiple serial transports in one program?
-//      maybe I'm missing something, but why could this only be called once?
-// Because we are doing the generic_serial_init() in here, this can only be called once
 zcm_trans_t *zcm_trans_generic_serial_create(
         uint32_t (*get)(uint8_t* data, uint32_t nData),
         uint32_t (*put)(const uint8_t* data, uint32_t nData))
