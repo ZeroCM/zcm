@@ -41,6 +41,7 @@ public class ZCMTypeDatabase
                         // it's a static member, we don't need an instance
                         long fingerprint = f.getLong(null);
                         classes.put(fingerprint, cls);
+                        // RRR (Tom) does this printf need to stick around?
                         // System.out.printf("%016x : %s\n", fingerprint, cls);
 
                         break;

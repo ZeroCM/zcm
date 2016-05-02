@@ -22,12 +22,12 @@ public class Transcoder
     private boolean verbose = false;
     private boolean done = false;
 
-    public Transcoder(Log output, Log input, Constructor pluginCtr, boolean verbose)
+    public Transcoder(Log output, Log input, Constructor pluginCtor, boolean verbose)
     {
         this.input  = input;
         this.output = output;
         try {
-            this.plugin = (TranscoderPlugin) pluginCtr.newInstance();
+            this.plugin = (TranscoderPlugin) pluginCtor.newInstance();
             System.out.println("Found plugin: " + this.plugin.getClass().getName());
         } catch (Exception ex) {
             System.out.println("ex: " + ex);
@@ -74,6 +74,8 @@ public class Transcoder
             events = this.plugin.transcodeMessage(channel, o, utime);
             if (events == null || events.size() == 0) return;
             numEventsWritten += events.size();
+            // RRR (Tom)
+            //  for (Log.Event e : events)
             for (int i = 0; i < events.size(); ++i)
                 output.write(events.get(i));
 
@@ -127,6 +129,8 @@ public class Transcoder
     public static class PluginClassVisitor implements ClassDiscoverer.ClassVisitor
     {
         public HashMap<String, Constructor> plugins = new HashMap<String, Constructor>();
+
+        // RRR (Tom) why does the pluginclassvisitor need the ZCMTypeDatabase?
         private ZCMTypeDatabase handlers = null;
 
         public PluginClassVisitor()
@@ -285,8 +289,8 @@ public class Transcoder
 
         System.out.println("Searching path for plugins");
         PluginClassVisitor pcv = new PluginClassVisitor();
-        Constructor pluginCtr = pcv.plugins.get(pluginName);
-        if (pluginCtr == null) {
+        Constructor pluginCtor = pcv.plugins.get(pluginName);
+        if (pluginCtor == null) {
             System.err.println("Unable to find specified plugin");
             System.exit(1);
         }
@@ -309,6 +313,6 @@ public class Transcoder
             System.exit(1);
         }
 
-        new Transcoder(output, input, pluginCtr, verbose).run();
+        new Transcoder(output, input, pluginCtor, verbose).run();
     }
 }

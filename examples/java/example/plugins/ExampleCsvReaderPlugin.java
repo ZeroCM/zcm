@@ -14,6 +14,7 @@ public class ExampleCsvReaderPlugin extends CsvReaderPlugin
     private long eventNo = 0;
 
     private enum Fields {
+        LOG_UTIME,
         TIMESTAMP,
         POS_X,
         POS_Y,
@@ -34,6 +35,8 @@ public class ExampleCsvReaderPlugin extends CsvReaderPlugin
         String arr[] = line.split(",");
 
         example_t e = new example_t();
+
+        long logEventUtime = Long.parseLong(arr[Fields.LOG_UTIME.ordinal()]);
 
         e.timestamp   = Long.parseLong(arr[Fields.TIMESTAMP.ordinal()]);
 
@@ -66,7 +69,7 @@ public class ExampleCsvReaderPlugin extends CsvReaderPlugin
         // construct output
         Log.Event le = new Log.Event();
         le.data = encodeBuffer.toByteArray();
-        le.utime = e.timestamp;
+        le.utime = logEventUtime;
         le.eventNumber = eventNo++;
         le.channel = "EXAMPLE";
 

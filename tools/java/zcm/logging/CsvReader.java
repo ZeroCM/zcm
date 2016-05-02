@@ -21,17 +21,24 @@ public class CsvReader
     private boolean verbose = false;
     private boolean done = false;
 
+    // RRR (Tom) looks like there's a decent amount of code for verbose printing,
+    // but only one print out actually uses it. Any reason we need to be so "verbose"? :)
+    //
+    // RRR (Tom) I donno how I feel about requiring the user to pass in "inputSize",
+    // when its only purpose is for printing completion percentage. Is the completion
+    // percentage able to be calculated just from members of the BufferedReader?
+    // Not sure if a file size and/or file position are accessible.
     public CsvReader(Log outputLog, String zcm_url,
                      BufferedReader input, long inputSize,
-                     Constructor pluginCtr, boolean verbose)
+                     Constructor pluginCtor, boolean verbose)
     {
         this.input = input;
         this.inputSize = inputSize;
         this.outputLog = outputLog;
-        if (pluginCtr != null) {
+        if (pluginCtor != null) {
             try {
-                this.plugin = (CsvReaderPlugin) pluginCtr.newInstance();
-                System.out.println("Found plugin: " + this.plugin.getClass().getName());
+                plugin = (CsvReaderPlugin) pluginCtor.newInstance();
+                System.out.println("Found plugin: " + plugin.getClass().getName());
             } catch (Exception ex) {
                 System.out.println("ex: " + ex);
                 ex.printStackTrace();
@@ -90,12 +97,24 @@ public class CsvReader
                     break;
                 }
                 ArrayList<Log.Event> events = plugin.readZcmType(line);
+                // RRR (Tom) do we want to fail loudly here? It's not clear to
+                // me what we're handling here, if not an error in the plugin?
                 if (events == null || events.size() == 0) continue;
                 numEventsRead += events.size();
+
+                // RRR (Tom) seems like both outputLog & outputZcm not being null
+                // should be a requirement we enforce in the constructor, not in
+                // the run function.
+                //
+                // RRR (Tom) also... this is java :)
+                // for (Log.Event e : events)
+                //     outputLog.write(e);
                 if (outputLog != null) {
                     for (int i = 0; i < events.size(); ++i)
                         outputLog.write(events.get(i));
                 }
+
+                // RRR (Tom) see above.
                 if (outputZcm != null) {
                     for (int i = 0; i < events.size(); ++i) {
                         Log.Event event = events.get(i);
@@ -103,6 +122,7 @@ public class CsvReader
                     }
                 }
                 bytesRead += line.length();
+                // RRR (Tom) regular "double" below?
                 Double percent = (double) bytesRead / (double) this.inputSize * 100;
                 long now = System.currentTimeMillis() * 1000;
                 if (lastPrintTime + 5e5 < now) {
@@ -181,6 +201,9 @@ public class CsvReader
         boolean list_plugins = false;
         boolean verbose = false;
 
+        // RRR (Tom) do what you'd like with this comment, but it seems like
+        // we should be using some sort of CLI tool to parse this stuff. These next
+        // 90 lines are pretty verbose
         int i;
         for (i = 0; i < args.length; ++i) {
             String toks[] = args[i].split("=");
@@ -260,12 +283,12 @@ public class CsvReader
             System.exit(1);
         }
 
-        Constructor pluginCtr = null;
+        Constructor pluginCtor = null;
         if (pluginName != null) {
             System.out.println("Searching path for plugins");
             PluginClassVisitor pcv = new PluginClassVisitor();
-            pluginCtr = pcv.plugins.get(pluginName);
-            if (pluginCtr == null) {
+            pluginCtor = pcv.plugins.get(pluginName);
+            if (pluginCtor == null) {
                 System.err.println("Unable to find specified plugin");
                 System.exit(1);
             }
@@ -294,6 +317,6 @@ public class CsvReader
             }
         }
 
-        new CsvReader(output, zcm_url, input, fileSize, pluginCtr, verbose).run();
+        new CsvReader(output, zcm_url, input, fileSize, pluginCtor, verbose).run();
     }
 }

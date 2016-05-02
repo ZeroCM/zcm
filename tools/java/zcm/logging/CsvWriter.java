@@ -29,13 +29,13 @@ public class CsvWriter implements ZCMSubscriber
     private boolean done = false;
 
     public CsvWriter(PrintWriter output, Log log, String zcm_url,
-                     Constructor pluginCtr, boolean verbose)
+                     Constructor pluginCtor, boolean verbose)
     {
         this.log = log;
         this.output = output;
-        if (pluginCtr != null) {
+        if (pluginCtor != null) {
             try {
-                this.plugin = (CsvWriterPlugin) pluginCtr.newInstance();
+                this.plugin = (CsvWriterPlugin) pluginCtor.newInstance();
                 System.out.println("Found plugin: " + this.plugin.getClass().getName());
             } catch (Exception ex) {
                 System.out.println("ex: " + ex);
@@ -97,8 +97,8 @@ public class CsvWriter implements ZCMSubscriber
             }
             Object o = cls.getConstructor(DataInput.class).newInstance(dins);
 
-            if (this.plugin != null) {
-                numLinesWritten += this.plugin.printCustom(channel, o, utime, output);
+            if (plugin != null) {
+                numLinesWritten += plugin.printCustom(channel, o, utime, output);
             } else {
                 numLinesWritten += CsvWriterPlugin.printDefault(channel, o, utime, output);
             }
@@ -153,6 +153,8 @@ public class CsvWriter implements ZCMSubscriber
     public static class PluginClassVisitor implements ClassDiscoverer.ClassVisitor
     {
         public HashMap<String, Constructor> plugins = new HashMap<String, Constructor>();
+        // RRR (Tom) does the PluginClassVisitor actually need this ZCMTypeDatabase?
+        // Looks like the print function allocates it but doesn't do anything with it.
         private ZCMTypeDatabase handlers = null;
 
         public PluginClassVisitor()
@@ -316,12 +318,12 @@ public class CsvWriter implements ZCMSubscriber
             System.exit(1);
         }
 
-        Constructor pluginCtr = null;
+        Constructor pluginCtor = null;
         if (pluginName != null) {
             System.out.println("Searching path for plugins");
             PluginClassVisitor pcv = new PluginClassVisitor();
-            pluginCtr = pcv.plugins.get(pluginName);
-            if (pluginCtr == null) {
+            pluginCtor = pcv.plugins.get(pluginName);
+            if (pluginCtor == null) {
                 System.err.println("Unable to find specified plugin");
                 System.exit(1);
             }
@@ -347,6 +349,6 @@ public class CsvWriter implements ZCMSubscriber
             System.exit(1);
         }
 
-        new CsvWriter(output, input, zcm_url, pluginCtr, verbose).run();
+        new CsvWriter(output, input, zcm_url, pluginCtor, verbose).run();
     }
 }
