@@ -23,11 +23,16 @@ public class CsvReader
 
     // RRR (Tom) looks like there's a decent amount of code for verbose printing,
     // but only one print out actually uses it. Any reason we need to be so "verbose"? :)
+    // RRR (Bendes) Left it here so we could add stuff as we needed
     //
     // RRR (Tom) I donno how I feel about requiring the user to pass in "inputSize",
     // when its only purpose is for printing completion percentage. Is the completion
     // percentage able to be calculated just from members of the BufferedReader?
     // Not sure if a file size and/or file position are accessible.
+    // RRR (Bendes) Unfortunately not (at least i couldn't find a way). I don't
+    //              like it either but I dont have a good way of doing it
+    //              without moving the fileIO into the constructor (which i
+    //              think is worse than this)
     public CsvReader(Log outputLog, String zcm_url,
                      BufferedReader input, long inputSize,
                      Constructor pluginCtor, boolean verbose)
@@ -99,31 +104,26 @@ public class CsvReader
                 ArrayList<Log.Event> events = plugin.readZcmType(line);
                 // RRR (Tom) do we want to fail loudly here? It's not clear to
                 // me what we're handling here, if not an error in the plugin?
+                // RRR (Bendes) the plugin need not request an event be written: no error here
+                //              Delete these comments if that answer is acceptable
                 if (events == null || events.size() == 0) continue;
                 numEventsRead += events.size();
 
                 // RRR (Tom) seems like both outputLog & outputZcm not being null
                 // should be a requirement we enforce in the constructor, not in
                 // the run function.
-                //
-                // RRR (Tom) also... this is java :)
-                // for (Log.Event e : events)
-                //     outputLog.write(e);
+                // RRR (Bendes) Only one of them need not be null
+                //              Delete these comments if that answer is acceptable
                 if (outputLog != null) {
-                    for (int i = 0; i < events.size(); ++i)
-                        outputLog.write(events.get(i));
+                    for (Log.Event e : events)
+                        outputLog.write(e);
                 }
-
-                // RRR (Tom) see above.
                 if (outputZcm != null) {
-                    for (int i = 0; i < events.size(); ++i) {
-                        Log.Event event = events.get(i);
-                        outputZcm.publish(event.channel, event.data, 0, event.data.length);
-                    }
+                    for (Log.Event e : events)
+                        outputZcm.publish(e.channel, e.data, 0, e.data.length);
                 }
                 bytesRead += line.length();
-                // RRR (Tom) regular "double" below?
-                Double percent = (double) bytesRead / (double) this.inputSize * 100;
+                double percent = (double) bytesRead / (double) this.inputSize * 100;
                 long now = System.currentTimeMillis() * 1000;
                 if (lastPrintTime + 5e5 < now) {
                     lastPrintTime = now;
@@ -201,9 +201,6 @@ public class CsvReader
         boolean list_plugins = false;
         boolean verbose = false;
 
-        // RRR (Tom) do what you'd like with this comment, but it seems like
-        // we should be using some sort of CLI tool to parse this stuff. These next
-        // 90 lines are pretty verbose
         int i;
         for (i = 0; i < args.length; ++i) {
             String toks[] = args[i].split("=");

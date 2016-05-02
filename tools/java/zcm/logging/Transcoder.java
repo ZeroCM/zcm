@@ -74,10 +74,8 @@ public class Transcoder
             events = this.plugin.transcodeMessage(channel, o, utime);
             if (events == null || events.size() == 0) return;
             numEventsWritten += events.size();
-            // RRR (Tom)
-            //  for (Log.Event e : events)
-            for (int i = 0; i < events.size(); ++i)
-                output.write(events.get(i));
+            for (Log.Event e : events)
+                output.write(e);
 
         } catch (Exception e) {
             System.err.println("Encountered error while decoding " + channel + " zcm type");
@@ -131,6 +129,7 @@ public class Transcoder
         public HashMap<String, Constructor> plugins = new HashMap<String, Constructor>();
 
         // RRR (Tom) why does the pluginclassvisitor need the ZCMTypeDatabase?
+        // RRR (Bendes) see below
         private ZCMTypeDatabase handlers = null;
 
         public PluginClassVisitor()
@@ -171,6 +170,7 @@ public class Transcoder
                     for (Long l : plugin.handleFingerprints()) {
                         Class<?> cls = null;
                         try {
+                            // RRR (Bendes) It uses it here
                             cls = handlers.getClassByFingerprint(l);
                             System.out.println("\t " + cls.getName());
                         } catch (Exception e) {

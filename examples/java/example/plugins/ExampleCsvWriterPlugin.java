@@ -9,9 +9,6 @@ import example.zcmtypes.example2_t;
 
 public class ExampleCsvWriterPlugin extends CsvWriterPlugin
 {
-    // RRR (Tom) this variable is unused.
-    private long eventNo = 0;
-
     public Long[] handleFingerprints()
     {
         return new Long[]{ example_t.ZCM_FINGERPRINT };

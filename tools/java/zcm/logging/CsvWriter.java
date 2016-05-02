@@ -155,6 +155,7 @@ public class CsvWriter implements ZCMSubscriber
         public HashMap<String, Constructor> plugins = new HashMap<String, Constructor>();
         // RRR (Tom) does the PluginClassVisitor actually need this ZCMTypeDatabase?
         // Looks like the print function allocates it but doesn't do anything with it.
+        // RRR (Bendes) See below
         private ZCMTypeDatabase handlers = null;
 
         public PluginClassVisitor()
@@ -195,6 +196,7 @@ public class CsvWriter implements ZCMSubscriber
                     for (Long l : plugin.handleFingerprints()) {
                         Class<?> cls = null;
                         try {
+                            // RRR (Bendes) It uses it right here
                             cls = handlers.getClassByFingerprint(l);
                             System.out.println("\t " + cls.getName());
                         } catch (Exception e) {
