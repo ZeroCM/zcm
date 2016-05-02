@@ -113,13 +113,11 @@ uint32_t cb_flush_in(circBuffer_t* cb, uint32_t bytes,
 
     n = read(cb->data + cb->back, contiguous);
     bytesRead += n;
+    cb->back += n;
+    if (n != contiguous) return bytesRead; // back could NOT have hit BUFFER_SIZE in this case
 
-    if (n != contiguous) {
-        cb->back += n;
-        return bytesRead;
-    }
-
-    cb->back = 0;
+    // may need to wrap back here (if bytes >= BUFFER_SIZE - cb->back) but not otherwise
+    if (cb->back >= BUFFER_SIZE) cb->back = 0;
     if (wrapped == 0) return bytesRead;
 
     n = read(cb->data, wrapped);

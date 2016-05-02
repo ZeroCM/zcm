@@ -188,6 +188,7 @@ int Serial::read(u8 *buf, size_t sz, u64 timeoutUs)
         // RRR: returning "status" here will get misintermreted if the next "if" doesn't
         //      trigger, should instead set to an error value
         // RRR (Tom) better?
+        // RRR (Isaac) maybe just return a -1 and ZCM_DEBUG a message
     } else {
         return status;
     }
@@ -380,8 +381,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             }
         };
         auto readByte = [&](u8& b) {
-            if (index == size)
-                refillBuffer();
+            if (index == size) refillBuffer();
             if (size == 0) return false;
             b = buffer[index++];
             return true;
