@@ -4,6 +4,8 @@
 #include "zcm/util/lockfile.h"
 #include "zcm/util/debug.h"
 
+#include "util/TimeUtil.hpp"
+
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -29,6 +31,10 @@ using namespace std;
 #define MTU (1<<20)
 #define ESCAPE_CHAR 0xcc
 
+#define SERIAL_TIMEOUT_US 1e5 // u-seconds
+
+#define US_TO_MS(a) (a)/1e3
+
 using u8  = uint8_t;
 using u16 = uint16_t;
 using u32 = uint32_t;
@@ -44,7 +50,7 @@ struct Serial
     void close();
 
     int write(const u8 *buf, size_t sz);
-    int read(u8 *buf, size_t sz);
+    int read(u8 *buf, size_t sz, u64 timeoutMs);
     static bool baudIsValid(int baud);
 
     Serial(const Serial&) = delete;
@@ -158,14 +164,35 @@ int Serial::write(const u8 *buf, size_t sz)
     return ret;
 }
 
-int Serial::read(u8 *buf, size_t sz)
+int Serial::read(u8 *buf, size_t sz, u64 timeoutUs)
 {
     assert(this->isOpen());
-    int ret = ::read(fd, buf, sz);
-    if(ret == -1) {
-        ZCM_DEBUG("ERR: read failed: %s", strerror(errno));
+    fd_set fds;
+    FD_ZERO(&fds);
+    FD_SET(fd, &fds);
+
+    u64 tOut = max((u64)SERIAL_TIMEOUT_US, timeoutUs);
+
+    struct timeval timeout;
+    timeout.tv_sec = tOut / 1000000;
+    timeout.tv_usec = tOut % 1000000;
+    int status = ::select(fd + 1, &fds, NULL, NULL, &timeout);
+
+    if (status > 0) {
+        if (FD_ISSET(fd, &fds)) {
+            int ret = ::read(fd, buf, sz);
+            if (ret == -1) {
+                ZCM_DEBUG("ERR: serial read failed: %s", strerror(errno));
+            }
+            return ret;
+        } else {
+            ZCM_DEBUG("ERR: serial bytes not ready");
+            return -1;
+        }
+    } else {
+        ZCM_DEBUG("ERR: serial read timed out");
+        return -2;
     }
-    return ret;
 }
 
 bool Serial::baudIsValid(int baud)
@@ -330,93 +357,128 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
     int recvmsg(zcm_msg_t *msg, int timeout)
     {
+        if (timeout < 0) return ZCM_EAGAIN;
+
+        u64 utimeRcvStart = TimeUtil::utime();
+
         u8 buffer[1024];
         size_t index = 0, size = 0;
         u8 sum = 0;  // TODO introduce better checksum
+        bool timedOut = false;
 
         auto refillBuffer = [&]() {
             while (index == size) {
-                size = ser.read(buffer, sizeof(buffer));
-                index = 0;
+                int n = ser.read(buffer, sizeof(buffer), timeout * 1e3);
+                if (n <= 0) {
+                    ZCM_DEBUG("serial recvmsg: read timed out");
+                    size = 0;
+                    index = 0;
+                    timedOut = true;
+                    break;
+                } else {
+                    index = 0;
+                    size = n;
+                }
             }
         };
-        auto readByte = [&]() {
-            if (index == size)
-                refillBuffer();
-            return buffer[index++];
+        auto readByte = [&](u8& b) {
+            if (index == size) refillBuffer();
+            if (size == 0) return false;
+            b = buffer[index++];
+            return true;
         };
-        auto readU32 = [&]() {
-            u32 a = readByte();
-            u32 b = readByte();
-            u32 c = readByte();
-            u32 d = readByte();
-            return a<<24 | b<<16 | c<<8 | d<<0;
+        auto readU32 = [&](u32& x) {
+            u8 a, b, c, d;
+            if (readByte(a) && readByte(b) && readByte(c) && readByte(d)) {
+                x = (u32(a) << 24) | (u32(b) << 16) | (u32(c) << 8) | (u32(d) << 0);
+                return true;
+            }
+            return false;
         };
         auto syncStream = [&]() {
-            while (1) {
-                u8 c = readByte();
+            while (!timedOut) {
+                u8 c;
+                if (!readByte(c)) return false;
+
                 if (c != ESCAPE_CHAR)
                     continue;
-                // We got one escape char, see if it's
-                // followed by a zero
-                c = readByte();
-                if (c == 0)
-                    return;
+
+                // We got one escape char, see if it's followed by a zero
+                if (!readByte(c)) return false;
+                if (c == 0) return true;
             }
+            return false;
         };
-        auto readByteUnescape = [&]() {
-            u8 c = readByte();
-            if (c != ESCAPE_CHAR)
-                return c;
+        auto readByteUnescape = [&](u8& b) {
+            u8 c;
+            if (!readByte(c)) return false;
+            if (c != ESCAPE_CHAR) {
+                b = c;
+                return true;
+            }
             // Byte was escaped, strip off the escape char
-            return readByte();
+            return readByte(b);
         };
         auto readBytes = [&](u8 *buffer, size_t sz) {
+            u8 c;
             for (size_t i = 0; i < sz; i++) {
-                u8 c = readByteUnescape();
+                if(!readByteUnescape(c)) return false;
                 sum += c;
                 buffer[i] = c;
             }
+            return true;
         };
         auto checkFinish = [&]() {
-            u8 expect = readByte();
+            u8 expect;
+            if (!readByte(expect)) return false;
             return expect == sum;
         };
 
-        syncStream();
-        u8 channelLen = readByte();
-        u32 dataLen = readU32();
+        u8 channelLen;
+        u32 dataLen;
+        if (!syncStream() || !readByte(channelLen) || !readU32(dataLen))
+            return ZCM_EAGAIN;
+
+        int diff = US_TO_MS(TimeUtil::utime() - utimeRcvStart);
 
         // Validate the lengths received
         if (channelLen > ZCM_CHANNEL_MAXLEN) {
             ZCM_DEBUG("serial recvmsg: channel is too long: %d", channelLen);
+            if (timeout > 0 && diff > timeout) return ZCM_EAGAIN;
             // retry the recvmsg via tail-recursion
-            return recvmsg(msg, timeout);
+            return recvmsg(msg, timeout - diff);
         }
         if (dataLen > MTU) {
             ZCM_DEBUG("serial recvmsg: data is too long: %d", dataLen);
+            if (timeout > 0 && diff > timeout) return ZCM_EAGAIN;
             // retry the recvmsg via tail-recursion
-            return recvmsg(msg, timeout);
+            return recvmsg(msg, timeout - diff);
         }
 
         // Lengths are good! Recv the data
-        readBytes(recvChannelMem, (size_t)channelLen);
-        readBytes(recvDataMem,    (size_t)dataLen);
+        if (!readBytes(recvChannelMem, (size_t)channelLen) ||
+            !readBytes(recvDataMem,    (size_t)dataLen))
+            return ZCM_EAGAIN;
 
         // Set the null-terminator
         recvChannelMem[channelLen] = '\0';
 
+        diff = US_TO_MS(TimeUtil::utime() - utimeRcvStart);
+
         // Check the checksum
         if (!checkFinish()) {
             ZCM_DEBUG("serial recvmsg: checksum failed!");
+            if (timeout > 0 && diff > timeout) return ZCM_EAGAIN;
             // retry the recvmsg via tail-recursion
-            return recvmsg(msg, timeout);
+            return recvmsg(msg, timeout - diff);
         }
 
         // Has this channel been enabled?
         if (!isChannelEnabled((char*)recvChannelMem)) {
+            //ZCM_DEBUG("serial recvmsg: %s is not enabled!", recvChannelMem);
+            if (timeout > 0 && diff > timeout) return ZCM_EAGAIN;
             // retry the recvmsg via tail-recursion
-            return recvmsg(msg, timeout);
+            return recvmsg(msg, timeout - diff);
         }
 
         // Good! Return it

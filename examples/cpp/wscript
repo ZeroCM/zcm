@@ -25,3 +25,5 @@ def build(ctx):
     ctx.program(target = 'tracker',
                 use = 'default zcm examplezcmtypes_cpp',
                 source = 'MessageTrackerTest.cpp')
+
+    ctx.recurse('transport')
