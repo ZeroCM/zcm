@@ -1,4 +1,4 @@
-package zcm.spy;
+package zcm.util;
 
 import java.util.*;
 
@@ -20,7 +20,6 @@ import java.lang.reflect.*;
 
 import zcm.zcm.*;
 
-/** Searches classpath for objects that implement LCSpyPlugin using reflection. **/
 public class ZCMTypeDatabase
 {
     HashMap<Long, Class> classes = new HashMap<Long, Class>();
@@ -28,7 +27,6 @@ public class ZCMTypeDatabase
     public ZCMTypeDatabase()
     {
         ClassDiscoverer.findClasses(new MyClassVisitor());
-        System.out.println("Found "+classes.size()+" ZCM types");
     }
 
     class MyClassVisitor implements ClassDiscoverer.ClassVisitor
@@ -43,7 +41,6 @@ public class ZCMTypeDatabase
                         // it's a static member, we don't need an instance
                         long fingerprint = f.getLong(null);
                         classes.put(fingerprint, cls);
-                        // System.out.printf("%016x : %s\n", fingerprint, cls);
 
                         break;
                     }
@@ -57,5 +54,13 @@ public class ZCMTypeDatabase
     public Class getClassByFingerprint(long fingerprint)
     {
         return classes.get(fingerprint);
+    }
+
+    public int numFound() { return classes.size(); }
+
+    public void print()
+    {
+        for (Long l : classes.keySet())
+            System.out.println(Long.toHexString(l) + "   --->    " + classes.get(l));
     }
 }
