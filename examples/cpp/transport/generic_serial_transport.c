@@ -38,10 +38,8 @@ void cb_init(circBuffer_t* cb)
 
 int cb_size(circBuffer_t* cb)
 {
-    if (cb->back >= cb->front)
-        return cb->back - cb->front;
-    else
-        return BUFFER_SIZE - (cb->front - cb->back);
+    if (cb->back >= cb->front) return cb->back - cb->front;
+    else                       return BUFFER_SIZE - (cb->front - cb->back);
 }
 
 int cb_room(circBuffer_t* cb)
@@ -58,6 +56,7 @@ void cb_push(circBuffer_t* cb, uint8_t d)
 uint8_t cb_top(circBuffer_t* cb, uint32_t offset)
 {
     int val = cb->front + offset;
+    // RRR: one easy and free protection agains offset > BUFFER_SIZE would be to change if->while
     if (val >= BUFFER_SIZE) val -= BUFFER_SIZE;
     return cb->data[val];
 }
@@ -65,6 +64,7 @@ uint8_t cb_top(circBuffer_t* cb, uint32_t offset)
 void cb_pop(circBuffer_t* cb, uint32_t num)
 {
     cb->front += num;
+    // RRR: one easy and free protection agains num > BUFFER_SIZE would be to change if->while
     if (cb->front >= BUFFER_SIZE) cb->front -= BUFFER_SIZE;
 }
 
@@ -74,6 +74,7 @@ uint32_t cb_flush_out(circBuffer_t* cb, uint32_t (*write)(const uint8_t* data, u
 	uint32_t written = 0;
 	uint32_t n;
 
+    // RRR: these variable names are a little misleading, maybe "contiguous" and "wrapped"
     uint32_t f2b = MIN(BUFFER_SIZE - cb->front, cb_size(cb));
     uint32_t b2e = cb_size(cb) - f2b;
 
@@ -83,6 +84,7 @@ uint32_t cb_flush_out(circBuffer_t* cb, uint32_t (*write)(const uint8_t* data, u
 
     if (written != f2b) return written;
 
+    // RRR: might consider doing a zero check on b2e here (and not even calling write)
     n = write(cb->data, b2e);
     written += n;
     cb_pop(cb, n);
@@ -90,7 +92,7 @@ uint32_t cb_flush_out(circBuffer_t* cb, uint32_t (*write)(const uint8_t* data, u
 }
 
 uint32_t cb_flush_in(circBuffer_t* cb, uint32_t bytes,
-		uint32_t (*read)(uint8_t* data, uint32_t num))
+		             uint32_t (*read)(uint8_t* data, uint32_t num))
 {
 	uint32_t bytesRead = 0;
 	uint32_t n;
@@ -108,6 +110,7 @@ uint32_t cb_flush_in(circBuffer_t* cb, uint32_t bytes,
     }
 
     // Otherwise, we need to be a bit more careful about overflowing the back of the buffer.
+    // RRR: again, these names are a little misleading
     uint32_t b2b = MIN(BUFFER_SIZE - cb->back, bytes);
     uint32_t b2e = bytes - b2b;
 
@@ -116,6 +119,7 @@ uint32_t cb_flush_in(circBuffer_t* cb, uint32_t bytes,
     cb->back += n;
     if (n != b2b) return bytesRead;
 
+    // RRR: at this point in the code, the condition should ALWAYS be true
     if (cb->back >= BUFFER_SIZE) cb->back = 0;
     n = read(cb->data, b2e);
     bytesRead += n;
@@ -149,24 +153,19 @@ int sendmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t msg)
     size_t chan_len = strlen(msg.channel);
     size_t nPushed = 0;
 
-    if (chan_len > ZCM_CHANNEL_MAXLEN)
-        return ZCM_EINVALID;
-
-    if (msg.len > MTU)
-        return ZCM_EINVALID;
-
-    if (FRAME_BYTES + chan_len + msg.len > cb_room(&zt->sendBuffer))
-        return ZCM_EAGAIN;
+    if (chan_len > ZCM_CHANNEL_MAXLEN)                               return ZCM_EINVALID;
+    if (msg.len > MTU)                                               return ZCM_EINVALID;
+    if (FRAME_BYTES + chan_len + msg.len > cb_room(&zt->sendBuffer)) return ZCM_EAGAIN;
 
     cb_push(&zt->sendBuffer, ESCAPE_CHAR); nPushed++;
-    cb_push(&zt->sendBuffer, 0x00); nPushed++;
-    cb_push(&zt->sendBuffer, chan_len); nPushed++;
+    cb_push(&zt->sendBuffer, 0x00);        nPushed++;
+    cb_push(&zt->sendBuffer, chan_len);    nPushed++;
 
     uint32_t len = (uint32_t)msg.len;
     cb_push(&zt->sendBuffer, (len>>24)&0xff); nPushed++;
     cb_push(&zt->sendBuffer, (len>>16)&0xff); nPushed++;
-    cb_push(&zt->sendBuffer, (len>>8)&0xff ); nPushed++;
-    cb_push(&zt->sendBuffer, (len>>0)&0xff ); nPushed++;
+    cb_push(&zt->sendBuffer, (len>> 8)&0xff); nPushed++;
+    cb_push(&zt->sendBuffer, (len>> 0)&0xff); nPushed++;
 
     uint8_t sum = 0;
     int i;
@@ -177,7 +176,7 @@ int sendmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t msg)
 
         if (c == ESCAPE_CHAR) {
         	// the escape character doesn't count, so we have chan_len - i characters
-        	// remaining.
+        	// remaining in channel + the msg + the checksum.
             if (cb_room(&zt->sendBuffer) > chan_len - i + msg.len + 1) {
                 cb_push(&zt->sendBuffer, c); nPushed++;
             } else {
@@ -196,7 +195,7 @@ int sendmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t msg)
 
         if (c == ESCAPE_CHAR) {
         	// the escape character doesn't count, so we have msg.len - i characters
-        	// remaining.
+        	// remaining in the msg + the checksum.
             if (cb_room(&zt->sendBuffer) > msg.len - i + 1) {
                 cb_push(&zt->sendBuffer, c); nPushed++;
             } else {
@@ -230,10 +229,8 @@ int recvmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t *msg, int timeout)
     uint32_t consumed = 0;
 
     // Sync
-    if (cb_top(&zt->recvBuffer, consumed++) != ESCAPE_CHAR)
-        goto fail;
-    if (cb_top(&zt->recvBuffer, consumed++) != 0x00)
-        goto fail;
+    if (cb_top(&zt->recvBuffer, consumed++) != ESCAPE_CHAR) goto fail;
+    if (cb_top(&zt->recvBuffer, consumed++) != 0x00       ) goto fail;
 
     // Msg sizes
     uint8_t chan_len = cb_top(&zt->recvBuffer, consumed++);
@@ -242,13 +239,10 @@ int recvmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t *msg, int timeout)
     msg->len |= cb_top(&zt->recvBuffer, consumed++) << 8;
     msg->len |= cb_top(&zt->recvBuffer, consumed++);
 
-    if (chan_len > ZCM_CHANNEL_MAXLEN)
-        goto fail;
-    if (msg->len > MTU)
-        goto fail;
+    if (chan_len > ZCM_CHANNEL_MAXLEN) goto fail;
+    if (msg->len > MTU)                goto fail;
 
-    if (incomingSize < FRAME_BYTES + chan_len + msg->len)
-        return ZCM_EAGAIN;
+    if (incomingSize < FRAME_BYTES + chan_len + msg->len) return ZCM_EAGAIN;
 
     memset(&zt->recvChanName, '0', ZCM_CHANNEL_MAXLEN);
 
@@ -259,10 +253,9 @@ int recvmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t *msg, int timeout)
         char c = cb_top(&zt->recvBuffer, consumed++);
 
         if (c == ESCAPE_CHAR) {
-        	// the consumed escape character effectively doesn't count,
-        	// so we have yet to consume chan_len - i bytes in the channel
-            if (consumed + chan_len - i + msg->len + 1 > incomingSize)
-                return ZCM_EAGAIN;
+        	// the escape character doesn't count, so we have chan_len - i characters
+        	// remaining in channel + the msg + the checksum.
+            if (consumed + chan_len - i + msg->len + 1 > incomingSize) return ZCM_EAGAIN;
 
             c = cb_top(&zt->recvBuffer, consumed++);
 
@@ -279,16 +272,14 @@ int recvmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t *msg, int timeout)
     zt->recvChanName[chan_len] = '\0';
 
     for (i = 0; i < msg->len; ++i) {
-        if (consumed > incomingSize)
-            return ZCM_EAGAIN;
+        if (consumed > incomingSize) return ZCM_EAGAIN;
 
         char c = cb_top(&zt->recvBuffer, consumed++);
 
-        // We got a byte that doesn't count toward our msg len. Need to make
-        // sure we still have enough bytes in the incoming buffer.
         if (c == ESCAPE_CHAR) {
-            if (consumed + msg->len - i + 1 > incomingSize)
-                return ZCM_EAGAIN;
+        	// the escape character doesn't count, so we have msg.len - i characters
+        	// remaining in the msg + the checksum.
+            if (consumed + msg->len - i + 1 > incomingSize) return ZCM_EAGAIN;
 
             c = cb_top(&zt->recvBuffer, consumed++);
 
@@ -313,6 +304,8 @@ int recvmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t *msg, int timeout)
 
   fail:
     cb_pop(&zt->recvBuffer, consumed);
+    // Note: because this is a nonblocking transport, timeout is ignored, so we don't need
+    //       to subtract the time used here
     return recvmsg(zt, msg, timeout);
 }
 
@@ -360,6 +353,8 @@ static zcm_trans_generic_serial_t *cast(zcm_trans_t *zt)
     return (zcm_trans_generic_serial_t*)zt;
 }
 
+// RRR: do you mean once period? What if there are multiple serial transports in one program?
+//      maybe I'm missing something, but why could this only be called once?
 // Because we are doing the generic_serial_init() in here, this can only be called once
 zcm_trans_t *zcm_trans_generic_serial_create(
         uint32_t (*get)(uint8_t* data, uint32_t nData),

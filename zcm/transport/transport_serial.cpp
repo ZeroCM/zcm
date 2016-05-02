@@ -169,6 +169,7 @@ int Serial::read(u8 *buf, size_t sz, u64 timeoutUs)
     FD_ZERO(&fds);
     FD_SET(fd, &fds);
 
+    // RRR: uh what? Clarify? Does it only get "stuck" if tOut is too small or something?
     // The program gets stuck in the "select" call, at the moment.
     u64 tOut = max((u64)SERIAL_TIMEOUT_US, timeoutUs);
 
@@ -178,10 +179,13 @@ int Serial::read(u8 *buf, size_t sz, u64 timeoutUs)
     int status = ::select(fd + 1, &fds, NULL, NULL, &timeout);
 
     if (status > 0) {
+        // RRR: returning "status" here will get misintermreted if the next "if" doesn't
+        //      trigger, should instead set to an error value
         int ret = status;
         if (FD_ISSET(fd, &fds)) {
             ret = ::read(fd, buf, sz);
             if (ret == -1)
+                // RRR: probably "serial read failed" would be more appropriate
                 ZCM_DEBUG("ERR: read failed: %s", strerror(errno));
         }
         return ret;
@@ -350,6 +354,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         return ZCM_EOK;
     }
 
+// RRR: I wouldn't make a #def for this give it's only used twice
+//      if you really want to keep it, call it US_TO_MS or something
 #define MILLISECONDS(a) (a)/1e3
 
     int recvmsg(zcm_msg_t *msg, int timeout)
@@ -381,6 +387,10 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         auto readByte = [&]() {
             if (index == size)
                 refillBuffer();
+            // RRR: this is actually dangerous, you are returning a garbage byte
+            //      there needs to be a better way to communicate a timeout, otherwise
+            //      timedOut needs to be checked after every time readByte is called
+            //      (not just in the while loop)
             if (size == 0) return buffer[0];
             return buffer[index++];
         };
@@ -394,6 +404,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         auto syncStream = [&]() {
             while (!timedOut) {
                 u8 c = readByte();
+                // RRR: see above, but in the current state, you might have a garbage byte here
                 if (c != ESCAPE_CHAR)
                     continue;
                 // We got one escape char, see if it's
@@ -405,6 +416,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         };
         auto readByteUnescape = [&]() {
             u8 c = readByte();
+            // RRR: see above, but in the current state, you might have a garbage byte here
             if (c != ESCAPE_CHAR)
                 return c;
             // Byte was escaped, strip off the escape char
@@ -413,12 +425,14 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         auto readBytes = [&](u8 *buffer, size_t sz) {
             for (size_t i = 0; i < sz; i++) {
                 u8 c = readByteUnescape();
+                // RRR: see above, but in the current state, you might have a garbage byte here
                 sum += c;
                 buffer[i] = c;
             }
         };
         auto checkFinish = [&]() {
             u8 expect = readByte();
+            // RRR: see above, but in the current state, you might have a garbage byte here
             return expect == sum;
         };
 
@@ -426,20 +440,19 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         u8 channelLen = readByte();
         u32 dataLen = readU32();
 
+        // RRR: "now" is a bit of a misleading variable name isn't it
         int diff = MILLISECONDS(TimeUtil::utime() - now);
 
         // Validate the lengths received
         if (channelLen > ZCM_CHANNEL_MAXLEN) {
             ZCM_DEBUG("serial recvmsg: channel is too long: %d", channelLen);
-            if (timeout > 0 && diff > timeout)
-                return ZCM_EAGAIN;
+            if (timeout > 0 && diff > timeout) return ZCM_EAGAIN;
             // retry the recvmsg via tail-recursion
             return recvmsg(msg, timeout - diff);
         }
         if (dataLen > MTU) {
             ZCM_DEBUG("serial recvmsg: data is too long: %d", dataLen);
-            if (timeout > 0 && diff > timeout)
-                return ZCM_EAGAIN;
+            if (timeout > 0 && diff > timeout) return ZCM_EAGAIN;
             // retry the recvmsg via tail-recursion
             return recvmsg(msg, timeout - diff);
         }
@@ -456,8 +469,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         // Check the checksum
         if (!checkFinish()) {
             ZCM_DEBUG("serial recvmsg: checksum failed!");
-            if (timeout > 0 && diff > timeout)
-                return ZCM_EAGAIN;
+            if (timeout > 0 && diff > timeout) return ZCM_EAGAIN;
             // retry the recvmsg via tail-recursion
             return recvmsg(msg, timeout - diff);
         }
@@ -465,8 +477,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         // Has this channel been enabled?
         if (!isChannelEnabled((char*)recvChannelMem)) {
             //ZCM_DEBUG("serial recvmsg: %s is not enabled!", recvChannelMem);
-            if (timeout > 0 && diff > timeout)
-                return ZCM_EAGAIN;
+            if (timeout > 0 && diff > timeout) return ZCM_EAGAIN;
             // retry the recvmsg via tail-recursion
             return recvmsg(msg, timeout - diff);
         }

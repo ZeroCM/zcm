@@ -93,6 +93,7 @@ int main(int argc, const char *argv[])
             nextPublish = now + PUBLISH_DT;
         }
 
+        // RRR: we should probably add a handle_nonblock call to the c++ api
         zcm_handle_nonblock(zcmLocal.getUnderlyingZCM());
     }
 
