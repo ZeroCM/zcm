@@ -178,19 +178,20 @@ int Serial::read(u8 *buf, size_t sz, u64 timeoutUs)
     timeout.tv_usec = tOut % 1000000;
     int status = ::select(fd + 1, &fds, NULL, NULL, &timeout);
 
-    if (status > 0 && FD_ISSET(fd, &fds)) {
-        int ret = ::read(fd, buf, sz);
-        if (ret == -1) {
-            ZCM_DEBUG("ERR: serial read failed: %s", strerror(errno));
+    if (status > 0) {
+        if (FD_ISSET(fd, &fds)) {
+            int ret = ::read(fd, buf, sz);
+            if (ret == -1) {
+                ZCM_DEBUG("ERR: serial read failed: %s", strerror(errno));
+            }
+            return ret;
+        } else {
+            ZCM_DEBUG("ERR: serial bytes not ready");
+            return -1;
         }
-        return ret;
-
-        // RRR: returning "status" here will get misintermreted if the next "if" doesn't
-        //      trigger, should instead set to an error value
-        // RRR (Tom) better?
-        // RRR (Isaac) maybe just return a -1 and ZCM_DEBUG a message
     } else {
-        return status;
+        ZCM_DEBUG("ERR: serial read timed out");
+        return -2;
     }
 }
 
