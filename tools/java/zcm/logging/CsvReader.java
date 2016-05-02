@@ -21,18 +21,6 @@ public class CsvReader
     private boolean verbose = false;
     private boolean done = false;
 
-    // RRR (Tom) looks like there's a decent amount of code for verbose printing,
-    // but only one print out actually uses it. Any reason we need to be so "verbose"? :)
-    // RRR (Bendes) Left it here so we could add stuff as we needed
-    //
-    // RRR (Tom) I donno how I feel about requiring the user to pass in "inputSize",
-    // when its only purpose is for printing completion percentage. Is the completion
-    // percentage able to be calculated just from members of the BufferedReader?
-    // Not sure if a file size and/or file position are accessible.
-    // RRR (Bendes) Unfortunately not (at least i couldn't find a way). I don't
-    //              like it either but I dont have a good way of doing it
-    //              without moving the fileIO into the constructor (which i
-    //              think is worse than this)
     public CsvReader(Log outputLog, String zcm_url,
                      BufferedReader input, long inputSize,
                      Constructor pluginCtor, boolean verbose)
@@ -102,18 +90,9 @@ public class CsvReader
                     break;
                 }
                 ArrayList<Log.Event> events = plugin.readZcmType(line);
-                // RRR (Tom) do we want to fail loudly here? It's not clear to
-                // me what we're handling here, if not an error in the plugin?
-                // RRR (Bendes) the plugin need not request an event be written: no error here
-                //              Delete these comments if that answer is acceptable
                 if (events == null || events.size() == 0) continue;
                 numEventsRead += events.size();
 
-                // RRR (Tom) seems like both outputLog & outputZcm not being null
-                // should be a requirement we enforce in the constructor, not in
-                // the run function.
-                // RRR (Bendes) Only one of them need not be null
-                //              Delete these comments if that answer is acceptable
                 if (outputLog != null) {
                     for (Log.Event e : events)
                         outputLog.write(e);

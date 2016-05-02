@@ -128,8 +128,6 @@ public class Transcoder
     {
         public HashMap<String, Constructor> plugins = new HashMap<String, Constructor>();
 
-        // RRR (Tom) why does the pluginclassvisitor need the ZCMTypeDatabase?
-        // RRR (Bendes) see below
         private ZCMTypeDatabase handlers = null;
 
         public PluginClassVisitor()
@@ -170,7 +168,6 @@ public class Transcoder
                     for (Long l : plugin.handleFingerprints()) {
                         Class<?> cls = null;
                         try {
-                            // RRR (Bendes) It uses it here
                             cls = handlers.getClassByFingerprint(l);
                             System.out.println("\t " + cls.getName());
                         } catch (Exception e) {
