@@ -35,6 +35,7 @@ class ZCM
     inline void start();
     inline void stop();
     inline int handle();
+    inline int handleNonblock();
 
     inline void flush();
 

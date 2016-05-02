@@ -76,6 +76,11 @@ inline int ZCM::handle()
     return zcm_handle(zcm);
 }
 
+inline int ZCM::handleNonblock()
+{
+    return zcm_handle_nonblock(zcm);
+}
+
 inline void ZCM::flush()
 {
     zcm_flush(zcm);
