@@ -1,12 +1,14 @@
 #pragma once
 
-#include <cstdint>
-#include <unistd.h>
+#include <stdint.h>
 #include <string>
 #include <vector>
 
 #include "zcm/zcm.h"
+
+#ifndef ZCM_EMBEDDED
 #include "zcm/eventlog.h"
+#endif
 
 namespace zcm {
 
@@ -21,6 +23,7 @@ class ZCM
     // TODO: update to match new url based zcm_create
     inline ZCM();
     inline ZCM(const std::string& transport);
+    inline ZCM(zcm_trans_t *zt);
     inline ~ZCM();
 
     inline bool good() const;
@@ -32,6 +35,7 @@ class ZCM
     inline void start();
     inline void stop();
     inline int handle();
+    inline int handleNonblock();
 
     inline void flush();
 
@@ -103,6 +107,7 @@ class Subscription
 
 // TODO: why not use or inherrit from the existing zcm data structures for the below
 
+#ifndef ZCM_EMBEDDED
 struct LogEvent
 {
     int64_t     eventnum;
@@ -133,6 +138,7 @@ struct LogFile
     zcm_eventlog_t* eventlog;
     zcm_eventlog_event_t* lastevent;
 };
+#endif
 
 #define __zcm_cpp_impl_ok__
 #include "zcm-cpp-impl.hpp"

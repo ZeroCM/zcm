@@ -4,6 +4,7 @@
 #include <getopt.h>
 #include <atomic>
 #include <signal.h>
+#include <unistd.h>
 
 #include <zcm/zcm-cpp.hpp>
 
