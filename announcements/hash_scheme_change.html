@@ -1,0 +1,107 @@
+
+<!DOCTYPE html>
+<html lang='en-us'>
+  <head>
+    <meta charset='UTF-8'>
+    <title>announcement</title>
+    <meta name='viewport' content='width=device-width, initial-scale=1'>
+    <link rel='stylesheet' type='text/css' href='../stylesheets/normalize.css' media='screen'>
+    <link href='https://fonts.googleapis.com/css?family=Open+Sans:400,700' rel='stylesheet' type='text/css'>
+    <link rel='stylesheet' type='text/css' href='../stylesheets/stylesheet.css' media='screen'>
+    <link rel='stylesheet' type='text/css' href='../stylesheets/github-light.css' media='screen'>
+  </head>
+  <body>
+    <section class='page-header'>
+      <section style='cursor:pointer' onclick='window.location="../index.html";'>
+        <h1 class='project-name'>Zcm</h1>
+        <h2 class='project-tagline'>Zero Communications and Marshalling</h2>
+      </section>
+    </section>
+
+    <section class='main-content'>
+
+<h1>Announcement:</h1>
+
+<p> Hi All, </p>
+
+<p> Zcm has gone through a relatively minor change, but one that you should be aware of. </p>
+
+<p> Zcm employs a hashing scheme to help with the decoding of messages. This is meant to ensure that you don't accidentally try to decode a message that has a structural makeup different than the makeup you're expecting. </p>
+
+<p> The old hashing scheme took into account all variable types and variable names in your zcmtype. For example, if you had a zcm type that looked like the following: </p>
+
+<pre><code>struct example_t
+{
+    int64_t utime;
+    float q[4];
+    int8_t flags;
+    const int8_t FLAGS_VALID = 0x01;
+};
+</code></pre>
+
+<p> and you changed the <code>q</code> field to be an array of 3 floats, instead of 4, we wanted to be able to catch that in the decoding stage, and warn the user that there was a type mismatch. </p>
+
+<p> Here's how the old system worked. </p>
+
+<p> We hashed (in order) all of the types of all of the variables **as well as their names** (we did not include const variables in the creation of the hash). This means that if you changed the name of a variable, the hash for that type changed. The system was intentionally designed that way so you could have 10 different types all with individually unique hashes, even if their only member was 1 float (as long as each type had a different name for that member). For example, we could have had the following two zcmtypes used in one system without chance of accidentally decoding one for the other. </p>
+
+<pre><code>struct system_flags_t
+{
+    int8_t system_flags;
+    const int8_t FLAGS_SYSTEM_ON = 0x01;
+};
+</code></pre>
+
+<pre><code>struct vehicle_flags_t
+{
+    int8_t vehicle_flags;
+    const int8_t FLAGS_VEHICLE_DRIVING = 0x01;
+};
+</code></pre>
+
+<p> The problem with this though, is that a user might want to change the name of a variable without invalidating all of their old logs. The assumption here is that a change in variable name doesn't necessarily mean that the underlying data is different. So we decided to give the user the option to choose which hashing scheme is desired. </p>
+
+<p> ZCM can create the type hashes using any of the following information. Some of these are hard coded to always be used because it has been deemed unsafe to ignore them. Others are optional and may be configured by the user at configure-time. </p>
+
+<p> Always On Hash Scheme: </p>
+<ul>
+  <li> member types (in order) </li>
+</ul>
+
+<p> Configureable Hash Scheme: </p>
+<ul>
+  <li> zcmtype name (default is ON) </li>
+  <li> member names (in order) (default is OFF) </li>
+</ul>
+
+<p> Previously, the default values for the two configurable hash schemes were inverted. However, we've recently decided that using the new scheme is more stable and intuitive. In any case, both of these options may be configured during your <code> ./waf configure </code> call: </p>
+
+<p> option: <code> --hash-typename={true,false} </code> </p>
+<p> set to true to have zcmtype hashing use the typename in the computed hash </p>
+<p> option: <code> --hash-member-names={true,false} </code> </p>
+<p> set to true to have zcmtype hashing use the member variable names (in order) in the computed hash </p>
+
+<p> If you want to remain compatible with the zcmtype hashs in your previous logs, configure with </p>
+<p> <code> --hash-typename=false --hash-member-names=true </code> </p>
+<p> However, we believe that it will benefit you to switch to the new default scheme: </p>
+<p> <code> --use-typename=true --use-member-names=false </code> </p>
+
+<p> A utility to run through zcm logs and update old hashes to the new hashes has been made, but it is still in it's early stages. If you are interested in switching to the new hash scheme but need to migrate old logs, let us know and we can make that utility a higher development priority. </p>
+
+<p> As always, feel free to reach out on our <a href='https://groups.google.com/forum/#!forum/zcm-users'>forums</a> or on <a href='https://gitter.im/ZeroCM/zcm'>gitter</a> with any questions! </p>
+<p> ~The ZCM Team </p>
+
+<p><hr>
+<a href="../index.html"><h2>Got it!</h2></a>
+</hr></p>
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA-73394372-1', 'auto');
+  ga('send', 'pageview');
+
+</script>
+</section> </body> </html>

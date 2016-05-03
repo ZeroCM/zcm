@@ -12,20 +12,21 @@
   </head>
   <body>
     <section class='page-header'>
-      <section style='cursor:pointer' onclick='window.location="../homepage.html";'>
+      <section style='cursor:pointer' onclick='window.location="../index.html";'>
         <h1 class='project-name'>Zcm</h1>
         <h2 class='project-tagline'>Zero Communications and Marshalling</h2>
       </section>
       <a href='https://github.com/ZeroCM/zcm' class='btn'>View on GitHub</a>
       <a href='http://ci.zcm-project.org' class='btn'>Monitor Builds</a>
       <a href='https://gitter.im/ZeroCM/zcm' class='btn'>Chat with the team</a>
+      <a href='https://groups.google.com/forum/#!forum/zcm-users' class='btn'>Ask a Question</a>
       <a href='https://github.com/ZeroCM/zcm/zipball/master' class='btn'>Download .zip</a>
       <a href='https://github.com/ZeroCM/zcm/tarball/master' class='btn'>Download .tar.gz</a>
     </section>
 
     <section class='main-content'>
 <p><a style="margin-right: 1rem;" href="javascript:history.go(-1)">Back</a>
-<a href="../homepage.html">Home</a></p>
+<a href="../index.html">Home</a></p>
 
 <h1>ZCM Type System</h1>
 
@@ -130,8 +131,8 @@ type metadata.</p>
 
 <p>The optimized encoding formats specified above are made possible using a type hash. Each encoded message starts with
 a 64-bit hash field. As seen above, for one message, this is the only size overhead in ZCM Type encodings. Without the
-hash, the encoded data is the same size as an equivalent C struct. Further, the hash is a unique type identifier. The hash
-allows a decoder function to verify that a binary blob of data is ecoded as expected.</p>
+hash, the encoded data is at maximum the same size as an equivalent C struct. Further, the hash is a unique type identifier.
+The hash allows a decoder function to verify that a binary blob of data is ecoded as expected.</p>
 
 <p>To acheive this lofty goal, it is crucial to get the type hash computation right. We must ensure that that a hash unique
 identifies a type layout. The hash is not intended to be cryptographic, but instead to catch programming and configuration
@@ -158,8 +159,12 @@ int64 hashstring(int64 hash, string s)
 {
     int64 hash = 0x12345678;
 
+    if (HASH_TYPENAME)
+        hash = hashstring(hash, zcmtype_name);
+
     for (fld in fields) {
-        hash = hashstring(hash, fld.name);
+        if (HASH_MEMBER_NAMES)
+            hash = hashstring(hash, fld.name);
 
         // Hash the type (only if its a primative)
         if (isPrimativeType(fld.typename))
@@ -199,7 +204,7 @@ is fairly simple. The algorithm proceeds as follows:</p>
 
 <p><hr>
  <a style="margin-right: 1rem;" href="javascript:history.go(-1)">Back</a>
-<a href="../homepage.html">Home</a></p>
+<a href="../index.html">Home</a></p>
 <script>
   (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
   (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
