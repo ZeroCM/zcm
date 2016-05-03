@@ -96,8 +96,8 @@ type metadata.
 
 The optimized encoding formats specified above are made possible using a type hash. Each encoded message starts with
 a 64-bit hash field. As seen above, for one message, this is the only size overhead in ZCM Type encodings. Without the
-hash, the encoded data is the same size as an equivalent C struct. Further, the hash is a unique type identifier. The hash
-allows a decoder function to verify that a binary blob of data is ecoded as expected.
+hash, the encoded data is at maximum the same size as an equivalent C struct. Further, the hash is a unique type identifier.
+The hash allows a decoder function to verify that a binary blob of data is ecoded as expected.
 
 To acheive this lofty goal, it is crucial to get the type hash computation right. We must ensure that that a hash unique
 identifies a type layout. The hash is not intended to be cryptographic, but instead to catch programming and configuration
@@ -123,8 +123,12 @@ Hashing zcmtypes:
     {
         int64 hash = 0x12345678;
 
+        if (HASH_TYPENAME)
+            hash = hashstring(hash, zcmtype_name);
+
         for (fld in fields) {
-            hash = hashstring(hash, fld.name);
+            if (HASH_MEMBER_NAMES)
+                hash = hashstring(hash, fld.name);
 
             // Hash the type (only if its a primative)
             if (isPrimativeType(fld.typename))

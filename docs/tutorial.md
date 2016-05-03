@@ -251,7 +251,7 @@ type based on the individual field types and their orderings. If any of these ty
 change or get re-ordered, existing programs will detect a hashcode mismatch and will
 refuse to decode the received data!
 
-## ZCM Tools
+# ZCM Tools
 
 ZCM ships with a convenient set of debugging and monitoring tools. In this section
 we demonstrate the usage of these tools.
@@ -283,6 +283,40 @@ This tool republishes the events back onto a ZCM transport. For here, any ZCM
 subscriber application can receive the data exactly as it would have live! This
 tool, combined with the logger creates a powerful development approach for
 systems with limited debug-ability.
+
+### CsvWriter
+
+Sometimes it is useful to convert either a zcmlog or live zcm data into csv format.
+This tool, launched via
+
+    zcm-csv-writer
+
+does this for you. There is a default format that this writer will output in,
+however often times, it is more useful to write your own CsvWriterPlugin for
+custom output formatting. Examples are provided in the examples directory in zcm.
+
+### CsvReader
+
+Sometimes it is useful to convert a csv into a zcmlog.
+This tool, launched via
+
+    zcm-csv-reader
+
+does this for you. There is currently no default format that this reader will
+be able to read in, however you may write your own CsvReaderPlugin for
+custom csv parsing. Examples are provided in the examples directory in zcm.
+
+### Transcoder
+
+As explained in [type generation](zcmtypesys.md), modifying a zcmtype changes
+that types hash and therefore invalidates all old logs you may have. However,
+sometimes it may be desirable to add a field to a type without invalidating all
+prior logs. To do this we provide a log transcoder launched via
+
+    zcm-log-transcoder
+
+and the TranscoderPlugin interface so you may define the mapping from old log
+to new log. This tool can even let you convert between completely different types
 
 ## ZCM Tools Example
 

@@ -43,7 +43,9 @@ you must implement a nonblocking transport that uses your platform's hardware pr
 In addition, the transport registrar and the url system is disabled. To create a `zcm_t`
 object, you must use `zcm_create_trans()`. See the page on [Transport Layer](transports.md)
 for details on implementing nonblocking transports. Once implemented and constructed, you
-should be able to use ZCM the same way you would on desktop systems!
+should be able to use ZCM the same way you would on desktop systems! A generic serial
+transport is provided for you. An example of how to use it is provided in the examples
+directory.
 
 ## Issues, Bugs, and Support
 
