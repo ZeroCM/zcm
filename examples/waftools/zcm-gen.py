@@ -37,6 +37,8 @@ def configure(ctx):
 #                 default = 'zcmtypes' (though it is encouraged to name it something more unique
 #                                       to avoid library naming conflicts)
 #   source:       list of zcmtype source files to be interpreted
+#   build:        False if only zcmtype generation (no compiling or linking) is desired
+#                 Defaults to true.
 #   lang:         list of languages for which zcmtypes should be generated, options are:
 #                 ['c', 'cpp', 'java', 'python', 'nodejs']
 #                 TODO: add python and nodejs support
@@ -102,6 +104,7 @@ def zcmgen(ctx, **kw):
              lang     = kw['lang'],
              javapkg  = javapkg_name)
 
+    # XXX: This is a little strange that anyone would want to only build types
     if not building:
         return
 
