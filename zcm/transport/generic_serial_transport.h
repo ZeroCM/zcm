@@ -1,5 +1,5 @@
-#ifndef _ZCM_TRANS_TIVAUSB_H
-#define _ZCM_TRANS_TIVAUSB_H
+#ifndef _ZCM_TRANS_NONBLOCKING_SERIAL_H
+#define _ZCM_TRANS_NONBLOCKING_SERIAL_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -16,4 +16,4 @@ zcm_trans_t *zcm_trans_generic_serial_create(
 }
 #endif
 
-#endif /* _ZCM_TRANS_TIVAUSB_H */
+#endif /* _ZCM_TRANS_NONBLOCKING_SERIAL_H */
