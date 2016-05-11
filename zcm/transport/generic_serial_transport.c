@@ -142,12 +142,12 @@ struct zcm_trans_generic_serial_t
     uint32_t (*put)(const uint8_t* data, uint32_t nData);
 };
 
-size_t get_mtu(zcm_trans_generic_serial_t *zt)
+size_t serial_get_mtu(zcm_trans_generic_serial_t *zt)
 {
     return MTU;
 }
 
-int sendmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t msg)
+int serial_sendmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t msg)
 {
     size_t chan_len = strlen(msg.channel);
     size_t nPushed = 0;
@@ -211,7 +211,7 @@ int sendmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t msg)
     return ZCM_EOK;
 }
 
-int recvmsg_enable(zcm_trans_generic_serial_t *zt, const char *channel, bool enable)
+int serial_recvmsg_enable(zcm_trans_generic_serial_t *zt, const char *channel, bool enable)
 {
     // NOTE: not implemented because it is unlikely that a microprocessor is
     //       going to be hearing messages on a USB comms that it doesn't want
@@ -219,7 +219,7 @@ int recvmsg_enable(zcm_trans_generic_serial_t *zt, const char *channel, bool ena
     return ZCM_EOK;
 }
 
-int recvmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t *msg, int timeout)
+int serial_recvmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t *msg, int timeout)
 {
     int incomingSize = cb_size(&zt->recvBuffer);
     if (incomingSize < FRAME_BYTES)
@@ -305,10 +305,10 @@ int recvmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t *msg, int timeout)
     cb_pop(&zt->recvBuffer, consumed);
     // Note: because this is a nonblocking transport, timeout is ignored, so we don't need
     //       to subtract the time used here
-    return recvmsg(zt, msg, timeout);
+    return serial_recvmsg(zt, msg, timeout);
 }
 
-int update(zcm_trans_generic_serial_t *zt)
+int serial_update(zcm_trans_generic_serial_t *zt)
 {
     cb_flush_in(&zt->recvBuffer, cb_room(&zt->recvBuffer), zt->get);
     cb_flush_out(&zt->sendBuffer, zt->put);
@@ -319,31 +319,31 @@ int update(zcm_trans_generic_serial_t *zt)
 /********************** STATICS **********************/
 static zcm_trans_generic_serial_t *cast(zcm_trans_t *zt);
 
-static size_t _get_mtu(zcm_trans_t *zt)
-{ return get_mtu(cast(zt)); }
+static size_t _serial_get_mtu(zcm_trans_t *zt)
+{ return serial_get_mtu(cast(zt)); }
 
-static int _sendmsg(zcm_trans_t *zt, zcm_msg_t msg)
-{ return sendmsg(cast(zt), msg); }
+static int _serial_sendmsg(zcm_trans_t *zt, zcm_msg_t msg)
+{ return serial_sendmsg(cast(zt), msg); }
 
-static int _recvmsg_enable(zcm_trans_t *zt, const char *channel, bool enable)
-{ return recvmsg_enable(cast(zt), channel, enable); }
+static int _serial_recvmsg_enable(zcm_trans_t *zt, const char *channel, bool enable)
+{ return serial_recvmsg_enable(cast(zt), channel, enable); }
 
-static int _recvmsg(zcm_trans_t *zt, zcm_msg_t *msg, int timeout)
-{ return recvmsg(cast(zt), msg, timeout); }
+static int _serial_recvmsg(zcm_trans_t *zt, zcm_msg_t *msg, int timeout)
+{ return serial_recvmsg(cast(zt), msg, timeout); }
 
-static int _update(zcm_trans_t *zt)
-{ return update(cast(zt)); }
+static int _serial_update(zcm_trans_t *zt)
+{ return serial_update(cast(zt)); }
 
-static void _destroy(zcm_trans_t *zt)
+static void _serial_destroy(zcm_trans_t *zt)
 { free(cast(zt)); }
 
 static zcm_trans_methods_t methods = {
-    &_get_mtu,
-    &_sendmsg,
-    &_recvmsg_enable,
-    &_recvmsg,
-    &_update,
-    &_destroy,
+    &_serial_get_mtu,
+    &_serial_sendmsg,
+    &_serial_recvmsg_enable,
+    &_serial_recvmsg,
+    &_serial_update,
+    &_serial_destroy,
 };
 
 static zcm_trans_generic_serial_t *cast(zcm_trans_t *zt)
