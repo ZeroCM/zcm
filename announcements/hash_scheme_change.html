@@ -81,10 +81,16 @@
 <p> option: <code> --hash-member-names={true,false} </code> </p>
 <p> set to true to have zcmtype hashing use the member variable names (in order) in the computed hash </p>
 
+<br></br>
+
 <p> If you want to remain compatible with the zcmtype hashs in your previous logs, configure with </p>
 <p> <code> --hash-typename=false --hash-member-names=true </code> </p>
+<p> If you want to remain compatible with the way that lcm hashes are created, configure with </p>
+<p> <code> --hash-typename=false --hash-member-names=false </code> </p>
 <p> However, we believe that it will benefit you to switch to the new default scheme: </p>
 <p> <code> --use-typename=true --use-member-names=false </code> </p>
+
+<br></br>
 
 <p> A utility to run through zcm logs and update old hashes to the new hashes has been made, but it is still in it's early stages. If you are interested in switching to the new hash scheme but need to migrate old logs, let us know and we can make that utility a higher development priority. </p>
 
