@@ -53,7 +53,8 @@ public class Transcoder
         if(verbose) System.out.print(str);
     }
 
-    private void messageReceived(ZCM zcm, String channel, long utime, ZCMDataInputStream dins)
+    private void messageReceived(ZCM zcm, String channel, long utime,
+                                 ZCMDataInputStream dins, Log.Event ev)
     {
         try {
             int msgSize = dins.available();
@@ -71,7 +72,7 @@ public class Transcoder
             Object o = cls.getConstructor(DataInput.class).newInstance(dins);
 
             ArrayList<Log.Event> events = null;
-            events = this.plugin.transcodeMessage(channel, o, utime);
+            events = this.plugin.transcodeMessage(channel, o, utime, ev);
             if (events == null || events.size() == 0) return;
             numEventsWritten += events.size();
             for (Log.Event e : events)
@@ -114,7 +115,7 @@ public class Transcoder
                 }
                 messageReceived(null, ev.channel, ev.utime,
                                 new ZCMDataInputStream(ev.data, 0,
-                                                       ev.data.length));
+                                                       ev.data.length), ev);
             } catch (EOFException ex) {
                 System.out.println("\rProgress: 100%        ");
                 break;

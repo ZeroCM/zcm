@@ -10,8 +10,9 @@ public abstract class TranscoderPlugin
     public abstract Long[] handleFingerprints();
 
     // return an ArrayList of Log.Events to be written to the new log instead
-    // of the incoming object
+    // of the Log.Event input argument
     public abstract ArrayList<Log.Event> transcodeMessage(String channel,
                                                           Object o,
-                                                          long utime);
+                                                          long utime,
+                                                          Log.Event ev);
 }

@@ -20,7 +20,7 @@ public class ExampleTranscoderPlugin extends TranscoderPlugin
                            example2_t.ZCM_FINGERPRINT };
     }
 
-    public ArrayList<Log.Event> transcodeMessage(String channel, Object o, long utime)
+    public ArrayList<Log.Event> transcodeMessage(String channel, Object o, long utime, Log.Event ev)
     {
         if (o instanceof example_t) {
             ZCMDataOutputStream encodeBuffer = new ZCMDataOutputStream();
