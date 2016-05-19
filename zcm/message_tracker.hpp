@@ -27,6 +27,7 @@ template <typename T>
 class MessageTracker
 {
   public:
+    // You must free the memory passed into this callback
     typedef void (*callback)(T* msg, uint64_t utime, void* usr);
     static const bool NONBLOCKING = false;
     static const bool BLOCKING = true;
