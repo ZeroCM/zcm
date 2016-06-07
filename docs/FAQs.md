@@ -9,3 +9,9 @@ If you see this error when trying to use anything zcm related, then you probably
     export LD_LIBRARY_PATH=/usr/lib:/usr/local/lib
 
 Add that line to the bottom of your ~/.bashrc to make it permanent.
+
+
+
+### I'm trying to run my program and ZCM's not working and I don't know why
+
+Have you tried running your program with `ZCM_DEBUG=1` in front of it? This enables debug output from zcm which should help you diagnose your problems
