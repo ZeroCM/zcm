@@ -12,3 +12,4 @@ export CLASSPATH=$CLASSPATH:/usr/local/share/java/zcm.jar
 export CLASSPATH=$CLASSPATH:/usr/local/share/java/zcm-tools.jar
 export CLASSPATH=$CLASSPATH:$DIR/build/types/examplezcmtypes.jar:
 export CLASSPATH=$CLASSPATH:$DIR/build/java/example.jar
+export ZCM_SPY_LITE_PATH=$DIR/build/types/libexamplezcmtypes.so
