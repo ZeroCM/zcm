@@ -2,6 +2,9 @@
 
 PKGS=''
 
+## Waf dependencies
+PKGS+='pkg-config '
+
 ## Basic C compiler dependency
 PKGS+='build-essential '
 

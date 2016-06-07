@@ -45,6 +45,7 @@ To learn how you can contribute to this project, check out [Contributing](docs/c
  - [Embedded Applications](docs/embedded.md)
  - Web Applications (coming soon)
  - [Dependencies & Building](docs/building.md)
+ - [Frequently Asked Questions](docs/FAQs.md)
  - [Continuous Integration](http://ci.zcm-project.org)
  - [Contributing](docs/contributing.md)
 

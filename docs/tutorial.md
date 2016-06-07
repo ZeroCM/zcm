@@ -563,6 +563,7 @@ But, there is much more to ZCM, so we recommend a few *next steps* below:
  - [Embedded Applications](embedded.md).
  - [Dependencies & Building](building.md)
  - [Project Philosophy](philosophy.md)
+ - [Frequently Asked Questions](FAQs.md)
  - [Contributing](contributing.md)
 
 <hr>
