@@ -1,3 +1,4 @@
+#include <iostream>
 #include "Common.hpp"
 #include "GetOpt.hpp"
 #include "util/StringUtil.hpp"
@@ -143,9 +144,38 @@ struct EmitModule : public Emitter
 
     void emitEncodedSizeBody(int indent, ZCMStruct& ls)
     {
-        // XXX: this is wrong!
-        //emit(indent, "return 1024*1024;");
-        emit(indent, "return 1024;");
+        emit(indent, "var size = 8;");
+        emit(indent, "var tmp = 1;");
+        for (auto& lm : ls.members) {
+            auto& mtn = lm.type.fullname;
+            auto& mn = lm.membername;
+            if (!ZCMGen::isPrimitiveType(mtn)) {
+                std::cerr << "Node js currently doesn't support "
+                             "recursive zcmtypes" << std::endl
+                          << "If this feature is desired, feel free to "
+                             "implement it or request it by contacting the "
+                             "team at www.zcm-project.org" << std::endl;
+                exit(1);
+            }
+            if (mtn != "string") {
+                int ndims = (int)lm.dimensions.size();
+                if (ndims == 0) {
+                    emit(indent, "size += %d; \t//%s", primtypeSize(mtn), mn.c_str());
+                } else {
+                    emit(indent, "tmp = 1;");
+                    for (int i = 0; i < ndims; ++i) {
+                        auto sz = dimSizeAccessor(lm.dimensions[i].size);
+                        emit(indent, "tmp *= %s;", sz.c_str());
+                    }
+                    emit(indent, "size += tmp * %d; \t//%s", primtypeSize(mtn), mn.c_str());
+                }
+            } else {
+                // The +1 and +4 below are to account for the null character
+                // and the writing of the length respectively
+                emit(indent, "size += msg.%s.length + 1 + 4;", mn.c_str());
+            }
+        }
+        emit(indent, "return size;");
     }
 
     void emitEncodePrimType(int indent, const string& rvalue, const string& type)
