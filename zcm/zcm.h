@@ -51,10 +51,10 @@ struct zcm_t
 /* ZCM Receive buffer for one message */
 struct zcm_recv_buf_t
 {
-    char *data;           /* NOTE: do not free, the library manages this memory */
-    uint32_t data_size;
     int64_t recv_utime;   /* NOTE: only set properly in blocking API */
     zcm_t *zcm;
+    char *data;           /* NOTE: do not free, the library manages this memory */
+    uint32_t data_size;
 };
 
 /* Standard create/destroy functions. These will malloc() and free() the zcm_t object.
