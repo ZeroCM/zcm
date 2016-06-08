@@ -167,8 +167,13 @@ function zcm(zcmtypes, zcmurl)
     function subscribe_all(cb)
     {
         return subscribe_all_raw(function(channel, data){
-            var hash = ref.readInt64BE(data, 0);
-            cb(channel, zcmtypeHashMap[hash].decode(data));
+            var hash = ref.readUInt64BE(data, 0);
+            if (!(hash in zcmtypeHashMap)) {
+                console.log("Unable to decode zcmtype on channel: " + channel
+                            + " with hash: " + hash);
+            } else {
+                cb(channel, zcmtypeHashMap[hash].decode(data));
+            }
         });
     }
 

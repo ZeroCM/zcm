@@ -107,6 +107,10 @@ struct EmitModule : public Emitter
         emit(0, "            ref.writeInt64BE(buf, offset, value);");
         emit(0, "            offset += 8;");
         emit(0, "        },");
+        emit(0, "        writeU64: function(value) {");
+        emit(0, "            ref.writeUInt64BE(buf, offset, value);");
+        emit(0, "            offset += 8;");
+        emit(0, "        },");
         emit(0, "        write32: function(value) {");
         emit(0, "            buf.writeInt32BE(value, offset);");
         emit(0, "            offset += 4;");
@@ -175,7 +179,7 @@ struct EmitModule : public Emitter
         emit(indent, "var size = %s.encodedSize(msg);", sn);
         emit(indent, "var W = createWriter(size);");
         // XXX compute and emit the correct hash
-        emit(indent, "W.write64(%s.__hash);", sn);
+        emit(indent, "W.writeU64(%s.__hash);", sn);
         for (auto& lm : ls.members) {
             auto& mtn = lm.type.fullname;
             auto& mn = lm.membername;
