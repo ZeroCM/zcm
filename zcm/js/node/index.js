@@ -66,13 +66,10 @@ function makeDispatcher(cb)
         //     These are not all correct for archs other than x86-64
         // Note: it is VERY important that this struct is decoded to match the zcm_recv_buf_t
         //       struct in zcm.h
-        var data   = ref.readPointer(rbuf, 0);
-        // Note: despite len being a 32 bit uint, the following seems to work (simply inspected
-        //       by printing the interpreted utime, and I suspect it is due to the internal
-        //       workings of FFI, might be worth verifying though
-        var len    = ref.readUInt64LE(rbuf, 8);
-        var utime  = ref.readUInt64LE(rbuf, 16);
-        var zcmPtr = ref.readPointer(rbuf, 24);
+        var utime  = ref.readUInt64LE(rbuf, 0);
+        var zcmPtr = ref.readPointer(rbuf, 8);
+        var data   = ref.readPointer(rbuf, 16);
+        var len    = ref.readUInt64LE(rbuf, 24);
         var dataBuf = ref.reinterpret(data, len);
         cb(channel, new Buffer(dataBuf));
     }

@@ -7,6 +7,7 @@
 #include "zcm/zcm.h"
 
 volatile int done = 0;
+static bool verbose;
 
 static void sighandler(int code)
 {
@@ -18,6 +19,13 @@ static void handler(const zcm_recv_buf_t *rbuf, const char *channel,
                     void *ser)
 {
     printf("Message received on channel: \"%s\"\n", channel);
+    if (verbose) {
+        printf("Raw data: ");
+        for (size_t i = 0; i < rbuf->data_size; ++i) {
+            printf("%x ", (uint8_t)rbuf->data[i]);
+        }
+        printf("\n");
+    }
 }
 
 
@@ -25,10 +33,11 @@ static const char *zcmurl = nullptr;
 static bool parse_args(int argc, char *argv[])
 {
     // set some defaults
-    const char *optstring = "hu:";
+    const char *optstring = "hu:v";
     struct option long_opts[] = {
-        { "help", no_argument, 0, 'h' },
+        { "help",    no_argument,       0, 'h' },
         { "zcm-url", required_argument, 0, 'u' },
+        { "verbose", no_argument,       0, 'v' },
         { 0, 0, 0, 0 }
     };
 
@@ -37,6 +46,9 @@ static bool parse_args(int argc, char *argv[])
         switch (c) {
             case 'u':
                 zcmurl = optarg;
+                break;
+            case 'v':
+                verbose = true;
                 break;
             case 'h':
             default:
@@ -60,6 +72,7 @@ static void usage()
             "\n"
             "  -h, --help                 Shows this help text and exits\n"
             "  -u, --zcm-url=URL          Log messages on the specified ZCM URL\n"
+            "  -v, --verbose              Print raw bytes of zcm data for each msg\n"
             "\n");
 }
 
