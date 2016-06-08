@@ -408,10 +408,10 @@ void zcm_blocking_t::handleThreadFunc()
 void zcm_blocking_t::dispatchMsg(zcm_msg_t *msg)
 {
     zcm_recv_buf_t rbuf;
+    rbuf.recv_utime = TimeUtil::utime();
     rbuf.zcm = z;
     rbuf.data = (char*)msg->buf;
     rbuf.data_size = msg->len;
-    rbuf.recv_utime = TimeUtil::utime();
 
     // XXX: the following needs to make it into high level docs:
     // Note: We use a lock on dispatch to ensure there is not

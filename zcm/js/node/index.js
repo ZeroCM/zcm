@@ -62,14 +62,28 @@ var libzcm = new ffi.Library('libzcm', {
 function makeDispatcher(cb)
 {
     return function(rbuf, channel, usr) {
-        // XXX This decoder makes a LOT of assumptions about the underlying machine
-        //     These are not all correct for archs other than x86-64
-        // Note: it is VERY important that this struct is decoded to match the zcm_recv_buf_t
-        //       struct in zcm.h
-        var utime  = ref.readUInt64LE(rbuf, 0);
-        var zcmPtr = ref.readPointer(rbuf, 8);
-        var data   = ref.readPointer(rbuf, 16);
-        var len    = ref.readUInt64LE(rbuf, 24);
+        var pointerSize = ref.coerceType('size_t').alignment;
+        var int64Size   = ref.coerceType('uint64').alignment;
+        var int32Size   = ref.coerceType('uint32').alignment;
+        var bigEndian   = ref.endianness == 'BE';
+        var offset = 0;
+
+        var utime = ref.readUInt64  (rbuf, offset);
+        offset += int64Size;
+
+        var zcmPtr = ref.readPointer(rbuf, offset);
+        offset += pointerSize;
+
+        var data   = ref.readPointer(rbuf, offset);
+        offset += pointerSize;
+
+        var len = 0;
+        if (bigEndian == true)
+            len = rbuf.readUInt32BE(offset);
+        else
+            len = rbuf.readUInt32LE(offset);
+        offset += int32Size;
+
         var dataBuf = ref.reinterpret(data, len);
         cb(channel, new Buffer(dataBuf));
     }
