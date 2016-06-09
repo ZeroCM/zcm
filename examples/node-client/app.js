@@ -10,48 +10,27 @@ if (!z) {
     throw "Failed to create ZCM";
 }
 
-var sub1;
-var sub2;
-var sub3;
-
-function subTo1() {
-    sub1 = z.subscribe("EXAMPLE", "example_t", function(channel, msg) {
-        z.publish("FOOBAR_SERVER_1", "example_t", {
-            timestamp: 0,
-            position: [2, 4, 6],
-            orientation: [0, 2, 4, 6],
-            num_ranges: 2,
-            ranges: [7, 6],
-            name: 'foobar string',
-            enabled: false,
-        });
+setInterval(function() {
+    z.publish("FOOBAR_SERVER", "example_t", {
+        timestamp: 0,
+        position: [2, 4, 6],
+        orientation: [0, 2, 4, 6],
+        num_ranges: 2,
+        ranges: [7, 6],
+        name: 'foobar string',
+        enabled: false,
     });
-}
+}, 1000);
 
-function subTo2() {
-    sub2 = z.subscribe("EXAMPLE", "example_t", function(channel, msg) {
-        z.publish("FOOBAR_SERVER_2", "example_t", {
-            timestamp: 0,
-            position: [2, 4, 6],
-            orientation: [0, 2, 4, 6],
-            num_ranges: 2,
-            ranges: [7, 6],
-            name: 'foobar string',
-            enabled: false,
-        });
-    });
-}
-
-setTimeout(function() { setInterval(subTo1,                              12000); },    0);
-setTimeout(function() { setInterval(subTo2,                              12000); }, 3000);
-setTimeout(function() { setInterval(function() { z.unsubscribe(sub1); }, 12000); }, 6000);
-setTimeout(function() { setInterval(function() { z.unsubscribe(sub2); }, 12000); }, 9000);
-
-sub3 = z.subscribe_all(function(channel, msg) {
+var sub = z.subscribe_all(function(channel, msg) {
     console.log("Subscribe All message received on channel " + channel);
 });
 
 
 http.listen(3000, function(){
   console.log('listening on *:3000');
+});
+
+process.on('exit', function() {
+    z.unsubscribe(sub);
 });
