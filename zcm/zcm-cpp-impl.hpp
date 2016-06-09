@@ -255,6 +255,41 @@ inline Subscription *ZCM::subscribe(const std::string& channel,
     return sub;
 }
 
+#if __cplusplus > 199711L
+template <class Msg>
+inline void __zcm__cbHelper(const ReceiveBuffer *rbuf, const std::string& channel,
+                            const Msg *msg, void *usr)
+{
+    std::function<void (const ReceiveBuffer *rbuf,
+                        const std::string& channel,
+                        const Msg *msg)>* cb = (std::function<void (const ReceiveBuffer *rbuf,
+                                                                    const std::string& channel,
+                                                                    const Msg *msg)>*) usr;
+    (*cb)(rbuf, channel, msg);
+}
+
+template <class Msg>
+inline Subscription *ZCM::subscribe(const std::string& channel,
+                                    std::function<void (const ReceiveBuffer *rbuf,
+                                                        const std::string& channel,
+                                                        const Msg *msg)> cb)
+{
+    if (!zcm) {
+        fprintf(stderr, "ZCM instance not initialized. Ignoring call to subscribe()\n");
+        return nullptr;
+    }
+
+    typedef TypedSubscription<Msg> SubType;
+    SubType *sub = new SubType();
+    sub->usr = &cb;
+    sub->typedCallback = __zcm__cbHelper;
+    sub->c_sub = zcm_subscribe(zcm, channel.c_str(), SubType::dispatch, sub);
+
+    subscriptions.push_back(sub);
+    return sub;
+}
+#endif
+
 inline Subscription *ZCM::subscribe(const std::string& channel,
                                     void (*cb)(const ReceiveBuffer *rbuf,
                                                const std::string& channel, void *usr),
