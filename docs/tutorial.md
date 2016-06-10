@@ -137,10 +137,13 @@ Building and running:
     cc -o publish -I. publish.c msg_t.c -lzcm
     ./publish
 
-If you have the java ZCM tools installed, you should be able to run zcm-spy and
+If you have the java ZCM tools installed, you should be able to run `zcm-spy` and
 see the published messages now!
 
     zcm-spy --zcm-url ipc
+
+Notice how you are unable to decode the messages inside of `zcm-spy`.
+More to come on that later in this tutorial.
 
 ### Hello World Subscribe
 
@@ -262,9 +265,19 @@ Since ZCM makes data decoupling so easy, developers tend to build applications i
 several modules/processes and tie them together with ZCM message passing. In this
 model, a lot of the debugging takes place at the message-passing level. Often
 it's desirable to inspect/spy the messages in transit. This can be accomplished
-using the `zcm-spy` tool.
+using the `zcm-spy` tool. Note that you must have your types "compiled" into a
+java jar and that jar must be listed in your `CLASSPATH` for `zcm-spy` to be able
+to decode messages.
 
-<!-- ADD MORE HERE -->
+### Spy Lite
+
+Sometimes developers don't have access to a display environment to run `zcm-spy`.
+The terminal-based `zcm-spy-lite` is provided for exactly that situation.
+`zcm-spy-lite` is a lite version of zcm spy that runs entirely from the terminal.
+You can view message traffic and inspect message data all in a display-less
+environment. All you need to do is tell `zcm-spy-lite` where it can find a shared
+library of the zcmtypes you would like it to be able to decode. See below for
+an example of how to use it.
 
 ### Logger
 
@@ -318,18 +331,26 @@ prior logs. To do this we provide a log transcoder launched via
 and the TranscoderPlugin interface so you may define the mapping from old log
 to new log. This tool can even let you convert between completely different types
 
+<!-- ADD MORE HERE -->
+
 ## ZCM Tools Example
 
 For this example we'll use a special ZCM message type for counting (count\_t.zcm):
 
     struct count_t
     {
-         int32_t val;
+        int32_t val;
     }
 
 Generate the bindings:
 
-    zcm-gen -c count_t.zcm
+    zcm-gen -c count_t.zcm --c-typeinfo
+
+The `--c-typeinfo` flag is to include type introspection in the output zcmtype
+source files. This means that auto-gen functions are included in the output type
+to allow zcm-spy-lite to lookup the name and fields of the type from that type's
+hash. It is only recommended if plan on using `zcm-spy-lite`. If you need to save
+on size or if you don't care to use `zcm-spy-lite`, you can omit this flag.
 
 Publisher application (publish.c):
 
@@ -352,14 +373,33 @@ Publisher application (publish.c):
         return 0;
     }
 
-Building and running:
+Building and running the publisher:
 
     cc -o publish -I. publish.c count_t.c -lzcm
     ./publish
 
+Building the shared library for `zcm-spy-lite`
+
+    cc -c -fpic count_t.c
+    cc -shared -o libzcmtypes.so count_t.o
+
+Now that you have a shared library of your zcmtypes, you need to point
+`zcm-spy-lite` to the folder where that library is stored. Much like
+LD\_LIBRARY\_PATH is used to help your system find the paths to shared libraries
+it needs to run programs, ZCM\_SPY\_LITE\_PATH is used to point `zcm-spy-lite`
+to the shared library's parent folder.
+
+    ZCM_SPY_LITE_PATH=<full path to shared library folder>
+
+To make that environment variable load each time you open a new terminal, you
+can add it to the bottom of your shell profile. For bash this would be adding
+the following line to the bottom of your ~/.bashrc
+
+    export ZCM_SPY_LITE_PATH=<full path to shared library folder>
+
 We can now *spy* on the ZCM traffic with:
 
-    zcm-spy --zcm-url ipc
+    zcm-spy-lite --zcm-url ipc
 
 This should report ZCM events at 1 HZ.
 
@@ -376,9 +416,9 @@ We can *replay* these captured events using the zcm-logplayer tool:
 
 The replay tool alone is not very interesting until we combine it
 with another application that will receive the data. For this purpose
-we can use the `zcm-spy` tool, running it before the replay tool:
+we can use the `zcm-spy-lite` tool, running it before the replay tool:
 
-    zcm-spy --zcm-url ipc &
+    zcm-spy-lite --zcm-url ipc &
     zcm-logplayer --zcm-url ipc zcmlog-*.00
 
 ## Advanced ZCM Types
@@ -388,11 +428,11 @@ some of the more advanced topics in ZCM. Let's begin with the more
 advanced features of the ZCM type system.
 
 ### Nested Types
-As discussed earlier, ZCM types are
-strongly-typed statically-defined records that may contain any number of fields.
-These fields can use a wide set of primitive data types. However, this system
-is much more powerful than containing only primitive types.
-The ZCM type system can support nested types as well.
+As discussed earlier, ZCM types are strongly-typed statically-defined records
+that may contain any number of fields. These fields can use a wide set of
+primitive data types. However, this system is much more powerful than
+containing only primitive types. The ZCM type system can support nested types
+as well.
 
 Let's see an example (nested\_types.zcm):
 
@@ -436,8 +476,10 @@ cfg.h:
     };
     /* ... code removed ... */
 
-As you can see, cfg\_t can be used in the same same way as any
-other zcmtype. The type nesting *just works*!
+As you can see, cfg\_t can be used in the same same way as any other zcmtype.
+The type nesting *just works*! Note that currently, nested types are not
+supported by the nodejs zcm bindings. If this is a huge pain for you,
+[speak up](contributing.md)!
 
 ### Array Types
 
@@ -504,6 +546,9 @@ C++ code:
         /* ... code removed ... */
     };
 
+Note that the size parameter must be declared before the array type, otherwise zcm
+wont yet know how big of an array it should be decoding when it goes to decode it!
+
 ### Multi-dimmension Arrays
 
 ZCM also supports multiple dimensions on arrays. You can also mix
@@ -559,11 +604,11 @@ typical ZCM development workflow.
 
 But, there is much more to ZCM, so we recommend a few *next steps* below:
 
+ - [Dependencies & Building](building.md)
  - [Transport Layer](transports.md)
  - [Embedded Applications](embedded.md).
- - [Dependencies & Building](building.md)
- - [Project Philosophy](philosophy.md)
  - [Frequently Asked Questions](FAQs.md)
+ - [Project Philosophy](philosophy.md)
  - [Contributing](contributing.md)
 
 <hr>
