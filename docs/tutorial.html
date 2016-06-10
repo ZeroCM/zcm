@@ -174,11 +174,14 @@ int main(int argc, char *argv[])
 ./publish
 </code></pre>
 
-<p>If you have the java ZCM tools installed, you should be able to run zcm-spy and
+<p>If you have the java ZCM tools installed, you should be able to run <code>zcm-spy</code> and
 see the published messages now!</p>
 
 <pre><code>zcm-spy --zcm-url ipc
 </code></pre>
+
+<p>Notice how you are unable to decode the messages inside of <code>zcm-spy</code>.
+More to come on that later in this tutorial.</p>
 
 <h3>Hello World Subscribe</h3>
 
@@ -311,9 +314,19 @@ we demonstrate the usage of these tools.</p>
 several modules/processes and tie them together with ZCM message passing. In this
 model, a lot of the debugging takes place at the message-passing level. Often
 it's desirable to inspect/spy the messages in transit. This can be accomplished
-using the <code>zcm-spy</code> tool.</p>
+using the <code>zcm-spy</code> tool. Note that you must have your types "compiled" into a
+java jar and that jar must be listed in your <code>CLASSPATH</code> for <code>zcm-spy</code> to be able
+to decode messages.</p>
 
-<!-- ADD MORE HERE -->
+<h3>Spy Lite</h3>
+
+<p>Sometimes developers don't have access to a display environment to run <code>zcm-spy</code>.
+The terminal-based <code>zcm-spy-lite</code> is provided for exactly that situation.
+<code>zcm-spy-lite</code> is a lite version of zcm spy that runs entirely from the terminal.
+You can view message traffic and inspect message data all in a display-less
+environment. All you need to do is tell <code>zcm-spy-lite</code> where it can find a shared
+library of the zcmtypes you would like it to be able to decode. See below for
+an example of how to use it.</p>
 
 <h3>Logger</h3>
 
@@ -370,20 +383,28 @@ prior logs. To do this we provide a log transcoder launched via</p>
 <p>and the TranscoderPlugin interface so you may define the mapping from old log
 to new log. This tool can even let you convert between completely different types</p>
 
+<!-- ADD MORE HERE -->
+
 <h2>ZCM Tools Example</h2>
 
 <p>For this example we'll use a special ZCM message type for counting (count_t.zcm):</p>
 
 <pre><code>struct count_t
 {
-     int32_t val;
+    int32_t val;
 }
 </code></pre>
 
 <p>Generate the bindings:</p>
 
-<pre><code>zcm-gen -c count_t.zcm
+<pre><code>zcm-gen -c count_t.zcm --c-typeinfo
 </code></pre>
+
+<p>The <code>--c-typeinfo</code> flag is to include type introspection in the output zcmtype
+source files. This means that auto-gen functions are included in the output type
+to allow zcm-spy-lite to lookup the name and fields of the type from that type's
+hash. It is only recommended if plan on using <code>zcm-spy-lite</code>. If you need to save
+on size or if you don't care to use <code>zcm-spy-lite</code>, you can omit this flag.</p>
 
 <p>Publisher application (publish.c):</p>
 
@@ -407,15 +428,37 @@ int main(int argc, char *argv[])
 }
 </code></pre>
 
-<p>Building and running:</p>
+<p>Building and running the publisher:</p>
 
 <pre><code>cc -o publish -I. publish.c count_t.c -lzcm
 ./publish
 </code></pre>
 
+<p>Building the shared library for <code>zcm-spy-lite</code></p>
+
+<pre><code>cc -c -fpic count_t.c
+cc -shared -o libzcmtypes.so count_t.o
+</code></pre>
+
+<p>Now that you have a shared library of your zcmtypes, you need to point
+<code>zcm-spy-lite</code> to the folder where that library is stored. Much like
+LD_LIBRARY_PATH is used to help your system find the paths to shared libraries
+it needs to run programs, ZCM_SPY_LITE_PATH is used to point <code>zcm-spy-lite</code>
+to the shared library's parent folder.</p>
+
+<pre><code>ZCM_SPY_LITE_PATH=&lt;full path to shared library folder&gt;
+</code></pre>
+
+<p>To make that environment variable load each time you open a new terminal, you
+can add it to the bottom of your shell profile. For bash this would be adding
+the following line to the bottom of your ~/.bashrc</p>
+
+<pre><code>export ZCM_SPY_LITE_PATH=&lt;full path to shared library folder&gt;
+</code></pre>
+
 <p>We can now <em>spy</em> on the ZCM traffic with:</p>
 
-<pre><code>zcm-spy --zcm-url ipc
+<pre><code>zcm-spy-lite --zcm-url ipc
 </code></pre>
 
 <p>This should report ZCM events at 1 HZ.</p>
@@ -435,9 +478,9 @@ named with the pattern: <code>zcmlog-{YEAR}-{MONTH}-{DAY}.00</code></p>
 
 <p>The replay tool alone is not very interesting until we combine it
 with another application that will receive the data. For this purpose
-we can use the <code>zcm-spy</code> tool, running it before the replay tool:</p>
+we can use the <code>zcm-spy-lite</code> tool, running it before the replay tool:</p>
 
-<pre><code>zcm-spy --zcm-url ipc &amp;
+<pre><code>zcm-spy-lite --zcm-url ipc &amp;
 zcm-logplayer --zcm-url ipc zcmlog-*.00
 </code></pre>
 
@@ -449,11 +492,11 @@ advanced features of the ZCM type system.</p>
 
 <h3>Nested Types</h3>
 
-<p>As discussed earlier, ZCM types are
-strongly-typed statically-defined records that may contain any number of fields.
-These fields can use a wide set of primitive data types. However, this system
-is much more powerful than containing only primitive types.
-The ZCM type system can support nested types as well.</p>
+<p>As discussed earlier, ZCM types are strongly-typed statically-defined records
+that may contain any number of fields. These fields can use a wide set of
+primitive data types. However, this system is much more powerful than
+containing only primitive types. The ZCM type system can support nested types
+as well.</p>
 
 <p>Let's see an example (nested_types.zcm):</p>
 
@@ -501,8 +544,10 @@ struct _cfg_t
 /* ... code removed ... */
 </code></pre>
 
-<p>As you can see, cfg_t can be used in the same same way as any
-other zcmtype. The type nesting <em>just works</em>!</p>
+<p>As you can see, cfg_t can be used in the same same way as any other zcmtype.
+The type nesting <em>just works</em>! Note that currently, nested types are not
+supported by the nodejs zcm bindings. If this is a huge pain for you,
+<a href="contributing.html">speak up</a>!</p>
 
 <h3>Array Types</h3>
 
@@ -573,6 +618,9 @@ class dyn_array_t
 };
 </code></pre>
 
+<p>Note that the size parameter must be declared before the array type, otherwise zcm
+wont yet know how big of an array it should be decoding when it goes to decode it!</p>
+
 <h3>Multi-dimmension Arrays</h3>
 
 <p>ZCM also supports multiple dimensions on arrays. You can also mix
@@ -631,11 +679,11 @@ typical ZCM development workflow.</p>
 <p>But, there is much more to ZCM, so we recommend a few <em>next steps</em> below:</p>
 
 <ul>
+<li><a href="building.html">Dependencies &amp; Building</a></li>
 <li><a href="transports.html">Transport Layer</a></li>
 <li><a href="embedded.html">Embedded Applications</a>.</li>
-<li><a href="building.html">Dependencies &amp; Building</a></li>
-<li><a href="philosophy.html">Project Philosophy</a></li>
 <li><a href="FAQs.html">Frequently Asked Questions</a></li>
+<li><a href="philosophy.html">Project Philosophy</a></li>
 <li><a href="contributing.html">Contributing</a></li>
 </ul>
 
