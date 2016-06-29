@@ -10,6 +10,10 @@
 #include "zcm/eventlog.h"
 #endif
 
+#if __cplusplus > 199711L
+#include <functional>
+#endif
+
 namespace zcm {
 
 typedef zcm_recv_buf_t ReceiveBuffer;
@@ -66,6 +70,14 @@ class ZCM
                                    void (*cb)(const ReceiveBuffer *rbuf, const std::string& channel,
                                               const Msg *msg, void *usr),
                                    void *usr);
+
+    #if __cplusplus > 199711L
+    template <class Msg>
+    inline Subscription *subscribe(const std::string& channel,
+                                   std::function<void (const ReceiveBuffer *rbuf,
+                                                       const std::string& channel,
+                                                       const Msg *msg)> cb);
+    #endif
 
     inline Subscription *subscribe(const std::string& channel,
                                    void (*cb)(const ReceiveBuffer *rbuf, const std::string& channel,

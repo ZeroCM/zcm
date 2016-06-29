@@ -138,6 +138,45 @@ class TypedSubscription : public virtual Subscription
     }
 };
 
+#if __cplusplus > 199711L
+// Virtual inheritance to avoid ambiguous base class problem http://stackoverflow.com/a/139329
+template<class Msg>
+class TypedFunctionalSubscription : public virtual Subscription
+{
+    friend class ZCM;
+
+  protected:
+    std::function<void (const ReceiveBuffer *rbuf,
+                        const std::string& channel,
+                        const Msg *msg)> cb;
+    Msg msgMem; // Memory to decode this message into
+
+  public:
+    virtual ~TypedFunctionalSubscription() {}
+
+    inline int readMsg(const ReceiveBuffer *rbuf)
+    {
+        int status = msgMem.decode(rbuf->data, 0, rbuf->data_size);
+        if (status < 0) {
+            fprintf (stderr, "error %d decoding %s!!!\n", status, Msg::getTypeName());
+            return -1;
+        }
+        return 0;
+    }
+
+    inline void typedDispatch(const ReceiveBuffer *rbuf, const char *channel)
+    {
+        if (readMsg(rbuf) != 0) return;
+        cb(rbuf, channel, &msgMem);
+    }
+
+    static inline void dispatch(const ReceiveBuffer *rbuf, const char *channel, void *usr)
+    {
+        ((TypedFunctionalSubscription<Msg>*)usr)->typedDispatch(rbuf, channel);
+    }
+};
+#endif
+
 // Virtual inheritance to avoid ambiguous base class problem http://stackoverflow.com/a/139329
 template <class Handler>
 class HandlerSubscription : public virtual Subscription
@@ -254,6 +293,29 @@ inline Subscription *ZCM::subscribe(const std::string& channel,
     subscriptions.push_back(sub);
     return sub;
 }
+
+#if __cplusplus > 199711L
+template <class Msg>
+inline Subscription *ZCM::subscribe(const std::string& channel,
+                                    std::function<void (const ReceiveBuffer *rbuf,
+                                                        const std::string& channel,
+                                                        const Msg *msg)> cb)
+{
+    if (!zcm) {
+        fprintf(stderr, "ZCM instance not initialized. Ignoring call to subscribe()\n");
+        return nullptr;
+    }
+
+    typedef TypedFunctionalSubscription<Msg> SubType;
+    SubType *sub = new SubType();
+    sub->usr = nullptr;
+    sub->cb = cb;
+    sub->c_sub = zcm_subscribe(zcm, channel.c_str(), SubType::dispatch, sub);
+
+    subscriptions.push_back(sub);
+    return sub;
+}
+#endif
 
 inline Subscription *ZCM::subscribe(const std::string& channel,
                                     void (*cb)(const ReceiveBuffer *rbuf,
