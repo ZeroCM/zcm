@@ -7,10 +7,9 @@ function handle(channel, msg) {
 var subscriptions = [];
 
 function subscribe() {
-    console.log('Subscribing to EXAMPLE');
-    var sub = z.subscribe('EXAMPLE', 'example_t', handle);
-    subscriptions.push({channel: 'EXAMPLE',
-                        subscription: sub});
+    console.log('Subscribing to FOOBAR_SERVER');
+    subscriptions.push({channel: 'FOOBAR_SERVER',
+                        subscription: z.subscribe('FOOBAR_SERVER', 'example_t', handle)});
     return true;
 }
 

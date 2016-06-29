@@ -62,17 +62,28 @@ var libzcm = new ffi.Library('libzcm', {
 function makeDispatcher(cb)
 {
     return function(rbuf, channel, usr) {
-        // XXX This decoder makes a LOT of assumptions about the underlying machine
-        //     These are not all correct for archs other than x86-64
-        // Note: it is VERY important that this struct is decoded to match the zcm_recv_buf_t
-        //       struct in zcm.h
-        var data   = ref.readPointer(rbuf, 0);
-        // Note: despite len being a 32 bit uint, the following seems to work (simply inspected
-        //       by printing the interpreted utime, and I suspect it is due to the internal
-        //       workings of FFI, might be worth verifying though
-        var len    = ref.readUInt64LE(rbuf, 8);
-        var utime  = ref.readUInt64LE(rbuf, 16);
-        var zcmPtr = ref.readPointer(rbuf, 24);
+        var pointerSize = ref.coerceType('size_t').alignment;
+        var int64Size   = ref.coerceType('uint64').alignment;
+        var int32Size   = ref.coerceType('uint32').alignment;
+        var bigEndian   = ref.endianness == 'BE';
+        var offset = 0;
+
+        var utime = ref.readUInt64  (rbuf, offset);
+        offset += int64Size;
+
+        var zcmPtr = ref.readPointer(rbuf, offset);
+        offset += pointerSize;
+
+        var data   = ref.readPointer(rbuf, offset);
+        offset += pointerSize;
+
+        var len = 0;
+        if (bigEndian == true)
+            len = rbuf.readUInt32BE(offset);
+        else
+            len = rbuf.readUInt32LE(offset);
+        offset += int32Size;
+
         var dataBuf = ref.reinterpret(data, len);
         cb(channel, new Buffer(dataBuf));
     }
@@ -156,8 +167,13 @@ function zcm(zcmtypes, zcmurl)
     function subscribe_all(cb)
     {
         return subscribe_all_raw(function(channel, data){
-            var hash = ref.readInt64BE(data, 0);
-            cb(channel, zcmtypeHashMap[hash].decode(data));
+            var hash = ref.readUInt64BE(data, 0);
+            if (!(hash in zcmtypeHashMap)) {
+                console.log("Unable to decode zcmtype on channel: " + channel
+                            + " with hash: " + hash);
+            } else {
+                cb(channel, zcmtypeHashMap[hash].decode(data));
+            }
         });
     }
 
