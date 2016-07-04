@@ -1,0 +1,5 @@
+struct example3_t
+{
+    const int32_t arrsize = 10;
+    int32_t arr[arrsize];
+}
