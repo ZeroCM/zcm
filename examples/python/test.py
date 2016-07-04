@@ -21,6 +21,9 @@ def handler(channel, msg):
     lock.release()
 
 zcm = ZCM("")
+if not zcm.good():
+    print "Unable to initialize zcm"
+    exit()
 zcm.start()
 msg = example_t()
 msg.timestamp = 10

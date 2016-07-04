@@ -9,6 +9,9 @@ def handler(channel, msg):
 
 # make a new zcm object and launch the handle thread
 zcm = ZCM("")
+if not zcm.good():
+    print "Unable to initialize zcm"
+    exit()
 
 # declare a new msg and populate it
 msg = example_t()

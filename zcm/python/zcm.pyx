@@ -51,6 +51,8 @@ cdef class ZCM:
     def __cinit__(self, bytes url):
         PyEval_InitThreads()
         self.zcm = zcm_create(url)
+    def good(self):
+        return self.zcm != NULL
     def publish(self, bytes channel, object msg):
         _data = msg.encode()
         cdef const char* data = _data
