@@ -585,7 +585,6 @@ struct PyEmitPack : public Emitter
 
     int emitPackage(const string& packName, vector<ZCMStruct*>& packStructs)
     {
-        printf("Emitting package!\n");
         // create the package directory, if necessary
         vector<string> dirs = StringUtil::split(packName, '.');
         string pdname = StringUtil::join(dirs, '/');
@@ -699,7 +698,6 @@ struct PyEmitPack : public Emitter
 
 int emitPython(ZCMGen& zcm)
 {
-    printf("Emitting python!\n");
     unordered_map<string, vector<ZCMStruct*> > packages;
 
     // group the structs by package
@@ -712,8 +710,6 @@ int emitPython(ZCMGen& zcm)
         int ret = PyEmitPack{zcm, name}.emitPackage(name, pack);
         if (ret != 0) return ret;
     }
-
-    printf("Done emitting python!\n");
 
     return 0;
 }
