@@ -449,41 +449,49 @@ static int parseMember(ZCMGen& zcmgen, ZCMStruct& lr, tokenize_t *t)
 
             ZCMDimension dim;
 
-            if (isdigit(t->token[0])) {
-                // we have a constant size array declaration.
-                int sz = strtol(t->token, NULL, 0);
-                if (sz <= 0)
-                    semantic_error(t, "Constant array size must be > 0");
+            if (ZCMConstant* c = lr.findConst(t->token)) {
+                if (!ZCMGen::isArrayDimType(c->membername))
+                    semantic_error(t, "Array dimension '%s' must be an integer type.", t->token);
+
                 dim.mode = ZCM_CONST;
-                dim.size = t->token;
+                dim.size = c->valstr;
             } else {
-                // we have a variable sized declaration.
-                if (t->token[0]==']')
-                    semantic_error(t, "Array sizes must be declared either as a constant or variable.");
-                if (!isLegalMemberName(t->token))
-                    semantic_error(t, "Invalid array size variable name: must start with [a-zA-Z_].");
+                if (isdigit(t->token[0])) {
+                    // we have a constant size array declaration.
+                    int sz = strtol(t->token, NULL, 0);
+                    if (sz <= 0)
+                        semantic_error(t, "Constant array size must be > 0");
+                    dim.mode = ZCM_CONST;
+                    dim.size = t->token;
+                } else {
+                    // we have a variable sized declaration.
+                    if (t->token[0]==']')
+                        semantic_error(t, "Array sizes must be declared either as a constant or variable.");
+                    if (!isLegalMemberName(t->token))
+                        semantic_error(t, "Invalid array size variable name: must start with [a-zA-Z_].");
 
-                // make sure the named variable is
-                // 1) previously declared and
-                // 2) an integer type
-                int okay = 0;
+                    // make sure the named variable is
+                    // 1) previously declared and
+                    // 2) an integer type
+                    int okay = 0;
 
-                for (auto& thislm : lr.members) {
-                    if (thislm.membername == t->token) {
-                        if (thislm.dimensions.size() != 0)
-                            semantic_error(t, "Array dimension '%s' must be not be an array type.", t->token);
-                        if (!ZCMGen::isArrayDimType(thislm.type.fullname))
-                            semantic_error(t, "Array dimension '%s' must be an integer type.", t->token);
-                        okay = 1;
-                        break;
+                    for (auto& thislm : lr.members) {
+                        if (thislm.membername == t->token) {
+                            if (thislm.dimensions.size() != 0)
+                                semantic_error(t, "Array dimension '%s' must be not be an array type.", t->token);
+                            if (!ZCMGen::isArrayDimType(thislm.type.fullname))
+                                semantic_error(t, "Array dimension '%s' must be an integer type.", t->token);
+                            okay = 1;
+                            break;
+                        }
                     }
+
+                    if (!okay)
+                        semantic_error(t, "Unknown variable array index '%s'. Index variables must be declared before the array.", t->token);
+
+                    dim.mode = ZCM_VAR;
+                    dim.size = t->token;
                 }
-
-                if (!okay)
-                    semantic_error(t, "Unknown variable array index '%s'. Index variables must be declared before the array.", t->token);
-
-                dim.mode = ZCM_VAR;
-                dim.size = t->token;
             }
             parseRequire(t, "]");
 
