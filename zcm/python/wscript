@@ -19,6 +19,8 @@ def build(ctx):
         target = 'zcm.so')
 
     if ctx.cmd == 'install':
-        cmd = 'cd zcm/python && sudo python setup.py install_lib --build-dir '\
-              '../../build/zcm/python > /dev/null 2>&1'
+        cmd = 'cd zcm/python && sudo python setup.py build_ext '\
+              '--build-lib ../../build/zcm/python '\
+              '--build-temp ../../build/zcm/python '\
+              'install_lib -b ../../build/zcm/python > /dev/null 2>&1'
         ctx.exec_command(cmd)
