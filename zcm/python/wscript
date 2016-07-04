@@ -17,3 +17,8 @@ def build(ctx):
         color = 'PINK',
         source = 'zcm.pyx',
         target = 'zcm.so')
+
+    if ctx.cmd == 'install':
+        cmd = 'cd zcm/python && sudo python setup.py install_lib --build-dir '\
+              '../../build/zcm/python > /dev/null 2>&1'
+        ctx.exec_command(cmd)
