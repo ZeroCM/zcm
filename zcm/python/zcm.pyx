@@ -1,9 +1,9 @@
 # feel free to explore this file. It's not very long
 # distutils: language = c
-# distutils: sources = ['../../zcm.c']
-# distutils: include_dirs = ['../../', '../../../']
+# distutils: sources = ['../zcm.c']
+# distutils: include_dirs = ['../', '../../']
 # distutils: libraries = ['zcm']
-# distutils: library_dirs = ['../../../build/zcm/']
+# distutils: library_dirs = ['../../build/zcm/']
 
 from libc.stdint cimport uint32_t, int64_t, uint8_t
 from cython cimport view

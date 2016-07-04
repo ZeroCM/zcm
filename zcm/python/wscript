@@ -1,0 +1,19 @@
+#! /usr/bin/env python
+# encoding: utf-8
+
+import os
+
+def build(ctx):
+
+    def build_python(task):
+        srcdir = os.path.dirname(task.inputs[0].abspath())
+        blddir = task.generator.path.get_bld().abspath()
+        cmd = 'cd %s && python setup.py build_ext --build-lib %s --build-temp '\
+              '%s > /dev/null 2>&1' % (srcdir, blddir, blddir)
+        task.exec_command(cmd)
+
+    ctx(rule = build_python,
+        name = 'pyzcm',
+        color = 'PINK',
+        source = 'zcm.pyx',
+        target = 'zcm.so')
