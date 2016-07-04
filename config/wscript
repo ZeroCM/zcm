@@ -13,3 +13,10 @@ def build(ctx):
         target="zcm.pc",
         install_path="${LIBDIR}/pkgconfig",
         always=True)
+
+    if ctx.env.USING_JAVA:
+        ctx(features="subst",
+            source="zcm-tools.pc.in",
+            target="zcm-tools.pc",
+            install_path="${LIBDIR}/pkgconfig",
+            always=True)
