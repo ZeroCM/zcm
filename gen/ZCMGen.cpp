@@ -450,7 +450,7 @@ static int parseMember(ZCMGen& zcmgen, ZCMStruct& lr, tokenize_t *t)
             ZCMDimension dim;
 
             if (ZCMConstant* c = lr.findConst(t->token)) {
-                if (!ZCMGen::isArrayDimType(c->membername))
+                if (!ZCMGen::isArrayDimType(c->type))
                     semantic_error(t, "Array dimension '%s' must be an integer type.", t->token);
 
                 dim.mode = ZCM_CONST;
