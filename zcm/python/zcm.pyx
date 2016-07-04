@@ -20,19 +20,19 @@ cdef extern from "zcm.h":
         char* data
         uint32_t data_size
         pass
-    #this one
+    #this one       RRR this one what?
     ctypedef void (*zcm_msg_handler_t)(const zcm_recv_buf_t *rbuf, const char *channel, void *usr)
 
-    zcm_t *zcm_create(const char *url)
+    zcm_t *zcm_create (const char *url)
     void   zcm_destroy(zcm_t *zcm)
 
-    zcm_sub_t *zcm_subscribe(zcm_t *zcm, const char *channel, zcm_msg_handler_t cb, void *usr)
+    zcm_sub_t *zcm_subscribe  (zcm_t *zcm, const char *channel, zcm_msg_handler_t cb, void *usr)
     int        zcm_unsubscribe(zcm_t *zcm, zcm_sub_t *sub)
-    int        zcm_publish  (zcm_t *zcm, const char *channel, const void *data, uint32_t dlen)
+    int        zcm_publish    (zcm_t *zcm, const char *channel, const void *data, uint32_t dlen)
 
-    void   zcm_run(zcm_t *zcm)
-    void   zcm_start(zcm_t *zcm)
-    void   zcm_stop(zcm_t *zcm)
+    void   zcm_run   (zcm_t *zcm)
+    void   zcm_start (zcm_t *zcm)
+    void   zcm_stop  (zcm_t *zcm)
     int    zcm_handle(zcm_t *zcm)
 
 cdef class ZCMSubscription:

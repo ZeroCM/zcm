@@ -7,6 +7,8 @@ from example_t import example_t
 import time
 
 def handler(channel, msg):
+    # RRR: might be good to try print the contents of the message here as neither
+    #      example does much in the way of using the internals
     print channel
 
 # make a new zcm object and launch the handle thread

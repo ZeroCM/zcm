@@ -2,12 +2,14 @@
 
 from zcm import ZCM
 import sys
+# RRR: would be nice to make this happen in waf based on uselib
 sys.path.insert(0, '../build/types/')
 from example_t import example_t
 import time
 import threading
 
 import signal
+# RRR: you already imported sys
 import sys
 def signal_handler(signal, frame):
     sys.exit(0)
@@ -22,6 +24,7 @@ def handler(channel, msg):
     done = done + 1
     lock.release()
 
+# RRR: could you make "" the default arg in zcm.pyx so that you can just say zcm = ZCM()
 zcm = ZCM("")
 if not zcm.good():
     print "Unable to initialize zcm"

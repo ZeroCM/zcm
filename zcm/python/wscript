@@ -8,6 +8,11 @@ def build(ctx):
     def build_python(task):
         srcdir = os.path.dirname(task.inputs[0].abspath())
         blddir = task.generator.path.get_bld().abspath()
+        # RRR: you sure you want to pipe the output to /dev/null ? Shouldn't it
+        #      make it into the waf log somehow instead?
+        # RRR: dependency tracking doesn't seem to work on this ... had a build
+        #      fail because no build/zcm/python/zcm.so existed, then built
+        #      again and it worked
         cmd = 'cd %s && python setup.py build_ext --build-lib %s --build-temp '\
               '%s > /dev/null 2>&1' % (srcdir, blddir, blddir)
         task.exec_command(cmd)
@@ -18,6 +23,19 @@ def build(ctx):
         source = 'zcm.pyx',
         target = 'zcm.so')
 
+    # RRR: is this somehow installing the python (and or C) library
+    #      on the system? If so, it's doing it in a way that waf won't
+    #      know how to uninstall it, so you might need to add an uninstall
+    #      option as well. If possible, it'd probably be cleaner to figure
+    #      out a way to put this somewhere in /user/local/python and use
+    #      something like CLASSPATH (I think python has something similar)
+    #      to prevent it from affecting the entire system unless intended
+    # RRR: it seems like this runs multiple times and I don't know why (
+    #      once per build, twice on install (still prints that it's
+    #      "compiling zcm/python/zcm.pyx" when you run install, which
+    #      is wrong). Seems to do this on almost every install.
+    # RRR: is this the right way to run a custom install command or should you
+    #      put it under an "install" function rather than a "build" one
     if ctx.cmd == 'install':
         cmd = 'cd zcm/python && sudo python setup.py build_ext '\
               '--build-lib ../../build/zcm/python '\

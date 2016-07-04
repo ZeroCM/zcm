@@ -66,6 +66,7 @@ def configure(ctx):
 #     wscript:    add '${name}_java' to the list of "use" dependencies
 #     java files: target import directives at "$pkg/type_name_t"
 #
+#   RRR: document how the output Python types get used (was this finished for nodejs as well?)
 #   TODO: Python and NodeJS
 #
 # Note on running the output java classes:
