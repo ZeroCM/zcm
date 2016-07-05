@@ -16,6 +16,7 @@ sys.path.append('examples/waftools')
 def options(ctx):
     ctx.load('compiler_c')
     ctx.load('compiler_cxx')
+    ctx.load('python')
     add_zcm_configure_options(ctx)
     add_zcm_build_options(ctx)
 
@@ -145,7 +146,8 @@ def attempt_use_nodejs(ctx):
     return True
 
 def attempt_use_python(ctx):
-    ctx.find_program('python', var='PYTHON', mandatory=True)
+    ctx.load('python')
+    ctx.check_python_headers()
     ctx.find_program('cython', var='CYTHON', mandatory=True)
     return True
 

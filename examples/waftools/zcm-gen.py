@@ -105,7 +105,6 @@ def zcmgen(ctx, **kw):
              lang     = kw['lang'],
              javapkg  = javapkg_name)
 
-    # XXX: This is a little strange that anyone would want to only build types
     if not building:
         return
 

@@ -6,13 +6,14 @@ sys.path.insert(0, '../build/types/')
 from example_t import example_t
 import time
 
+success = "Failure"
 def handler(channel, msg):
-    # RRR: might be good to try print the contents of the message here as neither
-    #      example does much in the way of using the internals
-    print channel
+    global success
+    assert msg.timestamp == 10
+    success = "Success"
 
 # make a new zcm object and launch the handle thread
-zcm = ZCM("")
+zcm = ZCM()
 if not zcm.good():
     print "Unable to initialize zcm"
     exit()
@@ -38,3 +39,6 @@ zcm.handle()
 
 # clean up
 zcm.unsubscribe(subs)
+
+# notify user of success
+print success

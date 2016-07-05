@@ -1,17 +1,10 @@
-# feel free to explore this file. It's not very long
-# distutils: language = c
-# distutils: sources = ['../zcm.c']
-# distutils: include_dirs = ['../', '../../']
-# distutils: libraries = ['zcm']
-# distutils: library_dirs = ['../../build/zcm/']
-
 from libc.stdint cimport uint32_t, int64_t, uint8_t
 from cython cimport view
 
 cdef extern from "Python.h":
     void PyEval_InitThreads()
 
-cdef extern from "zcm.h":
+cdef extern from "zcm/zcm.h":
     ctypedef struct zcm_t:
         pass
     ctypedef struct zcm_sub_t:
@@ -20,7 +13,6 @@ cdef extern from "zcm.h":
         char* data
         uint32_t data_size
         pass
-    #this one       RRR this one what?
     ctypedef void (*zcm_msg_handler_t)(const zcm_recv_buf_t *rbuf, const char *channel, void *usr)
 
     zcm_t *zcm_create (const char *url)
@@ -48,7 +40,7 @@ cdef void handler_cb(const zcm_recv_buf_t *rbuf, const char *channel, void *usr)
 
 cdef class ZCM:
     cdef zcm_t* zcm
-    def __cinit__(self, bytes url):
+    def __cinit__(self, bytes url=<bytes>""):
         PyEval_InitThreads()
         self.zcm = zcm_create(url)
     def good(self):
