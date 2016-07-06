@@ -1,5 +1,4 @@
 from libc.stdint cimport int64_t, int32_t, uint32_t, uint8_t
-from cython cimport view
 
 cdef extern from "Python.h":
     void PyEval_InitThreads()
@@ -59,8 +58,7 @@ cdef class ZCMSubscription:
 
 cdef void handler_cb(const zcm_recv_buf_t *rbuf, const char *channel, void *usr) with gil:
     subs = (<ZCMSubscription>usr)
-    cdef view.array arr = <char[:rbuf.data_size, :1]> rbuf.data
-    msg = subs.msgtype.decode(arr)
+    msg = subs.msgtype.decode(rbuf.data[:rbuf.data_size])
     subs.handler(channel, msg)
 
 cdef class ZCM:
