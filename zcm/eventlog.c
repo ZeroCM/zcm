@@ -78,10 +78,8 @@ static int64_t get_next_event_time(zcm_eventlog_t *l)
 
 static int64_t get_prev_event_time(zcm_eventlog_t *l)
 {
-    // RRR (Tom) use sizeof(int64_t) * 2 + sizeof(int32_t) instead of sizeof(int32_t)
-    // for next 2 lines.
-    if ( ftello (l->f) < sizeof(int32_t) ) return -1;
-    fseeko (l->f, -(sizeof(int32_t) - 1), SEEK_CUR);
+    if ( ftello (l->f) < sizeof(int64_t) * 2 + sizeof(int32_t) ) return -1;
+    fseeko (l->f, -(sizeof(int64_t) * 2 + sizeof(int32_t) - 1), SEEK_CUR);
     do {
         if ( ftello (l->f) == 0 ) return -1;
         fseeko (l->f, -1, SEEK_CUR);
@@ -91,9 +89,7 @@ static int64_t get_prev_event_time(zcm_eventlog_t *l)
     int64_t timestamp;
     if (0 != fread64(l->f, &event_num)) return -1;
     if (0 != fread64(l->f, &timestamp)) return -1;
-    // RRR (Tom) maybe chage ordering of this addition. the magic number comes
-    // first in a message, then the event_num and timestamp
-    fseeko (l->f, -(sizeof(int64_t) * 2 + sizeof(int32_t)), SEEK_CUR);
+    fseeko (l->f, -(sizeof(int32_t) + sizeof(int64_t) * 2), SEEK_CUR);
 
     l->eventcount = event_num;
 
@@ -115,7 +111,6 @@ int zcm_eventlog_seek_to_timestamp(zcm_eventlog_t *l, int64_t timestamp)
         frac = 0.5*(frac1+frac2);
         off_t offset = (off_t)(frac*file_len);
         fseeko (l->f, offset, SEEK_SET);
-        // RRR (Tom) Spacing on next line
         cur_time = get_next_event_time (l);
         if (cur_time < 0)
             return -1;
@@ -143,13 +138,7 @@ int zcm_eventlog_seek_to_timestamp(zcm_eventlog_t *l, int64_t timestamp)
     return 0;
 }
 
-zcm_eventlog_event_t *zcm_eventlog_read_prev_event(zcm_eventlog_t *l)
-{
-    if (get_prev_event_time(l) < 0) return NULL;
-    return zcm_eventlog_read_next_event(l);
-}
-
-zcm_eventlog_event_t *zcm_eventlog_read_next_event(zcm_eventlog_t *l)
+static zcm_eventlog_event_t *zcm_event_read_helper(zcm_eventlog_t *l, int rewindWhenDone)
 {
     if (sync_stream(l, 0)) return NULL;
 
@@ -179,7 +168,6 @@ zcm_eventlog_event_t *zcm_eventlog_read_next_event(zcm_eventlog_t *l)
     le->channel = (char *) calloc(1, le->channellen+1);
     if (fread(le->channel, 1, le->channellen, l->f) != (size_t) le->channellen) {
         free(le->channel);
-        free(le->data);
         free(le);
         return NULL;
     }
@@ -204,7 +192,22 @@ zcm_eventlog_event_t *zcm_eventlog_read_next_event(zcm_eventlog_t *l)
         }
         fseeko (l->f, -4, SEEK_CUR);
     }
+    if (rewindWhenDone) {
+        fseeko (l->f, -(sizeof(int64_t) * 2 + sizeof(int32_t) * 3 +
+                        le->datalen + le->channellen), SEEK_CUR);
+    }
     return le;
+}
+
+zcm_eventlog_event_t *zcm_eventlog_read_prev_event(zcm_eventlog_t *l)
+{
+    if (get_prev_event_time(l) < 0) return NULL;
+    return zcm_event_read_helper(l, 1);
+}
+
+zcm_eventlog_event_t *zcm_eventlog_read_next_event(zcm_eventlog_t *l)
+{
+    return zcm_event_read_helper(l, 0);
 }
 
 void zcm_eventlog_free_event(zcm_eventlog_event_t *le)

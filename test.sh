@@ -22,5 +22,4 @@ run   dispatch-loop   ./build/test/zcm/dispatch_loop
 run   forking         ./build/test/zcm/forking
 run   forking2        ./build/test/zcm/forking2
 run   flushing        ./build/test/zcm/flushing
-
-# RRR (Tom) may want to add your logtest to this script
+run   logging         ./build/test/zcm/logtest
