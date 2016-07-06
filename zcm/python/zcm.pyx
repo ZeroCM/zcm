@@ -47,6 +47,7 @@ cdef extern from "zcm/zcm.h":
     int zcm_eventlog_seek_to_timestamp(zcm_eventlog_t *eventlog, int64_t ts)
 
     zcm_eventlog_event_t *zcm_eventlog_read_next_event(zcm_eventlog_t *eventlog)
+    zcm_eventlog_event_t *zcm_eventlog_read_prev_event(zcm_eventlog_t *eventlog)
     void                  zcm_eventlog_free_event(zcm_eventlog_event_t *event)
     int                   zcm_eventlog_write_event(zcm_eventlog_t *eventlog, \
                                                    zcm_eventlog_event_t *event)
@@ -121,6 +122,19 @@ cdef class LogFile:
         return zcm_eventlog_seek_to_timestamp(self.eventlog, timestamp)
     def readNextEvent(self):
         cdef zcm_eventlog_event_t* evt = zcm_eventlog_read_next_event(self.eventlog)
+        if self.lastevent != NULL:
+            zcm_eventlog_free_event(self.lastevent)
+        self.lastevent = evt
+        cdef LogEvent curEvent = LogEvent()
+        if evt == NULL:
+            return None
+        curEvent.eventnum = evt.eventnum
+        curEvent.channel = <char[:evt.channellen, :1]> evt.channel
+        curEvent.timestamp = evt.timestamp
+        curEvent.data = <char[:evt.datalen, :1]> evt.data
+        return curEvent
+    def readPrevEvent(self):
+        cdef zcm_eventlog_event_t* evt = zcm_eventlog_read_prev_event(self.eventlog)
         if self.lastevent != NULL:
             zcm_eventlog_free_event(self.lastevent)
         self.lastevent = evt
