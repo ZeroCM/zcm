@@ -100,10 +100,28 @@ cdef class ZCM:
         zcm_handle(self.zcm)
 
 cdef class LogEvent:
-    cdef int64_t    eventnum
-    cdef object     channel
-    cdef int64_t    timestamp
-    cdef view.array data
+    cdef int64_t eventnum
+    cdef int64_t timestamp
+    cdef object  channel
+    cdef object  data
+    def __cinit__(self):
+        pass
+    def setEventnum(self, num):
+        self.eventnum = num
+    def getEventnum(self):
+        return self.eventnum
+    def setTimestamp(self, time):
+        self.timestamp = time
+    def getTimestamp(self):
+        return self.timestamp
+    def setChannel(self, bytes chan):
+        self.channel = chan
+    def getChannel(self):
+        return self.channel
+    def setData(self, bytes data):
+        self.data = data
+    def getData(self):
+        return self.data
 
 cdef class LogFile:
     cdef zcm_eventlog_t* eventlog
@@ -112,45 +130,41 @@ cdef class LogFile:
         self.eventlog = zcm_eventlog_create(path, mode)
         self.lastevent = NULL
     def __dealloc__(self):
+        self.close()
+    def close(self):
         if self.eventlog != NULL:
             zcm_eventlog_destroy(self.eventlog)
+            self.eventlog = NULL
         if self.lastevent != NULL:
             zcm_eventlog_free_event(self.lastevent)
+            self.lastevent = NULL
     def good(self):
         return self.eventlog != NULL
     def seekToTimestamp(self, int64_t timestamp):
         return zcm_eventlog_seek_to_timestamp(self.eventlog, timestamp)
+    cdef __setCurrentEvent(self, zcm_eventlog_event_t* evt):
+        if self.lastevent != NULL:
+            zcm_eventlog_free_event(self.lastevent)
+        self.lastevent = evt
+        cdef LogEvent curEvent = LogEvent()
+        if evt == NULL:
+            return None
+        curEvent.setEventnum  (evt.eventnum)
+        curEvent.setChannel   (evt.channel[:evt.channellen])
+        curEvent.setTimestamp (evt.timestamp)
+        curEvent.setData      ((<char*>evt.data)[:evt.datalen])
+        return curEvent
     def readNextEvent(self):
         cdef zcm_eventlog_event_t* evt = zcm_eventlog_read_next_event(self.eventlog)
-        if self.lastevent != NULL:
-            zcm_eventlog_free_event(self.lastevent)
-        self.lastevent = evt
-        cdef LogEvent curEvent = LogEvent()
-        if evt == NULL:
-            return None
-        curEvent.eventnum = evt.eventnum
-        curEvent.channel = <char[:evt.channellen, :1]> evt.channel
-        curEvent.timestamp = evt.timestamp
-        curEvent.data = <char[:evt.datalen, :1]> evt.data
-        return curEvent
+        return self.__setCurrentEvent(evt)
     def readPrevEvent(self):
         cdef zcm_eventlog_event_t* evt = zcm_eventlog_read_prev_event(self.eventlog)
-        if self.lastevent != NULL:
-            zcm_eventlog_free_event(self.lastevent)
-        self.lastevent = evt
-        cdef LogEvent curEvent = LogEvent()
-        if evt == NULL:
-            return None
-        curEvent.eventnum = evt.eventnum
-        curEvent.channel = <char[:evt.channellen, :1]> evt.channel
-        curEvent.timestamp = evt.timestamp
-        curEvent.data = <char[:evt.datalen, :1]> evt.data
-        return curEvent
+        return self.__setCurrentEvent(evt)
     def writeEvent(self, LogEvent event):
         cdef zcm_eventlog_event_t evt
         evt.eventnum   = event.eventnum
         evt.timestamp  = event.timestamp
-        evt.channellen = len(event)
+        evt.channellen = len(event.channel)
         evt.datalen    = len(event.data)
         evt.channel    = <char*> event.channel
         evt.data       = <char*> event.data
