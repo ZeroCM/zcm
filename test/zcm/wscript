@@ -49,3 +49,9 @@ def build(ctx):
                 source = 'flushing.cpp',
                 rpath = ctx.env.RPATH_zcm,
                 install_path = None)
+
+    ctx.program(target = 'logtest',
+                use = 'default zcm',
+                source = 'logtest.cpp',
+                rpath = ctx.env.RPATH_zcm,
+                install_path = None)

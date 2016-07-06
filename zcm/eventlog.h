@@ -40,6 +40,7 @@ int zcm_eventlog_seek_to_timestamp(zcm_eventlog_t *eventlog, int64_t ts);
 /**** Methods for read/write ****/
 // NOTE: The returned zcm_eventlog_event_t must be freed by zcm_eventlog_free_event()
 zcm_eventlog_event_t *zcm_eventlog_read_next_event(zcm_eventlog_t *eventlog);
+zcm_eventlog_event_t *zcm_eventlog_read_prev_event(zcm_eventlog_t *eventlog);
 void zcm_eventlog_free_event(zcm_eventlog_event_t *event);
 int zcm_eventlog_write_event(zcm_eventlog_t *eventlog, zcm_eventlog_event_t *event);
 
