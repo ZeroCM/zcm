@@ -67,7 +67,9 @@ void cb_pop(circBuffer_t* cb, uint32_t num)
 }
 
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
-uint32_t cb_flush_out(circBuffer_t* cb, uint32_t (*write)(const uint8_t* data, uint32_t num))
+uint32_t cb_flush_out(circBuffer_t* cb,
+                      uint32_t (*write)(const uint8_t* data, uint32_t num, void* usr),
+                      void* usr)
 {
 	uint32_t written = 0;
 	uint32_t n;
@@ -75,7 +77,7 @@ uint32_t cb_flush_out(circBuffer_t* cb, uint32_t (*write)(const uint8_t* data, u
     uint32_t contiguous = MIN(BUFFER_SIZE - cb->front, cb_size(cb));
     uint32_t wrapped    = cb_size(cb) - contiguous;
 
-    n = write(cb->data + cb->front, contiguous);
+    n = write(cb->data + cb->front, contiguous, usr);
     written += n;
     cb_pop(cb, n);
 
@@ -83,14 +85,15 @@ uint32_t cb_flush_out(circBuffer_t* cb, uint32_t (*write)(const uint8_t* data, u
     // left to write, return.
     if (written != contiguous || wrapped == 0) return written;
 
-    n = write(cb->data, wrapped);
+    n = write(cb->data, wrapped, usr);
     written += n;
     cb_pop(cb, n);
     return written;
 }
 
 uint32_t cb_flush_in(circBuffer_t* cb, uint32_t bytes,
-		             uint32_t (*read)(uint8_t* data, uint32_t num))
+                     uint32_t (*read)(uint8_t* data, uint32_t num, void* usr),
+                     void* usr)
 {
 	uint32_t bytesRead = 0;
 	uint32_t n;
@@ -102,7 +105,7 @@ uint32_t cb_flush_in(circBuffer_t* cb, uint32_t bytes,
     // of buffer. Because we already know there's room for whatever we're about to place,
     // if back < front, we can just read in every byte starting at "back".
     if (cb->back < cb->front) {
-    	bytesRead += read(cb->data + cb->back, bytes);
+    	bytesRead += read(cb->data + cb->back, bytes, usr);
         cb->back += bytesRead;
         return bytesRead;
     }
@@ -111,7 +114,7 @@ uint32_t cb_flush_in(circBuffer_t* cb, uint32_t bytes,
     uint32_t contiguous = MIN(BUFFER_SIZE - cb->back, bytes);
     uint32_t wrapped    = bytes - contiguous;
 
-    n = read(cb->data + cb->back, contiguous);
+    n = read(cb->data + cb->back, contiguous, usr);
     bytesRead += n;
     cb->back += n;
     if (n != contiguous) return bytesRead; // back could NOT have hit BUFFER_SIZE in this case
@@ -120,7 +123,7 @@ uint32_t cb_flush_in(circBuffer_t* cb, uint32_t bytes,
     if (cb->back >= BUFFER_SIZE) cb->back = 0;
     if (wrapped == 0) return bytesRead;
 
-    n = read(cb->data, wrapped);
+    n = read(cb->data, wrapped, usr);
     bytesRead += n;
     cb->back += n;
     return bytesRead;
@@ -138,8 +141,9 @@ struct zcm_trans_generic_serial_t
     char         recvChanName[ZCM_CHANNEL_MAXLEN+1];
     char         recvMsgData[MTU];
 
-    uint32_t (*get)(uint8_t* data, uint32_t nData);
-    uint32_t (*put)(const uint8_t* data, uint32_t nData);
+    uint32_t (*get)(uint8_t* data, uint32_t nData, void* usr);
+    uint32_t (*put)(const uint8_t* data, uint32_t nData, void* usr);
+    void* usr;
 };
 
 size_t serial_get_mtu(zcm_trans_generic_serial_t *zt)
@@ -310,8 +314,8 @@ int serial_recvmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t *msg, int timeout)
 
 int serial_update(zcm_trans_generic_serial_t *zt)
 {
-    cb_flush_in(&zt->recvBuffer, cb_room(&zt->recvBuffer), zt->get);
-    cb_flush_out(&zt->sendBuffer, zt->put);
+    cb_flush_in(&zt->recvBuffer, cb_room(&zt->recvBuffer), zt->get, zt->usr);
+    cb_flush_out(&zt->sendBuffer, zt->put, zt->usr);
 
     return ZCM_EOK;
 }
@@ -353,8 +357,9 @@ static zcm_trans_generic_serial_t *cast(zcm_trans_t *zt)
 }
 
 zcm_trans_t *zcm_trans_generic_serial_create(
-        uint32_t (*get)(uint8_t* data, uint32_t nData),
-        uint32_t (*put)(const uint8_t* data, uint32_t nData))
+        uint32_t (*get)(uint8_t* data, uint32_t nData, void* usr),
+        uint32_t (*put)(const uint8_t* data, uint32_t nData, void* usr),
+        void* usr)
 {
     zcm_trans_generic_serial_t *zt = malloc(sizeof(zcm_trans_generic_serial_t));
     zt->trans.trans_type = ZCM_NONBLOCKING;
@@ -364,6 +369,7 @@ zcm_trans_t *zcm_trans_generic_serial_create(
 
     zt->get = get;
     zt->put = put;
+    zt->usr = usr;
 
     return (zcm_trans_t*) zt;
 }
