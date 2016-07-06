@@ -143,9 +143,11 @@ struct LogFile
     /**** Methods for read/write ****/
     // NOTE: user should NOT hold-onto the returned ptr across successive calls
     inline const LogEvent* readNextEvent();
+    inline const LogEvent* readPrevEvent();
     inline int writeEvent(LogEvent* event);
 
   private:
+    inline const LogEvent* setCurrentEvent(zcm_eventlog_event_t* le);
     LogEvent curEvent;
     zcm_eventlog_t* eventlog;
     zcm_eventlog_event_t* lastevent;
