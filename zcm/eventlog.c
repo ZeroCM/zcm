@@ -84,7 +84,6 @@ int zcm_eventlog_seek_to_timestamp(zcm_eventlog_t *l, int64_t timestamp)
         if (cur_time < 0)
             return -1;
 
-        frac = (double)ftello (l->f)/file_len;
         if ((frac > frac2) || (frac < frac1) || (frac1>=frac2))
             break;
 
