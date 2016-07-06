@@ -3,6 +3,11 @@
 #include <string.h>
 #include <string>
 
+// RRR (Tom) would like to see this test write multiple events (e.g. just change
+//     eventnum) and read multiple events forward and back) -- at least do something
+//     to confirm that read_prev actually does anything besides read the first e
+//     event in the log.  I think the code would actually look pretty nice with a
+//     couple for loops forward and backward.
 int main(int argc, const char *argv[])
 {
     zcm_eventlog_t *l = zcm_eventlog_create("testlog.log", "w");

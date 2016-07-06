@@ -388,6 +388,9 @@ inline FILE* LogFile::getFilePtr()
     return zcm_eventlog_get_fileptr(eventlog);
 }
 
+// RRR (Tom) this naming was a bit confusing. Perhaps "copyLogEventFields" ?
+// From the name, i thought this function was going to move the log's file
+// pointer to evt.
 inline const LogEvent* LogFile::setCurrentEvent(zcm_eventlog_event_t* evt)
 {
     if (lastevent)

@@ -78,6 +78,8 @@ static int64_t get_next_event_time(zcm_eventlog_t *l)
 
 static int64_t get_prev_event_time(zcm_eventlog_t *l)
 {
+    // RRR (Tom) use sizeof(int64_t) * 2 + sizeof(int32_t) instead of sizeof(int32_t)
+    // for next 2 lines.
     if ( ftello (l->f) < sizeof(int32_t) ) return -1;
     fseeko (l->f, -(sizeof(int32_t) - 1), SEEK_CUR);
     do {
@@ -89,6 +91,8 @@ static int64_t get_prev_event_time(zcm_eventlog_t *l)
     int64_t timestamp;
     if (0 != fread64(l->f, &event_num)) return -1;
     if (0 != fread64(l->f, &timestamp)) return -1;
+    // RRR (Tom) maybe chage ordering of this addition. the magic number comes
+    // first in a message, then the event_num and timestamp
     fseeko (l->f, -(sizeof(int64_t) * 2 + sizeof(int32_t)), SEEK_CUR);
 
     l->eventcount = event_num;
@@ -111,6 +115,7 @@ int zcm_eventlog_seek_to_timestamp(zcm_eventlog_t *l, int64_t timestamp)
         frac = 0.5*(frac1+frac2);
         off_t offset = (off_t)(frac*file_len);
         fseeko (l->f, offset, SEEK_SET);
+        // RRR (Tom) Spacing on next line
         cur_time = get_next_event_time (l);
         if (cur_time < 0)
             return -1;
