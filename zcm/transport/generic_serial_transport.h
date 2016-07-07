@@ -13,8 +13,6 @@ zcm_trans_t *zcm_trans_generic_serial_create(
         uint32_t (*put)(const uint8_t* data, uint32_t nData, void* usr),
         void* usr);
 
-// XXX Make a destroy function to clean up memory and test it
-
 #ifdef __cplusplus
 }
 #endif
