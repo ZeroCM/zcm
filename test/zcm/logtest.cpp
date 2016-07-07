@@ -26,10 +26,9 @@ int main(int argc, const char *argv[])
 
     l = zcm_eventlog_create("testlog.log", "r");
     assert(l && "Failed to read in log");
-    assert(zcm_eventlog_seek_to_timestamp(l, INT64_MAX) && "Unable to seek to eof");
 
-    // Mess up the sync and ensure everything works
-    fseeko(zcm_eventlog_get_fileptr(l), -1, SEEK_CUR);
+    // Start from end of log and mess up the sync. then ensure everything still works
+    fseeko(zcm_eventlog_get_fileptr(l),  -1, SEEK_END);
 
     for (size_t i = 0; i < 100; ++i) {
         event.eventnum--;
@@ -46,6 +45,9 @@ int main(int argc, const char *argv[])
         zcm_eventlog_free_event(le);
     }
 
+    assert(zcm_eventlog_read_prev_event(l) == NULL &&
+           "Requesting event before first event didn't return NULL");
+
     for (size_t i = 0; i < 100; ++i) {
         zcm_eventlog_event_t *le = zcm_eventlog_read_next_event(l);
         assert(le && "Failed to read next log event out of log");
@@ -60,6 +62,9 @@ int main(int argc, const char *argv[])
         zcm_eventlog_free_event(le);
         event.eventnum++;
     }
+
+    assert(zcm_eventlog_read_next_event(l) == NULL &&
+           "Requesting event after last event didn't return NULL");
 
     zcm_eventlog_destroy(l);
 
