@@ -51,7 +51,8 @@ struct Serial
 
     int write(const u8 *buf, size_t sz);
     int read(u8 *buf, size_t sz, u64 timeoutMs);
-    static bool baudIsValid(int baud);
+    // Returns 0 on invalid input baud otherwise returns termios constant baud value
+    static int convertBaud(int baud);
 
     Serial(const Serial&) = delete;
     Serial(Serial&&) = delete;
@@ -67,7 +68,7 @@ bool Serial::open(const string& port_, int baud)
 {
     if (baud == 0) {
         fprintf(stderr, "Serial baud rate not specified in url. Proceeding without setting baud\n");
-    } else if (!baudIsValid(baud)) {
+    } else if (!(baud = convertBaud(baud))) {
         return false;
     }
 
@@ -195,17 +196,25 @@ int Serial::read(u8 *buf, size_t sz, u64 timeoutUs)
     }
 }
 
-bool Serial::baudIsValid(int baud)
+int Serial::convertBaud(int baud)
 {
     switch (baud) {
+        case 4800:
+            return B4800;
         case 9600:
+            return B9600;
         case 19200:
+            return B19200;
         case 38400:
+            return B38400;
         case 57600:
+            return B57600;
         case 115200:
-            return true;
+            return B115200;
+        case 230400:
+            return B230400;
         default:
-            return false;
+            return 0;
     }
 }
 
