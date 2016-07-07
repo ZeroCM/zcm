@@ -388,9 +388,8 @@ inline FILE* LogFile::getFilePtr()
     return zcm_eventlog_get_fileptr(eventlog);
 }
 
-inline const LogEvent* LogFile::readNextEvent()
+inline const LogEvent* LogFile::cplusplusIfyEvent(zcm_eventlog_event_t* evt)
 {
-    zcm_eventlog_event_t* evt = zcm_eventlog_read_next_event(eventlog);
     if (lastevent)
         zcm_eventlog_free_event(lastevent);
     lastevent = evt;
@@ -402,6 +401,18 @@ inline const LogEvent* LogFile::readNextEvent()
     curEvent.datalen = evt->datalen;
     curEvent.data = (char*)evt->data;
     return &curEvent;
+}
+
+inline const LogEvent* LogFile::readNextEvent()
+{
+    zcm_eventlog_event_t* evt = zcm_eventlog_read_next_event(eventlog);
+    return cplusplusIfyEvent(evt);
+}
+
+inline const LogEvent* LogFile::readPrevEvent()
+{
+    zcm_eventlog_event_t* evt = zcm_eventlog_read_prev_event(eventlog);
+    return cplusplusIfyEvent(evt);
 }
 
 inline int LogFile::writeEvent(LogEvent* event)

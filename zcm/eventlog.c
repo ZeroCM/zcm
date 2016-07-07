@@ -42,23 +42,43 @@ FILE *zcm_eventlog_get_fileptr(zcm_eventlog_t *l)
     return l->f;
 }
 
-static int64_t get_event_time(zcm_eventlog_t *l)
+// Returns 0 on success 1 on failure
+static int sync_stream(zcm_eventlog_t *l)
 {
-    int32_t magic = 0;
+    uint32_t magic = 0;
     int r;
-
     do {
         r = fgetc(l->f);
-        if (r < 0) /* eof? */
-            return -1;
+        if (r < 0) return -1;
         magic = (magic << 8) | r;
-    } while( magic != MAGIC );
+    } while( (int32_t)magic != MAGIC );
+    return 0;
+}
+
+static int sync_stream_backwards(zcm_eventlog_t *l)
+{
+    uint32_t magic = 0;
+    int r;
+    do {
+        if (ftello (l->f) < 2) return -1;
+        fseeko (l->f, -2, SEEK_CUR);
+        r = fgetc(l->f);
+        if (r < 0) return 1;
+        magic = ((magic >> 8) & 0x00ffffff) | (((uint32_t)r << 24) & 0xff000000);
+    } while( (int32_t)magic != MAGIC );
+    fseeko (l->f, sizeof(uint32_t) - 1, SEEK_CUR);
+    return 0;
+}
+
+static int64_t get_next_event_time(zcm_eventlog_t *l)
+{
+    if (sync_stream(l)) return -1;
 
     int64_t event_num;
     int64_t timestamp;
     if (0 != fread64(l->f, &event_num)) return -1;
     if (0 != fread64(l->f, &timestamp)) return -1;
-    fseeko (l->f, -20, SEEK_CUR);
+    fseeko (l->f, -(sizeof(int64_t) * 2 + sizeof(int32_t)), SEEK_CUR);
 
     l->eventcount = event_num;
 
@@ -80,7 +100,7 @@ int zcm_eventlog_seek_to_timestamp(zcm_eventlog_t *l, int64_t timestamp)
         frac = 0.5*(frac1+frac2);
         off_t offset = (off_t)(frac*file_len);
         fseeko (l->f, offset, SEEK_SET);
-        cur_time = get_event_time (l);
+        cur_time = get_next_event_time (l);
         if (cur_time < 0)
             return -1;
 
@@ -107,22 +127,10 @@ int zcm_eventlog_seek_to_timestamp(zcm_eventlog_t *l, int64_t timestamp)
     return 0;
 }
 
-zcm_eventlog_event_t *zcm_eventlog_read_next_event(zcm_eventlog_t *l)
+static zcm_eventlog_event_t *zcm_event_read_helper(zcm_eventlog_t *l, int rewindWhenDone)
 {
     zcm_eventlog_event_t *le =
         (zcm_eventlog_event_t*) calloc(1, sizeof(zcm_eventlog_event_t));
-
-    int32_t magic = 0;
-    int r;
-
-    do {
-        r = fgetc(l->f);
-        if (r < 0) {
-            free(le);
-            return NULL;
-        }
-        magic = (magic << 8) | r;
-    } while( magic != MAGIC );
 
     if (0 != fread64(l->f, &le->eventnum) ||
         0 != fread64(l->f, &le->timestamp) ||
@@ -147,7 +155,6 @@ zcm_eventlog_event_t *zcm_eventlog_read_next_event(zcm_eventlog_t *l)
     le->channel = (char *) calloc(1, le->channellen+1);
     if (fread(le->channel, 1, le->channellen, l->f) != (size_t) le->channellen) {
         free(le->channel);
-        free(le->data);
         free(le);
         return NULL;
     }
@@ -158,7 +165,7 @@ zcm_eventlog_event_t *zcm_eventlog_read_next_event(zcm_eventlog_t *l)
         free(le->data);
         free(le);
         return NULL;
-        }
+    }
 
     // Check that there's a valid event or the EOF after this event.
     int32_t next_magic;
@@ -172,7 +179,23 @@ zcm_eventlog_event_t *zcm_eventlog_read_next_event(zcm_eventlog_t *l)
         }
         fseeko (l->f, -4, SEEK_CUR);
     }
+    if (rewindWhenDone) {
+        fseeko (l->f, -(sizeof(int64_t) * 2 + sizeof(int32_t) * 3 +
+                        le->datalen + le->channellen), SEEK_CUR);
+    }
     return le;
+}
+
+zcm_eventlog_event_t *zcm_eventlog_read_prev_event(zcm_eventlog_t *l)
+{
+    if (sync_stream_backwards(l) < 0) return NULL;
+    return zcm_event_read_helper(l, 1);
+}
+
+zcm_eventlog_event_t *zcm_eventlog_read_next_event(zcm_eventlog_t *l)
+{
+    if (sync_stream(l)) return NULL;
+    return zcm_event_read_helper(l, 0);
 }
 
 void zcm_eventlog_free_event(zcm_eventlog_event_t *le)
