@@ -18,7 +18,7 @@ using namespace zcm;
 
 queue<uint8_t> fifo;
 
-static uint32_t get(uint8_t* data, uint32_t nData)
+static uint32_t get(uint8_t* data, uint32_t nData, void* usr)
 {
     unsigned n = MIN(MAX_FIFO, nData);
     n = MIN(fifo.size(), n);
@@ -33,7 +33,7 @@ static uint32_t get(uint8_t* data, uint32_t nData)
     return n;
 }
 
-static uint32_t put(const uint8_t* data, uint32_t nData)
+static uint32_t put(const uint8_t* data, uint32_t nData, void* usr)
 {
     unsigned n = MIN(MAX_FIFO - fifo.size(), nData);
     //cout << "Put " << n << " bytes" << endl;
@@ -72,7 +72,7 @@ class Handler
 
 int main(int argc, const char *argv[])
 {
-    ZCM zcmLocal(zcm_trans_generic_serial_create(&get, &put));
+    ZCM zcmLocal(zcm_trans_generic_serial_create(&get, &put, NULL));
 
     example_t example;
     example.num_ranges = 1;
