@@ -122,7 +122,7 @@ static void dispatch_message(zcm_nonblocking_t *zcm, zcm_msg_t *msg)
             rbuf.zcm = zcm->z;
             rbuf.data = (char*)msg->buf;
             rbuf.data_size = msg->len;
-            rbuf.recv_utime = 0;
+            rbuf.recv_utime = msg->utime;
 
             sub = &zcm->subs[i];
             sub->callback(&rbuf, msg->channel, sub->usr);

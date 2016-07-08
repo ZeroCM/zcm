@@ -1,6 +1,7 @@
 #include <iostream>
 #include <queue>
 #include <sys/time.h>
+#include <cassert>
 
 #include "zcm/zcm-cpp.hpp"
 
@@ -10,7 +11,7 @@
 using namespace std;
 using namespace zcm;
 
-#define PUBLISH_DT (1e6)/(500)
+#define PUBLISH_DT (1e6)/(5)
 #define BUFFER_SIZE 200
 #define MIN(A, B) ((A) < (B)) ? (A) : (B)
 
@@ -45,7 +46,7 @@ static uint32_t put(const uint8_t* data, uint32_t nData, void* usr)
     return n;
 }
 
-static uint64_t utime()
+static uint64_t utime(void* usr)
 {
     struct timeval tv;
     gettimeofday(&tv, NULL);
@@ -59,11 +60,10 @@ class Handler
   public:
     void handle(const ReceiveBuffer* rbuf, const string& chan, const example_t* msg)
     {
-        cout << "Got one" << endl;
+        cout << "Message received" << endl;
 
-        if (msg->timestamp <= lastHost)  {
-            cout << "ERROR" << endl;
-            while(1);
+        if (msg->timestamp <= lastHost || rbuf->recv_utime < lastHost)  {
+            assert("ERROR: utime mismatch. This should never happen");
         }
         lastHost = msg->timestamp;
 
@@ -72,7 +72,7 @@ class Handler
 
 int main(int argc, const char *argv[])
 {
-    ZCM zcmLocal(zcm_trans_generic_serial_create(&get, &put, NULL));
+    ZCM zcmLocal(zcm_trans_generic_serial_create(&get, &put, &utime, NULL));
 
     example_t example;
     example.num_ranges = 1;
@@ -82,13 +82,13 @@ int main(int argc, const char *argv[])
     Handler handler;
     auto sub = zcmLocal.subscribe("EXAMPLE", &Handler::handle, &handler);
 
-    uint64_t nextPublish = utime();
+    uint64_t nextPublish = 0;
     while (true)
     {
-        uint64_t now = utime();
+        uint64_t now = utime(NULL);
         if (now > nextPublish) {
             cout << "Publishing" << endl;
-            example.timestamp = utime();
+            example.timestamp = now;
             zcmLocal.publish("EXAMPLE", &example);
             nextPublish = now + PUBLISH_DT;
         }
