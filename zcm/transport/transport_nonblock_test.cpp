@@ -3,6 +3,8 @@
 #include "zcm/transport_register.hpp"
 #include "zcm/util/debug.h"
 
+#include "util/TimeUtil.hpp"
+
 #include <cassert>
 #include <cstring>
 
@@ -63,6 +65,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         if (!used)
             return ZCM_EAGAIN;
 
+        msg->utime = TimeUtil::utime();
         msg->channel = channel;
         msg->len = messageSize;
         msg->buf = message;

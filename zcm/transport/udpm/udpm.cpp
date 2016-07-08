@@ -377,6 +377,7 @@ int UDPM::recvmsg(zcm_msg_t *msg, int timeout)
     if (m == nullptr)
         return ZCM_EAGAIN;
 
+    msg->utime = m->utime;
     msg->channel = m->channel;
     msg->len = m->datalen;
     msg->buf = m->data;

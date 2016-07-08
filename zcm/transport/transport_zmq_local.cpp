@@ -7,6 +7,8 @@
 #include "zcm/util/lockfile.h"
 #include <zmq.h>
 
+#include "util/TimeUtil.hpp"
+
 #include <unistd.h>
 #include <dirent.h>
 
@@ -370,6 +372,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
                     //       that you will always lose the first message you get that is
                     //       larger than recvmsgBufferSize
                     int rc = zmq_recv(p.socket, recvmsgBuffer, recvmsgBufferSize, 0);
+                    msg->utime = TimeUtil::utime();
                     if (rc == -1) {
                         fprintf(stderr, "zmq_recv failed with: %s", zmq_strerror(errno));
                         // XXX: implement error handling, don't just assert

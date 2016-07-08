@@ -373,8 +373,6 @@ void zcm_blocking_t::recvThreadFunc()
 {
     while (recvRunning) {
         zcm_msg_t msg;
-        // XXX remove this memset once transport layers know about the utime field
-        memset(&msg, 0, sizeof(msg));
         int rc = zcm_trans_recvmsg(zt, &msg, RECV_TIMEOUT);
         if (rc == ZCM_EOK) {
             bool success;
@@ -408,7 +406,7 @@ void zcm_blocking_t::handleThreadFunc()
 void zcm_blocking_t::dispatchMsg(zcm_msg_t *msg)
 {
     zcm_recv_buf_t rbuf;
-    rbuf.recv_utime = TimeUtil::utime();
+    rbuf.recv_utime = msg->utime;
     rbuf.zcm = z;
     rbuf.data = (char*)msg->buf;
     rbuf.data_size = msg->len;
