@@ -45,7 +45,7 @@ static uint32_t put(const uint8_t* data, uint32_t nData, void* usr)
     return n;
 }
 
-static uint64_t utime()
+static uint64_t utime(void* usr)
 {
     struct timeval tv;
     gettimeofday(&tv, NULL);
@@ -72,7 +72,7 @@ class Handler
 
 int main(int argc, const char *argv[])
 {
-    ZCM zcmLocal(zcm_trans_generic_serial_create(&get, &put, NULL));
+    ZCM zcmLocal(zcm_trans_generic_serial_create(&get, &put, &utime, NULL));
 
     example_t example;
     example.num_ranges = 1;
@@ -82,13 +82,13 @@ int main(int argc, const char *argv[])
     Handler handler;
     auto sub = zcmLocal.subscribe("EXAMPLE", &Handler::handle, &handler);
 
-    uint64_t nextPublish = utime();
+    uint64_t nextPublish = 0;
     while (true)
     {
-        uint64_t now = utime();
+        uint64_t now = utime(NULL);
         if (now > nextPublish) {
             cout << "Publishing" << endl;
-            example.timestamp = utime();
+            example.timestamp = now;
             zcmLocal.publish("EXAMPLE", &example);
             nextPublish = now + PUBLISH_DT;
         }

@@ -98,9 +98,6 @@ uint32_t cb_flush_in(circBuffer_t* cb, uint32_t bytes,
 	uint32_t bytesRead = 0;
 	uint32_t n;
 
-    // First, don't bother trying to read more bytes than there are room for
-    bytes = MIN(bytes, cb_room(cb));
-
     // Next, find out how much room is left between back and end of buffer or back and front
     // of buffer. Because we already know there's room for whatever we're about to place,
     // if back < front, we can just read in every byte starting at "back".
@@ -143,6 +140,7 @@ struct zcm_trans_generic_serial_t
 
     uint32_t (*get)(uint8_t* data, uint32_t nData, void* usr);
     uint32_t (*put)(const uint8_t* data, uint32_t nData, void* usr);
+    uint64_t (*time)(void* usr);
     void* usr;
 };
 
@@ -225,6 +223,7 @@ int serial_recvmsg_enable(zcm_trans_generic_serial_t *zt, const char *channel, b
 
 int serial_recvmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t *msg, int timeout)
 {
+    uint64_t utime = zt->time(zt->usr);
     int incomingSize = cb_size(&zt->recvBuffer);
     if (incomingSize < FRAME_BYTES)
         return ZCM_EAGAIN;
@@ -301,6 +300,7 @@ int serial_recvmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t *msg, int timeout)
     if (expected == sum) {
         msg->channel = zt->recvChanName;
         msg->buf     = zt->recvMsgData;
+        msg->utime   = utime;
         cb_pop(&zt->recvBuffer, consumed);
         return ZCM_EOK;
     }
@@ -359,6 +359,7 @@ static zcm_trans_generic_serial_t *cast(zcm_trans_t *zt)
 zcm_trans_t *zcm_trans_generic_serial_create(
         uint32_t (*get)(uint8_t* data, uint32_t nData, void* usr),
         uint32_t (*put)(const uint8_t* data, uint32_t nData, void* usr),
+        uint64_t (*timestamp_now)(void* usr),
         void* usr)
 {
     zcm_trans_generic_serial_t *zt = malloc(sizeof(zcm_trans_generic_serial_t));
@@ -367,9 +368,10 @@ zcm_trans_t *zcm_trans_generic_serial_create(
     cb_init(&zt->sendBuffer);
     cb_init(&zt->recvBuffer);
 
-    zt->get = get;
-    zt->put = put;
-    zt->usr = usr;
+    zt->get  = get;
+    zt->put  = put;
+    zt->time = timestamp_now;
+    zt->usr  = usr;
 
     return (zcm_trans_t*) zt;
 }
