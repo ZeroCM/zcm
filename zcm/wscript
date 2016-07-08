@@ -26,7 +26,7 @@ def build(ctx):
                    'transport/generic_serial_transport.h',
                    'transport/generic_serial_transport.c']
     if ctx.env.USING_THIRD_PARTY:
-        embedSource.append('transport/third-party/embedded/*')
+        embedSource.append('transport/third-party/embedded/**')
 
     embedSource = ctx.path.ant_glob(embedSource)
 

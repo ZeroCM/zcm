@@ -11,8 +11,9 @@ extern "C" {
 zcm_trans_t *zcm_trans_generic_serial_create(
         uint32_t (*get)(uint8_t* data, uint32_t nData, void* usr),
         uint32_t (*put)(const uint8_t* data, uint32_t nData, void* usr),
+        void* put_get_usr,
         uint64_t (*timestamp_now)(void* usr),
-        void* usr);
+        void* time_usr);
 
 #ifdef __cplusplus
 }
