@@ -43,21 +43,11 @@ struct Args
         int c;
         while ((c = getopt_long (argc, argv, optstring, long_opts, 0)) >= 0) {
             switch (c) {
-                case 'A':
-                    Aurl = optarg;
-                    break;
-                case 'B':
-                    Burl = optarg;
-                    break;
-                case 'a':
-                    Achannels.push_back(optarg);
-                    break;
-                case 'b':
-                    Bchannels.push_back(optarg);
-                    break;
-                case 'h':
-                default:
-                    return false;
+                case 'A': Aurl = optarg; break;
+                case 'B': Burl = optarg; break;
+                case 'a': Achannels.push_back(optarg); break;
+                case 'b': Bchannels.push_back(optarg); break;
+                case 'h': default: return false;
             };
         }
 
@@ -91,10 +81,8 @@ struct Bridge
 
     ~Bridge()
     {
-        if (zcmA)
-            delete zcmA;
-        if (zcmB)
-            delete zcmB;
+        if (zcmA) delete zcmA;
+        if (zcmB) delete zcmB;
     }
 
     bool init(int argc, char *argv[])
