@@ -7,6 +7,7 @@ from waflib.Errors import WafError
 def build(ctx):
     ctx.env.RPATH_zcm = [ctx.path.get_bld().abspath()]
 
+    # RRR: why do this first now?
     if ctx.env.USING_PYTHON:
         ctx.recurse('python')
 

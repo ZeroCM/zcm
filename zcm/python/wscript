@@ -15,6 +15,7 @@ def build(ctx):
         source = 'zcm.pyx',
         target = 'zcm.c')
 
+    # RRR: do you still need to use "PYTHON" or is it unnecessary now?
     ctx.shlib(name = 'pyzcm',
               target = 'zcm',
               features = 'pyext',
