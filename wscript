@@ -28,11 +28,13 @@ def add_zcm_configure_options(ctx):
     def add_trans_option(name, desc):
         gr.add_option('--use-'+name, dest='use_'+name, default=False, action='store_true', help=desc)
 
-    add_use_option('all',     'Attempt to enable every ZCM feature')
-    add_use_option('java',    'Enable java features')
-    add_use_option('nodejs',  'Enable nodejs features')
-    add_use_option('zmq',     'Enable ZeroMQ features')
-    add_use_option('cxxtest', 'Enable build of cxxtests')
+    add_use_option('all',         'Attempt to enable every ZCM feature')
+    add_use_option('java',        'Enable java features')
+    add_use_option('nodejs',      'Enable nodejs features')
+    add_use_option('zmq',         'Enable ZeroMQ features')
+    add_use_option('cxxtest',     'Enable build of cxxtests')
+    gr.add_option('--use-third-party', dest='use_third_party', default=False, \
+                  action='store_true', help='Enable inclusion of 3rd party transports.')
 
     gr.add_option('--hash-member-names',  dest='hash_member_names', default='false',
                   type='choice', choices=['true', 'false'],
@@ -70,11 +72,12 @@ def process_zcm_configure_options(ctx):
 
     env.VERSION='1.0.0'
 
-    env.USING_CPP     = True
-    env.USING_JAVA    = hasopt('use_java') and attempt_use_java(ctx)
-    env.USING_NODEJS  = hasopt('use_nodejs') and attempt_use_nodejs(ctx)
-    env.USING_ZMQ     = hasopt('use_zmq')  and attempt_use_zmq(ctx)
-    env.USING_CXXTEST = hasopt('use_cxxtest')  and attempt_use_cxxtest(ctx)
+    env.USING_CPP         = True
+    env.USING_JAVA        = hasopt('use_java') and attempt_use_java(ctx)
+    env.USING_NODEJS      = hasopt('use_nodejs') and attempt_use_nodejs(ctx)
+    env.USING_ZMQ         = hasopt('use_zmq') and attempt_use_zmq(ctx)
+    env.USING_CXXTEST     = hasopt('use_cxxtest') and attempt_use_cxxtest(ctx)
+    env.USING_THIRD_PARTY = getattr(opt, 'use_third_party') and attempt_use_third_party(ctx)
 
     env.USING_TRANS_IPC    = hasopt('use_ipc')
     env.USING_TRANS_INPROC = hasopt('use_inproc')
@@ -88,19 +91,30 @@ def process_zcm_configure_options(ctx):
     if ZMQ_REQUIRED and not env.USING_ZMQ:
         raise WafError("Using ZeroMQ is required for some of the selected transports (--use-zmq)")
 
-    def print_entry(name, enabled):
+    def print_entry(name, enabled, post="", invertColors=False):
         Logs.pprint("NORMAL", "    {:20}".format(name), sep='')
         if enabled:
-            Logs.pprint("GREEN", "Enabled")
+            if invertColors:
+                Logs.pprint("RED", "Enabled", sep='')
+            else:
+                Logs.pprint("GREEN", "Enabled", sep='')
         else:
-            Logs.pprint("RED", "Disabled")
+            if invertColors:
+                Logs.pprint("GREEN", "Disabled", sep='')
+            else:
+                Logs.pprint("RED", "Disabled", sep='')
+        Logs.pprint("BLUE", " " + post)
 
-    Logs.pprint('BLUE', '\nDependency Configuration:')
-    print_entry("C/C++",   env.USING_CPP)
-    print_entry("Java",    env.USING_JAVA)
-    print_entry("NodeJs",  env.USING_NODEJS)
-    print_entry("ZeroMQ",  env.USING_ZMQ)
-    print_entry("CxxTest", env.USING_CXXTEST)
+    Logs.pprint('BLUE',     '\nDependency Configuration:')
+    print_entry("C/C++",       env.USING_CPP)
+    print_entry("Java",        env.USING_JAVA)
+    print_entry("NodeJs",      env.USING_NODEJS)
+    print_entry("ZeroMQ",      env.USING_ZMQ)
+    print_entry("CxxTest",     env.USING_CXXTEST)
+    if not env.USING_THIRD_PARTY and opt.use_all:
+        print_entry("Third Party", env.USING_THIRD_PARTY, "Not included in --use-all")
+    else:
+        print_entry("Third Party", env.USING_THIRD_PARTY)
 
     Logs.pprint('BLUE', '\nTransport Configuration:')
     print_entry("ipc",    env.USING_TRANS_IPC)
@@ -110,7 +124,7 @@ def process_zcm_configure_options(ctx):
 
     Logs.pprint('BLUE', '\nType Configuration:')
     print_entry("hash-typename", env.HASH_TYPENAME == 'true')
-    print_entry("hash-member-names",  env.HASH_MEMBER_NAMES == 'true')
+    print_entry("hash-member-names",  env.HASH_MEMBER_NAMES == 'true', '', True)
 
     Logs.pprint('NORMAL', '')
 
@@ -133,6 +147,19 @@ def attempt_use_zmq(ctx):
 
 def attempt_use_cxxtest(ctx):
     ctx.load('cxxtest')
+    return True
+
+def attempt_use_third_party(ctx):
+    submodules = [ 'zcm/transport/third-party' ]
+    foundAll = True
+    for name in submodules:
+        found = not ctx.path.find_dir(name) is None
+        ctx.msg('Checking for submodule: %s' % name, found)
+        foundAll &= found
+    if not foundAll:
+        raise WafError('Failed to find all required submodules. You should run: \n' + \
+                       'git submodule update --init --recursive\n' + \
+                       'and then reconfigure')
     return True
 
 def process_zcm_build_options(ctx):

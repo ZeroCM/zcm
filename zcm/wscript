@@ -16,15 +16,23 @@ def build(ctx):
               use = ['default', 'zmq'],
               source = ctx.path.ant_glob(['*.cpp', '*.c',
                                           'util/*.c', 'util/*.cpp',
-                                          'transport/**/*.c', 'transport/**/*.cpp']))
+                                          'transport/**/*.c', 'transport/**/*.cpp'],
+                                          excl='transport/third-party'))
+
+
+    embedSource = ['zcm.h', 'zcm_private.h', 'zcm.c', 'zcm-cpp.hpp', 'zcm-cpp-impl.hpp',
+                   'zcm_coretypes.h', 'transport.h', 'nonblocking.h', 'nonblocking.c',
+                   'transport/generic_serial_transport.h',
+                   'transport/generic_serial_transport.c']
+    if ctx.env.USING_THIRD_PARTY:
+        embedSource.append('transport/third-party/embedded/*')
+
+    embedSource = ctx.path.ant_glob(embedSource)
 
     ## Collect files for Embedded
     ctx(rule = 'tar cfz ${TGT} ${SRC}',
         name = 'embed-tar',
-        source = ['zcm.h', 'zcm_private.h', 'zcm.c', 'zcm-cpp.hpp', 'zcm-cpp-impl.hpp',
-                  'zcm_coretypes.h', 'transport.h', 'nonblocking.h', 'nonblocking.c',
-                  'transport/generic_serial_transport.h',
-                  'transport/generic_serial_transport.c'],
+        source = embedSource,
         target = 'zcm-embed.tar.gz')
 
     ## Test the embedded export
