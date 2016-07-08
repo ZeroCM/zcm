@@ -1,6 +1,7 @@
 #include <iostream>
 #include <queue>
 #include <sys/time.h>
+#include <cassert>
 
 #include "zcm/zcm-cpp.hpp"
 
@@ -10,7 +11,7 @@
 using namespace std;
 using namespace zcm;
 
-#define PUBLISH_DT (1e6)/(500)
+#define PUBLISH_DT (1e6)/(5)
 #define BUFFER_SIZE 200
 #define MIN(A, B) ((A) < (B)) ? (A) : (B)
 
@@ -59,11 +60,10 @@ class Handler
   public:
     void handle(const ReceiveBuffer* rbuf, const string& chan, const example_t* msg)
     {
-        cout << "Got one" << endl;
+        cout << "Message received" << endl;
 
-        if (msg->timestamp <= lastHost)  {
-            cout << "ERROR" << endl;
-            while(1);
+        if (msg->timestamp <= lastHost || rbuf->recv_utime < lastHost)  {
+            assert("ERROR: utime mismatch. This should never happen");
         }
         lastHost = msg->timestamp;
 
