@@ -1,0 +1,39 @@
+#!/usr/bin/python
+
+from subprocess import call
+from zcm import ZCM, LogFile, LogEvent
+import sys
+sys.path.insert(0, '../build/types/')
+from example_t import example_t
+from ctypes import c_char
+
+msg = example_t()
+msg.timestamp = 10
+
+event = LogEvent()
+event.setEventnum  (0)
+event.setTimestamp (1)
+event.setChannel   ("test channel")
+event.setData      (msg.encode())
+
+log = LogFile('testlog.log', 'w')
+log.writeEvent(event)
+log.close()
+
+log = LogFile('testlog.log', 'r')
+evt = log.readNextEvent()
+assert evt.getEventnum() == event.getEventnum(), "Event nums dont match"
+assert evt.getTimestamp() == event.getTimestamp(), "Timestamps dont match"
+assert evt.getChannel() == event.getChannel(), "Channels dont match"
+assert evt.getData() == event.getData(), "Data doesn't match"
+
+evt = log.readPrevEvent()
+assert evt.getEventnum() == event.getEventnum(), "Event nums dont match"
+assert evt.getTimestamp() == event.getTimestamp(), "Timestamps dont match"
+assert evt.getChannel() == event.getChannel(), "Channels dont match"
+assert evt.getData() == event.getData(), "Data doesn't match"
+log.close()
+
+call(["rm", "testlog.log"])
+
+print "Success"

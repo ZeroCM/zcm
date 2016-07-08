@@ -16,6 +16,7 @@ sys.path.append('examples/waftools')
 def options(ctx):
     ctx.load('compiler_c')
     ctx.load('compiler_cxx')
+    ctx.load('python')
     add_zcm_configure_options(ctx)
     add_zcm_build_options(ctx)
 
@@ -31,6 +32,7 @@ def add_zcm_configure_options(ctx):
     add_use_option('all',         'Attempt to enable every ZCM feature')
     add_use_option('java',        'Enable java features')
     add_use_option('nodejs',      'Enable nodejs features')
+    add_use_option('python',      'Enable python features')
     add_use_option('zmq',         'Enable ZeroMQ features')
     add_use_option('cxxtest',     'Enable build of cxxtests')
     gr.add_option('--use-third-party', dest='use_third_party', default=False, \
@@ -75,6 +77,7 @@ def process_zcm_configure_options(ctx):
     env.USING_CPP         = True
     env.USING_JAVA        = hasopt('use_java') and attempt_use_java(ctx)
     env.USING_NODEJS      = hasopt('use_nodejs') and attempt_use_nodejs(ctx)
+    env.USING_PYTHON      = hasopt('use_python') and attempt_use_python(ctx)
     env.USING_ZMQ         = hasopt('use_zmq') and attempt_use_zmq(ctx)
     env.USING_CXXTEST     = hasopt('use_cxxtest') and attempt_use_cxxtest(ctx)
     env.USING_THIRD_PARTY = getattr(opt, 'use_third_party') and attempt_use_third_party(ctx)
@@ -109,6 +112,7 @@ def process_zcm_configure_options(ctx):
     print_entry("C/C++",       env.USING_CPP)
     print_entry("Java",        env.USING_JAVA)
     print_entry("NodeJs",      env.USING_NODEJS)
+    print_entry("Python",  env.USING_PYTHON)
     print_entry("ZeroMQ",      env.USING_ZMQ)
     print_entry("CxxTest",     env.USING_CXXTEST)
     if not env.USING_THIRD_PARTY and opt.use_all:
@@ -139,6 +143,12 @@ def attempt_use_nodejs(ctx):
     # technically build, but you wont be able to run it without the nodejs package
     ctx.find_program('nodejs', var='NODEJS',  mandatory=True)
     ctx.find_program('npm',    var='NPM',     mandatory=True)
+    return True
+
+def attempt_use_python(ctx):
+    ctx.load('python')
+    ctx.check_python_headers()
+    ctx.find_program('cython', var='CYTHON', mandatory=True)
     return True
 
 def attempt_use_zmq(ctx):

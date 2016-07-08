@@ -41,7 +41,7 @@ def configure(ctx):
 #                 Defaults to true.
 #   lang:         list of languages for which zcmtypes should be generated, options are:
 #                 ['c', 'cpp', 'java', 'python', 'nodejs']
-#                 TODO: add python and nodejs support
+#                 TODO: add nodejs support
 #   javapkg:      name of the java package
 #                 default = 'zcmtypes' (though it is encouraged to name it something more unique
 #                                       to avoid library naming conflicts)
@@ -66,7 +66,15 @@ def configure(ctx):
 #     wscript:    add '${name}_java' to the list of "use" dependencies
 #     java files: target import directives at "$pkg/type_name_t"
 #
-#   TODO: Python and NodeJS
+#   Python:       types will be compiled into .py python files and are imported
+#                 into final python script.
+#     wscript:    add '${name}_python' to the list of "use" dependencies if you
+#                 have any build time dependencies (most python dependencies,
+#                 however, are runtime so this will often, if not always, go unused).
+#     py files:   add directory containing .py files to your sys path and target
+#                 import directives at "$pkg/type_name_t"
+#
+#   TODO: NodeJS
 #
 # Note on running the output java classes:
 #   Because of the way that java's CLASSPATH works, even though waf will link the appropriate jar
@@ -104,7 +112,6 @@ def zcmgen(ctx, **kw):
              lang     = kw['lang'],
              javapkg  = javapkg_name)
 
-    # XXX: This is a little strange that anyone would want to only build types
     if not building:
         return
 
@@ -142,6 +149,10 @@ def zcmgen(ctx, **kw):
                      basedir    = 'java/classes',  # basedir for jar
                      destfile   = uselib_name + '.jar')
 
+    if 'python' in kw['lang']:
+        pythontg = ctx(target = uselib_name + '_python',
+                       rule   = 'touch ${TGT}')
+
 @extension('.zcm')
 def process_zcmtypes(self, node):
     tsk = self.create_task('zcmgen', node)
@@ -150,7 +161,7 @@ class zcmgen(Task.Task):
     color   = 'PINK'
     quiet   = False
     ext_in  = ['.zcm']
-    ext_out = ['.c', '.h', '.hpp', '.java']
+    ext_out = ['.c', '.h', '.hpp', '.java', '.py']
 
     ## This method processes the inputs and determines the outputs that will be generated
     ## when the zcm-gen program is run
@@ -175,6 +186,8 @@ class zcmgen(Task.Task):
             outp = '/'.join([dirparts, 'java', java_pkgpath, nameparts])
             outp_node = gen.path.find_or_declare(outp)
             self.outputs.append(outp_node)
+        if 'python' in gen.lang:
+            self.outputs.append(inp.change_ext(ext='.py'))
 
         if not self.outputs:
             raise WafError('No ZCMtypes generated, ensure a valid lang is specified')
@@ -198,6 +211,8 @@ class zcmgen(Task.Task):
             langs['cpp'] = '--cpp --cpp-hpath %s --cpp-include %s' % (bld, inc)
         if 'java' in gen.lang:
             langs['java'] = '--java --jpath %s --jdefaultpkg %s' % (bld + '/java', gen.javapkg)
+        if 'python' in gen.lang:
+            langs['python'] = '--python --ppath %s' % (bld)
 
         # no need to check if langs is empty here, already handled in runnable_status()
         return self.exec_command('%s %s %s' % (zcmgen, zcmfile, ' '.join(langs.values())))

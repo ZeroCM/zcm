@@ -17,6 +17,9 @@ PKGS+='default-jdk default-jre '
 ## Node
 PKGS+='nodejs nodejs-legacy npm '
 
+## Python
+PKGS+='cython '
+
 ## CxxTest
 PKGS+='cxxtest '
 

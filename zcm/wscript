@@ -6,6 +6,7 @@ from waflib.Errors import WafError
 
 def build(ctx):
     ctx.env.RPATH_zcm = [ctx.path.get_bld().abspath()]
+
     ctx.shlib(target = 'zcm',
               # Note: Had to make the include path one level up so that includes
               #       within this directory structure would match the structure
@@ -56,6 +57,9 @@ def build(ctx):
 
     if ctx.env.USING_NODEJS:
         ctx.recurse('js');
+
+    if ctx.env.USING_PYTHON:
+        ctx.recurse('python')
 
     if ctx.env.USING_CXXTEST:
         ctx.cxxtest(use = ['zcm', 'testzcmtypes'])
