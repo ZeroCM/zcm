@@ -66,8 +66,15 @@ def configure(ctx):
 #     wscript:    add '${name}_java' to the list of "use" dependencies
 #     java files: target import directives at "$pkg/type_name_t"
 #
-#   RRR: document how the output Python types get used (was this finished for nodejs as well?)
-#   TODO: Python and NodeJS
+#   Python:       types will be compiled into .py python files and are imported
+#                 into final python script.
+#     wscript:    add '${name}_python' to the list of "use" dependencies if you
+#                 have any build time dependencies (most python dependencies,
+#                 however, are runtime so this will often, if not always, go unused).
+#     py files:   add directory containing .py files to your sys path and target
+#                 import directives at "$pkg/type_name_t"
+#
+#   TODO: NodeJS
 #
 # Note on running the output java classes:
 #   Because of the way that java's CLASSPATH works, even though waf will link the appropriate jar
