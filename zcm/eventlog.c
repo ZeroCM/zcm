@@ -42,7 +42,7 @@ FILE *zcm_eventlog_get_fileptr(zcm_eventlog_t *l)
     return l->f;
 }
 
-// Returns 0 on success 1 on failure
+// Returns 0 on success -1 on failure
 static int sync_stream(zcm_eventlog_t *l)
 {
     uint32_t magic = 0;

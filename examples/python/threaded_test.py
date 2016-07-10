@@ -31,13 +31,13 @@ msg = example_t()
 msg.timestamp = 10
 subs = zcm.subscribe("TEST", example_t, handler)
 while True:
+    zcm.publish("TEST", msg)
     lock.acquire()
     _done = done
     lock.release()
     if _done == 10:
         break
-    zcm.publish("TEST", msg)
-    time.sleep(1)
+    time.sleep(0.25)
 
 zcm.unsubscribe(subs)
 zcm.stop()

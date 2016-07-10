@@ -21,6 +21,7 @@ int main(int argc, const char *argv[])
     for (size_t i = 0; i < 100; ++i) {
         assert(zcm_eventlog_write_event(l, &event) == 0 && "Unable to write log event to log");
         event.eventnum++;
+        event.timestamp++;
     }
     zcm_eventlog_destroy(l);
 
@@ -32,6 +33,7 @@ int main(int argc, const char *argv[])
 
     for (size_t i = 0; i < 100; ++i) {
         event.eventnum--;
+        event.timestamp--;
         zcm_eventlog_event_t *le = zcm_eventlog_read_prev_event(l);
         assert(le && "Failed to read prev log event out of log");
         assert(le->eventnum == event.eventnum && "Incorrect eventnum inside of prev event");
@@ -61,6 +63,7 @@ int main(int argc, const char *argv[])
                "Incorrect data inside of next event");
         zcm_eventlog_free_event(le);
         event.eventnum++;
+        event.timestamp++;
     }
 
     assert(zcm_eventlog_read_next_event(l) == NULL &&

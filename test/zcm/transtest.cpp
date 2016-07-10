@@ -6,6 +6,7 @@
 #include <signal.h>
 #include <unistd.h>
 #include "zcm/transport_registrar.h"
+#include "util/TimeUtil.hpp"
 using namespace std;
 
 #define HZ 500
@@ -35,6 +36,7 @@ static zcm_trans_t *makeTransport()
 static zcm_msg_t makeMasterMsg()
 {
     zcm_msg_t msg;
+    msg.utime = TimeUtil::utime();
     msg.channel = "FOO";
     msg.len = BIG_MESSAGE ? 500000 : 1000;
     msg.buf = (char*) malloc(msg.len);
@@ -54,6 +56,8 @@ static zcm_msg_t makeMasterMsg()
 
 static void verifySame(zcm_msg_t *a, zcm_msg_t *b)
 {
+    if (b->utime < a->utime || a->utime == 0 || b->utime == 0)
+        fail("Utime failure!");
     if (strcmp(a->channel, b->channel) != 0)
         fail("Channels don't match!");
     if (a->len != b->len)
@@ -88,13 +92,19 @@ static void recv()
     zcm_trans_recvmsg_enable(trans, NULL, true);
 
     zcm_msg_t master = makeMasterMsg();
-    for (int i = 0; i < MSG_COUNT && running_recv; i++) {
+    uint64_t start = TimeUtil::utime();
+    int i;
+    for (i = 0; i < MSG_COUNT && running_recv; i++) {
         zcm_msg_t msg;
         int ret = zcm_trans_recvmsg(trans, &msg, 100);
         if (ret == ZCM_EOK) {
             verifySame(&master, &msg);
         }
     }
+    uint64_t end = TimeUtil::utime();
+
+    cout << "Received " << (i * 100 / MSG_COUNT) << "\% of the messages in "
+         << ((end - start) / 1e6) << " seconds" <<  endl;
 
     running_send = false;
 }

@@ -1,11 +1,9 @@
 #!/usr/bin/python
 
-from subprocess import call
 from zcm import ZCM, LogFile, LogEvent
 import sys
 sys.path.insert(0, '../build/types/')
 from example_t import example_t
-from ctypes import c_char
 
 msg = example_t()
 msg.timestamp = 10
@@ -34,6 +32,7 @@ assert evt.getChannel() == event.getChannel(), "Channels dont match"
 assert evt.getData() == event.getData(), "Data doesn't match"
 log.close()
 
+from subprocess import call
 call(["rm", "testlog.log"])
 
 print "Success"

@@ -30,15 +30,16 @@ struct Msg
     zcm_msg_t msg;
 
     // NOTE: copy the provided data into this object
-    Msg(const char *channel, size_t len, const char *buf)
+    Msg(uint64_t utime, const char *channel, size_t len, const char *buf)
     {
+        msg.utime = utime;
         msg.channel = strdup(channel);
         msg.len = len;
         msg.buf = (char*)malloc(len);
         memcpy(msg.buf, buf, len);
     }
 
-    Msg(zcm_msg_t *msg) : Msg(msg->channel, msg->len, msg->buf) {}
+    Msg(zcm_msg_t *msg) : Msg(msg->utime, msg->channel, msg->len, msg->buf) {}
 
     ~Msg()
     {
@@ -255,7 +256,7 @@ int zcm_blocking_t::publish(const string& channel, const char *data, uint32_t le
     }
 
     // Note: push only fails if it was forcefully woken up, which means zcm is shutting down
-    bool success = sendQueue.push(channel.c_str(), len, data);
+    bool success = sendQueue.push(TimeUtil::utime(), channel.c_str(), len, data);
     return success ? ZCM_EOK : ZCM_EINTR;
 }
 
