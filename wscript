@@ -218,12 +218,11 @@ def generate_signature(ctx):
     bldpath = ctx.path.get_bld().abspath()
     ### XXX this rule for generating .gitid is nasty, refactor...
     ###     .gitid should be pulled into a reusable tool like zcm-gen
-    ctx(rule = 'cd %s && (git rev-parse HEAD && ((git tag --contains ; \
-               echo "<no-tag>") | head -n1) && git diff) > %s/${TGT} \
-               2>/dev/null' % (rootpath, bldpath),
-        name = 'zcmgitid',
+    ctx(rule   = 'cd %s && (git rev-parse HEAD && ((git tag --contains ; \
+                  echo "<no-tag>") | head -n1) && git diff) > %s/${TGT} \
+                  2>/dev/null' % (rootpath, bldpath),
+        name   = 'zcmgitid',
         target = 'zcm.gitid',
-        on_results = True,
         always = True)
 
 def build(ctx):
