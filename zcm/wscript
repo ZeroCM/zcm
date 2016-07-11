@@ -28,20 +28,18 @@ def build(ctx):
     if ctx.env.USING_THIRD_PARTY:
         embedSource.append('transport/third-party/embedded/**')
 
-    embedSource = ctx.path.ant_glob(embedSource)
-
     ## Collect files for Embedded
-    ctx(rule = 'tar cfz ${TGT} ${SRC}',
-        name = 'embed-tar',
-        source = embedSource,
+    ctx(rule   = 'tar czf ${TGT} ${SRC}',
+        name   = 'embed-tar',
+        source = ctx.path.ant_glob(embedSource),
         target = 'zcm-embed.tar.gz',
-        after  = 'zcm.gitid')
+        after  = 'zcmgitid')
 
     ## Test the embedded export
-    ctx(rule = exec_test_embedded,
+    ctx(rule   = exec_test_embedded,
         source = 'zcm-embed.tar.gz',
         target = 'zcm-embed-tests',
-        after = 'embed-tar')
+        after  = 'embed-tar')
 
     ctx.install_files('${PREFIX}/include/zcm',
                       ['zcm.h', 'zcm_coretypes.h', 'transport.h', 'transport_registrar.h',

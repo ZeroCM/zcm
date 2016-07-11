@@ -221,8 +221,10 @@ def generate_signature(ctx):
     ctx(rule = 'cd %s && (git rev-parse HEAD && ((git tag --contains ; \
                echo "<no-tag>") | head -n1) && git diff) > %s/${TGT} \
                2>/dev/null' % (rootpath, bldpath),
+        name = 'zcmgitid',
         target = 'zcm.gitid',
-        always = True)
+        always = True,
+        on_results = True)
 
 def build(ctx):
     if not ctx.env.ENVIRONMENT_SETUP:
