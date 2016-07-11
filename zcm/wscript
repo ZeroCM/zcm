@@ -34,14 +34,13 @@ def build(ctx):
     ctx(rule = 'tar cfz ${TGT} ${SRC}',
         name = 'embed-tar',
         source = embedSource,
-        use    = 'zcm.gitid',
         target = 'zcm-embed.tar.gz',
-        after = 'zcm.gitid')
+        after  = 'zcm.gitid')
 
     ## Test the embedded export
     ctx(rule = exec_test_embedded,
         source = 'zcm-embed.tar.gz',
-        target = 'zcm-embed.id',
+        target = 'zcm-embed-tests',
         after = 'embed-tar')
 
     ctx.install_files('${PREFIX}/include/zcm',
