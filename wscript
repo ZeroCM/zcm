@@ -223,8 +223,8 @@ def generate_signature(ctx):
                2>/dev/null' % (rootpath, bldpath),
         name = 'zcmgitid',
         target = 'zcm.gitid',
-        always = True,
-        on_results = True)
+        on_results = True,
+        always = True)
 
 def build(ctx):
     if not ctx.env.ENVIRONMENT_SETUP:
