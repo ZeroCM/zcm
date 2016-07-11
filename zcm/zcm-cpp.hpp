@@ -24,7 +24,6 @@ class Subscription;
 class ZCM
 {
   public:
-    // TODO: update to match new url based zcm_create
     inline ZCM();
     inline ZCM(const std::string& transport);
     inline ZCM(zcm_trans_t *zt);

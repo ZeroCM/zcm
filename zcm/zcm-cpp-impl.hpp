@@ -96,6 +96,7 @@ inline int ZCM::publish(const std::string& channel, const Msg *msg)
 {
     uint32_t len = msg->getEncodedSize();
     uint8_t *buf = new uint8_t[len];
+    ZCM_ASSERT(buf);
     msg->encode(buf, 0, len);
     int status = this->publish(channel, (const char*)buf, len);
     delete[] buf;
@@ -243,6 +244,7 @@ inline Subscription *ZCM::subscribe(const std::string& channel,
 
     typedef TypedHandlerSubscription<Msg, Handler> SubType;
     SubType *sub = new SubType();
+    ZCM_ASSERT(sub);
     sub->handler = handler;
     sub->typedHandlerCallback = cb;
     sub->c_sub = zcm_subscribe(zcm, channel.c_str(), SubType::dispatch, sub);
@@ -264,6 +266,7 @@ inline Subscription *ZCM::subscribe(const std::string& channel,
 
     typedef HandlerSubscription<Handler> SubType;
     SubType *sub = new SubType();
+    ZCM_ASSERT(sub);
     sub->handler = handler;
     sub->handlerCallback = cb;
     sub->c_sub = zcm_subscribe(zcm, channel.c_str(), SubType::dispatch, sub);
@@ -286,6 +289,7 @@ inline Subscription *ZCM::subscribe(const std::string& channel,
 
     typedef TypedSubscription<Msg> SubType;
     SubType *sub = new SubType();
+    ZCM_ASSERT(sub);
     sub->usr = usr;
     sub->typedCallback = cb;
     sub->c_sub = zcm_subscribe(zcm, channel.c_str(), SubType::dispatch, sub);
@@ -308,6 +312,7 @@ inline Subscription *ZCM::subscribe(const std::string& channel,
 
     typedef TypedFunctionalSubscription<Msg> SubType;
     SubType *sub = new SubType();
+    ZCM_ASSERT(sub);
     sub->usr = nullptr;
     sub->cb = cb;
     sub->c_sub = zcm_subscribe(zcm, channel.c_str(), SubType::dispatch, sub);
@@ -329,6 +334,7 @@ inline Subscription *ZCM::subscribe(const std::string& channel,
 
     typedef Subscription SubType;
     SubType *sub = new SubType();
+    ZCM_ASSERT(sub);
     sub->usr = usr;
     sub->callback = cb;
     sub->c_sub = zcm_subscribe(zcm, channel.c_str(), SubType::dispatch, sub);
