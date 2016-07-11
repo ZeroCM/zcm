@@ -285,6 +285,7 @@ zcm_sub_t *zcm_blocking_t::subscribe(const string& channel, zcm_msg_handler_t cb
     }
 
     zcm_sub_t *sub = new zcm_sub_t();
+    ZCM_ASSERT(sub);
     strncpy(sub->channel, channel.c_str(), sizeof(sub->channel)/sizeof(sub->channel[0]));
     sub->regex = regex;
     sub->regexobj = nullptr;
@@ -292,6 +293,7 @@ zcm_sub_t *zcm_blocking_t::subscribe(const string& channel, zcm_msg_handler_t cb
     sub->usr = usr;
     if (regex) {
         sub->regexobj = (void *) new std::regex(sub->channel);
+        ZCM_ASSERT(sub->regexobj);
         subRegex.push_back(sub);
     } else {
         subs[channel].push_back(sub);

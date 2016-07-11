@@ -7,6 +7,9 @@ extern "C" {
 
 #include <stdint.h>
 
+#include <assert.h>
+#define ZCM_ASSERT(X) assert(X)
+
 #ifndef ZCM_EMBEDDED
 #include "eventlog.h"
 #endif

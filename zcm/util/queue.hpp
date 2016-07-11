@@ -33,6 +33,7 @@ class Queue
     {
         // We intentionally use malloc here to avoid intiailized
         queue = (Element*) malloc(size * sizeof(Element));
+        ZCM_ASSERT(queue);
     }
 
     ~Queue()
@@ -61,6 +62,7 @@ class Queue
         // Initialize the Element by forwarding the parameter pack
         // directly to the constructor called via Placement New
         new (&queue[back]) Element(std::forward<Args>(args)...);
+
         back = incIdx(back);
     }
 

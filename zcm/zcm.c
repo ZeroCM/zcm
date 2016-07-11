@@ -29,6 +29,7 @@ zcm_t *zcm_create(const char *url)
 {
 #ifndef ZCM_EMBEDDED
     zcm_t *z = malloc(sizeof(zcm_t));
+    ZCM_ASSERT(z);
     if (zcm_init(z, url) == -1) {
         free(z);
         return NULL;
@@ -43,6 +44,7 @@ zcm_t *zcm_create(const char *url)
 zcm_t *zcm_create_trans(zcm_trans_t *zt)
 {
     zcm_t *z = malloc(sizeof(zcm_t));
+    ZCM_ASSERT(z);
     if (zcm_init_trans(z, zt) == -1) {
         free(z);
         return NULL;
@@ -70,6 +72,7 @@ int zcm_init(zcm_t *zcm, const char *url)
     }
     int ret = -1;
     zcm_url_t *u = zcm_url_create(url);
+    ZCM_ASSERT(u);
     const char *protocol = zcm_url_protocol(u);
 
     zcm_trans_create_func *creator = zcm_transport_find(protocol);
@@ -102,6 +105,7 @@ int zcm_init_trans(zcm_t *zcm, zcm_trans_t *zt)
 #ifndef ZCM_EMBEDDED
             zcm->type = ZCM_BLOCKING;
             zcm->impl = zcm_blocking_create(zcm, zt);
+            ZCM_ASSERT(zcm->impl);
             zcm->err = ZCM_EOK;
             return 0;
 #else
@@ -112,6 +116,7 @@ int zcm_init_trans(zcm_t *zcm, zcm_trans_t *zt)
         case ZCM_NONBLOCKING: {
             zcm->type = ZCM_NONBLOCKING;
             zcm->impl = zcm_nonblocking_create(zcm, zt);
+            ZCM_ASSERT(zcm->impl);
             zcm->err = ZCM_EOK;
             return 0;
         } break;
