@@ -213,6 +213,17 @@ def setup_environment(ctx):
 
     ctx.env.ENVIRONMENT_SETUP = True
 
+def generate_signature(ctx):
+    rootpath = ctx.path.get_src().abspath()
+    bldpath = ctx.path.get_bld().abspath()
+    ### XXX this rule for generating .gitid is nasty, refactor...
+    ###     .gitid should be pulled into a reusable tool like zcm-gen
+    ctx(rule = 'cd %s && (git rev-parse HEAD && ((git tag --contains ; \
+               echo "<no-tag>") | head -n1) && git diff) > %s/${TGT} \
+               2>/dev/null' % (rootpath, bldpath),
+        target = 'zcm.gitid',
+        always = True)
+
 def build(ctx):
     if not ctx.env.ENVIRONMENT_SETUP:
         setup_environment(ctx)
@@ -221,6 +232,7 @@ def build(ctx):
     ctx.recurse('config')
     ctx.recurse('gen')
     ctx.recurse('tools')
+    generate_signature(ctx)
 
     ctx.add_group()
 

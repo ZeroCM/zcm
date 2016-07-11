@@ -24,7 +24,7 @@ def build(ctx):
     embedSource = ['zcm.h', 'zcm_private.h', 'zcm.c', 'zcm-cpp.hpp', 'zcm-cpp-impl.hpp',
                    'zcm_coretypes.h', 'transport.h', 'nonblocking.h', 'nonblocking.c',
                    'transport/generic_serial_transport.h',
-                   'transport/generic_serial_transport.c']
+                   'transport/generic_serial_transport.c', '../zcm.gitid']
     if ctx.env.USING_THIRD_PARTY:
         embedSource.append('transport/third-party/embedded/**')
 
@@ -34,7 +34,9 @@ def build(ctx):
     ctx(rule = 'tar cfz ${TGT} ${SRC}',
         name = 'embed-tar',
         source = embedSource,
-        target = 'zcm-embed.tar.gz')
+        use    = 'zcm.gitid',
+        target = 'zcm-embed.tar.gz',
+        after = 'zcm.gitid')
 
     ## Test the embedded export
     ctx(rule = exec_test_embedded,
