@@ -24,23 +24,28 @@ def build(ctx):
     embedSource = ['zcm.h', 'zcm_private.h', 'zcm.c', 'zcm-cpp.hpp', 'zcm-cpp-impl.hpp',
                    'zcm_coretypes.h', 'transport.h', 'nonblocking.h', 'nonblocking.c',
                    'transport/generic_serial_transport.h',
-                   'transport/generic_serial_transport.c']
+                   'transport/generic_serial_transport.c' ]
+
     if ctx.env.USING_THIRD_PARTY:
         embedSource.append('transport/third-party/embedded/**')
 
     embedSource = ctx.path.ant_glob(embedSource)
+    embedSource.append(ctx.path.find_or_declare("../zcm.gitid"))
 
     ## Collect files for Embedded
-    ctx(rule = 'tar cfz ${TGT} ${SRC}',
-        name = 'embed-tar',
+    ctx(rule   = 'tar czf ${TGT} ${SRC}',
+        name   = 'embed-tar',
         source = embedSource,
-        target = 'zcm-embed.tar.gz')
+        target = 'zcm-embed.tar.gz',
+        color  = "PINK",
+        after  = 'zcmgitid')
 
     ## Test the embedded export
-    ctx(rule = exec_test_embedded,
+    ctx(rule   = exec_test_embedded,
         source = 'zcm-embed.tar.gz',
-        target = 'zcm-embed.id',
-        after = 'embed-tar')
+        target = 'zcm-embed-tests',
+        color  = "PINK",
+        after  = 'embed-tar')
 
     ctx.install_files('${PREFIX}/include/zcm',
                       ['zcm.h', 'zcm_coretypes.h', 'transport.h', 'transport_registrar.h',
