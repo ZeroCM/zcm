@@ -137,15 +137,15 @@ Now that you have a shared library of your zcmtypes, you need to point
 `zcm-spy-lite` to the folder where that library is stored. Much like
 LD\_LIBRARY\_PATH is used to help your system find the paths to shared libraries
 it needs to run programs, ZCM\_SPY\_LITE\_PATH is used to point `zcm-spy-lite`
-to the shared library's parent folder.
+to the shared library.
 
-    ZCM_SPY_LITE_PATH=<full path to shared library folder>
+    ZCM_SPY_LITE_PATH=<full path to shared library>
 
 To make that environment variable load each time you open a new terminal, you
 can add it to the bottom of your shell profile. For bash this would be adding
 the following line to the bottom of your ~/.bashrc
 
-    export ZCM_SPY_LITE_PATH=<full path to shared library folder>
+    export ZCM_SPY_LITE_PATH=<full path to shared library>
 
 We can now *spy* on the ZCM traffic with:
 
