@@ -21,7 +21,7 @@ The terminal-based `zcm-spy-lite` is provided for exactly that situation.
 You can view message traffic and inspect message data all in a display-less
 environment. To use `zcm-spy-lite` you need to tell it where to listen for messages
 and where it can find a shared library containing the zcmtypes you would like it to
-be able to decode. For an example on how to compile the shared library see [](## ZCM Tools Example).
+be able to decode. For an example on how to compile the shared library see the example further down.
 
 
 
