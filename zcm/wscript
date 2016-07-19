@@ -36,16 +36,23 @@ def build(ctx):
     ctx(rule   = 'tar czf ${TGT} ${SRC}',
         name   = 'embed-tar',
         source = embedSource,
-        target = 'zcm-embed.tar.gz',
+        target = 'zcm-embed-tmp.tar.gz',
         color  = "PINK",
         after  = 'zcmgitid')
+
+    ctx(rule   = package_embedded,
+        name   = 'embed-tar-finish',
+        source = 'zcm-embed-tmp.tar.gz',
+        target = 'zcm-embed.tar.gz',
+        color  = "PINK",
+        after  = 'embed-tar')
 
     ## Test the embedded export
     ctx(rule   = exec_test_embedded,
         source = 'zcm-embed.tar.gz',
         target = 'zcm-embed-tests',
         color  = "PINK",
-        after  = 'embed-tar')
+        after  = 'embed-tar-finish')
 
     ctx.install_files('${PREFIX}/include/zcm',
                       ['zcm.h', 'zcm_coretypes.h', 'transport.h', 'transport_registrar.h',
@@ -69,6 +76,36 @@ def build(ctx):
     if ctx.env.USING_CXXTEST:
         ctx.cxxtest(use = ['zcm', 'testzcmtypes'])
 
+def package_embedded(tsk):
+    gen = tsk.generator
+    bld = gen.bld
+
+    outputDir = os.path.dirname(tsk.outputs[0].abspath())
+
+    cmd = 'cd %s && tar -xaf %s' % (outputDir, tsk.inputs[0])
+    print cmd
+
+    ret = tsk.exec_command(cmd)
+    if ret is not 0:
+        raise WafError('Unable to prep files for tarball generation')
+    exit(1)
+
+    blddir = os.path.dirname(tsk.outputs[0].path_from(bld.bldnode))
+    cmd = 'mkdir -p %s/ && cd %s && tar czf -C %s zcm-embed.tar.gz %s' % \
+          (blddir, bld, ' '.join(inputs))
+    ret = tsk.exec_command(cmd)
+    if ret is not 0:
+        raise WafError('Unable to prep files for tarball generation')
+    exit(1)
+    inputs = [a.path_from(bld.bldnode) for a in tsk.inputs]
+    ret = tsk.exec_command(cmd)
+    cmd = 'tar -C %s czf %s %s' % \
+          (bld.bldnode.parent.abspath(), tsk.outputs[0].relpath(), ' '.join(inputs))
+    ret = tsk.exec_command(cmd)
+    if ret is not 0:
+        raise WafError('Unable to package up embedded tarball')
+    return ret
+
 def exec_test_embedded(tsk):
     src = tsk.inputs[0].abspath()
     blddir =  os.path.dirname(src)
@@ -77,8 +114,6 @@ def exec_test_embedded(tsk):
                             'cc -std=c89 -I. -DZCM_EMBEDDED -c zcm/*.c && ' \
                             'echo "embed passed" > {2}' \
                             .format(testdir, src, tsk.outputs[0].abspath()))
-
     if ret is not 0:
         raise WafError('Embedded build failed, check embedded core files for C89 compliance')
-
     return ret
