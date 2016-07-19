@@ -58,6 +58,32 @@ packages. It should be noted that JNI sometimes needs `$JAVA_HOME` to be manuall
 
 At this point you should be able to start exploring ZCM. Check out the [Tutorial](tutorial.md).
 
+## Examples
+
+As the examples covers all aspects of ZCM, building them requires the installed ZCM
+libraries to have been configured with `--use-all`, as done above.
+Before the examples can be build, some environmental variables needs to be set.
+The easiest way is to enter the examples folder and use:
+
+    source ./env
+
+Now use Waf as before to build the examples
+
+    ./waf configure && ./waf build
+
+You can now run the examples located inside the build folder.
+Try to run this inside one shell
+
+    build/cpp/sub
+
+And in another shell
+
+    build/cpp/pub
+
+The first shell should now start to print out the messages received.
+For a guide on how to use the ZCM tooling to monitor, log and playback the messages
+checkout the [Tools guide](tools.md)
+
 ## Advanced Build Options
 
 As mentioned earlier, we can pick-and-choice the dependencies and features we desire.
