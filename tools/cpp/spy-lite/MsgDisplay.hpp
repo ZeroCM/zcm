@@ -1,6 +1,6 @@
 #pragma once
-#include "Common.hpp"
-#include "TypeDb.hpp"
+#include "util/TypeDb.hpp"
+#include "util/Common.hpp"
 
 #define MSG_DISPLAY_RECUR_MAX 64
 struct MsgDisplayState

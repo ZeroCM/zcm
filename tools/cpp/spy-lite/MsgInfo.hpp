@@ -1,6 +1,6 @@
 #pragma once
-#include "Common.hpp"
-#include "TypeDb.hpp"
+#include "util/Common.hpp"
+#include "util/TypeDb.hpp"
 #include "ExpiringQueue.hpp"
 #include "MsgDisplay.hpp"
 

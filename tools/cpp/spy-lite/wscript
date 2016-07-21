@@ -3,6 +3,6 @@
 
 def build(ctx):
     ctx.program(target = 'zcm-spy-lite',
-                use = ['default', 'zcm'],
+                use = ['default', 'zcm', 'zcm_tools_util'],
                 lib = 'dl',
                 source = ctx.path.ant_glob('*.cpp'))
