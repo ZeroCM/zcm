@@ -1,6 +1,13 @@
 #include "TypeDb.hpp"
 #include "SymtabElf.hpp"
 
+#include <dlfcn.h>
+#include <inttypes.h>
+
+#include "util/StringUtil.hpp"
+
+using namespace std;
+
 #define DEBUG(...) do {\
     if (this->debug) printf(__VA_ARGS__);\
   } while(0)
@@ -9,6 +16,16 @@
     fprintf(stderr, "Err: ");\
     fprintf(stderr, __VA_ARGS__);\
   } while(0)
+
+template<class K, class V>
+static inline V *lookup(std::unordered_map<K,V>& map, const K& key)
+{
+    auto it = map.find(key);
+    if (it == map.end())
+        return NULL;
+    else
+        return &it->second;
+}
 
 static void *openlib(const string& libname)
 {
@@ -165,14 +182,14 @@ TypeDb::TypeDb(const string& paths, bool debug)
     }
 }
 
-const TypeMetadata *TypeDb::getByHash(i64 hash)
+const TypeMetadata *TypeDb::getByHash(int64_t hash)
 {
     return lookup(hashToType, hash);
 }
 
 const TypeMetadata *TypeDb::getByName(const string& name)
 {
-    if (i64 *hash = lookup(nameToHash, name)) {
+    if (int64_t *hash = lookup(nameToHash, name)) {
         return getByHash(*hash);
     } else {
         return NULL;

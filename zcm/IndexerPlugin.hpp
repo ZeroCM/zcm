@@ -3,6 +3,9 @@
 #include <string>
 #include <vector>
 
+#include "zcm/zcm-cpp.hpp"
+#include "zcm/json/json.h"
+
 // Remember you must inherit from this class but implement your functions
 // inside a c file. That way you can then compile a shared library of your
 // plugins
@@ -30,8 +33,8 @@ class IndexerPlugin
     // return true if this plugin's lessThan function is valid
     virtual bool sorted() const;
     // return true if "a" should come before "b" in the sorted list
-    virtual bool lessThan(int64_t hash, const char* a, int32_t aLen,
-                                        const char* b, int32_t bLen) const;
+    virtual bool lessThan(off_t a, off_t b, zcm::LogFile& log,
+                          const Json::Value& index) const;
 };
 
 }

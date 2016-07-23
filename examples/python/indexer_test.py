@@ -11,11 +11,12 @@ msg.timestamp = 10
 event = LogEvent()
 event.setTimestamp (1)
 event.setChannel   ("test channel")
-event.setData      (msg.encode())
 
 log = LogFile('testlog.log', 'w')
 i = 0
 while i < 100:
+    msg.position[0] = i
+    event.setData(msg.encode())
     log.writeEvent(event)
     i = i + 1
 log.close()
@@ -24,6 +25,8 @@ log = LogFile('testlog.log', 'r')
 i = 0
 evt = log.readNextEvent()
 while evt:
+    msg.position[0] = i
+    event.setData(msg.encode())
     assert evt.getEventnum() == i, "Event nums dont match"
     assert evt.getTimestamp() == event.getTimestamp(), "Timestamps dont match"
     assert evt.getChannel() == event.getChannel(), "Channels dont match"
@@ -34,6 +37,8 @@ while evt:
 evt = log.readPrevEvent()
 while evt:
     i = i - 1
+    msg.position[0] = i
+    event.setData(msg.encode())
     assert evt.getEventnum() == i, "Event nums dont match"
     assert evt.getTimestamp() == event.getTimestamp(), "Timestamps dont match"
     assert evt.getChannel() == event.getChannel(), "Channels dont match"
@@ -41,11 +46,9 @@ while evt:
     evt = log.readPrevEvent()
 
 from subprocess import call
-cmd = ["zcm-log-indexer", "-ltestlog.log", "-otestlog.dbz",
+call(["zcm-log-indexer", "-ltestlog.log", "-otestlog.dbz",
       "-t../build/types/libexamplezcmtypes.so",
-      "-p../build/cpp/libexample-indexer-plugin.so", "-r"]
-print ' '.join(cmd)
-call(cmd)
+      "-p../build/cpp/libexample-indexer-plugin.so", "-r"])
 
 import json
 from pprint import pprint
@@ -55,6 +58,8 @@ with open('testlog.dbz') as indexFile:
 
 i = 0
 while i < 100:
+    msg.position[0] = i
+    event.setData(msg.encode())
     evt = log.readEventOffset(int(index['timestamp'][event.getChannel()][type(msg).__name__][i]))
     assert evt.getEventnum() == i, "Event nums dont match"
     assert evt.getTimestamp() == event.getTimestamp(), "Timestamps dont match"
@@ -64,6 +69,8 @@ while i < 100:
 
 i = 0
 while i < 100:
+    msg.position[0] = i
+    event.setData(msg.encode())
     evt = log.readEventOffset(int(index['custom plugin'][event.getChannel()][type(msg).__name__][i]))
     assert evt.getEventnum() == i, "Event nums dont match"
     assert evt.getTimestamp() == event.getTimestamp(), "Timestamps dont match"

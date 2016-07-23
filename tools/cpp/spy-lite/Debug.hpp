@@ -1,5 +1,5 @@
 #pragma once
-#include "util/Common.hpp"
+#include "Common.hpp"
 
 #define DEBUG_LEVEL 2  /* 0=nothing, higher values mean more verbosity */
 #define DEBUG_FILENAME "/tmp/spy-lite-debug.log"

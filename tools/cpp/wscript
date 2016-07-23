@@ -3,7 +3,6 @@
 
 def build(ctx):
     ctx.env.INCLUDES_zcm_tools = [ctx.path.abspath()]
-    ctx.recurse('util');
     ctx.recurse('logger');
     ctx.recurse('logplayer');
     ctx.recurse('bridge');

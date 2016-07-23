@@ -1,5 +1,9 @@
 #pragma once
-#include "Common.hpp"
+
+#include <cstdio>
+#include <cstdint>
+#include <cassert>
+#include <string>
 
 struct SymtabElf
 {
@@ -7,7 +11,7 @@ struct SymtabElf
     ~SymtabElf();
 
     bool good() { return f != NULL; }
-    bool getNext(string& s);
+    bool getNext(std::string& s);
 
 private:
     bool getNextChar(char& c);

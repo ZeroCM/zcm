@@ -1,4 +1,5 @@
 #include <cassert>
+#include <iostream>
 
 #include <zcm/IndexerPlugin.hpp>
 
@@ -21,8 +22,8 @@ class CustomIndexerPlugin : zcm::IndexerPlugin
                                             const char* data,
                                             int32_t datalen) const override;
     bool sorted() const override;
-    bool lessThan(int64_t hash, const char* a, int32_t aLen,
-                                const char* b, int32_t bLen) const override;
+    bool lessThan(off_t a, off_t b, zcm::LogFile& log,
+                  const Json::Value& index) const override;
 };
 
 zcm::IndexerPlugin* CustomIndexerPlugin::makeIndexerPlugin()
@@ -53,11 +54,18 @@ std::vector<std::string> CustomIndexerPlugin::includeInIndex(std::string channel
 bool CustomIndexerPlugin::sorted() const
 { return true; }
 
-bool CustomIndexerPlugin::lessThan(int64_t hash, const char* a, int32_t aLen,
-                                                 const char* b, int32_t bLen) const
+bool CustomIndexerPlugin::lessThan(off_t a, off_t b, zcm::LogFile& log,
+                                   const Json::Value& index) const
 {
     example_t msgA, msgB;
-    assert(msgA.decode(a, 0, aLen));
-    assert(msgB.decode(b, 0, bLen));
-    return msgA.position[0] >= msgB.position[0];
+
+    const zcm::LogEvent* evtA = log.readEventAtOffset(a);
+    assert(evtA);
+    assert(msgA.decode(evtA->data, 0, evtA->datalen));
+
+    const zcm::LogEvent* evtB = log.readEventAtOffset(b);
+    assert(evtB);
+    assert(msgB.decode(evtB->data, 0, evtB->datalen));
+
+    return msgA.position[0] < msgB.position[0];
 }

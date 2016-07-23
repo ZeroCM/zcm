@@ -1,10 +1,14 @@
-#include "IndexerPluginDb.hpp"
-#include "util/SymtabElf.hpp"
-
+#include <cstring>
 #include <algorithm>
 #include <memory>
 #include <cxxabi.h>
 #include <typeinfo>
+#include <dlfcn.h>
+
+#include "zcm/util/SymtabElf.hpp"
+#include "util/StringUtil.hpp"
+
+#include "IndexerPluginDb.hpp"
 
 #define DEBUG(...) do {\
     if (this->debug) printf(__VA_ARGS__);\
@@ -14,6 +18,8 @@
     fprintf(stderr, "Err: ");\
     fprintf(stderr, __VA_ARGS__);\
   } while(0)
+
+using namespace std;
 
 static inline std::string demangle(std::string name)
 {

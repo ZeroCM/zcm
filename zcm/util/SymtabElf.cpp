@@ -35,7 +35,7 @@ static inline int firstIdentChar(uint8_t ch)
 // a very crude symbol extraction method
 // we simply search for byte sequences that look like valid
 // C language identifiers
-bool SymtabElf::getNext(string& s)
+bool SymtabElf::getNext(std::string& s)
 {
     s.clear();
 

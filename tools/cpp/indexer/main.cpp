@@ -1,13 +1,14 @@
 #include <iostream>
 #include <fstream>
 #include <getopt.h>
+#include <algorithm>
+#include <memory>
 
 #include <zcm/zcm-cpp.hpp>
 
-#include "util/json/json.h"
+#include "zcm/json/json.h"
 
-#include "util/Common.hpp"
-#include "util/TypeDb.hpp"
+#include "zcm/util/TypeDb.hpp"
 
 #include "IndexerPluginDb.hpp"
 
@@ -189,7 +190,6 @@ int main(int argc, char* argv[])
     struct SortingInfo {
         vector<off_t> offsets;
         const zcm::IndexerPlugin* plugin;
-        int64_t hash;
     };
 
     unordered_map<Json::Value*, SortingInfo> needSorting;
@@ -232,7 +232,7 @@ int main(int argc, char* argv[])
                 if (needSorting.count(currIndex))
                     needSorting[currIndex].offsets.push_back(offset);
                 else
-                    needSorting[currIndex] = SortingInfo{{offset}, p, msg_hash};
+                    needSorting[currIndex] = SortingInfo{{offset}, p};
                 numEvents++;
             }
 
@@ -243,12 +243,13 @@ int main(int argc, char* argv[])
         for (auto& s : needSorting) {
             cout << "sorting " << s.second.plugin->name() << endl;
             auto comparator = [&](off_t a, off_t b) {
-                const zcm::LogEvent* evtA = log.readEventAtOffset(a);
-                const zcm::LogEvent* evtB = log.readEventAtOffset(b);
-                assert(evtA && "Should not be able to get here");
-                assert(evtB && "Should not be able to get here");
-                return s.second.plugin->lessThan(s.second.hash, evtA->data, evtA->datalen,
-                                                                evtB->data, evtB->datalen);
+                if (a < 0 || b < 0 || a > logSize || b > logSize) {
+                    cerr << "Sorting has failed. "
+                         << "Your sorting function is probably broken. "
+                         << "Aborting." << endl;
+                    exit(1);
+                }
+                return s.second.plugin->lessThan(a, b, log, index);
             };
             if (s.second.plugin->sorted())
                 std::sort(s.second.offsets.begin(), s.second.offsets.end(), comparator);

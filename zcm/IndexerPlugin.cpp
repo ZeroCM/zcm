@@ -41,6 +41,6 @@ std::vector<std::string> IndexerPlugin::includeInIndex(std::string channel,
 bool IndexerPlugin::sorted() const
 { return false; }
 
-bool IndexerPlugin::lessThan(int64_t hash, const char* a, int32_t aLen,
-                                           const char* b, int32_t bLen) const
+bool IndexerPlugin::lessThan(off_t a, off_t b, zcm::LogFile& log,
+                             const Json::Value& index) const
 { return false; }
