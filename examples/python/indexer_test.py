@@ -69,10 +69,10 @@ while i < 100:
 
 i = 0
 while i < 100:
-    msg.position[0] = i
+    msg.position[0] = 100 - i - 1
     event.setData(msg.encode())
     evt = log.readEventOffset(int(index['custom plugin'][event.getChannel()][type(msg).__name__][i]))
-    assert evt.getEventnum() == i, "Event nums dont match"
+    assert evt.getEventnum() == 100 - i - 1, "Event nums dont match"
     assert evt.getTimestamp() == event.getTimestamp(), "Timestamps dont match"
     assert evt.getChannel() == event.getChannel(), "Channels dont match"
     assert evt.getData() == event.getData(), "Data doesn't match"

@@ -67,5 +67,5 @@ bool CustomIndexerPlugin::lessThan(off_t a, off_t b, zcm::LogFile& log,
     assert(evtB);
     assert(msgB.decode(evtB->data, 0, evtB->datalen));
 
-    return msgA.position[0] < msgB.position[0];
+    return msgA.position[0] > msgB.position[0];
 }
