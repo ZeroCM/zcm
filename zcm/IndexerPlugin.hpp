@@ -27,6 +27,8 @@ class IndexerPlugin
                                                     int64_t hash,
                                                     const char* data,
                                                     int32_t datalen) const;
+    // return true if this plugin's lessThan function is valid
+    virtual bool sorted() const;
     // return true if "a" should come before "b" in the sorted list
     virtual bool lessThan(int64_t hash, const char* a, int32_t aLen,
                                         const char* b, int32_t bLen) const;

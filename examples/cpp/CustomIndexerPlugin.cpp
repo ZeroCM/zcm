@@ -20,6 +20,7 @@ class CustomIndexerPlugin : zcm::IndexerPlugin
                                             int64_t hash,
                                             const char* data,
                                             int32_t datalen) const override;
+    bool sorted() const override;
     bool lessThan(int64_t hash, const char* a, int32_t aLen,
                                 const char* b, int32_t bLen) const override;
 };
@@ -48,6 +49,9 @@ std::vector<std::string> CustomIndexerPlugin::includeInIndex(std::string channel
     // if (typeName != "example_t") return {};
     return {channel, typeName};
 }
+
+bool CustomIndexerPlugin::sorted() const
+{ return true; }
 
 bool CustomIndexerPlugin::lessThan(int64_t hash, const char* a, int32_t aLen,
                                                  const char* b, int32_t bLen) const

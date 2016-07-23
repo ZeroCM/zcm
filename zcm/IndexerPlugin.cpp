@@ -38,7 +38,9 @@ std::vector<std::string> IndexerPlugin::includeInIndex(std::string channel,
                                                        int32_t datalen) const
 { return {channel, typeName}; }
 
-// This will enforce the order in which they are given to this function
+bool IndexerPlugin::sorted() const
+{ return false; }
+
 bool IndexerPlugin::lessThan(int64_t hash, const char* a, int32_t aLen,
                                            const char* b, int32_t bLen) const
 { return false; }

@@ -41,8 +41,11 @@ while evt:
     evt = log.readPrevEvent()
 
 from subprocess import call
-call(["zcm-log-indexer", "-ltestlog.log", "-otestlog.dbz",
-      "-t../build/types/libexamplezcmtypes.so", "-r"])
+cmd = ["zcm-log-indexer", "-ltestlog.log", "-otestlog.dbz",
+      "-t../build/types/libexamplezcmtypes.so",
+      "-p../build/cpp/libexample-indexer-plugin.so", "-r"]
+print ' '.join(cmd)
+call(cmd)
 
 import json
 from pprint import pprint
@@ -52,7 +55,16 @@ with open('testlog.dbz') as indexFile:
 
 i = 0
 while i < 100:
-    evt = log.readEventOffset(int(index[event.getChannel()][type(msg).__name__]['timestamp'][i]))
+    evt = log.readEventOffset(int(index['timestamp'][event.getChannel()][type(msg).__name__][i]))
+    assert evt.getEventnum() == i, "Event nums dont match"
+    assert evt.getTimestamp() == event.getTimestamp(), "Timestamps dont match"
+    assert evt.getChannel() == event.getChannel(), "Channels dont match"
+    assert evt.getData() == event.getData(), "Data doesn't match"
+    i = i + 1
+
+i = 0
+while i < 100:
+    evt = log.readEventOffset(int(index['custom plugin'][event.getChannel()][type(msg).__name__][i]))
     assert evt.getEventnum() == i, "Event nums dont match"
     assert evt.getTimestamp() == event.getTimestamp(), "Timestamps dont match"
     assert evt.getChannel() == event.getChannel(), "Channels dont match"
