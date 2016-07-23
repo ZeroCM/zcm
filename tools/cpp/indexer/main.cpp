@@ -84,7 +84,7 @@ static void usage()
          << "    allows for faster log indexing." << endl
          << "" << endl
          << "Example:" << endl
-         << "    zcm-log-indexer -u udpm://239.255.76.67:7667 -t path/to/zcmtypes.so" << endl
+         << "    zcm-log-indexer -l zcm.log -o index.dbz -t path/to/zcmtypes.so" << endl
          << "" << endl
          << "Options:" << endl
          << "" << endl

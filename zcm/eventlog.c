@@ -186,14 +186,21 @@ static zcm_eventlog_event_t *zcm_event_read_helper(zcm_eventlog_t *l, int rewind
     return le;
 }
 
+zcm_eventlog_event_t *zcm_eventlog_read_next_event(zcm_eventlog_t *l)
+{
+    if (sync_stream(l)) return NULL;
+    return zcm_event_read_helper(l, 0);
+}
+
 zcm_eventlog_event_t *zcm_eventlog_read_prev_event(zcm_eventlog_t *l)
 {
     if (sync_stream_backwards(l) < 0) return NULL;
     return zcm_event_read_helper(l, 1);
 }
 
-zcm_eventlog_event_t *zcm_eventlog_read_next_event(zcm_eventlog_t *l)
+zcm_eventlog_event_t *zcm_eventlog_read_event_at_offset(zcm_eventlog_t *l, off_t offset)
 {
+    fseeko(l->f, offset, SEEK_SET);
     if (sync_stream(l)) return NULL;
     return zcm_event_read_helper(l, 0);
 }
