@@ -134,6 +134,7 @@ struct LogFile
     inline LogFile(const std::string& path, const std::string& mode);
     inline ~LogFile();
     inline bool good() const;
+    inline void close();
 
     /**** Methods general operations ****/
     inline int seekToTimestamp(int64_t timestamp);

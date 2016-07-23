@@ -346,7 +346,7 @@ struct Args
         struct option long_opts[] = {
             { "help", no_argument, 0, 'h' },
             { "zcm-url", required_argument, 0, 'u' },
-            { "zcmtypes-path", required_argument, 0, 'p' },
+            { "type-path", required_argument, 0, 'p' },
             { "debug", no_argument, 0, 'd' },
             { 0, 0, 0, 0 }
         };

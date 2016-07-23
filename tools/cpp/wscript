@@ -10,3 +10,4 @@ def build(ctx):
     ctx.recurse('repeater');
     ctx.recurse('spy-lite');
     ctx.recurse('spy-peek');
+    ctx.recurse('indexer');
