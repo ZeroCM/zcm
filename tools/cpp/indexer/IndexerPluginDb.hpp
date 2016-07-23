@@ -1,6 +1,6 @@
 #pragma once
 #include "util/Common.hpp"
-#include "IndexerPlugin.hpp"
+#include "zcm/IndexerPlugin.hpp"
 
 struct IndexerPluginMetadata
 {

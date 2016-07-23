@@ -114,7 +114,6 @@ int main(int argc, char* argv[])
     }
     fseeko(log.getFilePtr(), 0, SEEK_END);
     off_t logSize = ftello(log.getFilePtr());
-    fseeko(log.getFilePtr(), 0, SEEK_SET);
 
     ofstream output;
     output.open(args.output);
@@ -137,39 +136,123 @@ int main(int argc, char* argv[])
         plugins.insert(plugins.end(), dbPlugins.begin(), dbPlugins.end());
     }
 
+    auto buildPluginGroups = [] (vector<const zcm::IndexerPlugin*> plugins) {
+        vector<vector<const zcm::IndexerPlugin*>> groups;
+        vector<const zcm::IndexerPlugin*> lastLoop = plugins;
+        while (!plugins.empty()) {
+            groups.resize(groups.size() + 1);
+            for (auto p = plugins.begin(); p != plugins.end();) {
+                vector<string> deps = (*p)->dependencies();
+
+                bool skipUntilLater = false;
+                for (auto* dep : plugins) {
+                    if (find(deps.begin(), deps.end(), dep->name()) != deps.end()) {
+                        skipUntilLater = true;
+                        break;
+                    }
+                }
+                for (auto* dep : groups.back()) {
+                    if (find(deps.begin(), deps.end(), dep->name()) != deps.end()) {
+                        skipUntilLater = true;
+                        break;
+                    }
+                }
+                if (!skipUntilLater) {
+                    groups.back().push_back(*p);
+                    p = plugins.erase(p);
+                    if (p == plugins.end()) break;
+                } else {
+                    ++p;
+                }
+            }
+            if (plugins == lastLoop) {
+                cerr << "Unable to resolve all plugin dependencies" << endl;
+                exit(1);
+            }
+            lastLoop = plugins;
+        }
+        return groups;
+    };
+
+    vector<vector<const zcm::IndexerPlugin*>> pluginGroups;
+    pluginGroups = buildPluginGroups(plugins);
+    if (pluginGroups.size() > 1) {
+        cout << "Identified " << pluginGroups.size() << " indexer plugin groups" << endl
+             << "Running through log " << pluginGroups.size()
+             << " times to satisfy dependencies" << endl;
+    }
+
     TypeDb types(args.type_path, args.debug);
 
     Json::Value index;
 
+    struct SortingInfo {
+        vector<off_t> offsets;
+        const zcm::IndexerPlugin* plugin;
+        int64_t hash;
+    };
+
+    unordered_map<Json::Value*, SortingInfo> needSorting;
+
     size_t numEvents = 1;
-    off_t offset = 0;
     const zcm::LogEvent* evt;
-    while (1) {
-        offset = ftello(log.getFilePtr());
+    for (size_t i = 0; i < pluginGroups.size(); ++i) {
+        if (pluginGroups.size() != 1) cout << "Plugin group " << (i + 1) << endl;
+        off_t offset = 0;
+        fseeko(log.getFilePtr(), 0, SEEK_SET);
+        while (1) {
+            offset = ftello(log.getFilePtr());
 
-        static int lastPrintPercent = 0;
-        int percent = (100.0 * offset / logSize) * 100;
-        if (percent != lastPrintPercent) {
-            cout << "\r" << "Percent Complete: " << (percent / 100) << flush;
-            lastPrintPercent = percent;
+            static int lastPrintPercent = 0;
+            int percent = (100.0 * offset / logSize) * 100;
+            if (percent != lastPrintPercent) {
+                cout << "\r" << "Percent Complete: " << (percent / 100) << flush;
+                lastPrintPercent = percent;
+            }
+
+            evt = log.readNextEvent();
+            if (evt == nullptr) break;
+
+            int64_t msg_hash;
+            __int64_t_decode_array(evt->data, 0, 8, &msg_hash, 1);
+            const TypeMetadata* md = types.getByHash(msg_hash);
+            if (!md) continue;
+
+            for (auto* p : pluginGroups[i]) {
+                assert(p);
+                vector<string> indexName = p->includeInIndex(evt->channel, md->name,
+                                                             (uint64_t) msg_hash,
+                                                             evt->data, evt->datalen);
+                if (indexName.size() == 0) continue;
+
+                Json::Value* currIndex = &index[p->name()];
+                for (size_t j = 0; j < indexName.size(); ++j) {
+                    currIndex = &(*currIndex)[indexName[j]];
+                }
+                if (needSorting.count(currIndex))
+                    needSorting[currIndex].offsets.push_back(offset);
+                else
+                    needSorting[currIndex] = SortingInfo{{offset}, p, msg_hash};
+                numEvents++;
+            }
+
         }
 
-        evt = log.readNextEvent();
-        if (evt == nullptr) break;
+        cout << endl;
 
-        int64_t msg_hash;
-        __int64_t_decode_array(evt->data, 0, 8, &msg_hash, 1);
-        const TypeMetadata* md = types.getByHash(msg_hash);
-        if (!md) continue;
-
-        for (auto* p : plugins) {
-            assert(p);
-            index[evt->channel][md->name][p->name()].append(to_string(offset));
+        for (auto s : needSorting) {
+            cout << "sorting " << s.second.plugin->name() << endl;
+            auto comparator = [&](off_t a, off_t b) {
+                const zcm::LogEvent* evtA = log.readEventAtOffset(a);
+                const zcm::LogEvent* evtB = log.readEventAtOffset(b);
+                return s.second.plugin->lessThan(s.second.hash, evtA->data, evtA->datalen,
+                                                                evtB->data, evtB->datalen);
+            };
+            std::sort(s.second.offsets.begin(), s.second.offsets.end(), comparator);
+            for (auto val : s.second.offsets) (*s.first).append(to_string(val));
+            needSorting.erase(s.first);
         }
-
-        numEvents++;
     }
-    cout << endl;
 
     delete defaultPlugin;
     defaultPlugin = nullptr;

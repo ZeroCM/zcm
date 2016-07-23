@@ -144,6 +144,7 @@ struct LogFile
     // NOTE: user should NOT hold-onto the returned ptr across successive calls
     inline const LogEvent* readNextEvent();
     inline const LogEvent* readPrevEvent();
+    inline const LogEvent* readEventAtOffset(off_t offset);
     inline int writeEvent(LogEvent* event);
 
   private:

@@ -30,4 +30,8 @@ def build(ctx):
                 use = 'default zcm examplezcmtypes_cpp',
                 source = 'MessageTrackerTest.cpp')
 
+    ctx.shlib(target = 'example-indexer-plugin',
+              use    = ['default', 'zcm', 'examplezcmtypes_cpp'],
+              source = 'CustomIndexerPlugin.cpp')
+
     ctx.recurse('transport')

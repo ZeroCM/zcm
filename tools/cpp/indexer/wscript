@@ -2,11 +2,6 @@
 # encoding: utf-8
 
 def build(ctx):
-    ctx.shlib(target = 'indexer-plugin',
-              use    = ['default', 'zcm'],
-              lib    = 'dl',
-              source = ctx.path.ant_glob('IndexerPlugin.cpp'))
-
     ctx.program(target = 'zcm-log-indexer',
                 use    = ['default', 'zcm', 'zcm_tools_util', 'jsoncpp'],
                 lib    = 'dl',

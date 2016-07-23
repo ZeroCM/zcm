@@ -27,11 +27,18 @@ IndexerPlugin::~IndexerPlugin()
 std::string IndexerPlugin::name() const
 { return "timestamp"; }
 
+std::vector<std::string> IndexerPlugin::dependencies() const
+{ return {""}; }
+
 // Index every message according to timestamp
-bool IndexerPlugin::includeInIndex(std::string channel, int64_t hash) const
-{ return true; }
+std::vector<std::string> IndexerPlugin::includeInIndex(std::string channel,
+                                                       std::string typeName,
+                                                       int64_t hash,
+                                                       const char* data,
+                                                       int32_t datalen) const
+{ return {channel, typeName}; }
 
 // This will enforce the order in which they are given to this function
-bool IndexerPlugin::lessThan(int64_t hash, uint8_t* a, size_t aLen,
-                                           uint8_t* b, size_t bLen) const
-{ return true; }
+bool IndexerPlugin::lessThan(int64_t hash, const char* a, int32_t aLen,
+                                           const char* b, int32_t bLen) const
+{ return false; }

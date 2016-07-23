@@ -69,7 +69,7 @@ bool IndexerPluginDb::findPlugins(const string& libname)
     string s;
     while (stbl.getNext(s)) {
         string demangled = demangle(s);
-        //DEBUG("Symbol: %s\n", s.c_str());
+        //DEBUG("Symbol: %s\n", demangled.c_str());
         if (!StringUtil::endswith(demangled, method))
             continue;
 
