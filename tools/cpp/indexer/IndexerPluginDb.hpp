@@ -1,0 +1,26 @@
+#pragma once
+#include "util/Common.hpp"
+#include "IndexerPlugin.hpp"
+
+struct IndexerPluginMetadata
+{
+    std::string className;
+    zcm::IndexerPlugin* (*makeIndexerPlugin)(void);
+    inline bool operator==(const IndexerPluginMetadata& o)
+    { return className == o.className; }
+};
+
+class IndexerPluginDb
+{
+  public:
+    IndexerPluginDb(const std::string& paths, bool debug = false);
+    ~IndexerPluginDb();
+    std::vector<const zcm::IndexerPlugin*> getPlugins();
+
+  private:
+    bool findPlugins(const std::string& libname);
+    bool debug;
+    std::vector<IndexerPluginMetadata> pluginMeta;
+    std::vector<zcm::IndexerPlugin*> plugins;
+    std::vector<const zcm::IndexerPlugin*> constPlugins;
+};
