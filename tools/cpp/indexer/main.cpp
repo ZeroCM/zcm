@@ -229,7 +229,6 @@ int main(int argc, char* argv[])
                 for (size_t j = 0; j < indexName.size(); ++j) {
                     currIndex = &(*currIndex)[indexName[j]];
                 }
-                cout << endl << offset << endl;
                 if (needSorting.count(currIndex))
                     needSorting[currIndex].offsets.push_back(offset);
                 else
@@ -244,7 +243,6 @@ int main(int argc, char* argv[])
         for (auto& s : needSorting) {
             cout << "sorting " << s.second.plugin->name() << endl;
             auto comparator = [&](off_t a, off_t b) {
-                cout << "a: " << a << "\t b: " << b << endl;
                 const zcm::LogEvent* evtA = log.readEventAtOffset(a);
                 const zcm::LogEvent* evtB = log.readEventAtOffset(b);
                 assert(evtA && "Should not be able to get here");
