@@ -221,9 +221,11 @@ team is analyzing thousands of logs that are each gigabytes large?
 Time and space become of the essence.
 
 Let's go back to the previous example. However this time, instead of extracting the
-images with the desired characteristics from the log, let's just save their byte
-offset from the start of the log. That way when we pair the offset information
-with the log itself, we have the ability to directly jump to specific events in the log.
+whole image messages with the desired characteristics from the log, let's just save
+their index in the log. Think of a log as a giant array of events. If we want to
+remember that event number 46 is of importance, we store the number 46 in our index file.
+When we pair the index information with the log itself, we have the ability to
+directly jump to specific events in the log.
 
 This is where `zcm-log-indexer` comes in.
 `zcm-log-indexer` implements the code that opens the log, filters and
@@ -234,10 +236,10 @@ An interface is exposed so you can provide "plugins" to the indexer tool that
 specify other ways you'd like logs to be indexed. Take a look at
 `zcm/IndexerPlugin.hpp` for the plugin interface and for an example custom plugin.
 
-If you're still confused as to exactly how to use the tool, good.
-Head on over to the `examples` part of the repo and take a look at how to make
-a custom plugin in `examples/cpp/CustomIndexerPlugin.cpp` and then how to use it
-to quickly traverse logs in examples/python/indexer\_test.py`
+If you're still confused as to exactly how to use the tool, that's expected.
+Head on over to the `examples` part of the repo and take a look at a custom plugin
+in `examples/cpp/CustomIndexerPlugin.cpp` and then how to use it to quickly
+traverse logs in `examples/python/indexer\_test.py`
 
 Just like `zcm-spy-lite` above, you just compile a shared library and pass it
 to the tool via a command line argument. You can also use the environment
