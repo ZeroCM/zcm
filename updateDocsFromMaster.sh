@@ -18,8 +18,16 @@ mkdir -p __tmp/docs
 rm -rf __tmp/docs/*
 
 markdown README.md > __tmp/docs/index.html
-for doc in `ls docs/*`; do
-    markdown $doc > __tmp/${doc%.md}.html
+for doc in `find docs/* -type f`; do
+    docDir=`dirname $doc`
+    mkdir -p __tmp/$docDir
+    if [[ $doc == *.md ]]; then
+        markdown $doc > __tmp/${doc%.md}.html
+    elif [[ $doc == *.html ]]; then
+        cp $doc __tmp/$doc
+    else
+        echo "Unrecognized doc type: $doc"
+    fi
 done
 
 git checkout gh-pages >> /dev/null 2>&1
@@ -70,15 +78,19 @@ getFooter()
 
 mkdir -p __tmp/newDocs
 
-for doc in `ls __tmp/docs/`; do
+for fullDoc in `find __tmp/docs/* -type f`; do
+    doc=${fullDoc#__tmp/docs/}
+    echo $doc
     newDoc="__tmp/newDocs/$doc"
     if [ "$doc" == "index.html" ]; then
         header=$(getHeader "" "Zcm by ZeroCM")
     else
         header=$(getHeader "../" "${doc%.html}")
     fi
+    newDocDir=`dirname $newDoc`
+    mkdir -p $newDocDir
     echo "$header" > $newDoc && \
-    cat __tmp/docs/$doc >> $newDoc && \
+    cat $fullDoc >> $newDoc && \
     cat javascripts/googleAnalytics.js >> $newDoc && \
     footer=$(getFooter)
     echo "$footer" >> $newDoc && \
@@ -87,7 +99,8 @@ for doc in `ls __tmp/docs/`; do
 done
 
 mv __tmp/newDocs/index.html .
-mv __tmp/newDocs/* docs/
-git add --all docs/*
+# Move newDocs to docs (merging)
+(cd __tmp/newDocs && tar c .) | (cd docs && tar xf -)
+#git add --all docs/*
 rm -rf __tmp
 echo "Updated!"
