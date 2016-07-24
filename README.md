@@ -41,6 +41,7 @@ To learn how you can contribute to this project, check out [Contributing](docs/c
  - [Tutorial](docs/tutorial.md)
  - [From LCM to ZCM](docs/lcm_to_zcm.md)
  - [ZCM Type System](docs/zcmtypesys.md)
+ - [ZCM Tools](docs/tools.md)
  - [Transport Layer](docs/transports.md)
  - [Embedded Applications](docs/embedded.md)
  - Web Applications (coming soon)
