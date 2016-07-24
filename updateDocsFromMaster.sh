@@ -1,5 +1,4 @@
 #!/bin/bash
-
 SOURCE="${BASH_SOURCE[0]}"
 while [ -h "$SOURCE" ]; do # resolve $SOURCE until the file is no longer a symlink
   DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
@@ -8,11 +7,13 @@ while [ -h "$SOURCE" ]; do # resolve $SOURCE until the file is no longer a symli
 done
 DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
 
+branch=master
+
 cd $DIR
 
 git stash >> /dev/null 2>&1
 stashRet=`echo $?`
-git co master >> /dev/null 2>&1
+git co $branch >> /dev/null 2>&1
 rm -rf __tmp
 mkdir -p __tmp/docs
 rm -rf __tmp/docs/*
