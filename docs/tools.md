@@ -226,17 +226,20 @@ offset from the start of the log. That way when we pair the offset information
 with the log itself, we have the ability to directly jump to specific events in the log.
 
 This is where `zcm-log-indexer` comes in.
-`zcm-log-indexer` implements the code that opens the log, and then filters and
-sorts the content events outputting a file containing the offset index
+`zcm-log-indexer` implements the code that opens the log, filters and
+sorts the content events, and outputs a file containing the offset index
 (encoded in json format). By default, `zcm-log-indexer` outputs an index file
-that contains the offsets of each message type in the log.
-The offsets are in timestamp order.
-
+that contains the offsets of each message type in the log sorted in timestamp order.
 An interface is exposed so you can provide "plugins" to the indexer tool that
-specify other ways you'd like logs to be indexed.
-Take a look at `zcm/IndexerPlugin.hpp` for the plugin interface and
-`examples/cpp/CustomIndexerPlugin.cpp` for an example custom plugin.
+specify other ways you'd like logs to be indexed. Take a look at
+`zcm/IndexerPlugin.hpp` for the plugin interface and for an example custom plugin.
+
+If you're still confused as to exactly how to use the tool, good.
+Head on over to the `examples` part of the repo and take a look at how to make
+a custom plugin in `examples/cpp/CustomIndexerPlugin.cpp` and then how to use it
+to quickly traverse logs in examples/python/indexer\_test.py`
 
 Just like `zcm-spy-lite` above, you just compile a shared library and pass it
 to the tool via a command line argument. You can also use the environment
-variables mentioned in the `--help` section of `zcm-log-indexer` for specifying paths
+variables mentioned in the `--help` section of `zcm-log-indexer` for specifying
+your `types.so` and `plugins.so` paths
