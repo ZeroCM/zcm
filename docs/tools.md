@@ -183,3 +183,60 @@ prior logs. To do this we provide a log transcoder launched via
 
 and the TranscoderPlugin interface so you may define the mapping from old log
 to new log. This tool can even let you convert between completely different types
+
+### Indexer
+
+This tool was designed to make programmatically working with zcm logs faster.
+The purpose of this tool is best explained with an example.
+
+Let's say that you have a log taken from a submersible ROV. Included in the log are messages
+containing the beacon localization coordinates of the robot, and images the robot took
+throughout the mission.
+
+So what do you do if you want to extract all of the images that are 10m or more below the
+surface? And better yet, what if you want them to be sorted in height order?
+
+Well assuming you've gone through the tutorial, you already know how to programmatically
+subscribe to zcm traffic; you could write a quick python/java/c/c++/{insert favorite
+supported language here} program to subscribe to data and do the matching or filtering,
+compile and run your program, and then use `zcm-logplayer` to play your log back while
+your program is running.
+
+If were brave enough to dive into the code base already, you might already know about
+the zcm log support in each language, and you'd be able to write a program that opens the log
+and works with it directly (sans subscriptions). You would write a script in the language of
+your choice that opens the log and attempts to match coordinate messages to picture
+messages based on the times at which the measurements were taken. You would then filter
+out all pairs that are above 10m deep, and finally sort the data in ascending depth order.
+
+But what if you don't want to replicate information that's already stored in your log?
+Better yet, what if you're not sure what you're going to want to do with the data
+in your log? What if you're on an analytics team where each member is playing with different
+data from the log? Do you replicate the log once for each member?
+
+Sure, why not!
+
+That answer is fine while your logs are small in size and number, but what if your
+team is analyzing thousands of logs that are each gigabytes large?
+Time and space become of the essence.
+
+Let's go back to the previous example. However this time, instead of extracting the
+images with the desired characteristics from the log, let's just save their byte
+offset from the start of the log. That way when we pair the offset information
+with the log itself, we have the ability to directly jump to specific events in the log.
+
+This is where `zcm-log-indexer` comes in.
+`zcm-log-indexer` implements the code that opens the log, and then filters and
+sorts the content events outputting a file containing the offset index
+(encoded in json format). By default, `zcm-log-indexer` outputs an index file
+that contains the offsets of each message type in the log.
+The offsets are in timestamp order.
+
+An interface is exposed so you can provide "plugins" to the indexer tool that
+specify other ways you'd like logs to be indexed.
+Take a look at `zcm/IndexerPlugin.hpp` for the plugin interface and
+`examples/cpp/CustomIndexerPlugin.cpp` for an example custom plugin.
+
+Just like `zcm-spy-lite` above, you just compile a shared library and pass it
+to the tool via a command line argument. You can also use the environment
+variables mentioned in the `--help` section of `zcm-log-indexer` for specifying paths
