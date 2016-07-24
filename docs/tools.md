@@ -239,7 +239,7 @@ specify other ways you'd like logs to be indexed. Take a look at
 If you're still confused as to exactly how to use the tool, that's expected.
 Head on over to the `examples` part of the repo and take a look at a custom plugin
 in `examples/cpp/CustomIndexerPlugin.cpp` and then how to use it to quickly
-traverse logs in `examples/python/indexer\_test.py`
+traverse logs in `examples/python/indexer_test.py`
 
 Just like `zcm-spy-lite` above, you just compile a shared library and pass it
 to the tool via a command line argument. You can also use the environment
