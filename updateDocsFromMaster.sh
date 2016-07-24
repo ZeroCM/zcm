@@ -85,7 +85,13 @@ for fullDoc in `find __tmp/docs/* -type f`; do
     if [ "$doc" == "index.html" ]; then
         header=$(getHeader "" "Zcm by ZeroCM")
     else
-        header=$(getHeader "../" "${doc%.html}")
+        nSlashes=$(grep -o "\/" <<< "$doc" | wc -l)
+        dots="../"
+        while [[ nSlashes -gt 0 ]]; do
+            dots="$dots../"
+            nSlashes=$(($nSlashes-1))
+        done
+        header=$(getHeader "$dots" "${doc%.html}")
     fi
     newDocDir=`dirname $newDoc`
     mkdir -p $newDocDir
