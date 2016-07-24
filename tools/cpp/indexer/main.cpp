@@ -69,7 +69,7 @@ struct Args
             return false;
         }
 
-        const char* plugin_path_env = getenv("ZCM_LOG_INDEXER_PLUGIN_PATH");
+        const char* plugin_path_env = getenv("ZCM_LOG_INDEXER_PLUGINS_PATH");
         if (plugin_path == "" && plugin_path_env) plugin_path = plugin_path_env;
         if (plugin_path == "") cerr << "Running with default timestamp indexer plugin" << endl;
 
@@ -93,7 +93,11 @@ static void usage()
          << "  -l, --log=logfile       Input log to index for fast querying" << endl
          << "  -o, --output=indexfile  Output index file to be used with log" << endl
          << "  -p, --plugin-path=path  Path to shared library containing indexer plugins" << endl
+         << "                          Can also be specified via the environment variable" << endl
+         << "                          ZCM_LOG_INDEXER_ZCMTYPES_PATH" << endl
          << "  -t, --type-path=path    Path to shared library containing the zcmtypes" << endl
+         << "                          Can also be specified via the environment variable" << endl
+         << "                          ZCM_LOG_INDEXER_PLUGINS_PATH" << endl
          << "  -r, --readable          Don't minify the output index file. " << endl
          << "                          Leave it human readable" << endl
          << "  -d, --debug             Run a dry run to ensure proper indexer setup" << endl
