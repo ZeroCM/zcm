@@ -18,7 +18,7 @@ Have you tried running your program with `ZCM_DEBUG=1` in front of it? This enab
 
 
 
-### Why does my program freeze when i try to subscribe / unsubscribe from within a callback?
+### Why does my program freeze when I try to subscribe / unsubscribe from within a callback?
 
 Calling the subscribe / unsubscribe functions modifies the same internal data structures as
 the dispatch code reads during callbacks. Due to a lock, calling these functions from within a
