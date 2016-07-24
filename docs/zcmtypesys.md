@@ -1,8 +1,7 @@
 <a style="margin-right: 1rem;" href="javascript:history.go(-1)">Back</a>
 [Home](../README.md)
 # ZCM Type System
-<h4><i>Note: There has been a recent change to the zcm hashing system.
-       Check out the announcement <a href=announcements/hash_scheme_change.html>here</a></i></h4>
+####*Note: There has been a recent change to the zcm hashing system. Check out the announcement [here](announcements/hash_scheme_change.md)*
 
 This page describes the ZCM Type System grammar, encoding, and type hashes in very formal terms. Unless you're
 intimately concerned with the subtlties, feel free to skim this document, and refer back as reference.
