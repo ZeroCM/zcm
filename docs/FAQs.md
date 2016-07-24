@@ -16,6 +16,8 @@ Add that line to the bottom of your ~/.bashrc to make it permanent.
 
 Have you tried running your program with `ZCM_DEBUG=1` in front of it? This enables debug output from zcm which should help you diagnose your problems
 
+
+
 ### Why does my program freeze when i try to subscribe / unsubscribe from within a callback?
 
 Calling the subscribe / unsubscribe functions modifies the same internal data structures as

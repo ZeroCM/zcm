@@ -60,10 +60,12 @@ At this point you should be able to start exploring ZCM. Check out the [Tutorial
 
 ## Examples
 
-As the examples covers all aspects of ZCM, building them requires the installed ZCM
-libraries to have been configured with `--use-all`, as done above.
-Before the examples can be build, some environmental variables needs to be set.
-The easiest way is to enter the examples folder and use:
+Example source code is provided within the zcm code base.
+Since they try to touch on as many usage cases of ZCM as possible,
+building them requires the installed ZCM libraries to have been configured with
+`--use-all`, as done above. Before the examples can be built, some environmental
+variables needs to be set.
+The easiest way to set these variable is to change into the examples folder and run:
 
     source ./env
 
@@ -74,11 +76,11 @@ Now use Waf as before to build the examples
 You can now run the examples located inside the build folder.
 Try to run this inside one shell
 
-    build/cpp/sub
+    ./build/cpp/sub
 
 And in another shell
 
-    build/cpp/pub
+    ./build/cpp/pub
 
 The first shell should now start to print out the messages received.
 For a guide on how to use the ZCM tooling to monitor, log and playback the messages

@@ -143,7 +143,8 @@ see the published messages now!
     zcm-spy --zcm-url ipc
 
 Notice how you are unable to decode the messages inside of `zcm-spy`, as it does not know
-your message types. For a guide on how to do this and use the rest of the zcm tooling see [Tools](tools.md)
+your message types. For a guide on properly use zcm-spy and the rest of the zcm tooling see
+[Tools](tools.md)
 
 ### Hello World Subscribe
 

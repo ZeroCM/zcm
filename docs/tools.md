@@ -44,40 +44,6 @@ subscriber application can receive the data exactly as it would have live! This
 tool, combined with the logger creates a powerful development approach for
 systems with limited debug-ability.
 
-### CsvWriter
-
-Sometimes it is useful to convert either a zcmlog or live zcm data into csv format.
-This tool, launched via
-
-    zcm-csv-writer
-
-does this for you. There is a default format that this writer will output in,
-however often times, it is more useful to write your own CsvWriterPlugin for
-custom output formatting. Examples are provided in the examples directory in zcm.
-
-### CsvReader
-
-Sometimes it is useful to convert a csv into a zcmlog.
-This tool, launched via
-
-    zcm-csv-reader
-
-does this for you. There is currently no default format that this reader will
-be able to read in, however you may write your own CsvReaderPlugin for
-custom csv parsing. Examples are provided in the examples directory in zcm.
-
-### Transcoder
-
-As explained in [type generation](zcmtypesys.md), modifying a zcmtype changes
-that types hash and therefore invalidates all old logs you may have. However,
-sometimes it may be desirable to add a field to a type without invalidating all
-prior logs. To do this we provide a log transcoder launched via
-
-    zcm-log-transcoder
-
-and the TranscoderPlugin interface so you may define the mapping from old log
-to new log. This tool can even let you convert between completely different types
-
 <!-- ADD MORE HERE -->
 
 ## ZCM Tools Example
@@ -98,11 +64,11 @@ to generate the bindings with extra type information:
 
 The `--c-typeinfo` flag is to include type introspection in the output zcmtype
 source files. This means that auto-gen functions are included in the output type
-to allow zcm-spy-lite to lookup the name and fields of the type from that type's
+to allow `zcm-spy-lite` to lookup the name and fields of the type from that type's
 hash. It is only recommended if plan on using `zcm-spy-lite`. If you need to save
 on size or if you don't care to use `zcm-spy-lite`, you can omit this flag.
 
-Next up we need to write the sourc code for the publisher application itself (publish.c):
+Next up we need to write the source code for the publisher application itself (publish.c):
 
     #include <unistd.h>
     #include <zcm/zcm.h>
@@ -161,14 +127,14 @@ press the number on your keyboard directly. You will now be able to see the last
 message transmitted on the channel. To go back to the overview press `ESC`
 
 Instead of monitoring the messages in real-time you can also record them for later
-review or playback using the zcm-logger. To record the ZCM messages for a few seconds:
+review or playback using the `zcm-logger`. To record the ZCM messages for a few seconds:
 
     zcm-logger --zcm-url ipc
 
 This will produce a ZCM log file in the current directory
 named with the pattern: `zcmlog-{YEAR}-{MONTH}-{DAY}.00`
 
-We can *replay* these captured events using the zcm-logplayer tool:
+We can *replay* these captured events using the `zcm-logplayer` tool:
 
     zcm-logplayer --zcm-url ipc zcmlog-*.00
 
@@ -178,3 +144,42 @@ we can use the `zcm-spy-lite` tool, running it before the replay tool:
 
     zcm-spy-lite --zcm-url ipc &
     zcm-logplayer --zcm-url ipc zcmlog-*.00
+
+
+
+
+## Advanced Tools
+
+### CsvWriter
+
+Sometimes it is useful to convert either a zcmlog or live zcm data into csv format.
+This tool, launched via
+
+    zcm-csv-writer
+
+does this for you. There is a default format that this writer will output in,
+however often times, it is more useful to write your own CsvWriterPlugin for
+custom output formatting. Examples are provided in the examples directory in zcm.
+
+### CsvReader
+
+Sometimes it is useful to convert a csv into a zcmlog.
+This tool, launched via
+
+    zcm-csv-reader
+
+does this for you. There is currently no default format that this reader will
+be able to read in, however you may write your own CsvReaderPlugin for
+custom csv parsing. Examples are provided in the examples directory in zcm.
+
+### Transcoder
+
+As explained in [type generation](zcmtypesys.md), modifying a zcmtype changes
+that types hash and therefore invalidates all old logs you may have. However,
+sometimes it may be desirable to add a field to a type without invalidating all
+prior logs. To do this we provide a log transcoder launched via
+
+    zcm-log-transcoder
+
+and the TranscoderPlugin interface so you may define the mapping from old log
+to new log. This tool can even let you convert between completely different types
