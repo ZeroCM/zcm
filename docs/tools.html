@@ -1,0 +1,231 @@
+
+<!DOCTYPE html>
+<html lang='en-us'>
+  <head>
+    <meta charset='UTF-8'>
+    <title>tools</title>
+    <meta name='viewport' content='width=device-width, initial-scale=1'>
+    <link rel='stylesheet' type='text/css' href='../stylesheets/normalize.css' media='screen'>
+    <link href='https://fonts.googleapis.com/css?family=Open+Sans:400,700' rel='stylesheet' type='text/css'>
+    <link rel='stylesheet' type='text/css' href='../stylesheets/stylesheet.css' media='screen'>
+    <link rel='stylesheet' type='text/css' href='../stylesheets/github-light.css' media='screen'>
+  </head>
+  <body>
+    <section class='page-header'>
+      <section style='cursor:pointer' onclick='window.location="../index.html";'>
+        <h1 class='project-name'>Zcm</h1>
+        <h2 class='project-tagline'>Zero Communications and Marshalling</h2>
+      </section>
+      <a href='https://github.com/ZeroCM/zcm' class='btn'>View on GitHub</a>
+      <a href='http://ci.zcm-project.org' class='btn'>Monitor Builds</a>
+      <a href='https://gitter.im/ZeroCM/zcm' class='btn'>Chat with the team</a>
+      <a href='https://groups.google.com/forum/#!forum/zcm-users' class='btn'>Ask a Question</a>
+      <a href='https://github.com/ZeroCM/zcm/zipball/master' class='btn'>Download .zip</a>
+      <a href='https://github.com/ZeroCM/zcm/tarball/master' class='btn'>Download .tar.gz</a>
+    </section>
+
+    <section class='main-content'>
+<h1>ZCM Tools</h1>
+
+<p>ZCM ships with a convenient set of debugging and monitoring tools. In this section
+we demonstrate the usage of these tools.</p>
+
+<h3>Spy</h3>
+
+<p>Since ZCM makes data decoupling so easy, developers tend to build applications in
+several modules/processes and tie them together with ZCM message passing. In this
+model, a lot of the debugging takes place at the message-passing level. Often
+it's desirable to inspect/spy the messages in transit. This can be accomplished
+using the <code>zcm-spy</code> tool. Note that you must have your types "compiled" into a
+java jar and that jar must be listed in your <code>CLASSPATH</code> for <code>zcm-spy</code> to be able
+to decode messages.</p>
+
+<h3>Spy Lite</h3>
+
+<p>Sometimes developers don't have access to a display environment to run <code>zcm-spy</code>.
+The terminal-based <code>zcm-spy-lite</code> is provided for exactly that situation.
+<code>zcm-spy-lite</code> is a lite version of zcm spy that runs entirely from the terminal.
+You can view message traffic and inspect message data all in a display-less
+environment. To use <code>zcm-spy-lite</code> you need to tell it where to listen for messages
+and where it can find a shared library containing the zcmtypes you would like it to
+be able to decode. For an example on how to compile the shared library see the example further down.</p>
+
+<h3>Logger</h3>
+
+<p>It is often desirable to record the messaging data events and record them for later
+debugging. On a robotics system this is very important because often the developer
+cannot debug in real-time nor deterministically reproduce bugs that have previously
+occurred. By recording live events, debugging can be done after an issue occurs.
+ZCM ships with a built-in logging API using <code>zcm/eventlog.h</code>. ZCM also provides
+a stand-alone process <code>zcm-logger</code> that records all events it receives on the
+specified transport.</p>
+
+<h3>Log Player</h3>
+
+<p>After capturing a ZCM log, it can be <em>replayed</em> using the <code>zcm-logplayer</code> tool.
+This tool republishes the events back onto a ZCM transport. For here, any ZCM
+subscriber application can receive the data exactly as it would have live! This
+tool, combined with the logger creates a powerful development approach for
+systems with limited debug-ability.</p>
+
+<!-- ADD MORE HERE -->
+
+<h2>ZCM Tools Example</h2>
+
+<p>For this example we'll build a small application which will count up from zero and
+publish its new value on a channel named "COUNT".
+First we need to define the ZCM message type for counting (count_t.zcm):</p>
+
+<pre><code>struct count_t
+{
+    int32_t val;
+}
+</code></pre>
+
+<p>Now because we want <code>zcm-spy-lite</code> to be able to decode our message, we need
+to generate the bindings with extra type information:</p>
+
+<pre><code>zcm-gen -c count_t.zcm --c-typeinfo
+</code></pre>
+
+<p>The <code>--c-typeinfo</code> flag is to include type introspection in the output zcmtype
+source files. This means that auto-gen functions are included in the output type
+to allow <code>zcm-spy-lite</code> to lookup the name and fields of the type from that type's
+hash. It is only recommended if plan on using <code>zcm-spy-lite</code>. If you need to save
+on size or if you don't care to use <code>zcm-spy-lite</code>, you can omit this flag.</p>
+
+<p>Next up we need to write the source code for the publisher application itself (publish.c):</p>
+
+<pre><code>#include &lt;unistd.h&gt;
+#include &lt;zcm/zcm.h&gt;
+#include &lt;count_t.h&gt;
+
+int main(int argc, char *argv[])
+{
+    zcm_t *zcm = zcm_create("ipc");
+    count_t cnt = {0};
+
+    while (1) {
+        count_t_publish(zcm, "COUNT", &amp;cnt);
+        cnt.val++;
+        usleep(1000000); /* sleep for a second */
+    }
+
+    zcm_destroy(zcm);
+    return 0;
+}
+</code></pre>
+
+<p>Building and running the publisher:</p>
+
+<pre><code>cc -o publish -I. publish.c count_t.c -lzcm
+./publish
+</code></pre>
+
+<p>Building the shared library for <code>zcm-spy-lite</code></p>
+
+<pre><code>cc -c -fpic count_t.c
+cc -shared -o libzcmtypes.so count_t.o
+</code></pre>
+
+<p>Now that you have a shared library of your zcmtypes, you need to point
+<code>zcm-spy-lite</code> to the folder where that library is stored. Much like
+LD_LIBRARY_PATH is used to help your system find the paths to shared libraries
+it needs to run programs, ZCM_SPY_LITE_PATH is used to point <code>zcm-spy-lite</code>
+to the shared library.</p>
+
+<pre><code>ZCM_SPY_LITE_PATH=&lt;full path to shared library&gt;
+</code></pre>
+
+<p>To make that environment variable load each time you open a new terminal, you
+can add it to the bottom of your shell profile. For bash this would be adding
+the following line to the bottom of your ~/.bashrc</p>
+
+<pre><code>export ZCM_SPY_LITE_PATH=&lt;full path to shared library&gt;
+</code></pre>
+
+<p>We can now <em>spy</em> on the ZCM traffic with:</p>
+
+<pre><code>zcm-spy-lite --zcm-url ipc
+</code></pre>
+
+<p>This will show an overview of all ZCM channels <code>zcm-spy-lite</code> have received
+messages on. In this example only one channel is in use, but in real applications
+many tens of channels might be in use at once.
+For each channel you can see the total amount of received messages and the current
+frequency. To inspect the messages of a specific channel press <code>-</code> and type the
+number left of the channel name. For quick access to the first 9 channels, just
+press the number on your keyboard directly. You will now be able to see the last
+message transmitted on the channel. To go back to the overview press <code>ESC</code></p>
+
+<p>Instead of monitoring the messages in real-time you can also record them for later
+review or playback using the <code>zcm-logger</code>. To record the ZCM messages for a few seconds:</p>
+
+<pre><code>zcm-logger --zcm-url ipc
+</code></pre>
+
+<p>This will produce a ZCM log file in the current directory
+named with the pattern: <code>zcmlog-{YEAR}-{MONTH}-{DAY}.00</code></p>
+
+<p>We can <em>replay</em> these captured events using the <code>zcm-logplayer</code> tool:</p>
+
+<pre><code>zcm-logplayer --zcm-url ipc zcmlog-*.00
+</code></pre>
+
+<p>The replay tool alone is not very interesting until we combine it
+with another application that will receive the data. For this purpose
+we can use the <code>zcm-spy-lite</code> tool, running it before the replay tool:</p>
+
+<pre><code>zcm-spy-lite --zcm-url ipc &amp;
+zcm-logplayer --zcm-url ipc zcmlog-*.00
+</code></pre>
+
+<h2>Advanced Tools</h2>
+
+<h3>CsvWriter</h3>
+
+<p>Sometimes it is useful to convert either a zcmlog or live zcm data into csv format.
+This tool, launched via</p>
+
+<pre><code>zcm-csv-writer
+</code></pre>
+
+<p>does this for you. There is a default format that this writer will output in,
+however often times, it is more useful to write your own CsvWriterPlugin for
+custom output formatting. Examples are provided in the examples directory in zcm.</p>
+
+<h3>CsvReader</h3>
+
+<p>Sometimes it is useful to convert a csv into a zcmlog.
+This tool, launched via</p>
+
+<pre><code>zcm-csv-reader
+</code></pre>
+
+<p>does this for you. There is currently no default format that this reader will
+be able to read in, however you may write your own CsvReaderPlugin for
+custom csv parsing. Examples are provided in the examples directory in zcm.</p>
+
+<h3>Transcoder</h3>
+
+<p>As explained in <a href="zcmtypesys.html">type generation</a>, modifying a zcmtype changes
+that types hash and therefore invalidates all old logs you may have. However,
+sometimes it may be desirable to add a field to a type without invalidating all
+prior logs. To do this we provide a log transcoder launched via</p>
+
+<pre><code>zcm-log-transcoder
+</code></pre>
+
+<p>and the TranscoderPlugin interface so you may define the mapping from old log
+to new log. This tool can even let you convert between completely different types</p>
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA-73394372-1', 'auto');
+  ga('send', 'pageview');
+
+</script>
+</section> </body> </html>
