@@ -5,6 +5,8 @@
 
 #include "types/example_t.hpp"
 
+// REMEMBER: Do not define any functions where they are declared in the class
+// See IndexerPlugin.hpp for further explanation
 class CustomIndexerPlugin : zcm::IndexerPlugin
 {
   public:

@@ -46,9 +46,13 @@ while evt:
     evt = log.readPrevEvent()
 
 from subprocess import call
-call(["zcm-log-indexer", "-ltestlog.log", "-otestlog.dbz",
+cmd=["zcm-log-indexer", "-ltestlog.log", "-otestlog.dbz",
       "-t../build/types/libexamplezcmtypes.so",
-      "-p../build/cpp/libexample-indexer-plugin.so", "-r"])
+      "-p../build/cpp/libexample-indexer-plugin.so", "-r"]
+# To see the indexer command that runs here, uncomment the following two lines
+#print ' '.join(cmd)
+#exit(1)
+call(cmd)
 
 import json
 from pprint import pprint

@@ -28,7 +28,7 @@ std::string IndexerPlugin::name() const
 { return "timestamp"; }
 
 std::vector<std::string> IndexerPlugin::dependencies() const
-{ return {""}; }
+{ return {}; }
 
 // Index every message according to timestamp
 std::vector<std::string> IndexerPlugin::includeInIndex(std::string channel,

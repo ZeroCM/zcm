@@ -10,6 +10,24 @@
 // inside a c file. That way you can then compile a shared library of your
 // plugins
 
+// REPEAT: ALL FUNCTIONS MUST BE DEFINED OUTSIDE OF CLASS DECLARATION
+//
+// Do this:
+//
+// class CustomPlugin : IndexerPlugin
+// {
+//     static IndexerPlugin* makeIndexerPlugin();
+// };
+// IndexerPlugin* CustomPlugin::makeIndexerPlugin() { return new CustomPlugin(); }
+//
+//
+// Not This:
+//
+// class CustomPlugin : IndexerPlugin
+// {
+//     static IndexerPlugin* makeIndexerPlugin() { return new CustomPlugin(); }
+// };
+
 namespace zcm {
 
 class IndexerPlugin

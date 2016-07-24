@@ -141,6 +141,16 @@ int main(int argc, char* argv[])
         plugins.insert(plugins.end(), dbPlugins.begin(), dbPlugins.end());
     }
 
+    for (size_t i = 0; i < plugins.size(); ++i) {
+        for (size_t j = i + 1; j < plugins.size(); ++j) {
+            if (plugins[i]->name() == plugins[j]->name()) {
+                cerr << "Plugins must have unique names. Collision: "
+                     << plugins[i]->name() << endl;
+                return 1;
+            }
+        }
+    }
+
     auto buildPluginGroups = [] (vector<const zcm::IndexerPlugin*> plugins) {
         vector<vector<const zcm::IndexerPlugin*>> groups;
         vector<const zcm::IndexerPlugin*> lastLoop = plugins;
@@ -171,7 +181,15 @@ int main(int argc, char* argv[])
                 }
             }
             if (plugins == lastLoop) {
-                cerr << "Unable to resolve all plugin dependencies" << endl;
+                cerr << "Unable to resolve all plugin dependencies. "
+                        "Plugins left to resolve:" << endl << endl;
+                for (auto* p : plugins) {
+                    cerr << p->name() << endl
+                         << "  Depends on:" << endl;
+                    for (auto d : p->dependencies())
+                         cerr << "    " << d << endl;
+                    cerr << endl;
+                }
                 exit(1);
             }
             lastLoop = plugins;
