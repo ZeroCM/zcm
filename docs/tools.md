@@ -202,7 +202,7 @@ supported language here} program to subscribe to data and do the matching or fil
 compile and run your program, and then use `zcm-logplayer` to play your log back while
 your program is running.
 
-If were brave enough to dive into the code base already, you might already know about
+If you were brave enough to dive into the code base already, you might already know about
 the zcm log support in each language, and you'd be able to write a program that opens the log
 and works with it directly (sans subscriptions). You would write a script in the language of
 your choice that opens the log and attempts to match coordinate messages to picture
@@ -221,7 +221,7 @@ team is analyzing thousands of logs that are each gigabytes large?
 Time and space become of the essence.
 
 Let's go back to the previous example. However this time, instead of extracting the
-whole image messages with the desired characteristics from the log, let's just save
+image messages with the desired characteristics from the log, let's just save
 their index in the log. Think of a log as a giant array of events. If we want to
 remember that event number 46 is of importance, we store the number 46 in our index file.
 When we pair the index information with the log itself, we have the ability to
@@ -233,15 +233,84 @@ sorts the content events, and outputs a file containing the offset index
 (encoded in json format). By default, `zcm-log-indexer` outputs an index file
 that contains the offsets of each message type in the log sorted in timestamp order.
 An interface is exposed so you can provide "plugins" to the indexer tool that
-specify other ways you'd like logs to be indexed. Take a look at
-`zcm/IndexerPlugin.hpp` for the plugin interface and for an example custom plugin.
+specify other ways you'd like logs to be indexed. The indexer will index logs by
+every available plugin. Take a look at `zcm/IndexerPlugin.hpp` for the plugin
+interface and for an example custom plugin.
+
+So let's go ahead and use `zcm-log-indexer`. But this time, let's use a simpler example.
+In the case of a logfile taken by our ROV, we might want to extract all images in the log
+in timestamp order. But we don't want to crawl through the log looking for image messages.
+Assuming our log file is called `zcm.log`, we run the following command:
+
+    zcm-log-indexer -l zcm.log -o zcm.dbz -t types.so -r
+
+Note that the `-r` flags makes the output `zcm.dbz` file readable for humans.
+After running the above command, the output index file might look like this:
+
+    {
+        "timestamp" : {
+            "IMAGES" : {
+                "image_t" : [
+                    0,
+                    1001000,
+                    2002000,
+                    ...
+                    37037000
+                ]
+            },
+            "BEACON_COORDS" : {
+                "beacon_t" : [
+                    1000000,
+                    1000100,
+                    1000200,
+                    1000300,
+                    ...
+                    37036900
+                ]
+            }
+        }
+    }
+
+Notice that the file is first sorted by plugin name. This is the standard behavior
+of `zcm-log-indexer`. Each plugin specifies its "name" as part of it's implementation.
+The output of that plugin is always held in a high level json object whose key is
+the plugin's name. In this case, the plugin's name is "timestamp".
+After that point, the plugin specifies the rest of the organization of its json
+index object. In the default case, the timestamp plugin organizes its output first
+by channel name, then by zcm type name, but custom plugins are free to organize as
+they see fit. The language by which custom plugins specify their organization is
+specified in the base `IndexerPlugin.hpp` class. See that file for more information.
+
+Now that we have both the zcm log and this index file, we can use it in whatever
+zcm-supported language we please. Let's write a quick python script to print the times
+of each image in our index in the order provided by the index.
+
+    import sys
+    sys.path.insert(0, './build/types/')
+    from image_t import image_t
+
+    from zcm import ZCM, LogFile, LogEvent
+    log = LogFile('zcm.log', 'w')
+
+    import json
+    with open('zcm.dbz') as indexFile:
+        index = json.load(indexFile)
+
+    image = image_t()
+
+    i = 0
+    while i < len(index['timestamp']['IMAGES']['image_t']):
+        evt = log.readEventOffset(int(index['timestamp']['IMAGES']['image_t'][i]))
+        image.decode(evt.getData())
+        print image.name + ": " + str(image.timestamp)
+
 
 If you're still confused as to exactly how to use the tool, that's expected.
 Head on over to the `examples` part of the repo and take a look at a custom plugin
 in `examples/cpp/CustomIndexerPlugin.cpp` and then how to use it to quickly
 traverse logs in `examples/python/indexer_test.py`
 
-Just like `zcm-spy-lite` above, you just compile a shared library and pass it
-to the tool via a command line argument. You can also use the environment
-variables mentioned in the `--help` section of `zcm-log-indexer` for specifying
-your `types.so` and `plugins.so` paths
+To tell `zcm-log-indexer` abour your custom plugins and zcmtypes, you simply
+compile a shared library and pass it to the tool via a command line argument.
+You can also use the environment variables mentioned in the `--help` section
+of `zcm-log-indexer` for specifying the `types.so` and `plugins.so` libraries.

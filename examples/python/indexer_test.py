@@ -25,10 +25,10 @@ from subprocess import call
 cmd=["zcm-log-indexer", "-ltestlog.log", "-otestlog.dbz",
       "-t../build/types/libexamplezcmtypes.so",
       "-p../build/cpp/libexample-indexer-plugin.so", "-r"]
+call(cmd)
 # To see the indexer command that runs here, uncomment the following two lines
 #print ' '.join(cmd)
 #exit(1)
-call(cmd)
 
 import json
 with open('testlog.dbz') as indexFile:
