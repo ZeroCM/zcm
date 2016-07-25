@@ -8,8 +8,13 @@ while [ -h "$SOURCE" ]; do # resolve $SOURCE until the file is no longer a symli
 done
 DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
 
-export CLASSPATH=$CLASSPATH:/usr/local/share/java/zcm.jar
-export CLASSPATH=$CLASSPATH:/usr/local/share/java/zcm-tools.jar
+prefix="/usr/local"
+if [[ $1 != "" ]]; then
+    prefix=$1
+fi
+
+export CLASSPATH=$CLASSPATH:$prefix/share/java/zcm.jar
+export CLASSPATH=$CLASSPATH:$prefix/share/java/zcm-tools.jar
 export CLASSPATH=$CLASSPATH:$DIR/build/types/examplezcmtypes.jar
 export CLASSPATH=$CLASSPATH:$DIR/build/java/example.jar
 export ZCM_SPY_LITE_PATH=$DIR/build/types/libexamplezcmtypes.so
