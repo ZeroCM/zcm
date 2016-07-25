@@ -243,6 +243,7 @@ int main(int argc, char* argv[])
             for (auto* p : pluginGroups[i]) {
                 assert(p);
                 vector<string> indexName = p->includeInIndex(evt->channel, md->name,
+                                                             index,
                                                              (uint64_t) msg_hash,
                                                              evt->data, evt->datalen);
                 if (indexName.size() == 0) continue;

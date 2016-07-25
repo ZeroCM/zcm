@@ -33,6 +33,7 @@ std::vector<std::string> IndexerPlugin::dependencies() const
 // Index every message according to timestamp
 std::vector<std::string> IndexerPlugin::includeInIndex(std::string channel,
                                                        std::string typeName,
+                                                       const Json::Value& index,
                                                        int64_t hash,
                                                        const char* data,
                                                        int32_t datalen) const
