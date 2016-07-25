@@ -21,30 +21,6 @@ while i < 100:
     i = i + 1
 log.close()
 
-log = LogFile('testlog.log', 'r')
-i = 0
-evt = log.readNextEvent()
-while evt:
-    msg.position[0] = i
-    event.setData(msg.encode())
-    assert evt.getEventnum() == i, "Event nums dont match"
-    assert evt.getTimestamp() == event.getTimestamp(), "Timestamps dont match"
-    assert evt.getChannel() == event.getChannel(), "Channels dont match"
-    assert evt.getData() == event.getData(), "Data doesn't match"
-    i = i + 1
-    evt = log.readNextEvent()
-
-evt = log.readPrevEvent()
-while evt:
-    i = i - 1
-    msg.position[0] = i
-    event.setData(msg.encode())
-    assert evt.getEventnum() == i, "Event nums dont match"
-    assert evt.getTimestamp() == event.getTimestamp(), "Timestamps dont match"
-    assert evt.getChannel() == event.getChannel(), "Channels dont match"
-    assert evt.getData() == event.getData(), "Data doesn't match"
-    evt = log.readPrevEvent()
-
 from subprocess import call
 cmd=["zcm-log-indexer", "-ltestlog.log", "-otestlog.dbz",
       "-t../build/types/libexamplezcmtypes.so",
@@ -55,10 +31,10 @@ cmd=["zcm-log-indexer", "-ltestlog.log", "-otestlog.dbz",
 call(cmd)
 
 import json
-from pprint import pprint
-
 with open('testlog.dbz') as indexFile:
     index = json.load(indexFile)
+
+log = LogFile('testlog.log', 'r')
 
 i = 0
 while i < 100:
