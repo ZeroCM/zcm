@@ -1,6 +1,7 @@
 #pragma once
 
 #include <iostream>
+#include <cstdint>
 #include <string>
 #include <deque>
 #include <thread>
@@ -180,7 +181,7 @@ class MessageTracker
     virtual T* get(uint64_t utime, bool blocking = NONBLOCKING)
     {
         T *m0 = nullptr, *m1 = nullptr; // two poses bracketing the desired utime
-        uint64_t m0Utime, m1Utime;
+        uint64_t m0Utime = 0, m1Utime = UINT64_MAX;
 
         {
             std::unique_lock<std::mutex> lk(bufLock);
