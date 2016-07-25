@@ -54,8 +54,8 @@ class Handler
                           const example_t *msg)
     {
         vprintf("%" PRIi64 " - %s: ", rbuf->recv_utime, channel.c_str());
-        vprintf("%d", (int) msg->timestamp);
-        bytepacked_typed_received |= (int) msg->timestamp;
+        vprintf("%d", (int) msg->utime);
+        bytepacked_typed_received |= (int) msg->utime;
         num_typed_received++;
         vprintf("\n");
         fflush(stdout);
@@ -142,7 +142,7 @@ int main(int argc, const char *argv[])
         handler.bytepacked_typed_received = 0;
 
         example_t ex_data = {
-               .timestamp = 1 << 0,
+               .utime = 1 << 0,
                .position = { 1, 2, 3 },
                .orientation = { 1, 0, 0, 0 },
         };
@@ -163,7 +163,7 @@ int main(int argc, const char *argv[])
         zcm.start();
 
         for (size_t j = 0; j < NUM_DATA; ++j) {
-            ex_data.timestamp = 1 << j;
+            ex_data.utime = 1 << j;
             zcm.publish("EXAMPLE", &ex_data);
         }
 

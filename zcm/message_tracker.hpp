@@ -205,8 +205,6 @@ class MessageTracker
                 if (done) return nullptr;
             }
 
-            size_t size = buf.size();
-
             const T *_m0 = nullptr;
             const T *_m1 = nullptr;
 
@@ -214,8 +212,7 @@ class MessageTracker
             // to skip around in logs. We want to support messages with
             // non-monitonically increasing utimes and this is the easiest way.
             // This can be made much faster if needed
-            for (size_t i = 0; i < size; ++i) {
-                const T* m = buf[i];
+            for (const T* m : buf) {
                 uint64_t mUtime = getMsgUtime(m);
 
                 if (mUtime <= utime && (_m0 == nullptr || mUtime > m0Utime)) {
@@ -285,10 +282,10 @@ class MessageTracker
             return (uint64_t)tv.tv_sec * 1000000 + tv.tv_usec;
         };
         template <typename C>
-        static uint64_t _utime(void*, ...)
+        static uint64_t _utime(void* tmp, ...)
         {
             va_list args;
-            va_start(args, 1);
+            va_start(args, tmp);
             const F* msg = va_arg(args, const F*);
             va_end(args);
             return msg->utime;

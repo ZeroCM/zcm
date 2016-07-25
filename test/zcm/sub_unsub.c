@@ -45,8 +45,8 @@ static void example_t_handler(const zcm_recv_buf_t *rbuf, const char *channel,
                               const example_t *msg, void *userdata)
 {
     vprintf("%" PRIi64 " - %s: ", rbuf->recv_utime, channel);
-    vprintf("%d", (int) msg->timestamp);
-    bytepacked_typed_received |= (int) msg->timestamp;
+    vprintf("%d", (int) msg->utime);
+    bytepacked_typed_received |= (int) msg->utime;
     num_typed_received++;
     vprintf("\n");
     fflush(stdout);
@@ -131,7 +131,7 @@ int main(int argc, const char *argv[])
         bytepacked_typed_received = 0;
 
         example_t ex_data = {
-               .timestamp = 1 << 0,
+               .utime = 1 << 0,
                .position = { 1, 2, 3 },
                .orientation = { 1, 0, 0, 0 },
         };
@@ -153,7 +153,7 @@ int main(int argc, const char *argv[])
         zcm_start(zcm);
 
         for (j = 0; j < NUM_DATA; ++j) {
-            ex_data.timestamp = 1 << j;
+            ex_data.utime = 1 << j;
             example_t_publish(zcm, "EXAMPLE", &ex_data);
         }
 

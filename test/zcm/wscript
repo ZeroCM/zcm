@@ -61,3 +61,9 @@ def build(ctx):
                 source = 'logtest.cpp',
                 rpath = ctx.env.RPATH_zcm,
                 install_path = None)
+
+    ctx.program(target = 'trackers',
+                use = 'default zcm testzcmtypes_cpp',
+                source = 'tracker_test.cpp',
+                rpath = ctx.env.RPATH_zcm,
+                install_path = None)

@@ -24,3 +24,4 @@ run   forking         ./build/test/zcm/forking
 run   forking2        ./build/test/zcm/forking2
 run   flushing        ./build/test/zcm/flushing
 run   logging         ./build/test/zcm/logtest
+run   trackers        ./build/test/zcm/trackers

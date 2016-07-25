@@ -190,7 +190,7 @@ void zcm_flush(zcm_t *zcm)
 #ifndef ZCM_EMBEDDED
     switch (zcm->type) {
         case ZCM_BLOCKING:    return zcm_blocking_flush(zcm->impl);
-        case ZCM_NONBLOCKING: return;
+        case ZCM_NONBLOCKING: return zcm_nonblocking_flush(zcm->impl);
     }
 #else
 #endif

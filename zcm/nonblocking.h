@@ -21,6 +21,8 @@ int        zcm_nonblocking_unsubscribe(zcm_nonblocking_t *zcm, zcm_sub_t *sub);
 /* Returns 1 if a message was dispatched, and 0 otherwise */
 int zcm_nonblocking_handle_nonblock(zcm_nonblocking_t *zcm);
 
+void zcm_nonblocking_flush(zcm_nonblocking_t *zcm);
+
 #ifdef __cplusplus
 }
 #endif
