@@ -49,6 +49,8 @@ class MessageTracker
   private:
     zcm::ZCM* zcmLocal = nullptr;
 
+    uint64_t maxTimeErr_us;
+
     std::atomic_bool done {false};
 
     std::deque<T*> buf;
@@ -63,8 +65,6 @@ class MessageTracker
     std::thread *thr = nullptr;
     callback onMsg;
     void* usr;
-
-    uint64_t maxTimeErr_us;
 
     void callbackThreadFunc()
     {
