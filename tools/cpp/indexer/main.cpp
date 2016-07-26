@@ -159,7 +159,7 @@ int main(int argc, char* argv[])
         while (!plugins.empty()) {
             groups.resize(groups.size() + 1);
             for (auto p = plugins.begin(); p != plugins.end();) {
-                vector<string> deps = (*p)->dependencies();
+                vector<string> deps = (*p)->dependsOn();
 
                 bool skipUntilLater = false;
                 for (auto* dep : plugins) {
@@ -189,7 +189,7 @@ int main(int argc, char* argv[])
                 for (auto* p : plugins) {
                     cerr << p->name() << endl
                          << "  Depends on:" << endl;
-                    for (auto d : p->dependencies())
+                    for (auto d : p->dependsOn())
                          cerr << "    " << d << endl;
                     cerr << endl;
                 }
@@ -221,7 +221,7 @@ int main(int argc, char* argv[])
         fseeko(log.getFilePtr(), 0, SEEK_SET);
 
         for (auto* p : pluginGroups[i])
-            p->setup(index, index[p->name()], log);
+            p->setUp(index, index[p->name()], log);
 
         while (1) {
             offset = ftello(log.getFilePtr());
@@ -255,7 +255,7 @@ int main(int argc, char* argv[])
         }
 
         for (auto* p : pluginGroups[i])
-            p->teardown(index, index[p->name()], log);
+            p->tearDown(index, index[p->name()], log);
 
         cout << endl;
     }

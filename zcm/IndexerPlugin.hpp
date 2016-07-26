@@ -57,11 +57,11 @@ class IndexerPlugin
     // plugin until the "timestamp" plugin finished its indexing
     // Specifying dependencies allows this plugin to use the timestamp-indexed
     // data while performing its own indexing operations
-    virtual std::vector<std::string> dependencies() const;
+    virtual std::vector<std::string> dependsOn() const;
 
     // Do anything that your plugin requires doing before the indexing process
     // starts but after all dependencies have run
-    virtual void setup(const Json::Value& index,
+    virtual void setUp(const Json::Value& index,
                        Json::Value& pluginIndex,
                        zcm::LogFile& log);
 
@@ -76,6 +76,9 @@ class IndexerPlugin
     // typeName is the name of the zcmtype encoded inside the event
     //
     // offset is the index into the eventlog where this event is stored
+    // each susbequent indexEvent call will be called with a larger offset
+    // than the last. In other words, "offset" is monotonically increasing
+    // across indexEvent calls
     //
     // timestamp is the timestamp of the event. Not to be confused with any
     // fields contained in the zcmtype message itself. This is the timestamp
@@ -108,7 +111,8 @@ class IndexerPlugin
                             int32_t datalen);
 
     // Do anything that your plugin requires doing before the indexer exits
-    virtual void teardown(const Json::Value& index,
+    // If your data needs to be sorted, do so here
+    virtual void tearDown(const Json::Value& index,
                           Json::Value& pluginIndex,
                           zcm::LogFile& log);
 };

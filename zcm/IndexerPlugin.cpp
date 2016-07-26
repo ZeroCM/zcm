@@ -19,10 +19,10 @@ IndexerPlugin::~IndexerPlugin()
 std::string IndexerPlugin::name() const
 { return "timestamp"; }
 
-std::vector<std::string> IndexerPlugin::dependencies() const
+std::vector<std::string> IndexerPlugin::dependsOn() const
 { return {}; }
 
-void IndexerPlugin::setup(const Json::Value& index,
+void IndexerPlugin::setUp(const Json::Value& index,
                           Json::Value& pluginIndex,
                           zcm::LogFile& log)
 {}
@@ -39,7 +39,7 @@ void IndexerPlugin::indexEvent(const Json::Value& index,
                                int32_t datalen)
 { pluginIndex[channel][typeName].append(std::to_string(offset)); }
 
-void IndexerPlugin::teardown(const Json::Value& index,
+void IndexerPlugin::tearDown(const Json::Value& index,
                              Json::Value& pluginIndex,
                              zcm::LogFile& log)
 {
