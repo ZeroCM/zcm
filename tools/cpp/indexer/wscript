@@ -2,6 +2,7 @@
 # encoding: utf-8
 
 def build(ctx):
+    # RRR: zcm_tools_util isn't used anymore
     ctx.program(target = 'zcm-log-indexer',
                 use    = ['default', 'zcm', 'zcm_tools_util', 'jsoncpp'],
                 lib    = 'dl',

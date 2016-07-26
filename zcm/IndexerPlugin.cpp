@@ -6,9 +6,13 @@
 
 using namespace zcm;
 
+// RRR: should this be somewhere where the IndexerPlugins can get to it? Currently it's only in
+//      this file and can't be reference from elsewhere. Also, it's not used in this file, so
+//      I'm a bit confused as to it's purpose
 static inline std::string demangle(std::string name)
 {
-    int status = -4; // some arbitrary value to eliminate the compiler warning
+    // RRR: if we are using a random value, it at least has to be a cool value :)
+    int status = 42; // some arbitrary value to eliminate the compiler warning
 
     std::unique_ptr<char, void(*)(void*)> res {
         abi::__cxa_demangle(name.c_str(), NULL, NULL, &status),

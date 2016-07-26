@@ -2,6 +2,7 @@
 # encoding: utf-8
 
 def build(ctx):
+    # RRR: zcm_tools_util seems like a dead waf name
     ctx.program(target = 'zcm-spy-lite',
                 use = ['default', 'zcm', 'zcm_tools_util'],
                 lib = 'dl',

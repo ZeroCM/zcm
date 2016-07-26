@@ -30,6 +30,7 @@ struct Args
         struct option long_opts[] = {
             { "help",        no_argument,       0, 'h' },
             { "log",         required_argument, 0, 'l' },
+            // RRR: wrong long arg here
             { "log",         required_argument, 0, 'o' },
             { "plugin-path", required_argument, 0, 'p' },
             { "type-path",   required_argument, 0, 't' },
@@ -77,6 +78,8 @@ struct Args
     }
 };
 
+// RRR: why not make this a function of Args (granted the gains aren't much unless
+//      we actually implemented a good getOpt class)
 static void usage()
 {
     cerr << "usage: zcm-log-indexer [options]" << endl
@@ -118,6 +121,10 @@ int main(int argc, char* argv[])
         return 1;
     }
     fseeko(log.getFilePtr(), 0, SEEK_END);
+    // RRR: this just reminded me: you need to look up how to handle large files (ie > 2 GB).
+    //      I believe there is a ftello64 that is required for files larger than 2 GB (might
+    //      also apply to some of your other log seeking / sizing functions).
+    //      Regardless, definitely test this on a log that's > 2 GB (I can give you one if you want)
     off_t logSize = ftello(log.getFilePtr());
 
     ofstream output;
@@ -136,6 +143,10 @@ int main(int argc, char* argv[])
     IndexerPluginDb* pluginDb = nullptr;
     // Load plugins from path if specified
     if (args.plugin_path != "") {
+        // RRR: might be cleaner if instead of making the pluginDb dynamic you just
+        //      handled the case where it gives you an empty vector
+        //      ... in fact, I think that your code already handles this, just gotta
+        //      make the pluginDb constructor return if it's given an empty list
         pluginDb = new IndexerPluginDb(args.plugin_path, args.debug);
         vector<const zcm::IndexerPlugin*> dbPlugins = pluginDb->getPlugins();
         plugins.insert(plugins.end(), dbPlugins.begin(), dbPlugins.end());
@@ -175,11 +186,14 @@ int main(int argc, char* argv[])
                 if (!skipUntilLater) {
                     groups.back().push_back(*p);
                     p = plugins.erase(p);
+                    // RRR: this exit not required, will be checked immediately afterwards anyway
                     if (p == plugins.end()) break;
                 } else {
                     ++p;
                 }
             }
+
+            // Check for dependency resolution failure
             if (plugins == lastLoop) {
                 cerr << "Unable to resolve all plugin dependencies. "
                         "Plugins left to resolve:" << endl << endl;
@@ -216,11 +230,13 @@ int main(int argc, char* argv[])
 
     unordered_map<Json::Value*, SortingInfo> needSorting;
 
+    // RRR: shouldn't this start at 0
     size_t numEvents = 1;
     const zcm::LogEvent* evt;
     for (size_t i = 0; i < pluginGroups.size(); ++i) {
         if (pluginGroups.size() != 1) cout << "Plugin group " << (i + 1) << endl;
         off_t offset = 0;
+        // RRR: Isn't this seek BEGIN?
         fseeko(log.getFilePtr(), 0, SEEK_SET);
         while (1) {
             offset = ftello(log.getFilePtr());
@@ -252,10 +268,12 @@ int main(int argc, char* argv[])
                 for (size_t j = 0; j < indexName.size(); ++j) {
                     currIndex = &(*currIndex)[indexName[j]];
                 }
+
                 if (needSorting.count(currIndex))
                     needSorting[currIndex].offsets.push_back(offset);
                 else
                     needSorting[currIndex] = SortingInfo{{offset}, p};
+
                 numEvents++;
             }
 
@@ -264,6 +282,8 @@ int main(int argc, char* argv[])
         cout << endl;
 
         for (auto& s : needSorting) {
+            // RRR: should also print something about the json index you are
+            //      sorting because there can be multiple of the same plugin
             cout << "sorting " << s.second.plugin->name() << endl;
             auto comparator = [&](off_t a, off_t b) {
                 if (a < 0 || b < 0 || a > logSize || b > logSize) {
@@ -276,6 +296,7 @@ int main(int argc, char* argv[])
             };
             if (s.second.plugin->sorted())
                 std::sort(s.second.offsets.begin(), s.second.offsets.end(), comparator);
+            // RRR: why are you using strings here?
             for (auto val : s.second.offsets) (*s.first).append(to_string(val));
         }
         needSorting.clear();

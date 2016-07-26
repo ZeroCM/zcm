@@ -10,6 +10,8 @@
 
 #include "IndexerPluginDb.hpp"
 
+// RRR: would be better to use ZCM_DEBUG and (see other review comment) other debug / info macros
+
 #define DEBUG(...) do {\
     if (this->debug) printf(__VA_ARGS__);\
   } while(0)
@@ -21,9 +23,12 @@
 
 using namespace std;
 
+// RRR: looks like this was moved from IndexerPlugin.cpp. My guess is you can delete the one
+//      you left there.
 static inline std::string demangle(std::string name)
 {
-    int status = -4; // some arbitrary value to eliminate the compiler warning
+    // RRR: if we are using a random value, it at least has to be a cool value :)
+    int status = 42; // some arbitrary value to eliminate the compiler warning
 
     std::unique_ptr<char, void(*)(void*)> res {
         abi::__cxa_demangle(name.c_str(), NULL, NULL, &status),
@@ -33,17 +38,18 @@ static inline std::string demangle(std::string name)
     return (status==0) ? res.get() : name ;
 }
 
-static void *openlib(const string& libname)
+// RRR: should switch NULL to nullptr throughout
+static void* openlib(const string& libname)
 {
     // verify the .so library
     size_t len = libname.size();
-    if (len < 3 || 0 != strcmp(libname.c_str()+len-3, ".so")) {
+    if (len < 3 || 0 != strcmp(libname.c_str() + len - 3, ".so")) {
         ERROR("bad library name, expected a .so file, not '%s'\n", libname.c_str());
         return NULL;
     }
 
     // attempt to open the .so
-    void *lib = dlopen(libname.c_str(), RTLD_LAZY);
+    void* lib = dlopen(libname.c_str(), RTLD_LAZY);
     if (!lib) {
         ERROR("failed to open '%s'\n", libname.c_str());
         ERROR("%s\n", dlerror());
@@ -58,7 +64,7 @@ static string method = "::makeIndexerPlugin()";
 // find all zcm types by post-processing the symbols
 bool IndexerPluginDb::findPlugins(const string& libname)
 {
-    void *lib = openlib(libname);
+    void* lib = openlib(libname);
     if (lib == NULL) {
         ERROR("failed to open '%s'\n", libname.c_str());
         return false;
@@ -75,9 +81,9 @@ bool IndexerPluginDb::findPlugins(const string& libname)
     string s;
     while (stbl.getNext(s)) {
         string demangled = demangle(s);
+        // RRR: why commented out?
         //DEBUG("Symbol: %s\n", demangled.c_str());
-        if (!StringUtil::endswith(demangled, method))
-            continue;
+        if (!StringUtil::endswith(demangled, method)) continue;
 
         IndexerPluginMetadata md;
         md.className = demangled;
@@ -85,7 +91,7 @@ bool IndexerPluginDb::findPlugins(const string& libname)
 
         if (std::find(pluginMeta.begin(), pluginMeta.end(), md) != pluginMeta.end()) continue;
 
-        *(void **) &md.makeIndexerPlugin = dlsym(lib, s.c_str());
+        *((void **) &md.makeIndexerPlugin) = dlsym(lib, s.c_str());
         if (md.makeIndexerPlugin == NULL) {
             ERROR("ERR: failed to load %s\n", s.c_str());
             continue;
@@ -96,7 +102,10 @@ bool IndexerPluginDb::findPlugins(const string& libname)
         DEBUG("Success loading plugin %s\n", demangled.c_str());
     }
 
+    // RRR: use "auto&" here to avoid a copy
     for (auto meta : pluginMeta) {
+        // RRR: if you change to unique_ptrs here, all you do is change this to "emplace_back"
+        //      after changing the type of the vector
         plugins.push_back(meta.makeIndexerPlugin());
         constPlugins.push_back(plugins.back());
     }

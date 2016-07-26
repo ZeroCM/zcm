@@ -8,6 +8,11 @@
 
 using namespace std;
 
+// RRR: these feel like they belong in a zcm debug util or something though I can see the
+//      argument for keeping them isolated in a cpp file
+//      ... in fact, we have a ZCM_DEBUG, so I think it'd be more consistent to add a
+//      ZCM_ERR to zcm/util/debug.h and live with that (we could even go so far as to add
+//      ZCM_DEBUG, ZCM_WARN, ZCM_INFO, etc)
 #define DEBUG(...) do {\
     if (this->debug) printf(__VA_ARGS__);\
   } while(0)
@@ -17,17 +22,16 @@ using namespace std;
     fprintf(stderr, __VA_ARGS__);\
   } while(0)
 
+// RRR: should we switch uses of NULL to nullptr?
 template<class K, class V>
-static inline V *lookup(std::unordered_map<K,V>& map, const K& key)
+static inline V* lookup(std::unordered_map<K,V>& map, const K& key)
 {
     auto it = map.find(key);
-    if (it == map.end())
-        return NULL;
-    else
-        return &it->second;
+    if (it == map.end()) return NULL;
+    else                 return &it->second;
 }
 
-static void *openlib(const string& libname)
+static void* openlib(const string& libname)
 {
     // verify the .so library
     size_t len = libname.size();
@@ -37,7 +41,7 @@ static void *openlib(const string& libname)
     }
 
     // attempt to open the .so
-    void *lib = dlopen(libname.c_str(), RTLD_LAZY);
+    void* lib = dlopen(libname.c_str(), RTLD_LAZY);
     if (!lib) {
         ERROR("failed to open '%s'\n", libname.c_str());
         ERROR("%s\n", dlerror());
@@ -69,8 +73,8 @@ static void debugPrintMissingMethods(uint32_t mask)
     printf("  Missing methods:\n");
 
     int count = sizeof(methods)/sizeof(methods[0]);
-    for(int i = 0; i < count; i++) {
-        if(!(mask&(1<<i))) {
+    for (int i = 0; i < count; i++) {
+        if (!(mask & (1 << i))) {
             printf("    %s\n", methods[i].c_str());
         }
     }
@@ -93,11 +97,10 @@ bool TypeDb::findTypenames(vector<string>& result, const string& libname)
 
     // process the symbols
     string s;
-    while(stbl.getNext(s)) {
-        for(size_t i = 0; i < nmethods; i++) {
+    while (stbl.getNext(s)) {
+        for (size_t i = 0; i < nmethods; i++) {
             auto& m = methods[i];
-            if (!StringUtil::endswith(s, m))
-                continue;
+            if (!StringUtil::endswith(s, m)) continue;
 
             // construct the typename
             string name = s.substr(0, s.size()-m.size());
@@ -107,7 +110,7 @@ bool TypeDb::findTypenames(vector<string>& result, const string& libname)
             uint32_t& mask = names[name];
 
             // set this mask
-            mask |= 1<<i;
+            mask |= 1 << i;
         }
     }
 
@@ -125,10 +128,11 @@ bool TypeDb::findTypenames(vector<string>& result, const string& libname)
         }
     }
 
+    // RRR: should probably return !result.empty()
     return true;
 }
 
-bool TypeDb::loadtypes(const string& libname, void *lib)
+bool TypeDb::loadtypes(const string& libname, void* lib)
 {
     vector<string> names;
     if (!findTypenames(names, libname)) {
@@ -141,14 +145,18 @@ bool TypeDb::loadtypes(const string& libname, void *lib)
         DEBUG("Attempting load for type %s\n", nm.c_str());
 
         string funcname = nm + "_get_type_info";
-        zcm_type_info_t *(*get_type_info)(void) = NULL;
-        *(void **) &get_type_info = dlsym(lib, funcname.c_str());
+        zcm_type_info_t* (*get_type_info)(void) = NULL;
+        // RRR: probably NOT worth it, but I wonder if this would play nicer if we just used
+        //      std::functional
+        // for the faint hearted: cast &get_type_info to a (void **) then dereference
+        // it to set the value of get_type_info to the return of dlsym()
+        *((void **) &get_type_info) = dlsym(lib, funcname.c_str());
         if(get_type_info == NULL) {
             ERROR("ERR: failed to load %s\n", funcname.c_str());
             continue;
         }
 
-        zcm_type_info_t *typeinfo = get_type_info();
+        zcm_type_info_t* typeinfo = get_type_info();
         TypeMetadata md;
         md.hash = typeinfo->get_hash();
         md.name = nm;
@@ -165,12 +173,11 @@ bool TypeDb::loadtypes(const string& libname, void *lib)
     return true;
 }
 
-TypeDb::TypeDb(const string& paths, bool debug)
-: debug(debug)
+TypeDb::TypeDb(const string& paths, bool debug) : debug(debug)
 {
     for (auto& libname : StringUtil::split(paths, ':')) {
         DEBUG("Loading types from '%s'\n", libname.c_str());
-        void *lib = openlib(libname);
+        void* lib = openlib(libname);
         if (lib == NULL) {
             ERROR("failed to open '%s'\n", libname.c_str());
             continue;
@@ -182,16 +189,13 @@ TypeDb::TypeDb(const string& paths, bool debug)
     }
 }
 
-const TypeMetadata *TypeDb::getByHash(int64_t hash)
+const TypeMetadata* TypeDb::getByHash(int64_t hash)
 {
     return lookup(hashToType, hash);
 }
 
-const TypeMetadata *TypeDb::getByName(const string& name)
+const TypeMetadata* TypeDb::getByName(const string& name)
 {
-    if (int64_t *hash = lookup(nameToHash, name)) {
-        return getByHash(*hash);
-    } else {
-        return NULL;
-    }
+    if (int64_t* hash = lookup(nameToHash, name)) return getByHash(*hash);
+    else                                          return NULL;
 }

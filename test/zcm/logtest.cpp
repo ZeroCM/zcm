@@ -69,6 +69,7 @@ int main(int argc, const char *argv[])
     assert(zcm_eventlog_read_next_event(l) == NULL &&
            "Requesting event after last event didn't return NULL");
 
+    // RRR: might consider testing something besides 0 offset
     zcm_eventlog_event_t *le = zcm_eventlog_read_event_at_offset(l, 0);
     assert(le && "Failed to read offset log event out of log");
     assert(le->eventnum == 0 && "Incorrect eventnum inside of offset event");

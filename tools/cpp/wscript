@@ -2,6 +2,7 @@
 # encoding: utf-8
 
 def build(ctx):
+    # RRR: I think this isn't used any more
     ctx.env.INCLUDES_zcm_tools = [ctx.path.abspath()]
     ctx.recurse('logger');
     ctx.recurse('logplayer');
