@@ -1,8 +1,7 @@
 /// Json-cpp amalgated header (http://jsoncpp.sourceforge.net/).
 /// It is intended to be used with #include "json/json.h"
 
-// RRR: I'd add that this comes from https://github.com/open-source-parsers/jsoncpp
-//      as an easy git hook if we want to update in the future
+// This comes from https://github.com/open-source-parsers/jsoncpp
 
 // //////////////////////////////////////////////////////////////////////
 // Beginning of content of file: LICENSE

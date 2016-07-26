@@ -26,16 +26,15 @@ struct Args
     bool parse(int argc, char *argv[])
     {
         // set some defaults
-        const char *optstring = "hl:o:p:t:rd";
+        const char *optstring = "l:o:p:t:rdh";
         struct option long_opts[] = {
-            { "help",        no_argument,       0, 'h' },
             { "log",         required_argument, 0, 'l' },
-            // RRR: wrong long arg here
-            { "log",         required_argument, 0, 'o' },
+            { "output",      required_argument, 0, 'o' },
             { "plugin-path", required_argument, 0, 'p' },
             { "type-path",   required_argument, 0, 't' },
             { "readable",    no_argument,       0, 'r' },
             { "debug",       no_argument,       0, 'd' },
+            { "help",        no_argument,       0, 'h' },
             { 0, 0, 0, 0 }
         };
 
@@ -76,42 +75,40 @@ struct Args
 
         return true;
     }
-};
 
-// RRR: why not make this a function of Args (granted the gains aren't much unless
-//      we actually implemented a good getOpt class)
-static void usage()
-{
-    cerr << "usage: zcm-log-indexer [options]" << endl
-         << "" << endl
-         << "    Load in a log file and write an index json file that" << endl
-         << "    allows for faster log indexing." << endl
-         << "" << endl
-         << "Example:" << endl
-         << "    zcm-log-indexer -l zcm.log -o index.dbz -t path/to/zcmtypes.so" << endl
-         << "" << endl
-         << "Options:" << endl
-         << "" << endl
-         << "  -h, --help              Shows this help text and exits" << endl
-         << "  -l, --log=logfile       Input log to index for fast querying" << endl
-         << "  -o, --output=indexfile  Output index file to be used with log" << endl
-         << "  -p, --plugin-path=path  Path to shared library containing indexer plugins" << endl
-         << "                          Can also be specified via the environment variable" << endl
-         << "                          ZCM_LOG_INDEXER_ZCMTYPES_PATH" << endl
-         << "  -t, --type-path=path    Path to shared library containing the zcmtypes" << endl
-         << "                          Can also be specified via the environment variable" << endl
-         << "                          ZCM_LOG_INDEXER_PLUGINS_PATH" << endl
-         << "  -r, --readable          Don't minify the output index file. " << endl
-         << "                          Leave it human readable" << endl
-         << "  -d, --debug             Run a dry run to ensure proper indexer setup" << endl
-         << endl << endl;
-}
+    void usage()
+    {
+        cerr << "usage: zcm-log-indexer [options]" << endl
+             << "" << endl
+             << "    Load in a log file and write an index json file that" << endl
+             << "    allows for faster log indexing." << endl
+             << "" << endl
+             << "Example:" << endl
+             << "    zcm-log-indexer -l zcm.log -o index.dbz -t path/to/zcmtypes.so" << endl
+             << "" << endl
+             << "Options:" << endl
+             << "" << endl
+             << "  -h, --help              Shows this help text and exits" << endl
+             << "  -l, --log=logfile       Input log to index for fast querying" << endl
+             << "  -o, --output=indexfile  Output index file to be used with log" << endl
+             << "  -p, --plugin-path=path  Path to shared library containing indexer plugins" << endl
+             << "                          Can also be specified via the environment variable" << endl
+             << "                          ZCM_LOG_INDEXER_ZCMTYPES_PATH" << endl
+             << "  -t, --type-path=path    Path to shared library containing the zcmtypes" << endl
+             << "                          Can also be specified via the environment variable" << endl
+             << "                          ZCM_LOG_INDEXER_PLUGINS_PATH" << endl
+             << "  -r, --readable          Don't minify the output index file. " << endl
+             << "                          Leave it human readable" << endl
+             << "  -d, --debug             Run a dry run to ensure proper indexer setup" << endl
+             << endl << endl;
+    }
+};
 
 int main(int argc, char* argv[])
 {
     Args args;
     if (!args.parse(argc, argv)) {
-        usage();
+        args.usage();
         return 1;
     }
 
@@ -121,10 +118,7 @@ int main(int argc, char* argv[])
         return 1;
     }
     fseeko(log.getFilePtr(), 0, SEEK_END);
-    // RRR: this just reminded me: you need to look up how to handle large files (ie > 2 GB).
-    //      I believe there is a ftello64 that is required for files larger than 2 GB (might
-    //      also apply to some of your other log seeking / sizing functions).
-    //      Regardless, definitely test this on a log that's > 2 GB (I can give you one if you want)
+    // XXX Look into handling large logfiles
     off_t logSize = ftello(log.getFilePtr());
 
     ofstream output;
@@ -135,21 +129,18 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    vector<const zcm::IndexerPlugin*> plugins;
+    vector<zcm::IndexerPlugin*> plugins;
 
     zcm::IndexerPlugin* defaultPlugin = new zcm::IndexerPlugin();
     plugins.push_back(defaultPlugin);
 
-    IndexerPluginDb* pluginDb = nullptr;
+    IndexerPluginDb pluginDb;
     // Load plugins from path if specified
     if (args.plugin_path != "") {
-        // RRR: might be cleaner if instead of making the pluginDb dynamic you just
-        //      handled the case where it gives you an empty vector
-        //      ... in fact, I think that your code already handles this, just gotta
-        //      make the pluginDb constructor return if it's given an empty list
-        pluginDb = new IndexerPluginDb(args.plugin_path, args.debug);
-        vector<const zcm::IndexerPlugin*> dbPlugins = pluginDb->getPlugins();
-        plugins.insert(plugins.end(), dbPlugins.begin(), dbPlugins.end());
+        pluginDb = IndexerPluginDb(args.plugin_path, args.debug);
+        vector<const zcm::IndexerPlugin*> dbPlugins = pluginDb.getPlugins();
+        // casting away constness. Don't mess up.
+        for (auto dbp : dbPlugins) plugins.push_back((zcm::IndexerPlugin*) dbp);
     }
 
     for (size_t i = 0; i < plugins.size(); ++i) {
@@ -162,9 +153,9 @@ int main(int argc, char* argv[])
         }
     }
 
-    auto buildPluginGroups = [] (vector<const zcm::IndexerPlugin*> plugins) {
-        vector<vector<const zcm::IndexerPlugin*>> groups;
-        vector<const zcm::IndexerPlugin*> lastLoop = plugins;
+    auto buildPluginGroups = [] (vector<zcm::IndexerPlugin*> plugins) {
+        vector<vector<zcm::IndexerPlugin*>> groups;
+        vector<zcm::IndexerPlugin*> lastLoop = plugins;
         while (!plugins.empty()) {
             groups.resize(groups.size() + 1);
             for (auto p = plugins.begin(); p != plugins.end();) {
@@ -186,8 +177,6 @@ int main(int argc, char* argv[])
                 if (!skipUntilLater) {
                     groups.back().push_back(*p);
                     p = plugins.erase(p);
-                    // RRR: this exit not required, will be checked immediately afterwards anyway
-                    if (p == plugins.end()) break;
                 } else {
                     ++p;
                 }
@@ -211,7 +200,8 @@ int main(int argc, char* argv[])
         return groups;
     };
 
-    vector<vector<const zcm::IndexerPlugin*>> pluginGroups;
+    // We do not own all the memory in here. We only own the default prorgam
+    vector<vector<zcm::IndexerPlugin*>> pluginGroups;
     pluginGroups = buildPluginGroups(plugins);
     if (pluginGroups.size() > 1) {
         cout << "Identified " << pluginGroups.size() << " indexer plugin groups" << endl
@@ -223,21 +213,16 @@ int main(int argc, char* argv[])
 
     Json::Value index;
 
-    struct SortingInfo {
-        vector<off_t> offsets;
-        const zcm::IndexerPlugin* plugin;
-    };
-
-    unordered_map<Json::Value*, SortingInfo> needSorting;
-
-    // RRR: shouldn't this start at 0
-    size_t numEvents = 1;
+    size_t numEvents = 0;
     const zcm::LogEvent* evt;
     for (size_t i = 0; i < pluginGroups.size(); ++i) {
         if (pluginGroups.size() != 1) cout << "Plugin group " << (i + 1) << endl;
         off_t offset = 0;
-        // RRR: Isn't this seek BEGIN?
         fseeko(log.getFilePtr(), 0, SEEK_SET);
+
+        for (auto* p : pluginGroups[i])
+            p->setup(index, index[p->name()], log);
+
         while (1) {
             offset = ftello(log.getFilePtr());
 
@@ -258,57 +243,25 @@ int main(int argc, char* argv[])
 
             for (auto* p : pluginGroups[i]) {
                 assert(p);
-                vector<string> indexName = p->includeInIndex(evt->channel, md->name,
-                                                             index,
-                                                             (uint64_t) msg_hash,
-                                                             evt->data, evt->datalen);
-                if (indexName.size() == 0) continue;
 
-                Json::Value* currIndex = &index[p->name()];
-                for (size_t j = 0; j < indexName.size(); ++j) {
-                    currIndex = &(*currIndex)[indexName[j]];
-                }
-
-                if (needSorting.count(currIndex))
-                    needSorting[currIndex].offsets.push_back(offset);
-                else
-                    needSorting[currIndex] = SortingInfo{{offset}, p};
+                p->indexEvent(index, index[p->name()],
+                              evt->channel, md->name,
+                              offset, evt->timestamp,
+                              (uint64_t) msg_hash,
+                              evt->data, evt->datalen);
 
                 numEvents++;
             }
-
         }
+
+        for (auto* p : pluginGroups[i])
+            p->teardown(index, index[p->name()], log);
 
         cout << endl;
-
-        for (auto& s : needSorting) {
-            // RRR: should also print something about the json index you are
-            //      sorting because there can be multiple of the same plugin
-            cout << "sorting " << s.second.plugin->name() << endl;
-            auto comparator = [&](off_t a, off_t b) {
-                if (a < 0 || b < 0 || a > logSize || b > logSize) {
-                    cerr << "Sorting has failed. "
-                         << "Your sorting function is probably broken. "
-                         << "Aborting." << endl;
-                    exit(1);
-                }
-                return s.second.plugin->lessThan(a, b, log, index);
-            };
-            if (s.second.plugin->sorted())
-                std::sort(s.second.offsets.begin(), s.second.offsets.end(), comparator);
-            // RRR: why are you using strings here?
-            for (auto val : s.second.offsets) (*s.first).append(to_string(val));
-        }
-        needSorting.clear();
-
     }
 
     delete defaultPlugin;
     defaultPlugin = nullptr;
-    if (pluginDb) {
-        delete pluginDb;
-        pluginDb = nullptr;
-    }
 
     Json::StreamWriterBuilder builder;
     builder["indentation"] = args.readable ? "    " : "";

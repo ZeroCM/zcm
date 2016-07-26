@@ -69,11 +69,18 @@ int main(int argc, const char *argv[])
     assert(zcm_eventlog_read_next_event(l) == NULL &&
            "Requesting event after last event didn't return NULL");
 
-    // RRR: might consider testing something besides 0 offset
-    zcm_eventlog_event_t *le = zcm_eventlog_read_event_at_offset(l, 0);
+    fseeko(zcm_eventlog_get_fileptr(l), 0, SEEK_SET);
+    for (size_t i = 0; i < 10; ++i) {
+        zcm_eventlog_event_t *le = zcm_eventlog_read_next_event(l);
+        zcm_eventlog_free_event(le);
+    }
+    off_t offset = ftello(zcm_eventlog_get_fileptr(l));
+    fseeko(zcm_eventlog_get_fileptr(l), 0, SEEK_SET);
+
+    zcm_eventlog_event_t *le = zcm_eventlog_read_event_at_offset(l, offset);
     assert(le && "Failed to read offset log event out of log");
-    assert(le->eventnum == 0 && "Incorrect eventnum inside of offset event");
-    assert(le->timestamp == 1 && "Incorrect timestamp inside of offset event");
+    assert(le->eventnum == 10 && "Incorrect eventnum inside of offset event");
+    assert(le->timestamp == 11 && "Incorrect timestamp inside of offset event");
     assert(le->channellen == event.channellen && "Incorrect channellen inside of offset event");
     assert(strncmp((const char*)le->channel, testChannel.c_str(), le->channellen) == 0 &&
            "Incorrect data inside of offset event");

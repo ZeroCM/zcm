@@ -2,25 +2,24 @@
 
 #include <string>
 #include <vector>
+#include <cstdint>
 
 #include "zcm/zcm-cpp.hpp"
 #include "zcm/json/json.h"
 
-// RRR: "c file" -> "cpp file" I think
-// Remember you must inherit from this class but implement your functions
-// inside a c file. That way you can then compile a shared library of your
-// plugins
 //
-// REPEAT: ALL FUNCTIONS MUST BE DEFINED OUTSIDE OF CLASS DECLARATION
+// Remember you must inherit from this class and implement your functions
+// inside your cpp file. That way you can then compile a shared library of your
+// plugins.
+//
+// REPEAT: ALL FUNCTIONS MUST BE *DEFINED* OUTSIDE OF CLASS *DECLARATION*
 //
 // Do this:
 //
-// RRR: make a notation about which file each of these blurbs are in (ie CustomPlugin.{h,c}pp)
 // class CustomPlugin : IndexerPlugin
 // {
 //     static IndexerPlugin* makeIndexerPlugin();
 // };
-// RRR: technically this in a cpp file, not at the bottom of the hpp file even
 // IndexerPlugin* CustomPlugin::makeIndexerPlugin() { return new CustomPlugin(); }
 //
 //
@@ -30,16 +29,22 @@
 // {
 //     static IndexerPlugin* makeIndexerPlugin() { return new CustomPlugin(); }
 // };
+//
+//
+// Note that an hpp file is not even required. You only need a cpp file containing
+// your custom plugin. Then compile it into a shared library by doing the following:
+//
+// g++ -std=c++11 -fPIC -shared CustomPlugin.cpp -o plugins.so
+//
 
 namespace zcm {
 
 class IndexerPlugin
 {
   public:
-    // RRR: technically you declare it inside your plugin declaration and define it in your
-    //      cpp file, so maybe just specify that "you must define the following function
-    //      *for* your plugin"
-    // Must define the following function inside of your plugin
+    // Must declare the following function for your plugin. Unable to enforce
+    // declaration of static functions in inheritance, so this API trusts you
+    // to define this function for your type
     static IndexerPlugin* makeIndexerPlugin();
 
     virtual ~IndexerPlugin();
@@ -49,49 +54,63 @@ class IndexerPlugin
     // Returns a vector of names of other plugins that this plugin depends on.
     // Ie if a custom plugin depends on the timestamp plugin's output, it would
     // return {"timestamp"} and no indexing functions would be called on this
-    // plugin until all of it's dependcies have finished their indexing
-    // RRR: make sure I understand this right (and maybe add this example)
-    //      ", which would allow it to use the timestamp-indexed data while
-    //       performing their own indexing operations"
+    // plugin until the "timestamp" plugin finished its indexing
+    // Specifying dependencies allows this plugin to use the timestamp-indexed
+    // data while performing its own indexing operations
     virtual std::vector<std::string> dependencies() const;
 
-    // RRR: does this mean data will only be indexed by strings (ie hash-like) and
-    //      can't be appended to an array? Perhaps this actually appends the data
-    //      to the end of the array located at the specified hash entry?
-    //      After reading over the rest of the code, I understand how this works
-    //      now, but I think the reference here should be improved a bit.
-    // RRR: suggest using the name of the channel and type as the first / second
-    //      elements of retVec (or maybe we want that to happen automatically?)
-    // Returns a vector of string indices indicating how the plugin would like
-    // the data to be indexed
-    // Indexer will use the returned vector in the following way:
-    // index[IndexerPlugin::name()][retVec[0]][retVec[1]]...[retVec[n]]
-    // The hash argument is the hash of the type represented by data and datalen
+    // Do anything that your plugin requires doing before the indexing process
+    // starts but after all dependencies have run
+    virtual void setup(const Json::Value& index,
+                       Json::Value& pluginIndex,
+                       zcm::LogFile& log);
+
+    // pluginIndex is the index you should modify. It is your json object that
+    // will be passed back to this function every time the function is called.
     //
-    // To recover the message, simply call:
+    // index is the entire json object containing the output of every plugin run
+    // so far
+    //
+    // channel is the channel name of the event
+    //
+    // typeName is the name of the zcmtype encoded inside the event
+    //
+    // offset is the index into the eventlog where this event is stored
+    //
+    // timestamp is the timestamp of the event. Not to be confused with any
+    // fields contained in the zcmtype message itself. This is the timestamp
+    // of the event as reported by the transport that originally received it.
+    //
+    // hash is the hash of the type encoded inside the event
+    //
+    // data and datalen is the payload of the event
+    // To recover the zcmtype message from these arguments, simply call:
     //
     //  if (hash == msg_t::getHash()) {
     //      msg_t msg;
     //      msg.decode(data, 0, datalen);
     //  }
     //
-    virtual std::vector<std::string> includeInIndex(std::string channel,
-                                                    std::string typeName,
-                                                    const Json::Value& index,
-                                                    int64_t hash,
-                                                    const char* data,
-                                                    int32_t datalen) const;
+    // The default plugin indexes in the following way. You might want to
+    // follow suit but that decision is left completely up to you.
+    //
+    // pluginIndex[channel][typeName].append(offset);
+    //
+    //
+    virtual void indexEvent(const Json::Value& index,
+                            Json::Value& pluginIndex,
+                            std::string channel,
+                            std::string typeName,
+                            off_t offset,
+                            uint64_t timestamp,
+                            int64_t hash,
+                            const char* data,
+                            int32_t datalen);
 
-    // RRR: more accuartely, true if lessThan is valid and the user wants the data sorted
-    //      Might actually consider passing in the string vector that was returned from the
-    //      includeInIndex function (ie the json index string) in case some parts of the data
-    //      generated by the plugin are sorted and others aren't
-    // return true if this plugin's lessThan function is valid
-    virtual bool sorted() const;
-
-    // return true if "a" should come before "b" in the sorted list
-    virtual bool lessThan(off_t a, off_t b, zcm::LogFile& log,
-                          const Json::Value& index) const;
+    // Do anything that your plugin requires doing before the indexer exits
+    virtual void teardown(const Json::Value& index,
+                          Json::Value& pluginIndex,
+                          zcm::LogFile& log);
 };
 
 }

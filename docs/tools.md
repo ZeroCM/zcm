@@ -251,22 +251,21 @@ After running the above command, the output index file might look like this:
         "timestamp" : {
             "IMAGES" : {
                 "image_t" : [
-                    // RRR: technically at the moment you are storing these as strings
-                    0,
-                    1001000,
-                    2002000,
+                    "0",
+                    "1001000",
+                    "2002000",
                     ...
-                    37037000
+                    "37037000"
                 ]
             },
             "BEACON_COORDS" : {
                 "beacon_t" : [
-                    1000000,
-                    1000100,
-                    1000200,
-                    1000300,
+                    "1000000",
+                    "1000100",
+                    "1000200",
+                    "1000300",
                     ...
-                    37036900
+                    "37036900"
                 ]
             }
         }
@@ -279,7 +278,7 @@ the plugin's name. In this case, the plugin's name is "timestamp".
 After that point, the plugin specifies the rest of the organization of its json
 index object. In the default case, the timestamp plugin organizes its output first
 by channel name, then by zcm type name, but custom plugins are free to organize as
-they see fit. The /* RRR API */ language by which custom plugins specify their organization is
+they see fit. The API through which custom plugins specify their organization is
 specified in the base `IndexerPlugin.hpp` class. See that file for more information.
 
 Now that we have both the zcm log and this index file, we can use it in whatever

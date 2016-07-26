@@ -5,13 +5,12 @@
 #include <cassert>
 #include <string>
 
-// RRR: should we switch uses of NULL to nullptr?
 struct SymtabElf
 {
     SymtabElf(const std::string& libname);
     ~SymtabElf();
 
-    bool good() { return f != NULL; }
+    bool good() { return f != nullptr; }
     bool getNext(std::string& s);
 
   private:
@@ -19,7 +18,7 @@ struct SymtabElf
     bool refillBuffer();
 
   private:
-    FILE* f = NULL;
+    FILE* f = nullptr;
     static const size_t MaxBuf = 4096;
     char buffer[MaxBuf];
     size_t numread = 0;

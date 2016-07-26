@@ -1,33 +1,23 @@
-#include "TypeDb.hpp"
-#include "SymtabElf.hpp"
-
 #include <dlfcn.h>
 #include <inttypes.h>
 
+#include "zcm/util/Common.hpp"
+#include "zcm/util/SymtabElf.hpp"
 #include "util/StringUtil.hpp"
+
+#include "TypeDb.hpp"
 
 using namespace std;
 
-// RRR: these feel like they belong in a zcm debug util or something though I can see the
-//      argument for keeping them isolated in a cpp file
-//      ... in fact, we have a ZCM_DEBUG, so I think it'd be more consistent to add a
-//      ZCM_ERR to zcm/util/debug.h and live with that (we could even go so far as to add
-//      ZCM_DEBUG, ZCM_WARN, ZCM_INFO, etc)
 #define DEBUG(...) do {\
     if (this->debug) printf(__VA_ARGS__);\
   } while(0)
 
-#define ERROR(...) do{\
-    fprintf(stderr, "Err: ");\
-    fprintf(stderr, __VA_ARGS__);\
-  } while(0)
-
-// RRR: should we switch uses of NULL to nullptr?
 template<class K, class V>
 static inline V* lookup(std::unordered_map<K,V>& map, const K& key)
 {
     auto it = map.find(key);
-    if (it == map.end()) return NULL;
+    if (it == map.end()) return nullptr;
     else                 return &it->second;
 }
 
@@ -37,7 +27,7 @@ static void* openlib(const string& libname)
     size_t len = libname.size();
     if (len < 3 || 0 != strcmp(libname.c_str()+len-3, ".so")) {
         ERROR("bad library name, expected a .so file, not '%s'\n", libname.c_str());
-        return NULL;
+        return nullptr;
     }
 
     // attempt to open the .so
@@ -45,7 +35,7 @@ static void* openlib(const string& libname)
     if (!lib) {
         ERROR("failed to open '%s'\n", libname.c_str());
         ERROR("%s\n", dlerror());
-        return NULL;
+        return nullptr;
     }
 
     return lib;
@@ -128,8 +118,7 @@ bool TypeDb::findTypenames(vector<string>& result, const string& libname)
         }
     }
 
-    // RRR: should probably return !result.empty()
-    return true;
+    return !result.empty();
 }
 
 bool TypeDb::loadtypes(const string& libname, void* lib)
@@ -145,13 +134,11 @@ bool TypeDb::loadtypes(const string& libname, void* lib)
         DEBUG("Attempting load for type %s\n", nm.c_str());
 
         string funcname = nm + "_get_type_info";
-        zcm_type_info_t* (*get_type_info)(void) = NULL;
-        // RRR: probably NOT worth it, but I wonder if this would play nicer if we just used
-        //      std::functional
+        zcm_type_info_t* (*get_type_info)(void) = nullptr;
         // for the faint hearted: cast &get_type_info to a (void **) then dereference
         // it to set the value of get_type_info to the return of dlsym()
         *((void **) &get_type_info) = dlsym(lib, funcname.c_str());
-        if(get_type_info == NULL) {
+        if(get_type_info == nullptr) {
             ERROR("ERR: failed to load %s\n", funcname.c_str());
             continue;
         }
@@ -178,7 +165,7 @@ TypeDb::TypeDb(const string& paths, bool debug) : debug(debug)
     for (auto& libname : StringUtil::split(paths, ':')) {
         DEBUG("Loading types from '%s'\n", libname.c_str());
         void* lib = openlib(libname);
-        if (lib == NULL) {
+        if (lib == nullptr) {
             ERROR("failed to open '%s'\n", libname.c_str());
             continue;
         }
@@ -197,5 +184,5 @@ const TypeMetadata* TypeDb::getByHash(int64_t hash)
 const TypeMetadata* TypeDb::getByName(const string& name)
 {
     if (int64_t* hash = lookup(nameToHash, name)) return getByHash(*hash);
-    else                                          return NULL;
+    else                                          return nullptr;
 }

@@ -2,8 +2,7 @@
 /// It is intended to be used with #include "json/json-forwards.h"
 /// This header provides forward declaration for all JsonCpp types.
 
-// RRR: I'd add that this comes from https://github.com/open-source-parsers/jsoncpp
-//      as an easy git hook if we want to update in the future
+// This comes from https://github.com/open-source-parsers/jsoncpp
 
 // //////////////////////////////////////////////////////////////////////
 // Beginning of content of file: LICENSE
