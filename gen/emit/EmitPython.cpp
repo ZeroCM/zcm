@@ -536,7 +536,10 @@ struct PyEmitStruct : public Emitter
                 if (lm.type.fullname == ls.structname.fullname) {
                     emitContinue("+ %s.%s", msn.c_str(), ghr);
                 } else {
-                    emitContinue("+ %s.%s.%s", lm.type.package.c_str(), msn.c_str(), ghr);
+                    if (lm.type.package != "")
+                        emitContinue("+ %s.%s.%s", lm.type.package.c_str(), msn.c_str(), ghr);
+                    else
+                        emitContinue("+ %s.%s", msn.c_str(), ghr);
                 }
             }
         }
@@ -570,7 +573,7 @@ struct PyEmitStruct : public Emitter
         }
 
         for (auto& package : dependencies) {
-            emit(0, "import %s", package.c_str());
+            emit(0, "from %s import %s", package.c_str(), package.c_str());
             emit(0,"");
         }
     }
