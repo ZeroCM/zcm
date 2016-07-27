@@ -63,7 +63,8 @@ class IndexerPlugin
     // into the following functions will contain the entire (not partial)
     // "timestamp" index. The full index passed into the following functions
     // is just for your reference, your indexEvent function will still be called
-    // on every event in the log and in event timestamp increasing order
+    // on every single event in the log in the order in which they are stored in
+    // the log.
     virtual std::set<std::string> dependsOn() const;
 
     // Do anything that your plugin requires doing before the indexing process
