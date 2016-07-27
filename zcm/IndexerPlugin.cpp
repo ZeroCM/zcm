@@ -65,7 +65,7 @@ void IndexerPlugin::tearDown(const Json::Value& index,
                 std::string offset = pluginIndex[channel][type][(int)i].asString();
                 size_t sz = 0;
                 long long off = stoll(offset, &sz, 0);
-                assert(sz < offset.length());
+                assert(sz <= offset.length());
                 offsets.push_back((off_t) off);
             }
             std::sort(offsets.begin(), offsets.end(), comparator);

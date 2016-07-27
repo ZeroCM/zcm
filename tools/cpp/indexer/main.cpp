@@ -145,6 +145,10 @@ int main(int argc, char* argv[])
 
     for (size_t i = 0; i < plugins.size(); ++i) {
         for (size_t j = i + 1; j < plugins.size(); ++j) {
+            if (args.debug)
+                cout << plugins.data()[i] << "->name() == "
+                     << plugins.data()[j] << "->name()" << endl;
+
             if (plugins[i]->name() == plugins[j]->name()) {
                 cerr << "Plugins must have unique names. Collision: "
                      << plugins[i]->name() << endl;
@@ -152,6 +156,10 @@ int main(int argc, char* argv[])
             }
         }
     }
+
+    TypeDb types(args.type_path, args.debug);
+
+    if (args.debug) return 0;
 
     auto buildPluginGroups = [] (vector<zcm::IndexerPlugin*> plugins) {
         vector<vector<zcm::IndexerPlugin*>> groups;
@@ -209,8 +217,6 @@ int main(int argc, char* argv[])
              << " times to satisfy dependencies" << endl;
     }
 
-    TypeDb types(args.type_path, args.debug);
-
     Json::Value index;
 
     size_t numEvents = 0;
@@ -254,10 +260,10 @@ int main(int argc, char* argv[])
             }
         }
 
+        cout << endl;
+
         for (auto* p : pluginGroups[i])
             p->tearDown(index, index[p->name()], log);
-
-        cout << endl;
     }
 
     delete defaultPlugin;

@@ -71,6 +71,7 @@ bool IndexerPluginDb::findPlugins(const string& libname)
     string s;
     while (stbl.getNext(s)) {
         string demangled = demangle(s);
+        //DEBUG("%s\n", demangled.c_str());
         if (!StringUtil::endswith(demangled, method)) continue;
 
         IndexerPluginMetadata md;
@@ -91,7 +92,9 @@ bool IndexerPluginDb::findPlugins(const string& libname)
     }
 
     for (auto& meta : pluginMeta) {
-        plugins.push_back(meta.makeIndexerPlugin());
+        zcm::IndexerPlugin* p = (zcm::IndexerPlugin*) meta.makeIndexerPlugin();
+        DEBUG("Added new plugin with address %p\n", p);
+        plugins.push_back(p);
         constPlugins.push_back(plugins.back());
     }
 
