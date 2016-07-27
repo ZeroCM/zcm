@@ -166,7 +166,7 @@ int main(int argc, char* argv[])
         while (!plugins.empty()) {
             groups.resize(groups.size() + 1);
             for (auto p = plugins.begin(); p != plugins.end();) {
-                vector<string> deps = (*p)->dependsOn();
+                auto deps = (*p)->dependsOn();
 
                 bool skipUntilLater = false;
                 for (auto* dep : plugins) {

@@ -1,3 +1,4 @@
+#include <vector>
 #include <cassert>
 #include <iostream>
 #include <string>
@@ -18,7 +19,7 @@ class CustomIndexerPlugin : public zcm::IndexerPlugin
 
     std::string name() const override;
 
-    std::vector<std::string> dependsOn() const override;
+    std::set<std::string> dependsOn() const override;
 
     void setUp(const Json::Value& index, Json::Value& pluginIndex, zcm::LogFile& log) override;
 
@@ -40,7 +41,7 @@ CustomIndexerPlugin::~CustomIndexerPlugin()
 std::string CustomIndexerPlugin::name() const
 { return "custom plugin"; }
 
-std::vector<std::string> CustomIndexerPlugin::dependsOn() const
+std::set<std::string> CustomIndexerPlugin::dependsOn() const
 { return {"timestamp"}; }
 
 void CustomIndexerPlugin::setUp(const Json::Value& index,
