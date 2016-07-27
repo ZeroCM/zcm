@@ -49,18 +49,61 @@ class IndexerPlugin
 
     virtual ~IndexerPlugin();
 
+    // This defines the key of the object you will be passed in the functions
+    // below as pluginIndex. Further explanation below.
     virtual std::string name() const;
 
     // Returns a vector of names of other plugins that this plugin depends on.
     // Ie if a custom plugin depends on the timestamp plugin's output, it would
     // return {"timestamp"} and no indexing functions would be called on this
     // plugin until the "timestamp" plugin finished its indexing
-    // Specifying dependencies allows this plugin to use the timestamp-indexed
-    // data while performing its own indexing operations
+    // Specifying "timestamp" as a dependency allows this plugin to use the
+    // timestamp-indexed data while performing its own indexing operations
+    // In other words, returning {"timestamp"} ensures that the index passed
+    // into the following functions will contain the entire (not partial)
+    // "timestamp" index
     virtual std::vector<std::string> dependsOn() const;
 
     // Do anything that your plugin requires doing before the indexing process
     // starts but after all dependencies have run
+    //
+    // the index argument refers to the entirety of the index created thus far.
+    // If you had specifided "timestamp" as a dependency of this plugin, index
+    // might look like this:
+    //
+    // {
+    //     "timestamp" : {
+    //         "IMAGES" : {
+    //             "image_t" : [
+    //                 "0",
+    //                 "1001000",
+    //                 "2002000",
+    //                 ...
+    //                 "37037000"
+    //             ]
+    //         },
+    //         "BEACON_COORDS" : {
+    //             "beacon_t" : [
+    //                 "1000000",
+    //                 "1000100",
+    //                 "1000200",
+    //                 "1000300",
+    //                 ...
+    //                 "37036900"
+    //             ]
+    //         }
+    //     },
+    //     "custom plugin" : {
+    //     }
+    // }
+    //
+    // pluginIndex would be the object in json that you will modify to create
+    // your index. In the case above, pluginIndex would be empty when passed
+    // into this function:
+    //
+    //     "custom plugin" : {
+    //     }
+    //
     virtual void setUp(const Json::Value& index,
                        Json::Value& pluginIndex,
                        zcm::LogFile& log);

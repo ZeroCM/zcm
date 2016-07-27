@@ -310,7 +310,14 @@ Head on over to the `examples` part of the repo and take a look at a custom plug
 in `examples/cpp/CustomIndexerPlugin.cpp` and then how to use it to quickly
 traverse logs in `examples/python/indexer_test.py`
 
+When working with custom plugins, your launch command might looks like so:
+
+    zcm-log-indexer -l zcm.log -o zcm.dbz -t types.so -p plugins.so
+
 To tell `zcm-log-indexer` abour your custom plugins and zcmtypes, you simply
 compile a shared library and pass it to the tool via a command line argument.
 You can also use the environment variables mentioned in the `--help` section
 of `zcm-log-indexer` for specifying the `types.so` and `plugins.so` libraries.
+Compiling a shared library is as easy as:
+
+    g++ -std=c++11 -fPIC -shared CustomPlugin.cpp -o plugins.so
