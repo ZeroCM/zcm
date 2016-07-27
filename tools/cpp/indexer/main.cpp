@@ -134,10 +134,9 @@ int main(int argc, char* argv[])
     zcm::IndexerPlugin* defaultPlugin = new zcm::IndexerPlugin();
     plugins.push_back(defaultPlugin);
 
-    IndexerPluginDb pluginDb;
+    IndexerPluginDb pluginDb(args.plugin_path, args.debug);
     // Load plugins from path if specified
     if (args.plugin_path != "") {
-        pluginDb = IndexerPluginDb(args.plugin_path, args.debug);
         vector<const zcm::IndexerPlugin*> dbPlugins = pluginDb.getPlugins();
         // casting away constness. Don't mess up.
         for (auto dbp : dbPlugins) plugins.push_back((zcm::IndexerPlugin*) dbp);

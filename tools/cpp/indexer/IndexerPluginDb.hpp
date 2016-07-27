@@ -15,7 +15,7 @@ class IndexerPluginDb
 {
   public:
     // Note paths is a ":" delimited list of paths just like $PATH
-    IndexerPluginDb(const std::string& paths = {}, bool debug = false);
+    IndexerPluginDb(const std::string& paths = "", bool debug = false);
     ~IndexerPluginDb();
     std::vector<const zcm::IndexerPlugin*> getPlugins();
 
