@@ -19,7 +19,7 @@ IndexerPlugin::~IndexerPlugin()
 std::string IndexerPlugin::name() const
 { return "timestamp"; }
 
-std::vector<std::string> IndexerPlugin::dependsOn() const
+std::set<std::string> IndexerPlugin::dependsOn() const
 { return {}; }
 
 void IndexerPlugin::setUp(const Json::Value& index,

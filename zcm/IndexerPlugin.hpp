@@ -1,7 +1,7 @@
 #pragma once
 
 #include <string>
-#include <vector>
+#include <set>
 #include <cstdint>
 
 #include "zcm/zcm-cpp.hpp"
@@ -53,7 +53,7 @@ class IndexerPlugin
     // below as pluginIndex. Further explanation below.
     virtual std::string name() const;
 
-    // Returns a vector of names of other plugins that this plugin depends on.
+    // Returns a set of names of other plugins that this plugin depends on.
     // Ie if a custom plugin depends on the timestamp plugin's output, it would
     // return {"timestamp"} and no indexing functions would be called on this
     // plugin until the "timestamp" plugin finished its indexing
@@ -61,8 +61,10 @@ class IndexerPlugin
     // timestamp-indexed data while performing its own indexing operations
     // In other words, returning {"timestamp"} ensures that the index passed
     // into the following functions will contain the entire (not partial)
-    // "timestamp" index
-    virtual std::vector<std::string> dependsOn() const;
+    // "timestamp" index. The full index passed into the following functions
+    // is just for your reference, your indexEvent function will still be called
+    // on every event in the log and in event timestamp increasing order
+    virtual std::set<std::string> dependsOn() const;
 
     // Do anything that your plugin requires doing before the indexing process
     // starts but after all dependencies have run
