@@ -259,6 +259,7 @@ license you like.
 
 #endif // if !defined(JSON_IS_AMALGAMATION)
 
+namespace zcm {
 namespace Json {
 typedef int Int;
 typedef unsigned int UInt;
@@ -293,6 +294,7 @@ typedef UInt64 LargestUInt;
 #define JSONCPP_ISTREAM       std::istream
 #endif // if JSONCPP_USING_SECURE_MEMORY
 } // end namespace Json
+}
 
 #endif // JSON_CONFIG_H_INCLUDED
 
@@ -321,6 +323,7 @@ typedef UInt64 LargestUInt;
 #include "config.h"
 #endif // if !defined(JSON_IS_AMALGAMATION)
 
+namespace zcm {
 namespace Json {
 
 // writer.h
@@ -344,6 +347,7 @@ class ValueIterator;
 class ValueConstIterator;
 
 } // namespace Json
+}
 
 #endif // JSON_FORWARDS_H_INCLUDED
 
@@ -372,6 +376,7 @@ class ValueConstIterator;
 #include "forwards.h"
 #endif // if !defined(JSON_IS_AMALGAMATION)
 
+namespace zcm {
 namespace Json {
 
 /** \brief Configuration passed to reader and writer.
@@ -415,6 +420,7 @@ public:
 };
 
 } // namespace Json
+}
 
 #endif // CPPTL_JSON_FEATURES_H_INCLUDED
 
@@ -477,6 +483,7 @@ public:
 
 /** \brief JSON (JavaScript Object Notation).
  */
+namespace zcm {
 namespace Json {
 
 /** Base class for all exceptions we throw.
@@ -1284,12 +1291,13 @@ public:
 };
 
 } // namespace Json
+}
 
 
 namespace std {
 /// Specialize std::swap() for Json::Value.
 template<>
-inline void swap(Json::Value& a, Json::Value& b) { a.swap(b); }
+inline void swap(zcm::Json::Value& a, zcm::Json::Value& b) { a.swap(b); }
 }
 
 
@@ -1337,6 +1345,7 @@ inline void swap(Json::Value& a, Json::Value& b) { a.swap(b); }
 #pragma warning(disable : 4251)
 #endif // if defined(JSONCPP_DISABLE_DLL_INTERFACE_WARNING)
 
+namespace zcm {
 namespace Json {
 
 /** \brief Unserialize a <a HREF="http://www.json.org">JSON</a> document into a
@@ -1710,6 +1719,7 @@ bool JSON_API parseFromStream(
 JSON_API JSONCPP_ISTREAM& operator>>(JSONCPP_ISTREAM&, Value&);
 
 } // namespace Json
+}
 
 #if defined(JSONCPP_DISABLE_DLL_INTERFACE_WARNING)
 #pragma warning(pop)
@@ -1752,6 +1762,7 @@ JSON_API JSONCPP_ISTREAM& operator>>(JSONCPP_ISTREAM&, Value&);
 #pragma warning(disable : 4251)
 #endif // if defined(JSONCPP_DISABLE_DLL_INTERFACE_WARNING)
 
+namespace zcm {
 namespace Json {
 
 class Value;
@@ -2055,6 +2066,7 @@ JSONCPP_STRING JSON_API valueToQuotedString(const char* value);
 JSON_API JSONCPP_OSTREAM& operator<<(JSONCPP_OSTREAM&, const Value& root);
 
 } // namespace Json
+}
 
 #if defined(JSONCPP_DISABLE_DLL_INTERFACE_WARNING)
 #pragma warning(pop)

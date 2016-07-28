@@ -22,14 +22,14 @@ std::string IndexerPlugin::name() const
 std::set<std::string> IndexerPlugin::dependsOn() const
 { return {}; }
 
-void IndexerPlugin::setUp(const Json::Value& index,
-                          Json::Value& pluginIndex,
+bool IndexerPlugin::setUp(const zcm::Json::Value& index,
+                          zcm::Json::Value& pluginIndex,
                           zcm::LogFile& log)
-{}
+{ return true; }
 
 // Index every message according to timestamp
-void IndexerPlugin::indexEvent(const Json::Value& index,
-                               Json::Value& pluginIndex,
+void IndexerPlugin::indexEvent(const zcm::Json::Value& index,
+                               zcm::Json::Value& pluginIndex,
                                std::string channel,
                                std::string typeName,
                                off_t offset,
@@ -39,8 +39,8 @@ void IndexerPlugin::indexEvent(const Json::Value& index,
                                int32_t datalen)
 { pluginIndex[channel][typeName].append(std::to_string(offset)); }
 
-void IndexerPlugin::tearDown(const Json::Value& index,
-                             Json::Value& pluginIndex,
+void IndexerPlugin::tearDown(const zcm::Json::Value& index,
+                             zcm::Json::Value& pluginIndex,
                              zcm::LogFile& log)
 {
     std::cout << "sorting " << name() << std::endl;

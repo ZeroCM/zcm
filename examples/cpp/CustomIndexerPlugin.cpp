@@ -21,14 +21,18 @@ class CustomIndexerPlugin : public zcm::IndexerPlugin
 
     std::set<std::string> dependsOn() const override;
 
-    void setUp(const Json::Value& index, Json::Value& pluginIndex, zcm::LogFile& log) override;
+    bool setUp(const zcm::Json::Value& index,
+               zcm::Json::Value& pluginIndex,
+               zcm::LogFile& log) override;
 
-    void indexEvent(const Json::Value& index, Json::Value& pluginIndex,
+    void indexEvent(const zcm::Json::Value& index, zcm::Json::Value& pluginIndex,
                     std::string channel, std::string typeName,
                     off_t offset, uint64_t timestamp, int64_t hash,
                     const char* data, int32_t datalen) override;
 
-    void tearDown(const Json::Value& index, Json::Value& pluginIndex, zcm::LogFile& log) override;
+    void tearDown(const zcm::Json::Value& index,
+                  zcm::Json::Value& pluginIndex,
+                  zcm::LogFile& log) override;
 };
 
 
@@ -44,12 +48,13 @@ std::string CustomIndexerPlugin::name() const
 std::set<std::string> CustomIndexerPlugin::dependsOn() const
 { return {"timestamp"}; }
 
-void CustomIndexerPlugin::setUp(const Json::Value& index,
-                                Json::Value& pluginIndex,
+bool CustomIndexerPlugin::setUp(const zcm::Json::Value& index,
+                                zcm::Json::Value& pluginIndex,
                                 zcm::LogFile& log)
-{ }
+{ return true; }
 
-void CustomIndexerPlugin::indexEvent(const Json::Value& index, Json::Value& pluginIndex,
+void CustomIndexerPlugin::indexEvent(const zcm::Json::Value& index,
+                                     zcm::Json::Value& pluginIndex,
                                      std::string channel, std::string typeName,
                                      off_t offset, uint64_t timestamp, int64_t hash,
                                      const char* data, int32_t datalen)
@@ -58,8 +63,8 @@ void CustomIndexerPlugin::indexEvent(const Json::Value& index, Json::Value& plug
     pluginIndex[channel][typeName].append(std::to_string(offset));
 }
 
-void CustomIndexerPlugin::tearDown(const Json::Value& index,
-                                   Json::Value& pluginIndex,
+void CustomIndexerPlugin::tearDown(const zcm::Json::Value& index,
+                                   zcm::Json::Value& pluginIndex,
                                    zcm::LogFile& log)
 {
     std::cout << "sorting " << name() << std::endl;

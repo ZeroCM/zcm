@@ -160,8 +160,13 @@ int main(int argc, char* argv[])
 
     if (args.debug) return 0;
 
+    struct PluginRuntimeInfo {
+        zcm::IndexerPlugin* plugin;
+        bool runThroughLog;
+    };
+
     auto buildPluginGroups = [] (vector<zcm::IndexerPlugin*> plugins) {
-        vector<vector<zcm::IndexerPlugin*>> groups;
+        vector<vector<PluginRuntimeInfo>> groups;
         vector<zcm::IndexerPlugin*> lastLoop = plugins;
         while (!plugins.empty()) {
             groups.resize(groups.size() + 1);
@@ -175,14 +180,14 @@ int main(int argc, char* argv[])
                         break;
                     }
                 }
-                for (auto* dep : groups.back()) {
-                    if (find(deps.begin(), deps.end(), dep->name()) != deps.end()) {
+                for (auto dep : groups.back()) {
+                    if (find(deps.begin(), deps.end(), dep.plugin->name()) != deps.end()) {
                         skipUntilLater = true;
                         break;
                     }
                 }
                 if (!skipUntilLater) {
-                    groups.back().push_back(*p);
+                    groups.back().push_back({*p, false});
                     p = plugins.erase(p);
                 } else {
                     ++p;
@@ -208,7 +213,7 @@ int main(int argc, char* argv[])
     };
 
     // We do not own all the memory in here. We only own the default prorgam
-    vector<vector<zcm::IndexerPlugin*>> pluginGroups;
+    vector<vector<PluginRuntimeInfo>> pluginGroups;
     pluginGroups = buildPluginGroups(plugins);
     if (pluginGroups.size() > 1) {
         cout << "Identified " << pluginGroups.size() << " indexer plugin groups" << endl
@@ -216,7 +221,7 @@ int main(int argc, char* argv[])
              << " times to satisfy dependencies" << endl;
     }
 
-    Json::Value index;
+    zcm::Json::Value index;
 
     size_t numEvents = 0;
     const zcm::LogEvent* evt;
@@ -225,8 +230,8 @@ int main(int argc, char* argv[])
         off_t offset = 0;
         fseeko(log.getFilePtr(), 0, SEEK_SET);
 
-        for (auto* p : pluginGroups[i])
-            p->setUp(index, index[p->name()], log);
+        for (auto p : pluginGroups[i])
+            p.runThroughLog = p.plugin->setUp(index, index[p.plugin->name()], log);
 
         while (1) {
             offset = ftello(log.getFilePtr());
@@ -246,14 +251,16 @@ int main(int argc, char* argv[])
             const TypeMetadata* md = types.getByHash(msg_hash);
             if (!md) continue;
 
-            for (auto* p : pluginGroups[i]) {
-                assert(p);
+            for (auto p : pluginGroups[i]) {
+                assert(p.plugin);
 
-                p->indexEvent(index, index[p->name()],
-                              evt->channel, md->name,
-                              offset, evt->timestamp,
-                              (uint64_t) msg_hash,
-                              evt->data, evt->datalen);
+                if (!p.runThroughLog) continue;
+
+                p.plugin->indexEvent(index, index[p.plugin->name()],
+                                     evt->channel, md->name,
+                                     offset, evt->timestamp,
+                                     (uint64_t) msg_hash,
+                                     evt->data, evt->datalen);
 
                 numEvents++;
             }
@@ -261,16 +268,16 @@ int main(int argc, char* argv[])
 
         cout << endl;
 
-        for (auto* p : pluginGroups[i])
-            p->tearDown(index, index[p->name()], log);
+        for (auto p : pluginGroups[i])
+            p.plugin->tearDown(index, index[p.plugin->name()], log);
     }
 
     delete defaultPlugin;
     defaultPlugin = nullptr;
 
-    Json::StreamWriterBuilder builder;
+    zcm::Json::StreamWriterBuilder builder;
     builder["indentation"] = args.readable ? "    " : "";
-    std::unique_ptr<Json::StreamWriter> writer(builder.newStreamWriter());
+    std::unique_ptr<zcm::Json::StreamWriter> writer(builder.newStreamWriter());
     writer->write(index, &output);
     output << endl;
     output.close();

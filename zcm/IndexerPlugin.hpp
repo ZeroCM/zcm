@@ -107,8 +107,13 @@ class IndexerPlugin
     //     "custom plugin" : {
     //     }
     //
-    virtual void setUp(const Json::Value& index,
-                       Json::Value& pluginIndex,
+    // return true from this if you would like the below indexEvent function to
+    // be called on every event in the log. returning false from here would
+    // skip the log traversal step that calls indexEvent on each event and would
+    // skip straight to tear down
+    //
+    virtual bool setUp(const zcm::Json::Value& index,
+                       zcm::Json::Value& pluginIndex,
                        zcm::LogFile& log);
 
     // pluginIndex is the index you should modify. It is your json object that
@@ -146,8 +151,8 @@ class IndexerPlugin
     // pluginIndex[channel][typeName].append(offset);
     //
     //
-    virtual void indexEvent(const Json::Value& index,
-                            Json::Value& pluginIndex,
+    virtual void indexEvent(const zcm::Json::Value& index,
+                            zcm::Json::Value& pluginIndex,
                             std::string channel,
                             std::string typeName,
                             off_t offset,
@@ -158,8 +163,8 @@ class IndexerPlugin
 
     // Do anything that your plugin requires doing before the indexer exits
     // If your data needs to be sorted, do so here
-    virtual void tearDown(const Json::Value& index,
-                          Json::Value& pluginIndex,
+    virtual void tearDown(const zcm::Json::Value& index,
+                          zcm::Json::Value& pluginIndex,
                           zcm::LogFile& log);
 };
 

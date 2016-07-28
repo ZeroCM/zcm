@@ -226,6 +226,7 @@ license you like.
 
 #endif // if !defined(JSON_IS_AMALGAMATION)
 
+namespace zcm {
 namespace Json {
 typedef int Int;
 typedef unsigned int UInt;
@@ -260,6 +261,7 @@ typedef UInt64 LargestUInt;
 #define JSONCPP_ISTREAM       std::istream
 #endif // if JSONCPP_USING_SECURE_MEMORY
 } // end namespace Json
+}
 
 #endif // JSON_CONFIG_H_INCLUDED
 
@@ -288,6 +290,7 @@ typedef UInt64 LargestUInt;
 #include "config.h"
 #endif // if !defined(JSON_IS_AMALGAMATION)
 
+namespace zcm {
 namespace Json {
 
 // writer.h
@@ -311,6 +314,7 @@ class ValueIterator;
 class ValueConstIterator;
 
 } // namespace Json
+}
 
 #endif // JSON_FORWARDS_H_INCLUDED
 
