@@ -230,7 +230,7 @@ int main(int argc, char* argv[])
         off_t offset = 0;
         fseeko(log.getFilePtr(), 0, SEEK_SET);
 
-        for (auto p : pluginGroups[i])
+        for (auto& p : pluginGroups[i])
             p.runThroughLog = p.plugin->setUp(index, index[p.plugin->name()], log);
 
         while (1) {
@@ -251,7 +251,7 @@ int main(int argc, char* argv[])
             const TypeMetadata* md = types.getByHash(msg_hash);
             if (!md) continue;
 
-            for (auto p : pluginGroups[i]) {
+            for (auto& p : pluginGroups[i]) {
                 assert(p.plugin);
 
                 if (!p.runThroughLog) continue;
@@ -268,7 +268,7 @@ int main(int argc, char* argv[])
 
         cout << endl;
 
-        for (auto p : pluginGroups[i])
+        for (auto& p : pluginGroups[i])
             p.plugin->tearDown(index, index[p.plugin->name()], log);
     }
 
