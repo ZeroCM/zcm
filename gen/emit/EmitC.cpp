@@ -1,8 +1,9 @@
 #include "Common.hpp"
 #include "GetOpt.hpp"
-#include "util/StringUtil.hpp"
 #include "ZCMGen.hpp"
 #include "Emitter.hpp"
+#include "util/StringUtil.hpp"
+#include "util/FileUtil.hpp"
 
 #define FLAG_NONE 0
 
@@ -19,6 +20,11 @@ static string dotsToUnderscores(const string& s)
         if (ret[i] == '.')
              ret[i] = '_';
     return ret;
+}
+
+static string dotsToSlashes(const string& s)
+{
+    return StringUtil::replace(s, '.', '/');
 }
 
 // Create an accessor for member lm, whose name is "n". For arrays,
@@ -973,18 +979,25 @@ void setupOptionsC(GetOpt& gopt)
 int emitC(ZCMGen& zcm)
 {
     for (auto& lr : zcm.structs) {
+        string package = dotsToSlashes(lr.structname.package);
+        if (package != "") package = "/" + package;
 
-        string headerName = zcm.gopt->getString("c-hpath") + "/" + lr.nameUnderscore() + ".h";
-        string cName      = zcm.gopt->getString("c-cpath") + "/" + lr.nameUnderscore() + ".c";
+        string hpath = zcm.gopt->getString("c-hpath") + package;
+        string cpath = zcm.gopt->getString("c-cpath") + package;
+
+        string hName = hpath + "/" + lr.nameUnderscore() + ".h";
+        string cName = hpath + "/" + lr.nameUnderscore() + ".c";
 
         // STRUCT H file
-        if (zcm.needsGeneration(lr.zcmfile, headerName)) {
-            if (int ret = emitStructHeader(zcm, lr, headerName))
+        if (zcm.needsGeneration(lr.zcmfile, hName)) {
+            FileUtil::makeDirsForFile(hName);
+            if (int ret = emitStructHeader(zcm, lr, hName))
                 return ret;
         }
 
         // STRUCT C file
         if (zcm.needsGeneration(lr.zcmfile, cName)) {
+            FileUtil::makeDirsForFile(cName);
             if (int ret = emitStructSource(zcm, lr, cName))
                 return ret;
         }

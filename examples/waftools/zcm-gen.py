@@ -2,6 +2,7 @@
 # encoding: utf-8
 
 import os
+import waflib
 from waflib import Task
 from waflib.Errors import WafError
 from waflib.TaskGen import extension
@@ -87,6 +88,59 @@ def configure(ctx):
 #   the output java classes without having zcm.jar in the CLASSPATH will fail. The zcmtype jar
 #   will be called ${name}.jar and will be located in the mirrored build path to wherever the
 #   waf zcmgen tool was invoked.
+
+def outFileName(ctx, inp, lang, absPath=False):
+    fileparts = getFileParts(ctx, inp)
+
+    def defaultOutFileName(fileparts, absPath):
+        ret = ""
+        if absPath:
+            if fileparts[3] != "":
+                ret = fileparts[3]
+        else:
+            if fileparts[0] != "":
+                ret = fileparts[0]
+        if fileparts[1] != "":
+            if ret != "":
+                ret = ret + "/"
+            ret = ret + fileparts[1]
+        if fileparts[2] != "":
+            if ret != "":
+                ret = ret + "/"
+            ret = ret + fileparts[2]
+        return ret
+
+    if lang == 'zcm':
+        return defaultOutFileName(fileparts, absPath)
+    if lang == 'c':
+        hfileparts = fileparts[:]
+        cfileparts = fileparts[:]
+        hfileparts[2] = fileparts[2].replace('.zcm', '.h')
+        cfileparts[2] = fileparts[2].replace('.zcm', '.c')
+        if fileparts[1] != "":
+            hfileparts[2] = fileparts[1] + "_" + hfileparts[2]
+            cfileparts[2] = fileparts[1] + "_" + cfileparts[2]
+        return [defaultOutFileName(hfileparts, absPath).replace('.zcm', '.h'),
+                defaultOutFileName(cfileparts, absPath).replace('.zcm', '.c')]
+    if lang == 'cpp':
+        return defaultOutFileName(fileparts, absPath).replace('.zcm', '.hpp')
+    if lang == 'python':
+        return defaultOutFileName(fileparts, absPath).replace('.zcm', '.py')
+
+    raise WafError('This should not be possible')
+
+
+def getFileParts(ctx, path):
+    package = ctx.cmd_and_log('zcm-gen --package %s' % (path),
+                                  output=waflib.Context.STDOUT,
+                                  quiet=waflib.Context.BOTH).strip()
+    pathparts = path.split('/')
+    absdirparts = '/'.join(pathparts[:-1])
+    nameparts = '/'.join(pathparts[-1:])
+    reldirparts = absdirparts.replace(ctx.path.abspath(), '')
+    return [reldirparts, package, nameparts, absdirparts]
+
+
 @conf
 def zcmgen(ctx, **kw):
     # TODO: should raise an error if ctx.env.ZCMGEN is not set
@@ -125,12 +179,16 @@ def zcmgen(ctx, **kw):
     inc = os.path.dirname(bld)
 
     if 'c_stlib' in kw['lang']:
+        csrc = []
+        for src in tg.source:
+            abspath = ctx.path.find_or_declare(str(src)).abspath()
+            csrc.append(outFileName(ctx, abspath, 'c')[1])
         cstlibtg = ctx.stlib(name            = uselib_name + '_c_stlib',
                              target          = uselib_name,
                              use             = ['default', 'zcm'],
                              includes        = inc,
                              export_includes = inc,
-                             source          = [src.change_ext('.c') for src in tg.source])
+                             source          = csrc)
 
     if 'c_shlib' in kw['lang']:
         cshlibtg = ctx.shlib(name            = uselib_name + '_c_shlib',
@@ -176,24 +234,33 @@ class zcmgen(Task.Task):
         inp = self.inputs[0]
 
         if ('c_stlib' in gen.lang) or ('c_shlib' in gen.lang):
-            self.outputs.append(inp.change_ext(ext='.h'))
-            self.outputs.append(inp.change_ext(ext='.c'))
+            filenames = outFileName(gen.bld, inp.abspath(), 'c')
+            outh_node = gen.path.find_or_declare(filenames[0])
+            outc_node = gen.path.find_or_declare(filenames[1])
+            self.outputs.append(outh_node)
+            self.outputs.append(outc_node)
         if 'cpp' in gen.lang:
-            self.outputs.append(inp.change_ext(ext='.hpp'))
+            filename = outFileName(gen.bld, inp.abspath(), 'cpp')
+            node = gen.path.find_or_declare(filename)
+            self.outputs.append(node)
         if 'java' in gen.lang:
-            if not getattr(gen, 'javapkg', None):
-                raise WafError('Java ZCMtypes must define a "javapkg"')
-            pathparts = inp.abspath().split('/')
-            dirparts = '/'.join(pathparts[:-1])
-            nameparts = '/'.join(pathparts[-1:])
-            dirparts = dirparts.replace(gen.path.abspath(), '')
-            nameparts = nameparts.replace('.zcm', '.java')
-            java_pkgpath = gen.javapkg.replace('.', '/')
-            outp = '/'.join([dirparts, 'java', java_pkgpath, nameparts])
+            fileparts = getFileParts(gen, inp.abspath())
+            if fileparts[1] == "":
+                if not getattr(gen, 'javapkg', None):
+                    raise WafError('No package specified for java zcmtype ' \
+                                   'generation. Specify package with a ' \
+                                   '"package <pkg>;" statement at the top of ' \
+                                   'the type or with the "javapkg" build keyword')
+                else:
+                    fileparts[1] = gen.javapkg.replace('.', '/')
+            outp = '/'.join([fileparts[0], 'java', fileparts[1], fileparts[2]])
+            outp = outp.replace('.zcm', '.java')
             outp_node = gen.path.find_or_declare(outp)
             self.outputs.append(outp_node)
         if 'python' in gen.lang:
-            self.outputs.append(inp.change_ext(ext='.py'))
+            filename = outFileName(gen.bld, inp.abspath(), 'python')
+            node = gen.path.find_or_declare(filename)
+            self.outputs.append(node)
 
         if not self.outputs:
             raise WafError('No ZCMtypes generated, ensure a valid lang is specified')
@@ -204,9 +271,10 @@ class zcmgen(Task.Task):
     ## (e.g. actually executing the zcm-gen program)
     def run(self):
         gen = self.generator
+        inp = self.inputs[0]
 
         zcmgen = self.env['ZCMGEN']
-        zcmfile = self.inputs[0].abspath()
+        zcmfile = inp.abspath()
         bld = gen.path.get_bld().abspath()
         inc = bld.split('/')[-1]
 
