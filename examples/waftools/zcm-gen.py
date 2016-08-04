@@ -97,9 +97,6 @@ def outFileName(ctx, inp, lang, absPath=False):
         if absPath:
             if fileparts[3] != "":
                 ret = fileparts[3]
-        else:
-            if fileparts[0] != "":
-                ret = fileparts[0]
         if fileparts[1] != "":
             if ret != "":
                 ret = ret + "/"
@@ -137,7 +134,7 @@ def getFileParts(ctx, path):
     pathparts = path.split('/')
     absdirparts = '/'.join(pathparts[:-1])
     nameparts = '/'.join(pathparts[-1:])
-    reldirparts = absdirparts.replace(ctx.path.abspath(), '')
+    reldirparts = absdirparts.replace(ctx.path.abspath() + '/', '')
     return [reldirparts, package, nameparts, absdirparts]
 
 
@@ -181,8 +178,9 @@ def zcmgen(ctx, **kw):
     if 'c_stlib' in kw['lang']:
         csrc = []
         for src in tg.source:
-            abspath = ctx.path.find_or_declare(str(src)).abspath()
-            csrc.append(outFileName(ctx, abspath, 'c')[1])
+            outfile = outFileName(ctx, src.abspath(), 'c')
+            outnode = ctx.path.find_or_declare(outfile[1])
+            csrc.append(outnode)
         cstlibtg = ctx.stlib(name            = uselib_name + '_c_stlib',
                              target          = uselib_name,
                              use             = ['default', 'zcm'],
@@ -196,7 +194,7 @@ def zcmgen(ctx, **kw):
                              use             = ['default', 'zcm'],
                              includes        = inc,
                              export_includes = inc,
-                             source          = [src.change_ext('.c') for src in tg.source])
+                             source          = csrc)
 
     if 'cpp' in kw['lang']:
         cpptg = ctx(target          = uselib_name + '_cpp',
@@ -244,7 +242,8 @@ class zcmgen(Task.Task):
             node = gen.path.find_or_declare(filename)
             self.outputs.append(node)
         if 'java' in gen.lang:
-            fileparts = getFileParts(gen, inp.abspath())
+            fileparts = getFileParts(gen.bld, inp.abspath())
+            fileparts[2] = fileparts[2].replace('.zcm', '.java')
             if fileparts[1] == "":
                 if not getattr(gen, 'javapkg', None):
                     raise WafError('No package specified for java zcmtype ' \
@@ -253,9 +252,8 @@ class zcmgen(Task.Task):
                                    'the type or with the "javapkg" build keyword')
                 else:
                     fileparts[1] = gen.javapkg.replace('.', '/')
-            outp = '/'.join([fileparts[0], 'java', fileparts[1], fileparts[2]])
-            outp = outp.replace('.zcm', '.java')
-            outp_node = gen.path.find_or_declare(outp)
+            outp = '/'.join(['java', fileparts[1], fileparts[2]])
+            outp_node = gen.path.get_bld().make_node(outp)
             self.outputs.append(outp_node)
         if 'python' in gen.lang:
             filename = outFileName(gen.bld, inp.abspath(), 'python')
@@ -271,10 +269,9 @@ class zcmgen(Task.Task):
     ## (e.g. actually executing the zcm-gen program)
     def run(self):
         gen = self.generator
-        inp = self.inputs[0]
 
         zcmgen = self.env['ZCMGEN']
-        zcmfile = inp.abspath()
+        zcmfile = self.inputs[0].abspath()
         bld = gen.path.get_bld().abspath()
         inc = bld.split('/')[-1]
 
