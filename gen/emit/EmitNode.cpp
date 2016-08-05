@@ -353,6 +353,11 @@ struct EmitModule : public Emitter
 
 int emitNode(ZCMGen& zcm)
 {
+    if (zcm.gopt->getBool("little-endian-encoding")) {
+        printf("Nodejs does not currently support little endian encoding\n");
+        return -1;
+    }
+
     EmitModule E{zcm, "zcmtypes.js"};
     if (!E.good())
         return -1;

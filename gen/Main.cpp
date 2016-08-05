@@ -17,6 +17,7 @@ int main(int argc, char *argv[])
     gopt.addBool(0,    "lazy",     0,    "Generate output file only if .zcm is newer");
     gopt.addString(0,    "package-prefix",     "",
                       "Add this package name as a prefix to the declared package");
+    gopt.addBool(0,  "little-endian-encoding", 0, "Encode and decode network traffic in little endian format");
     gopt.addBool(0,  "version",    0,    "Show version information and exit");
 
     gopt.addSpacer("**** C options ****");
