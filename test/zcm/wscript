@@ -2,6 +2,12 @@
 # encoding: utf-8
 
 def build(ctx):
+    ctx.program(target = 'coretest',
+                use = 'default zcm',
+                source = 'coretest.cpp',
+                rpath = ctx.env.RPATH_zcm,
+                install_path = None)
+
     ctx.program(target = 'sub_unsub_c',
                 use = 'default zcm testzcmtypes_c_stlib',
                 source = 'sub_unsub.c',
