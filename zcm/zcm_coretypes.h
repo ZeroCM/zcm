@@ -492,6 +492,16 @@ static inline int __float_decode_array(const void *_buf, int offset, int maxlen,
     return __int32_t_decode_array(_buf, offset, maxlen, (int32_t*) p, elements);
 }
 
+static inline int __float_encode_little_endian_array(void *_buf, int offset, int maxlen, const float *p, int elements)
+{
+    return __int32_t_encode_little_endian_array(_buf, offset, maxlen, (int32_t*) p, elements);
+}
+
+static inline int __float_decode_little_endian_array(const void *_buf, int offset, int maxlen, float *p, int elements)
+{
+    return __int32_t_decode_little_endian_array(_buf, offset, maxlen, (int32_t*) p, elements);
+}
+
 static inline int __float_clone_array(const float *p, float *q, int elements)
 {
     int n = elements * sizeof(float);
@@ -522,6 +532,16 @@ static inline int __double_decode_array(const void *_buf, int offset, int maxlen
     return __int64_t_decode_array(_buf, offset, maxlen, (int64_t*) p, elements);
 }
 
+static inline int __double_encode_little_endian_array(void *_buf, int offset, int maxlen, const double *p, int elements)
+{
+    return __int64_t_encode_little_endian_array(_buf, offset, maxlen, (int64_t*) p, elements);
+}
+
+static inline int __double_decode_little_endian_array(const void *_buf, int offset, int maxlen, double *p, int elements)
+{
+    return __int64_t_decode_little_endian_array(_buf, offset, maxlen, (int64_t*) p, elements);
+}
+
 static inline int __double_clone_array(const double *p, double *q, int elements)
 {
     int n = elements * sizeof(double);
@@ -542,6 +562,7 @@ static inline int __string_decode_array_cleanup(char **s, int elements)
     return 0;
 }
 
+// RRR (Bendes) Should be "const char * const * p"
 static inline int __string_encoded_array_size(char * const *s, int elements)
 {
     int size = 0;
@@ -552,11 +573,13 @@ static inline int __string_encoded_array_size(char * const *s, int elements)
     return size;
 }
 
+// RRR (Bendes) Should be "const char * const * p"
 static inline int __string_encoded_size(char * const *s)
 {
     return sizeof(int64_t) + __string_encoded_array_size(s, 1);
 }
 
+// RRR (Bendes) Should be "const char * const * p"
 static inline int __string_encode_array(void *_buf, int offset, int maxlen, char * const *p, int elements)
 {
     int pos = 0, thislen;
@@ -575,6 +598,7 @@ static inline int __string_encode_array(void *_buf, int offset, int maxlen, char
     return pos;
 }
 
+// RRR (Bendes) Should be "const char * const * p"
 static inline int __string_decode_array(const void *_buf, int offset, int maxlen, char **p, int elements)
 {
     int pos = 0, thislen;
@@ -595,6 +619,19 @@ static inline int __string_decode_array(const void *_buf, int offset, int maxlen
     return pos;
 }
 
+// RRR (Bendes) Should be "const char * const * p"
+static inline int __string_encode_little_endian_array(void *_buf, int offset, int maxlen, char * const *p, int elements)
+{
+    return __string_encode_array(_buf, offset, maxlen, p, elements);
+}
+
+// RRR (Bendes) Should be "const char * const * p"
+static inline int __string_decode_little_endian_array(const void *_buf, int offset, int maxlen, char **p, int elements)
+{
+    return __string_decode_array(_buf, offset, maxlen, p, elements);
+}
+
+// RRR (Bendes) Should be "const char * const * p"
 static inline int __string_clone_array(char * const *p, char **q, int elements)
 {
     int ret = 0;
