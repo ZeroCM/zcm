@@ -622,13 +622,41 @@ static inline int __string_decode_array(const void *_buf, int offset, int maxlen
 // RRR (Bendes) Should be "const char * const * p"
 static inline int __string_encode_little_endian_array(void *_buf, int offset, int maxlen, char * const *p, int elements)
 {
-    return __string_encode_array(_buf, offset, maxlen, p, elements);
+    int pos = 0, thislen;
+    int element;
+
+    for (element = 0; element < elements; element++) {
+        int32_t length = strlen(p[element]) + 1; // length includes \0
+
+        thislen = __int32_t_encode_little_endian_array(_buf, offset + pos, maxlen - pos, &length, 1);
+        if (thislen < 0) return thislen; else pos += thislen;
+
+        thislen = __int8_t_encode_little_endian_array(_buf, offset + pos, maxlen - pos, (int8_t*) p[element], length);
+        if (thislen < 0) return thislen; else pos += thislen;
+    }
+
+    return pos;
 }
 
 // RRR (Bendes) Should be "const char * const * p"
 static inline int __string_decode_little_endian_array(const void *_buf, int offset, int maxlen, char **p, int elements)
 {
-    return __string_decode_array(_buf, offset, maxlen, p, elements);
+    int pos = 0, thislen;
+    int element;
+
+    for (element = 0; element < elements; element++) {
+        int32_t length;
+
+        // read length including \0
+        thislen = __int32_t_decode_little_endian_array(_buf, offset + pos, maxlen - pos, &length, 1);
+        if (thislen < 0) return thislen; else pos += thislen;
+
+        p[element] = (char*) zcm_malloc(length);
+        thislen = __int8_t_decode_little_endian_array(_buf, offset + pos, maxlen - pos, (int8_t*) p[element], length);
+        if (thislen < 0) return thislen; else pos += thislen;
+    }
+
+    return pos;
 }
 
 // RRR (Bendes) Should be "const char * const * p"
