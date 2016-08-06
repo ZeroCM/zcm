@@ -134,6 +134,7 @@ struct LogFile
     inline LogFile(const std::string& path, const std::string& mode);
     inline ~LogFile();
     inline bool good() const;
+    inline void close();
 
     /**** Methods general operations ****/
     inline int seekToTimestamp(int64_t timestamp);
@@ -143,6 +144,7 @@ struct LogFile
     // NOTE: user should NOT hold-onto the returned ptr across successive calls
     inline const LogEvent* readNextEvent();
     inline const LogEvent* readPrevEvent();
+    inline const LogEvent* readEventAtOffset(off_t offset);
     inline int writeEvent(LogEvent* event);
 
   private:

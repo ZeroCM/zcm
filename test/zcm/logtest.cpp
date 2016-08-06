@@ -69,6 +69,26 @@ int main(int argc, const char *argv[])
     assert(zcm_eventlog_read_next_event(l) == NULL &&
            "Requesting event after last event didn't return NULL");
 
+    fseeko(zcm_eventlog_get_fileptr(l), 0, SEEK_SET);
+    for (size_t i = 0; i < 10; ++i) {
+        zcm_eventlog_event_t *le = zcm_eventlog_read_next_event(l);
+        zcm_eventlog_free_event(le);
+    }
+    off_t offset = ftello(zcm_eventlog_get_fileptr(l));
+    fseeko(zcm_eventlog_get_fileptr(l), 0, SEEK_SET);
+
+    zcm_eventlog_event_t *le = zcm_eventlog_read_event_at_offset(l, offset);
+    assert(le && "Failed to read offset log event out of log");
+    assert(le->eventnum == 10 && "Incorrect eventnum inside of offset event");
+    assert(le->timestamp == 11 && "Incorrect timestamp inside of offset event");
+    assert(le->channellen == event.channellen && "Incorrect channellen inside of offset event");
+    assert(strncmp((const char*)le->channel, testChannel.c_str(), le->channellen) == 0 &&
+           "Incorrect data inside of offset event");
+    assert(le->datalen = event.datalen && "Incorrect channellen inside of offset event");
+    assert(strncmp((const char*)le->data, testData.c_str(), le->datalen) == 0 &&
+           "Incorrect data inside of offset event");
+    zcm_eventlog_free_event(le);
+
     zcm_eventlog_destroy(l);
 
     int ret = system("rm testlog.log");

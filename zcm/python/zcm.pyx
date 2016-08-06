@@ -1,4 +1,5 @@
 from libc.stdint cimport int64_t, int32_t, uint32_t, uint8_t
+from posix.unistd cimport off_t
 
 cdef extern from "Python.h":
     void PyEval_InitThreads()
@@ -47,6 +48,7 @@ cdef extern from "zcm/zcm.h":
 
     zcm_eventlog_event_t *zcm_eventlog_read_next_event(zcm_eventlog_t *eventlog)
     zcm_eventlog_event_t *zcm_eventlog_read_prev_event(zcm_eventlog_t *eventlog)
+    zcm_eventlog_event_t *zcm_eventlog_read_event_at_offset(zcm_eventlog_t *eventlog, off_t offset)
     void                  zcm_eventlog_free_event(zcm_eventlog_event_t *event)
     int                   zcm_eventlog_write_event(zcm_eventlog_t *eventlog, \
                                                    zcm_eventlog_event_t *event)
@@ -104,11 +106,9 @@ cdef class LogEvent:
     cdef object  data
     def __cinit__(self):
         pass
-    def setEventnum(self, num):
-        self.eventnum = num
     def getEventnum(self):
         return self.eventnum
-    def setTimestamp(self, time):
+    def setTimestamp(self, int64_t time):
         self.timestamp = time
     def getTimestamp(self):
         return self.timestamp
@@ -147,7 +147,7 @@ cdef class LogFile:
         cdef LogEvent curEvent = LogEvent()
         if evt == NULL:
             return None
-        curEvent.setEventnum  (evt.eventnum)
+        curEvent.eventnum = evt.eventnum
         curEvent.setChannel   (evt.channel[:evt.channellen])
         curEvent.setTimestamp (evt.timestamp)
         curEvent.setData      ((<char*>evt.data)[:evt.datalen])
@@ -157,6 +157,9 @@ cdef class LogFile:
         return self.__setCurrentEvent(evt)
     def readPrevEvent(self):
         cdef zcm_eventlog_event_t* evt = zcm_eventlog_read_prev_event(self.eventlog)
+        return self.__setCurrentEvent(evt)
+    def readEventOffset(self, off_t offset):
+        cdef zcm_eventlog_event_t* evt = zcm_eventlog_read_event_at_offset(self.eventlog, offset)
         return self.__setCurrentEvent(evt)
     def writeEvent(self, LogEvent event):
         cdef zcm_eventlog_event_t evt

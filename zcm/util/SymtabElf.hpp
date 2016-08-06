@@ -1,20 +1,24 @@
 #pragma once
-#include "Common.hpp"
+
+#include <cstdio>
+#include <cstdint>
+#include <cassert>
+#include <string>
 
 struct SymtabElf
 {
     SymtabElf(const std::string& libname);
     ~SymtabElf();
 
-    bool good() { return f != NULL; }
-    bool getNext(string& s);
+    bool good() { return f != nullptr; }
+    bool getNext(std::string& s);
 
-private:
+  private:
     bool getNextChar(char& c);
     bool refillBuffer();
 
-private:
-    FILE *f = NULL;
+  private:
+    FILE* f = nullptr;
     static const size_t MaxBuf = 4096;
     char buffer[MaxBuf];
     size_t numread = 0;

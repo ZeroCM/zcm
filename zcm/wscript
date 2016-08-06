@@ -15,8 +15,10 @@ def build(ctx):
               includes = '..',
               export_includes = '..',
               use = ['default', 'zmq'],
+              lib = 'dl',
               source = ctx.path.ant_glob(['*.cpp', '*.c',
                                           'util/*.c', 'util/*.cpp',
+                                          'json/jsoncpp.cpp',
                                           'transport/**/*.c', 'transport/**/*.cpp'],
                                           excl='transport/third-party'))
 
@@ -57,7 +59,10 @@ def build(ctx):
     ctx.install_files('${PREFIX}/include/zcm',
                       ['zcm.h', 'zcm_coretypes.h', 'transport.h', 'transport_registrar.h',
                        'url.h', 'eventlog.h', 'zcm-cpp.hpp', 'zcm-cpp-impl.hpp',
-                       'transport_register.hpp', 'message_tracker.hpp'])
+                       'transport_register.hpp', 'message_tracker.hpp', 'IndexerPlugin.hpp'])
+
+    ctx.install_files('${PREFIX}/include/zcm/json',
+                      ['json/json.h', 'json/json-forwards.h'])
 
     ctx.install_files('${PREFIX}/include/zcm/transport',
                       ['transport/generic_serial_transport.h'])

@@ -369,7 +369,7 @@ inline LogFile::LogFile(const std::string& path, const std::string& mode)
     this->lastevent = nullptr;
 }
 
-inline LogFile::~LogFile()
+inline void LogFile::close()
 {
     if (eventlog)
         zcm_eventlog_destroy(eventlog);
@@ -377,6 +377,11 @@ inline LogFile::~LogFile()
     if(lastevent)
         zcm_eventlog_free_event(lastevent);
     lastevent = nullptr;
+}
+
+inline LogFile::~LogFile()
+{
+    close();
 }
 
 inline bool LogFile::good() const
@@ -418,6 +423,11 @@ inline const LogEvent* LogFile::readNextEvent()
 inline const LogEvent* LogFile::readPrevEvent()
 {
     zcm_eventlog_event_t* evt = zcm_eventlog_read_prev_event(eventlog);
+    return cplusplusIfyEvent(evt);
+}
+inline const LogEvent* LogFile::readEventAtOffset(off_t offset)
+{
+    zcm_eventlog_event_t* evt = zcm_eventlog_read_event_at_offset(eventlog, offset);
     return cplusplusIfyEvent(evt);
 }
 

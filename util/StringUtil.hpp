@@ -5,6 +5,7 @@ using std::string;
 using std::vector;
 #include <sstream>
 #include <cassert>
+#include <cstring>
 
 namespace StringUtil
 {
