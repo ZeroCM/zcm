@@ -35,6 +35,8 @@ struct ___zcm_hash_ptr
 #define __boolean_encoded_array_size __int8_t_encoded_array_size
 #define __boolean_encode_array __int8_t_encode_array
 #define __boolean_decode_array __int8_t_decode_array
+#define __boolean_encode_little_endian_array __int8_t_encode_little_endian_array
+#define __boolean_decode_little_endian_array __int8_t_decode_little_endian_array
 #define __boolean_clone_array __int8_t_clone_array
 #define boolean_encoded_size int8_t_encoded_size
 

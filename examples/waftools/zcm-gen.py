@@ -42,6 +42,8 @@ def configure(ctx):
 #   lang:         list of languages for which zcmtypes should be generated, options are:
 #                 ['c', 'cpp', 'java', 'python', 'nodejs']
 #                 TODO: add nodejs support
+#   littleEndian  True or false based on desired endianess of output. Should almost always
+#                 be false. Don't use this option unless you really know what you're doing
 #   javapkg:      name of the java package
 #                 default = 'zcmtypes' (though it is encouraged to name it something more unique
 #                                       to avoid library naming conflicts)
@@ -100,6 +102,9 @@ def zcmgen(ctx, **kw):
     if 'build' in kw:
         building = kw['build']
 
+    littleEndian = False
+    if 'littleEndian' in kw:
+        littleEndian = kw['littleEndian']
 
     if 'lang' not in kw:
         # TODO: this should probably be a more specific error type
@@ -107,10 +112,11 @@ def zcmgen(ctx, **kw):
 
     # Add .zcm files to build so the process_zcmtypes rule picks them up
     genfiles_name = uselib_name + '_genfiles'
-    tg = ctx(name     = genfiles_name,
-             source   = kw['source'],
-             lang     = kw['lang'],
-             javapkg  = javapkg_name)
+    tg = ctx(name         = genfiles_name,
+             source       = kw['source'],
+             lang         = kw['lang'],
+             littleEndian = littleEndian,
+             javapkg      = javapkg_name)
 
     if not building:
         return
@@ -206,13 +212,22 @@ class zcmgen(Task.Task):
 
         langs = {}
         if ('c_stlib' in gen.lang) or ('c_shlib' in gen.lang):
-            langs['c'] = '--c --c-typeinfo --c-cpath %s --c-hpath %s --c-include %s' % (bld, bld, inc)
+            langs['c'] = '--c --c-typeinfo --c-cpath %s --c-hpath %s --c-include %s' % \
+                         (bld, bld, inc)
+            if gen.littleEndian:
+                langs['c'] = langs['c'] + ' --little-endian-encoding '
         if 'cpp' in gen.lang:
             langs['cpp'] = '--cpp --cpp-hpath %s --cpp-include %s' % (bld, inc)
+            if gen.littleEndian:
+                langs['cpp'] = langs['cpp'] + ' --little-endian-encoding '
         if 'java' in gen.lang:
             langs['java'] = '--java --jpath %s --jdefaultpkg %s' % (bld + '/java', gen.javapkg)
+            if gen.littleEndian:
+                langs['java'] = langs['java'] + ' --little-endian-encoding '
         if 'python' in gen.lang:
             langs['python'] = '--python --ppath %s' % (bld)
+            if gen.littleEndian:
+                langs['python'] = langs['python'] + ' --little-endian-encoding '
 
         # no need to check if langs is empty here, already handled in runnable_status()
         return self.exec_command('%s %s %s' % (zcmgen, zcmfile, ' '.join(langs.values())))
