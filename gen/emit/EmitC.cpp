@@ -467,8 +467,9 @@ struct EmitSource : public Emit
             emitCArrayLoopsStart(lm, "p", FLAG_NONE);
 
             int indent = 2+std::max(0, (int)lm.dimensions.size() - 1);
-            emit(indent, "thislen = __%s_encode_array(buf, offset + pos, maxlen - pos, %s, %s);",
+            emit(indent, "thislen = __%s_encode_%sarray(buf, offset + pos, maxlen - pos, %s, %s);",
                  dotsToUnderscores(lm.type.fullname).c_str(),
+                 zcm.gopt->getBool("little-endian-encoding") ? "little_endian_" : "",
                  makeAccessor(lm, "p", lm.dimensions.size()-1).c_str(),
                  makeArraySize(lm, "p", lm.dimensions.size()-1).c_str());
             emit(indent, "if (thislen < 0) return thislen; else pos += thislen;");
@@ -492,7 +493,8 @@ struct EmitSource : public Emit
         emit(1,    "int pos = 0, thislen;");
         emit(1,    "int64_t hash = __%s_get_hash();", tn_);
         emit(0,"");
-        emit(1,    "thislen = __int64_t_encode_array(buf, offset + pos, maxlen - pos, &hash, 1);");
+        emit(1,    "thislen = __int64_t_encode_%sarray(buf, offset + pos, maxlen - pos, &hash, 1);",
+                   zcm.gopt->getBool("little-endian-encoding") ? "little_endian_" : "");
         emit(1,    "if (thislen < 0) return thislen; else pos += thislen;");
         emit(0,"");
         emit(1,    "thislen = __%s_encode_array(buf, offset + pos, maxlen - pos, p, 1);", tn_);
@@ -518,8 +520,9 @@ struct EmitSource : public Emit
             emitCArrayLoopsStart(lm, "p", lm.isConstantSizeArray() ? FLAG_NONE : FLAG_EMIT_MALLOCS);
 
             int indent = 2+std::max(0, (int)lm.dimensions.size() - 1);
-            emit(indent, "thislen = __%s_decode_array(buf, offset + pos, maxlen - pos, %s, %s);",
+            emit(indent, "thislen = __%s_decode_%sarray(buf, offset + pos, maxlen - pos, %s, %s);",
                  dotsToUnderscores(lm.type.fullname).c_str(),
+                 zcm.gopt->getBool("little-endian-encoding") ? "little_endian_" : "",
                  makeAccessor(lm, "p", lm.dimensions.size() - 1).c_str(),
                  makeArraySize(lm, "p", lm.dimensions.size() - 1).c_str());
             emit(indent, "if (thislen < 0) return thislen; else pos += thislen;");
@@ -572,7 +575,8 @@ struct EmitSource : public Emit
         emit(1,    "int64_t hash = __%s_get_hash();", tn_);
         emit(0,"");
         emit(1,    "int64_t this_hash;");
-        emit(1,    "thislen = __int64_t_decode_array(buf, offset + pos, maxlen - pos, &this_hash, 1);");
+        emit(1,    "thislen = __int64_t_decode_%sarray(buf, offset + pos, maxlen - pos, &this_hash, 1);",
+                   zcm.gopt->getBool("little-endian-encoding") ? "little_endian_" : "");
         emit(1,    "if (thislen < 0) return thislen; else pos += thislen;");
         emit(1,    "if (this_hash != hash) return -1;");
         emit(0,"");
@@ -826,7 +830,6 @@ struct EmitSource : public Emit
         emit(0, "}");
         emit(0, "");
     }
-
 
     void emitCStructSubscribe()
     {

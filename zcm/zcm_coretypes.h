@@ -1,7 +1,6 @@
 #ifndef _ZCM_LIB_INLINE_H
 #define _ZCM_LIB_INLINE_H
 
-#include <stdio.h>
 #include <stdint.h>
 #include <string.h>
 #include <stdlib.h>
@@ -10,17 +9,16 @@
 extern "C" {
 #endif
 
-union float_uint32
+static inline void *zcm_malloc(size_t sz)
 {
-    float     f;
-    uint32_t  i;
-};
+    if (sz) return malloc(sz);
+    return NULL;
+}
 
-union double_uint64
+static inline void zcm_free(void* mem)
 {
-    double    f;
-    uint64_t  i;
-};
+    free(mem);
+}
 
 typedef struct ___zcm_hash_ptr __zcm_hash_ptr;
 struct ___zcm_hash_ptr
@@ -37,6 +35,8 @@ struct ___zcm_hash_ptr
 #define __boolean_encoded_array_size __int8_t_encoded_array_size
 #define __boolean_encode_array __int8_t_encode_array
 #define __boolean_decode_array __int8_t_decode_array
+#define __boolean_encode_little_endian_array __int8_t_encode_little_endian_array
+#define __boolean_decode_little_endian_array __int8_t_decode_little_endian_array
 #define __boolean_clone_array __int8_t_clone_array
 #define boolean_encoded_size int8_t_encoded_size
 
@@ -75,10 +75,21 @@ static inline int __byte_decode_array(const void *_buf, int offset, int maxlen, 
     return elements;
 }
 
+static inline int __byte_encode_little_endian_array(void *_buf, int offset, int maxlen, const uint8_t *p, int elements)
+{
+    return __byte_encode_array(_buf, offset, maxlen, p, elements);
+}
+
+static inline int __byte_decode_little_endian_array(const void *_buf, int offset, int maxlen, uint8_t *p, int elements)
+{
+    return __byte_decode_array(_buf, offset, maxlen, p, elements);
+}
+
 static inline int __byte_clone_array(const uint8_t *p, uint8_t *q, int elements)
 {
-    memcpy(q, p, elements * sizeof(uint8_t));
-    return 0;
+    int n = elements * sizeof(uint8_t);
+    memcpy(q, p, n);
+    return n;
 }
 /**
  * INT8_T
@@ -115,10 +126,21 @@ static inline int __int8_t_decode_array(const void *_buf, int offset, int maxlen
     return elements;
 }
 
+static inline int __int8_t_encode_little_endian_array(void *_buf, int offset, int maxlen, const int8_t *p, int elements)
+{
+    return __int8_t_encode_array(_buf, offset, maxlen, p, elements);
+}
+
+static inline int __int8_t_decode_little_endian_array(const void *_buf, int offset, int maxlen, int8_t *p, int elements)
+{
+    return __int8_t_decode_array(_buf, offset, maxlen, p, elements);
+}
+
 static inline int __int8_t_clone_array(const int8_t *p, int8_t *q, int elements)
 {
-    memcpy(q, p, elements * sizeof(int8_t));
-    return 0;
+    int n = elements * sizeof(int8_t);
+    memcpy(q, p, n);
+    return n;
 }
 
 /**
@@ -172,10 +194,49 @@ static inline int __int16_t_decode_array(const void *_buf, int offset, int maxle
     return total_size;
 }
 
+static inline int __int16_t_encode_little_endian_array(void *_buf, int offset, int maxlen, const int16_t *p, int elements)
+{
+    int total_size = sizeof(int16_t) * elements;
+    uint8_t *buf = (uint8_t*) _buf;
+    int pos = offset;
+    int element;
+
+    if (maxlen < total_size)
+        return -1;
+
+    const uint16_t *unsigned_p = (uint16_t*)p;
+    for (element = 0; element < elements; element++) {
+        uint16_t v = unsigned_p[element];
+        buf[pos++] = (v & 0xff);
+        buf[pos++] = (v>>8) & 0xff;
+    }
+
+    return total_size;
+}
+
+static inline int __int16_t_decode_little_endian_array(const void *_buf, int offset, int maxlen, int16_t *p, int elements)
+{
+    int total_size = sizeof(int16_t) * elements;
+    uint8_t *buf = (uint8_t*) _buf;
+    int pos = offset;
+    int element;
+
+    if (maxlen < total_size)
+        return -1;
+
+    for (element = 0; element < elements; element++) {
+        p[element] = (buf[pos+1]<<8) + buf[pos];
+        pos+=2;
+    }
+
+    return total_size;
+}
+
 static inline int __int16_t_clone_array(const int16_t *p, int16_t *q, int elements)
 {
-    memcpy(q, p, elements * sizeof(int16_t));
-    return 0;
+    int n = elements * sizeof(int16_t);
+    memcpy(q, p, n);
+    return n;
 }
 
 /**
@@ -224,8 +285,53 @@ static inline int __int32_t_decode_array(const void *_buf, int offset, int maxle
         return -1;
 
     for (element = 0; element < elements; element++) {
-        p[element] = (((uint32_t)buf[pos+0])<<24) + (((uint32_t)buf[pos+1])<<16) +
-                     (((uint32_t)buf[pos+2])<<8) + ((uint32_t)buf[pos+3]);
+        p[element] = (((uint32_t)buf[pos+0])<<24) +
+                     (((uint32_t)buf[pos+1])<<16) +
+                     (((uint32_t)buf[pos+2])<<8) +
+                      ((uint32_t)buf[pos+3]);
+        pos+=4;
+    }
+
+    return total_size;
+}
+
+static inline int __int32_t_encode_little_endian_array(void *_buf, int offset, int maxlen, const int32_t *p, int elements)
+{
+    int total_size = sizeof(int32_t) * elements;
+    uint8_t *buf = (uint8_t*) _buf;
+    int pos = offset;
+    int element;
+
+    if (maxlen < total_size)
+        return -1;
+
+    const uint32_t* unsigned_p = (uint32_t*)p;
+    for (element = 0; element < elements; element++) {
+        uint32_t v = unsigned_p[element];
+        buf[pos++] = (v & 0xff);
+        buf[pos++] = (v>>8)&0xff;
+        buf[pos++] = (v>>16)&0xff;
+        buf[pos++] = (v>>24)&0xff;
+    }
+
+    return total_size;
+}
+
+static inline int __int32_t_decode_little_endian_array(const void *_buf, int offset, int maxlen, int32_t *p, int elements)
+{
+    int total_size = sizeof(int32_t) * elements;
+    uint8_t *buf = (uint8_t*) _buf;
+    int pos = offset;
+    int element;
+
+    if (maxlen < total_size)
+        return -1;
+
+    for (element = 0; element < elements; element++) {
+        p[element] = (((uint32_t)buf[pos+3])<<24) +
+                      (((uint32_t)buf[pos+2])<<16) +
+                      (((uint32_t)buf[pos+1])<<8) +
+                       ((uint32_t)buf[pos+0]);
         pos+=4;
     }
 
@@ -234,8 +340,9 @@ static inline int __int32_t_decode_array(const void *_buf, int offset, int maxle
 
 static inline int __int32_t_clone_array(const int32_t *p, int32_t *q, int elements)
 {
-    memcpy(q, p, elements * sizeof(int32_t));
-    return 0;
+    int n = elements * sizeof(int32_t);
+    memcpy(q, p, n);
+    return n;
 }
 
 /**
@@ -288,11 +395,68 @@ static inline int __int64_t_decode_array(const void *_buf, int offset, int maxle
         return -1;
 
     for (element = 0; element < elements; element++) {
-        uint64_t a = (((uint32_t)buf[pos+0])<<24) + (((uint32_t)buf[pos+1])<<16) +
-                     (((uint32_t)buf[pos+2])<<8) + ((uint32_t)buf[pos+3]);
+        uint64_t a = (((uint32_t)buf[pos+0])<<24) +
+                     (((uint32_t)buf[pos+1])<<16) +
+                     (((uint32_t)buf[pos+2])<<8) +
+                      ((uint32_t)buf[pos+3]);
         pos+=4;
-        uint64_t b = (((uint32_t)buf[pos+0])<<24) + (((uint32_t)buf[pos+1])<<16) +
-                     (((uint32_t)buf[pos+2])<<8) + ((uint32_t)buf[pos+3]);
+        uint64_t b = (((uint32_t)buf[pos+0])<<24) +
+                     (((uint32_t)buf[pos+1])<<16) +
+                     (((uint32_t)buf[pos+2])<<8) +
+                      ((uint32_t)buf[pos+3]);
+        pos+=4;
+        p[element] = (a<<32) + (b&0xffffffff);
+    }
+
+    return total_size;
+}
+
+static inline int __int64_t_encode_little_endian_array(void *_buf, int offset, int maxlen, const int64_t *p, int elements)
+{
+    int total_size = sizeof(int64_t) * elements;
+    uint8_t *buf = (uint8_t*) _buf;
+    int pos = offset;
+    int element;
+
+    if (maxlen < total_size)
+        return -1;
+
+    const uint64_t* unsigned_p = (uint64_t*)p;
+    for (element = 0; element < elements; element++) {
+        uint64_t v = unsigned_p[element];
+        buf[pos++] = (v & 0xff);
+        buf[pos++] = (v>>8)&0xff;
+        buf[pos++] = (v>>16)&0xff;
+        buf[pos++] = (v>>24)&0xff;
+        buf[pos++] = (v>>32)&0xff;
+        buf[pos++] = (v>>40)&0xff;
+        buf[pos++] = (v>>48)&0xff;
+        buf[pos++] = (v>>56)&0xff;
+    }
+
+    return total_size;
+}
+
+static inline int __int64_t_decode_little_endian_array(const void *_buf, int offset, int maxlen, int64_t *p, int elements)
+{
+    int total_size = sizeof(int64_t) * elements;
+    uint8_t *buf = (uint8_t*) _buf;
+    int pos = offset;
+    int element;
+
+    if (maxlen < total_size)
+        return -1;
+
+    for (element = 0; element < elements; element++) {
+        uint64_t b = (((uint32_t)buf[pos+3])<<24) +
+                     (((uint32_t)buf[pos+2])<<16) +
+                     (((uint32_t)buf[pos+1])<<8) +
+                      ((uint32_t)buf[pos+0]);
+        pos+=4;
+        uint64_t a = (((uint32_t)buf[pos+3])<<24) +
+                     (((uint32_t)buf[pos+2])<<16) +
+                     (((uint32_t)buf[pos+1])<<8) +
+                      ((uint32_t)buf[pos+0]);
         pos+=4;
         p[element] = (a<<32) + (b&0xffffffff);
     }
@@ -302,8 +466,9 @@ static inline int __int64_t_decode_array(const void *_buf, int offset, int maxle
 
 static inline int __int64_t_clone_array(const int64_t *p, int64_t *q, int elements)
 {
-    memcpy(q, p, elements * sizeof(int64_t));
-    return 0;
+    int n = elements * sizeof(int64_t);
+    memcpy(q, p, n);
+    return n;
 }
 
 /**
@@ -329,10 +494,21 @@ static inline int __float_decode_array(const void *_buf, int offset, int maxlen,
     return __int32_t_decode_array(_buf, offset, maxlen, (int32_t*) p, elements);
 }
 
+static inline int __float_encode_little_endian_array(void *_buf, int offset, int maxlen, const float *p, int elements)
+{
+    return __int32_t_encode_little_endian_array(_buf, offset, maxlen, (int32_t*) p, elements);
+}
+
+static inline int __float_decode_little_endian_array(const void *_buf, int offset, int maxlen, float *p, int elements)
+{
+    return __int32_t_decode_little_endian_array(_buf, offset, maxlen, (int32_t*) p, elements);
+}
+
 static inline int __float_clone_array(const float *p, float *q, int elements)
 {
-    memcpy(q, p, elements * sizeof(float));
-    return 0;
+    int n = elements * sizeof(float);
+    memcpy(q, p, n);
+    return n;
 }
 
 /**
@@ -358,10 +534,21 @@ static inline int __double_decode_array(const void *_buf, int offset, int maxlen
     return __int64_t_decode_array(_buf, offset, maxlen, (int64_t*) p, elements);
 }
 
+static inline int __double_encode_little_endian_array(void *_buf, int offset, int maxlen, const double *p, int elements)
+{
+    return __int64_t_encode_little_endian_array(_buf, offset, maxlen, (int64_t*) p, elements);
+}
+
+static inline int __double_decode_little_endian_array(const void *_buf, int offset, int maxlen, double *p, int elements)
+{
+    return __int64_t_decode_little_endian_array(_buf, offset, maxlen, (int64_t*) p, elements);
+}
+
 static inline int __double_clone_array(const double *p, double *q, int elements)
 {
-    memcpy(q, p, elements * sizeof(double));
-    return 0;
+    int n = elements * sizeof(double);
+    memcpy(q, p, n);
+    return n;
 }
 
 /**
@@ -377,6 +564,7 @@ static inline int __string_decode_array_cleanup(char **s, int elements)
     return 0;
 }
 
+// XXX (Bendes) Not sure why "const char * const * p" doesn't work
 static inline int __string_encoded_array_size(char * const *s, int elements)
 {
     int size = 0;
@@ -387,11 +575,13 @@ static inline int __string_encoded_array_size(char * const *s, int elements)
     return size;
 }
 
+// XXX (Bendes) Not sure why "const char * const * p" doesn't work
 static inline int __string_encoded_size(char * const *s)
 {
     return sizeof(int64_t) + __string_encoded_array_size(s, 1);
 }
 
+// XXX (Bendes) Not sure why "const char * const * p" doesn't work
 static inline int __string_encode_array(void *_buf, int offset, int maxlen, char * const *p, int elements)
 {
     int pos = 0, thislen;
@@ -422,7 +612,7 @@ static inline int __string_decode_array(const void *_buf, int offset, int maxlen
         thislen = __int32_t_decode_array(_buf, offset + pos, maxlen - pos, &length, 1);
         if (thislen < 0) return thislen; else pos += thislen;
 
-        p[element] = (char*) malloc(length);
+        p[element] = (char*) zcm_malloc(length);
         thislen = __int8_t_decode_array(_buf, offset + pos, maxlen - pos, (int8_t*) p[element], length);
         if (thislen < 0) return thislen; else pos += thislen;
     }
@@ -430,23 +620,58 @@ static inline int __string_decode_array(const void *_buf, int offset, int maxlen
     return pos;
 }
 
+// XXX (Bendes) Not sure why "const char * const * p" doesn't work
+static inline int __string_encode_little_endian_array(void *_buf, int offset, int maxlen, char * const *p, int elements)
+{
+    int pos = 0, thislen;
+    int element;
+
+    for (element = 0; element < elements; element++) {
+        int32_t length = strlen(p[element]) + 1; // length includes \0
+
+        thislen = __int32_t_encode_little_endian_array(_buf, offset + pos, maxlen - pos, &length, 1);
+        if (thislen < 0) return thislen; else pos += thislen;
+
+        thislen = __int8_t_encode_little_endian_array(_buf, offset + pos, maxlen - pos, (int8_t*) p[element], length);
+        if (thislen < 0) return thislen; else pos += thislen;
+    }
+
+    return pos;
+}
+
+static inline int __string_decode_little_endian_array(const void *_buf, int offset, int maxlen, char **p, int elements)
+{
+    int pos = 0, thislen;
+    int element;
+
+    for (element = 0; element < elements; element++) {
+        int32_t length;
+
+        // read length including \0
+        thislen = __int32_t_decode_little_endian_array(_buf, offset + pos, maxlen - pos, &length, 1);
+        if (thislen < 0) return thislen; else pos += thislen;
+
+        p[element] = (char*) zcm_malloc(length);
+        thislen = __int8_t_decode_little_endian_array(_buf, offset + pos, maxlen - pos, (int8_t*) p[element], length);
+        if (thislen < 0) return thislen; else pos += thislen;
+    }
+
+    return pos;
+}
+
+// XXX (Bendes) Not sure why "const char * const * p" doesn't work
 static inline int __string_clone_array(char * const *p, char **q, int elements)
 {
+    int ret = 0;
     int element;
     for (element = 0; element < elements; element++) {
         // because strdup is not C99
         size_t len = strlen(p[element]) + 1;
-        q[element] = (char*) malloc (len);
+        ret += len;
+        q[element] = (char*) zcm_malloc (len);
         memcpy (q[element], p[element], len);
     }
-    return 0;
-}
-
-static inline void *zcm_malloc(size_t sz)
-{
-    if (sz)
-        return malloc(sz);
-    return NULL;
+    return ret;
 }
 
 /**
@@ -512,14 +737,13 @@ struct _zcm_field_t
     void *data;
 };
 
-
-typedef int (*zcm_encode_t)(void *buf, int offset, int maxlen, const void *p);
-typedef int (*zcm_decode_t)(const void *buf, int offset, int maxlen, void *p);
-typedef int (*zcm_decode_cleanup_t)(void *p);
-typedef int (*zcm_encoded_size_t)(const void *p);
-typedef int (*zcm_struct_size_t)(void);
-typedef int (*zcm_num_fields_t)(void);
-typedef int (*zcm_get_field_t)(const void *p, int i, zcm_field_t *f);
+typedef int     (*zcm_encode_t)(void *buf, int offset, int maxlen, const void *p);
+typedef int     (*zcm_decode_t)(const void *buf, int offset, int maxlen, void *p);
+typedef int     (*zcm_decode_cleanup_t)(void *p);
+typedef int     (*zcm_encoded_size_t)(const void *p);
+typedef int     (*zcm_struct_size_t)(void);
+typedef int     (*zcm_num_fields_t)(void);
+typedef int     (*zcm_get_field_t)(const void *p, int i, zcm_field_t *f);
 typedef int64_t (*zcm_get_hash_t)(void);
 
 /**
@@ -539,9 +763,8 @@ struct _zcm_type_info_t
 
 };
 
-
 #ifdef __cplusplus
 }
 #endif
 
-#endif
+#endif // _ZCM_LIB_INLINE_H

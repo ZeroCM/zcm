@@ -555,6 +555,11 @@ struct EmitStruct : public Emitter
 
 int emitJava(ZCMGen& zcm)
 {
+    if (zcm.gopt->getBool("little-endian-encoding")) {
+        printf("Java does not currently support little endian encoding\n");
+        return -1;
+    }
+
     string jpath = zcm.gopt->getString("jpath");
     string jpathPrefix = jpath + (jpath.size() > 0 ? "/" : "");
     bool jmkdir = zcm.gopt->getBool("jmkdir");

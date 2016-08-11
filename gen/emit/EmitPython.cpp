@@ -701,6 +701,11 @@ struct PyEmitPack : public Emitter
 
 int emitPython(ZCMGen& zcm)
 {
+    if (zcm.gopt->getBool("little-endian-encoding")) {
+        printf("Python does not currently support little endian encoding\n");
+        return -1;
+    }
+
     unordered_map<string, vector<ZCMStruct*> > packages;
 
     // group the structs by package

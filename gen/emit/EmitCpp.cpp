@@ -285,7 +285,8 @@ struct Emit : public Emitter
         emit(1,     "int pos = 0, tlen;");
         emit(1,     "int64_t hash = (int64_t)getHash();");
         emit(0, "");
-        emit(1,     "tlen = __int64_t_encode_array(buf, offset + pos, maxlen - pos, &hash, 1);");
+        emit(1,     "tlen = __int64_t_encode_%sarray(buf, offset + pos, maxlen - pos, &hash, 1);",
+                    zcm.gopt->getBool("little-endian-encoding") ? "little_endian_" : "");
         emit(1,     "if(tlen < 0) return tlen; else pos += tlen;");
         emit(0, "");
         emit(1,     "tlen = this->_encodeNoHash(buf, offset + pos, maxlen - pos);");
@@ -314,7 +315,8 @@ struct Emit : public Emitter
         emit(1,     "int pos = 0, thislen;");
         emit(0, "");
         emit(1,     "int64_t msg_hash;");
-        emit(1,     "thislen = __int64_t_decode_array(buf, offset + pos, maxlen - pos, &msg_hash, 1);");
+        emit(1,     "thislen = __int64_t_decode_%sarray(buf, offset + pos, maxlen - pos, &msg_hash, 1);",
+                    zcm.gopt->getBool("little-endian-encoding") ? "little_endian_" : "");
         emit(1,     "if (thislen < 0) return thislen; else pos += thislen;");
         emit(1,     "if (msg_hash != getHash()) return -1;");
         emit(0, "");
@@ -403,8 +405,10 @@ struct Emit : public Emitter
             ZCMGen::isPrimitiveType(mtn) && mtn != "string") {
 
             auto& dim = lm.dimensions[depth];
-            emitStart(indent, "tlen = __%s_encode_array(buf, offset + pos, maxlen - pos, &this->%s",
-                      mtn.c_str(), lm.membername.c_str());
+            emitStart(indent, "tlen = __%s_encode_%sarray(buf, offset + pos, maxlen - pos, &this->%s",
+                      mtn.c_str(),
+                      zcm.gopt->getBool("little-endian-encoding") ? "little_endian_" : "",
+                      lm.membername.c_str());
             for(int i = 0; i < depth; i++)
                 emitContinue("[a%d]", i);
             emitEnd("[0], %s%s);", dimSizePrefix(dim.size).c_str(), dim.size.c_str());
@@ -418,7 +422,8 @@ struct Emit : public Emitter
                 for(int i = 0; i < depth; i++)
                     emitContinue("[a%d]", i);
                 emitEnd(".c_str();");
-                emit(indent, "tlen = __string_encode_array(buf, offset + pos, maxlen - pos, &__cstr, 1);");
+                emit(indent, "tlen = __string_encode_%sarray(buf, offset + pos, maxlen - pos, &__cstr, 1);",
+                             zcm.gopt->getBool("little-endian-encoding") ? "little_endian_" : "");
             } else {
                 emitStart(indent, "tlen = this->%s", lm.membername.c_str());
                 for(int i = 0; i < depth; i++)
@@ -463,10 +468,14 @@ struct Emit : public Emitter
                 if (ZCMGen::isPrimitiveType(mtn)) {
                     if(mtn == "string") {
                         emit(1, "char* %s_cstr = (char*) this->%s.c_str();", mn, mn);
-                        emit(1, "tlen = __string_encode_array(buf, offset + pos, maxlen - pos, &%s_cstr, 1);", mn);
+                        emit(1, "tlen = __string_encode_%sarray(buf, offset + pos, maxlen - pos, &%s_cstr, 1);",
+                                zcm.gopt->getBool("little-endian-encoding") ? "little_endian_" : "",
+                                mn);
                     } else {
-                        emit(1, "tlen = __%s_encode_array(buf, offset + pos, maxlen - pos, &this->%s, 1);",
-                             mtn.c_str(), mn);
+                        emit(1, "tlen = __%s_encode_%sarray(buf, offset + pos, maxlen - pos, &this->%s, 1);",
+                             mtn.c_str(),
+                             zcm.gopt->getBool("little-endian-encoding") ? "little_endian_" : "",
+                             mn);
                     }
                     emit(1, "if(tlen < 0) return tlen; else pos += tlen;");
                 } else {
@@ -569,7 +578,10 @@ struct Emit : public Emitter
                 decodeIndent++;
             }
 
-            emitStart(decodeIndent, "tlen = __%s_decode_array(buf, offset + pos, maxlen - pos, &this->%s", mtn.c_str(), mn);
+            emitStart(decodeIndent, "tlen = __%s_decode_%sarray(buf, offset + pos, maxlen - pos, &this->%s",
+                                    mtn.c_str(),
+                                    zcm.gopt->getBool("little-endian-encoding") ? "little_endian_" : "",
+                                    mn);
             for(int i = 0; i < depth; i++)
                 emitContinue("[a%d]", i);
             emitEnd("[0], %s);", dimSizeAccessor(dim.size).c_str());
@@ -580,7 +592,8 @@ struct Emit : public Emitter
         } else if(depth == ndims) {
             if (mtn == "string") {
                 emit(1 + depth, "int32_t __elem_len;");
-                emit(1 + depth, "tlen = __int32_t_decode_array(buf, offset + pos, maxlen - pos, &__elem_len, 1);");
+                emit(1 + depth, "tlen = __int32_t_decode_%sarray(buf, offset + pos, maxlen - pos, &__elem_len, 1);",
+                                zcm.gopt->getBool("little-endian-encoding") ? "little_endian_" : "");
                 emit(1 + depth, "if(tlen < 0) return tlen; else pos += tlen;");
                 emit(1 + depth, "if(__elem_len > maxlen - pos) return -1;");
                 emitStart(1 + depth, "this->%s", mn);
@@ -636,13 +649,18 @@ struct Emit : public Emitter
             if (ndims == 0 && ZCMGen::isPrimitiveType(mtn)) {
                 if(mtn == "string") {
                     emit(1, "int32_t __%s_len__;", mn);
-                    emit(1, "tlen = __int32_t_decode_array(buf, offset + pos, maxlen - pos, &__%s_len__, 1);", mn);
+                    emit(1, "tlen = __int32_t_decode_%sarray(buf, offset + pos, maxlen - pos, &__%s_len__, 1);",
+                            zcm.gopt->getBool("little-endian-encoding") ? "little_endian_" : "",
+                            mn);
                     emit(1, "if(tlen < 0) return tlen; else pos += tlen;");
                     emit(1, "if(__%s_len__ > maxlen - pos) return -1;", mn);
                     emit(1, "this->%s.assign(((const char*)buf) + offset + pos, __%s_len__ - 1);", mn, mn);
                     emit(1, "pos += __%s_len__;", mn);
                 } else {
-                    emit(1, "tlen = __%s_decode_array(buf, offset + pos, maxlen - pos, &this->%s, 1);", mtn.c_str(), mn);
+                    emit(1, "tlen = __%s_decode_%sarray(buf, offset + pos, maxlen - pos, &this->%s, 1);",
+                            mtn.c_str(),
+                            zcm.gopt->getBool("little-endian-encoding") ? "little_endian_" : "",
+                            mn);
                     emit(1, "if(tlen < 0) return tlen; else pos += tlen;");
                 }
             } else {
