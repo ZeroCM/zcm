@@ -148,7 +148,7 @@ int zcm_nonblocking_handle_nonblock(zcm_nonblocking_t *zcm)
 
 void zcm_nonblocking_flush(zcm_nonblocking_t* zcm)
 {
-    // Call twice because we need to make sure publish and subscribe are both handled
+    /* Call twice because we need to make sure publish and subscribe are both handled */
     zcm_trans_update(zcm->zt);
     zcm_trans_update(zcm->zt);
 
