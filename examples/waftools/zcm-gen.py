@@ -128,7 +128,7 @@ def outFileName(ctx, inp, lang, absPath=False):
 
 
 def getFileParts(ctx, path):
-    package = ctx.cmd_and_log('zcm-gen --package %s' % (path),
+    package = ctx.cmd_and_log('%s --package %s' % (ctx.env.ZCMGEN, path),
                                   output=waflib.Context.STDOUT,
                                   quiet=waflib.Context.BOTH).strip()
     pathparts = path.split('/')

@@ -4,6 +4,7 @@ def build(ctx):
     lang = ['c_stlib', 'c_shlib', 'cpp']
     if ctx.env.USING_JAVA:
         lang += ['java']
+    ctx.env.ZCMGEN = ctx.path.get_src().abspath() + '/../../build/gen/zcm-gen'
     ctx.zcmgen(name    = 'testzcmtypes',
                source  = ctx.path.ant_glob('*.zcm'),
                lang    = lang,

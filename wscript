@@ -237,5 +237,4 @@ def build(ctx):
 
     ctx.add_group()
 
-    # RRR (Tom) can't do this ... tis a catch 22
-    #ctx.recurse('test')
+    ctx.recurse('test')
