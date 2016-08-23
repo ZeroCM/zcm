@@ -12,11 +12,11 @@
 
 using namespace std;
 
-atomic_bool callbackTriggered {false};
+atomic_int callbackTriggered {0};
 
 static void callback(example_t* msg, uint64_t utime, void* usr)
 {
-    callbackTriggered = true;
+    callbackTriggered++;
     delete msg;
 }
 static constexpr uint32_t maxBufSize = 1e5;
@@ -45,13 +45,13 @@ uint32_t put(const uint8_t* data, uint32_t nData, void* usr)
 
 uint64_t timestamp_now(void* usr)
 {
-    static uint64_t i = 0;
+    static uint64_t i = 100;
     return i++;
 }
 
 int main(int argc, char *argv[])
 {
-    constexpr size_t numMsgs = 5;
+    constexpr size_t numMsgs = 100;
 
     zcm_trans_t* trans = zcm_trans_generic_serial_create(get, put, NULL, timestamp_now, NULL);
 
@@ -62,19 +62,21 @@ int main(int argc, char *argv[])
 
     uint64_t now[numMsgs];
     for (size_t i = 0; i < numMsgs; ++i) {
-        now[i] = i;
-        msg.utime = i;
+        now[i] = (uint64_t) i;
+        msg.utime = (uint64_t) i;
         zcmLocal.publish("EXAMPLE", &msg);
+        zcmLocal.flush();
     }
 
-    zcmLocal.flush();
+    usleep(1e5);
+    assert(callbackTriggered > 0);
 
-    assert(callbackTriggered);
-    (void) now;
     example_t* recv = mt.get(now[3]);
     assert(recv);
     //cout << recv->utime << endl;
     assert(recv->utime == 3);
     delete recv;
     delete[] buf;
+
+    assert(mt.getHz() > 0.999 && mt.getHz() < 1.0001);
 }

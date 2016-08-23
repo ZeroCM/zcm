@@ -14,6 +14,7 @@
 #include <stdarg.h>
 
 #include <zcm/zcm-cpp.hpp>
+#include <zcm/util/Filter.hpp>
 
 static bool __ZCM_DEBUG_ENABLED__ = (NULL != getenv("ZCM_DEBUG"));
 #define ZCM_DEBUG(...) \
@@ -57,8 +58,8 @@ class MessageTracker
     std::deque<T*> buf;
     size_t bufMax;
     std::mutex bufLock;
-    std::condition_variable newMsg;
-    zcm::Subscription *s;
+    std::condition_variable newMsgCond;
+    zcm::Subscription *s = nullptr;
 
     std::mutex callbackLock;
     std::condition_variable callbackCv;
@@ -66,6 +67,8 @@ class MessageTracker
     std::thread *thr = nullptr;
     callback onMsg;
     void* usr;
+
+    Filter f;
 
     void callbackThreadFunc()
     {
@@ -82,36 +85,7 @@ class MessageTracker
 
     void handle(const zcm::ReceiveBuffer* rbuf, const std::string& chan, const T* _msg)
     {
-        if (done) return;
-
-        T* tmp = new T(*_msg);
-
-        {
-            std::unique_lock<std::mutex> lk(bufLock);
-
-            if (buf.size() == bufMax){
-                T* tmp = buf.front();
-                delete tmp;
-                buf.pop_front();
-            }
-
-            while (!buf.empty()) {
-                if (getMsgUtime(buf.front()) + maxTimeErr_us > getMsgUtime(_msg)) break;
-                T* tmp = buf.front();
-                delete tmp;
-                buf.pop_front();
-            }
-
-            buf.push_back(tmp);
-        }
-        newMsg.notify_all();
-
-        if (callbackLock.try_lock()) {
-            if (callbackMsg) delete callbackMsg;
-            callbackMsg = new T(*_msg);
-            callbackLock.unlock();
-            callbackCv.notify_all();
-        }
+        newMsg(_msg);
     }
 
     MessageTracker() {}
@@ -119,8 +93,10 @@ class MessageTracker
   public:
     MessageTracker(zcm::ZCM* zcmLocal, std::string channel,
                    double maxTimeErr = 0.25, size_t maxMsgs = 1,
-                   callback onMsg = nullptr, void* usr = nullptr)
-        : zcmLocal(zcmLocal), maxTimeErr_us(maxTimeErr * 1e6), onMsg(onMsg), usr(usr)
+                   callback onMsg = nullptr, void* usr = nullptr,
+                   double freqEstConvergenceNumMsgs = 10)
+        : zcmLocal(zcmLocal), maxTimeErr_us(maxTimeErr * 1e6), onMsg(onMsg), usr(usr),
+          f(Filter::convergenceTimeToNatFreq(freqEstConvergenceNumMsgs, 0.8), 0.8)
     {
         if (hasUtime<T>::present == true) {
             T tmp;
@@ -136,14 +112,15 @@ class MessageTracker
         bufMax = maxMsgs;
 
         if (onMsg != nullptr) thr = new std::thread(&MessageTracker<T>::callbackThreadFunc, this);
-        s = zcmLocal->subscribe(channel, &MessageTracker<T>::handle, this);
+        if (zcmLocal && channel != "")
+            s = zcmLocal->subscribe(channel, &MessageTracker<T>::handle, this);
     }
 
     virtual ~MessageTracker()
     {
-        zcmLocal->unsubscribe(s);
+        if (s) zcmLocal->unsubscribe(s);
         done = true;
-        newMsg.notify_all();
+        newMsgCond.notify_all();
         callbackCv.notify_all();
         if (thr) {
             thr->join();
@@ -165,7 +142,7 @@ class MessageTracker
             std::unique_lock<std::mutex> lk(bufLock);
             if (blocking == BLOCKING) {
                 if (buf.empty())
-                    newMsg.wait(lk, [&]{ return !buf.empty() || done; });
+                    newMsgCond.wait(lk, [&]{ return !buf.empty() || done; });
                 if (done) return nullptr;
             }
             if (!buf.empty())
@@ -195,7 +172,7 @@ class MessageTracker
                 //     end of the wait function, we would go back to sleep and
                 //     never wake up again because this class would have already
                 //     cleaned up
-                newMsg.wait(lk, [&]{
+                newMsgCond.wait(lk, [&]{
                             if (done) return true;
                             if (buf.empty()) return false;
                             uint64_t recentUtime = getMsgUtime(buf.back());
@@ -259,6 +236,59 @@ class MessageTracker
         if (m1) return m1;
 
         return nullptr;
+    }
+
+    virtual void newMsg(const T* _msg)
+    {
+        if (done) return;
+
+        T* tmp = new T(*_msg);
+        {
+            std::unique_lock<std::mutex> lk(bufLock);
+
+            uint64_t lastUtime = 0;
+            if (!buf.empty()) lastUtime = getMsgUtime(buf.back());
+
+            // Expire due to buffer being full
+            if (buf.size() == bufMax){
+                T* tmp = buf.front();
+                delete tmp;
+                buf.pop_front();
+            }
+
+            // Expire things that are too old
+            while (!buf.empty()) {
+                if (getMsgUtime(buf.front()) + maxTimeErr_us > getMsgUtime(_msg)) break;
+                T* tmp = buf.front();
+                delete tmp;
+                buf.pop_front();
+            }
+
+            if (lastUtime != 0) {
+                double obs = getMsgUtime(tmp) - lastUtime;
+                f(obs, 1);
+            }
+
+            buf.push_back(tmp);
+        }
+        newMsgCond.notify_all();
+
+        if (callbackLock.try_lock()) {
+            if (callbackMsg) delete callbackMsg;
+            callbackMsg = new T(*_msg);
+            callbackLock.unlock();
+            callbackCv.notify_all();
+        }
+    }
+
+    virtual double getHz()
+    {
+        return f[f.FilterMode::LOW_PASS] / 1e6;
+    }
+
+    virtual double getJitterUs()
+    {
+        return f[f.FilterMode::HIGH_PASS];
     }
 
   private:
