@@ -238,6 +238,17 @@ class MessageTracker
         return nullptr;
     }
 
+    /*
+    virtual T* get(uint64_t utime, std::forward_iterator<T*> begin, std::forward_iterator<T*> end)
+
+    virtual std::vector<T*> getRange(uint64_t utimeA, uint64_t utimeB,
+                                     bool blocking = NONBLOCKING)
+    {
+        std::vector<T*> ret;
+        return ret;
+    }
+    */
+
     virtual void newMsg(const T* _msg)
     {
         if (done) return;

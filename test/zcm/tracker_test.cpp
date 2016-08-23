@@ -20,26 +20,22 @@ static void callback(example_t* msg, uint64_t utime, void* usr)
     delete msg;
 }
 static constexpr uint32_t maxBufSize = 1e5;
-static uint8_t *buf = new uint8_t[maxBufSize];
-static uint32_t bufSize = 0;
-
+static std::deque<uint8_t> buf;
 
 uint32_t get(uint8_t* data, uint32_t nData, void* usr)
 {
-    uint32_t ret = std::min(nData, bufSize);
+    uint32_t ret = std::min(nData, (uint32_t) buf.size());
     if (ret == 0) return 0;
-    memcpy(data, buf, ret);
-    bufSize -= ret;
+    for (size_t i = 0; i < ret; ++i) { data[i] = buf.front(); buf.pop_front(); }
     return ret;
 }
 
 uint32_t put(const uint8_t* data, uint32_t nData, void* usr)
 {
-    uint32_t ret = std::min(nData, maxBufSize - bufSize);
+    uint32_t ret = std::min(nData, (uint32_t) (maxBufSize - buf.size()));
     if (ret == 0) return 0;
-    memcpy(buf + bufSize, data, ret);
-    bufSize += ret;
-    assert(bufSize <= maxBufSize);
+    for (size_t i = 0; i < ret; ++i) buf.push_back(data[i]);
+    assert(buf.size() <= maxBufSize);
     return ret;
 }
 
@@ -56,14 +52,14 @@ int main(int argc, char *argv[])
     zcm_trans_t* trans = zcm_trans_generic_serial_create(get, put, NULL, timestamp_now, NULL);
 
     zcm::ZCM zcmLocal(trans);
-    zcm::MessageTracker<example_t> mt(&zcmLocal, "EXAMPLE", 0.25, numMsgs, callback);
+    zcm::MessageTracker<example_t> mt(&zcmLocal, "EXAMPLE", numMsgs, numMsgs, callback);
 
     example_t msg = {0};
 
     uint64_t now[numMsgs];
     for (size_t i = 0; i < numMsgs; ++i) {
-        now[i] = (uint64_t) i;
-        msg.utime = (uint64_t) i;
+        now[i] = (uint64_t) (i * 1e6);
+        msg.utime = now[i];
         zcmLocal.publish("EXAMPLE", &msg);
         zcmLocal.flush();
     }
@@ -73,10 +69,8 @@ int main(int argc, char *argv[])
 
     example_t* recv = mt.get(now[3]);
     assert(recv);
-    //cout << recv->utime << endl;
-    assert(recv->utime == 3);
+    assert((uint64_t)recv->utime == now[3]);
     delete recv;
-    delete[] buf;
 
     assert(mt.getHz() > 0.999 && mt.getHz() < 1.0001);
 }
