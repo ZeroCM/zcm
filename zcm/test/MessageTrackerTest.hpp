@@ -1,6 +1,9 @@
 #pragma once
 
 #include <iostream>
+#include <deque>
+#include <thread>
+#include <mutex>
 
 #include "cxxtest/TestSuite.h"
 
@@ -94,6 +97,27 @@ class MessageTrackerTest : public CxxTest::TestSuite
             TS_ASSERT_EQUALS(msg->utime, 1100);
             delete msg;
         }
+    }
 
+    void testGetInternalBuf()
+    {
+        struct data_t {
+            uint64_t utime;
+            int offset;
+            int bufInd;
+            int decode(void* data, int start, int max) { return 0; }
+            static const char* getTypeName() { return "data_t"; }
+        };
+
+        size_t numMsgs = 10;
+        zcm::MessageTracker<data_t> mt(nullptr, "", 0.25, numMsgs);
+        for (int i = 0; i < 10; i++) {
+            data_t d = {123456780 + (uint64_t)i, 100 + i, 0 + i};
+            mt.newMsg(&d, 0);
+        }
+        data_t* out = mt.get((uint64_t)123456785);
+        TS_ASSERT_EQUALS(out->bufInd, 5);
+        out = mt.get((uint64_t)123456790);
+        TS_ASSERT_EQUALS(out->bufInd, 9);
     }
 };
