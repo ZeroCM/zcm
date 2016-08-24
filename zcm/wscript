@@ -39,8 +39,7 @@ def build(ctx):
         name   = 'embed-tar',
         source = embedSource,
         target = '.zcm-embed-tmp.tar.gz',
-        color  = "PINK",
-        after  = 'zcmgitid')
+        color  = "PINK")
 
     ctx(rule   = package_embedded,
         name   = 'embed-tar-finish',

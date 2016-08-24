@@ -13,6 +13,7 @@ int main(int argc, char *argv[])
     GetOpt gopt;
     gopt.addBool('h',  "help",     0,    "Show this help");
     gopt.addBool('t',  "tokenize", 0,    "Show tokenization");
+    gopt.addBool(0,    "package",  0,    "Show only package");
     gopt.addBool('d',  "debug",    0,    "Show parsed file");
     gopt.addBool(0,    "lazy",     0,    "Generate output file only if .zcm is newer");
     gopt.addString(0,    "package-prefix",     "",
@@ -64,6 +65,12 @@ int main(int argc, char *argv[])
     // If "-t" or "--tokenize" was specified, then show tokenization
     // information and exit.
     if (gopt.getBool("tokenize")) {
+        return 0;
+    }
+
+    // If "-p" or "--package" was specified, then print out package and exit
+    if (gopt.getBool("package")) {
+        printf("%s\n", zcm.package.c_str());
         return 0;
     }
 

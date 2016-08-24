@@ -116,7 +116,7 @@ struct Emit : public Emitter
     {
         auto namespaces = StringUtil::split(ls.structname.fullname, '.');
         for (size_t i = 0; i < namespaces.size()-1; i++)
-            emit(0, "{\n");
+            emit(0, "}\n");
     }
 
     void emitHeaderStart()

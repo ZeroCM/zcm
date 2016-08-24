@@ -1,8 +1,9 @@
 #include "Common.hpp"
 #include "GetOpt.hpp"
-#include "util/StringUtil.hpp"
 #include "ZCMGen.hpp"
 #include "Emitter.hpp"
+#include "util/StringUtil.hpp"
+#include "util/FileUtil.hpp"
 
 #define FLAG_NONE 0
 
@@ -19,6 +20,11 @@ static string dotsToUnderscores(const string& s)
         if (ret[i] == '.')
              ret[i] = '_';
     return ret;
+}
+
+static string dotsToSlashes(const string& s)
+{
+    return StringUtil::replace(s, '.', '/');
 }
 
 // Create an accessor for member lm, whose name is "n". For arrays,
@@ -150,9 +156,12 @@ struct EmitHeader : public Emit
             if (!ZCMGen::isPrimitiveType(lm.type.fullname) &&
                 lm.type.fullname != lr.structname.fullname) {
                 string otherTn = dotsToUnderscores(lm.type.fullname);
-                emit(0, "#include \"%s%s%s.h\"",
+                string package = lm.type.package;
+                emit(0, "#include \"%s%s%s%s%s.h\"",
                      zcm.gopt->getString("c-include").c_str(),
                      zcm.gopt->getString("c-include").size()>0 ? "/" : "",
+                     package.c_str(),
+                     package.size()>0 ? "/" : "",
                      otherTn.c_str());
             }
         }
@@ -342,11 +351,14 @@ struct EmitSource : public Emit
     void emitIncludes()
     {
         string tmp_ = dotsToUnderscores(lr.structname.fullname);
+        string package = lr.structname.package;
         char *tn_ = (char *)tmp_.c_str();
         emit(0, "#include <string.h>");
-        emit(0, "#include \"%s%s%s.h\"",
+        emit(0, "#include \"%s%s%s%s%s.h\"",
                 zcm.gopt->getString("c-include").c_str(),
                 zcm.gopt->getString("c-include").size()>0 ? "/" : "",
+                package.c_str(),
+                package.size()>0 ? "/" : "",
                 tn_);
         emit(0, "");
     }
@@ -973,18 +985,25 @@ void setupOptionsC(GetOpt& gopt)
 int emitC(ZCMGen& zcm)
 {
     for (auto& lr : zcm.structs) {
+        string package = dotsToSlashes(lr.structname.package);
+        if (package != "") package = "/" + package;
 
-        string headerName = zcm.gopt->getString("c-hpath") + "/" + lr.nameUnderscore() + ".h";
-        string cName      = zcm.gopt->getString("c-cpath") + "/" + lr.nameUnderscore() + ".c";
+        string hpath = zcm.gopt->getString("c-hpath") + package;
+        string cpath = zcm.gopt->getString("c-cpath") + package;
+
+        string hName = hpath + "/" + lr.nameUnderscore() + ".h";
+        string cName = hpath + "/" + lr.nameUnderscore() + ".c";
 
         // STRUCT H file
-        if (zcm.needsGeneration(lr.zcmfile, headerName)) {
-            if (int ret = emitStructHeader(zcm, lr, headerName))
+        if (zcm.needsGeneration(lr.zcmfile, hName)) {
+            FileUtil::makeDirsForFile(hName);
+            if (int ret = emitStructHeader(zcm, lr, hName))
                 return ret;
         }
 
         // STRUCT C file
         if (zcm.needsGeneration(lr.zcmfile, cName)) {
+            FileUtil::makeDirsForFile(cName);
             if (int ret = emitStructSource(zcm, lr, cName))
                 return ret;
         }
