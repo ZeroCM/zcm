@@ -55,7 +55,12 @@ class MessageTracker
 
     std::atomic_bool done {false};
 
-    std::deque<T*> buf;
+    struct MsgUtimePair {
+        T* msg;
+        uint64_t hostUtime;
+    };
+
+    std::deque<MsgUtimePair> buf;
     size_t bufMax;
     std::mutex bufLock;
     std::condition_variable newMsgCond;
@@ -86,7 +91,7 @@ class MessageTracker
 
     void handle(const zcm::ReceiveBuffer* rbuf, const std::string& chan, const T* _msg)
     {
-        newMsg(_msg);
+        newMsg(_msg, rbuf->recv_utime);
     }
 
     MessageTracker() {}
@@ -124,12 +129,13 @@ class MessageTracker
         done = true;
         newMsgCond.notify_all();
         callbackCv.notify_all();
+        if (callbackMsg) delete callbackMsg;
         if (thr) {
             thr->join();
             delete thr;
         }
         while (!buf.empty()) {
-            T* tmp = buf.front();
+            T* tmp = buf.front().msg;
             delete tmp;
             buf.pop_front();
         }
@@ -148,7 +154,7 @@ class MessageTracker
                 if (done) return nullptr;
             }
             if (!buf.empty())
-                ret = new T(*buf.back());
+                ret = new T(*buf.back().msg);
         }
 
         return ret;
@@ -173,7 +179,7 @@ class MessageTracker
             newMsgCond.wait(lk, [&]{
                         if (done) return true;
                         if (buf.empty()) return false;
-                        uint64_t recentUtime = getMsgUtime(buf.back());
+                        uint64_t recentUtime = getMsgUtime(buf.back().msg);
                         if (recentUtime < utime) return false;
                         return true;
                     });
@@ -199,7 +205,7 @@ class MessageTracker
         // non-monitonically increasing utimes and this is the easiest way.
         // This can be made much faster if needed
         for (auto iter = first; iter != last; iter++) {
-            const T* m = *iter;
+            const T* m = iter->msg;
             uint64_t mUtime = getMsgUtime(m);
 
             if (mUtime <= utime && (_m0 == nullptr || mUtime > m0Utime)) {
@@ -264,7 +270,7 @@ class MessageTracker
             newMsgCond.wait(lk, [&]{
                         if (done) return true;
                         if (buf.empty()) return false;
-                        uint64_t recentUtime = getMsgUtime(buf.back());
+                        uint64_t recentUtime = getMsgUtime(buf.back().msg);
                         if (recentUtime < utimeA) return false;
                         return true;
                     });
@@ -273,21 +279,21 @@ class MessageTracker
 
         uint64_t m0Utime = 0, m1Utime = UINT64_MAX;
 
-        for (const T* m : buf) {
-            uint64_t mUtime = getMsgUtime(m);
+        for (auto iter : buf) {
+            uint64_t mUtime = getMsgUtime(iter.msg);
             if (mUtime <= utimeA && mUtime > m0Utime) m0Utime = mUtime;
             if (mUtime >= utimeB && mUtime < m1Utime) m1Utime = mUtime;
         }
 
         std::vector<T*> ret;
-        for (const T* m : buf) {
-            uint64_t mUtime = getMsgUtime(m);
-            if (mUtime >= m0Utime && mUtime <= m1Utime) ret.push_back(new T(*m));
+        for (auto iter : buf) {
+            uint64_t mUtime = getMsgUtime(iter.msg);
+            if (mUtime >= m0Utime && mUtime <= m1Utime) ret.push_back(new T(*iter.msg));
         }
         return ret;
     }
 
-    void newMsg(const T* _msg)
+    void newMsg(const T* _msg, uint64_t hostUtime = UINT64_MAX)
     {
         if (done) return;
 
@@ -295,40 +301,42 @@ class MessageTracker
         {
             std::unique_lock<std::mutex> lk(bufLock);
 
-            uint64_t lastUtime = 0;
-            if (!buf.empty()) lastUtime = getMsgUtime(buf.back());
+            uint64_t lastHostUtime = UINT64_MAX;
+            if (!buf.empty()) lastHostUtime = buf.back().hostUtime;
 
             // Expire due to buffer being full
             if (buf.size() == bufMax){
-                T* tmp = buf.front();
+                T* tmp = buf.front().msg;
                 delete tmp;
                 buf.pop_front();
             }
 
             // Expire things that are too old
             while (!buf.empty()) {
-                if (getMsgUtime(buf.front()) + maxTimeErr_us > getMsgUtime(_msg)) break;
-                T* tmp = buf.front();
+                if (getMsgUtime(buf.front().msg) + maxTimeErr_us > getMsgUtime(_msg)) break;
+                T* tmp = buf.front().msg;
                 delete tmp;
                 buf.pop_front();
             }
 
-            if (lastUtime != 0) {
-                double obs = getMsgUtime(tmp) - lastUtime;
+            if (lastHostUtime != UINT64_MAX) {
+                double obs = hostUtime - lastHostUtime;
                 hzFilter(obs, 1);
                 double jitterObs = hzFilter[Filter::HIGH_PASS];
-                jitterFilter(jitterObs * jitterObs, 1);
+                jitterFilter(jitterObs, 1);
             }
 
-            buf.push_back(tmp);
+            buf.push_back({tmp, hostUtime});
         }
         newMsgCond.notify_all();
 
-        if (callbackLock.try_lock()) {
-            if (callbackMsg) delete callbackMsg;
-            callbackMsg = new T(*_msg);
-            callbackLock.unlock();
-            callbackCv.notify_all();
+        if (thr) {
+            if (callbackLock.try_lock()) {
+                if (callbackMsg) delete callbackMsg;
+                callbackMsg = new T(*_msg);
+                callbackLock.unlock();
+                callbackCv.notify_all();
+            }
         }
     }
 
@@ -338,10 +346,25 @@ class MessageTracker
         return 1e6 / hzFilter[Filter::LOW_PASS];
     }
 
+    uint64_t lastMsgHostUtime(bool blocking = NONBLOCKING)
+    {
+        {
+            std::unique_lock<std::mutex> lk(bufLock);
+            if (blocking == BLOCKING) {
+                if (buf.empty())
+                    newMsgCond.wait(lk, [&]{ return !buf.empty() || done; });
+                if (done) return UINT64_MAX;
+            }
+            if (!buf.empty())
+                return buf.back().hostUtime;
+        }
+        return UINT64_MAX;
+    }
+
     double getJitterUs()
     {
         std::unique_lock<std::mutex> lk(bufLock);
-        return sqrt(jitterFilter[Filter::LOW_PASS]);
+        return jitterFilter[Filter::LOW_PASS];
     }
 
   private:

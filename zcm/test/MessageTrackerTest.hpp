@@ -22,13 +22,15 @@ class MessageTrackerTest : public CxxTest::TestSuite
 
     void testFreqStats()
     {
-        constexpr size_t numMsgs = 100;
+        constexpr size_t numMsgs = 1000;
         zcm::MessageTracker<example_t> mt(nullptr, "", 0.25, numMsgs);
         for (size_t i = 0; i < 100; ++i) {
-            example_t tmp; tmp.utime = i * 1e6;
-            mt.newMsg(&tmp);
+            example_t tmp;
+            tmp.utime = i * 1e6;
+            mt.newMsg(&tmp, tmp.utime + 1);
+            TS_ASSERT_EQUALS(mt.lastMsgHostUtime(), tmp.utime + 1);
         }
         TS_ASSERT_DELTA(mt.getHz(), 1, 1e-5);
-        TS_ASSERT_LESS_THAN(mt.getJitterUs(), 10);
+        TS_ASSERT_LESS_THAN(mt.getJitterUs(), 1e-5);
     }
 };
