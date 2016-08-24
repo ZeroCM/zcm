@@ -261,13 +261,23 @@ class Tracker
             if (done) return std::vector<T*>();
         }
 
-        uint64_t m0Utime = 0, m1Utime = UINT64_MAX;
+        uint64_t m0Utime = UINT64_MAX, m1Utime = UINT64_MAX;
 
         for (const T* m : buf) {
             uint64_t mUtime = getMsgUtime(m);
-            if (mUtime <= utimeA && mUtime > m0Utime) m0Utime = mUtime;
-            if (mUtime >= utimeB && mUtime < m1Utime) m1Utime = mUtime;
+
+            uint64_t minBound;
+            if (maxTimeErr_us < utimeA) minBound = utimeA - maxTimeErr_us;
+            else                        minBound = 0;
+            uint64_t maxBound = utimeB + maxTimeErr_us;
+
+            if (mUtime <= utimeA && mUtime >= minBound &&
+                    (mUtime > m0Utime || m0Utime == UINT64_MAX))            m0Utime = mUtime;
+            if (mUtime >= utimeB && mUtime <= maxBound && mUtime < m1Utime) m1Utime = mUtime;
         }
+
+        if (m0Utime == UINT64_MAX) m0Utime = m1Utime;
+        if (m1Utime == UINT64_MAX) m1Utime = m0Utime;
 
         std::vector<T*> ret;
         for (const T* m : buf) {

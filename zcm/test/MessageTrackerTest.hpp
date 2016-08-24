@@ -39,9 +39,9 @@ class MessageTrackerTest : public CxxTest::TestSuite
         constexpr size_t numMsgs = 1000;
         zcm::MessageTracker<example_t> mt(nullptr, "", 0.25, numMsgs);
         for (size_t i = 0; i < 1000; ++i) {
-                example_t tmp;
-                tmp.utime = i + 1;
-                mt.newMsg(&tmp);
+            example_t tmp;
+            tmp.utime = i + 1;
+            mt.newMsg(&tmp);
         }
 
         vector<example_t*> gotRange = mt.getRange(1, 5);
