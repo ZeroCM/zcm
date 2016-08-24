@@ -2,6 +2,7 @@
 #include <cmath>
 #include <sys/time.h>
 #include <unistd.h>
+#include <random>
 
 #include <zcm/zcm-cpp.hpp>
 #include <zcm/message_tracker.hpp>
@@ -16,6 +17,7 @@ using namespace std;
 atomic_int callbackTriggered {0};
 
 constexpr double periodExpected = 1e3;
+constexpr double noiseStdDev = periodExpected / 30;
 
 static void callback(example_t* msg, uint64_t utime, void* usr)
 {
@@ -24,6 +26,10 @@ static void callback(example_t* msg, uint64_t utime, void* usr)
 }
 static constexpr uint32_t maxBufSize = 1e5;
 static std::deque<uint8_t> buf;
+
+static std::random_device rd;
+static std::minstd_rand gen(rd());
+static std::normal_distribution<double> dist(0.0, noiseStdDev);
 
 uint32_t get(uint8_t* data, uint32_t nData, void* usr)
 {
@@ -49,8 +55,7 @@ uint64_t timestamp_now(void* usr)
     static bool shouldIncrement = true;
     if (shouldIncrement) {
         j++;
-        i += (periodExpected + sin(2 * M_PI * 100 * j * periodExpected / 1e6) *
-             periodExpected / 10);
+        i += periodExpected + dist(gen);
     }
     shouldIncrement = !shouldIncrement;
     return i;
@@ -67,12 +72,20 @@ int main(int argc, char *argv[])
 
     example_t msg = {0};
 
+    size_t nTimesJitterWasRight = 0, nTimesHzWasRight = 0;
+
     uint64_t now[numMsgs];
     for (size_t i = 0; i < numMsgs; ++i) {
         now[i] = (uint64_t) (i * periodExpected);
         msg.utime = now[i];
         zcmLocal.publish("EXAMPLE", &msg);
         zcmLocal.flush();
+
+        if (mt.getJitterUs() > noiseStdDev * 0.8 &&
+            mt.getJitterUs() < noiseStdDev * 1.2) nTimesJitterWasRight++;
+
+        if (mt.getHz() > 1e6 / periodExpected * 0.95 &&
+            mt.getHz() < 1e6 / periodExpected * 1.05) nTimesHzWasRight++;
     }
 
     usleep(1e5);
@@ -83,12 +96,6 @@ int main(int argc, char *argv[])
     assert((uint64_t)recv->utime >= now[2] && (uint64_t)recv->utime <= now[4]);
     delete recv;
 
-    //cout << mt.getHz() << endl;
-    //cout << mt.getJitterUs() << endl;
-
-    assert(mt.getHz() > 1e6 / periodExpected * 0.95 &&
-           mt.getHz() < 1e6 / periodExpected * 1.05);
-
-    assert(mt.getJitterUs() > 600 - 1e2 &&
-           mt.getJitterUs() < 600 + 1e2);
+    assert(nTimesJitterWasRight > 0.5 * numMsgs);
+    assert(nTimesHzWasRight > 0.7 * numMsgs);
 }

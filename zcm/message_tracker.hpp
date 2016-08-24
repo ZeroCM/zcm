@@ -26,11 +26,11 @@ static bool __ZCM_DEBUG_ENABLED__ = (NULL != getenv("ZCM_DEBUG"));
 namespace zcm {
 
 template <typename T>
-class MessageTracker
+class Tracker
 {
   public:
     // You must free the memory passed into this callback
-    typedef void (*callback)(T* msg, uint64_t utime, void* usr);
+    typedef std::function<void (T* msg, uint64_t utime, void* usr)> callback;
     static const bool NONBLOCKING = false;
     static const bool BLOCKING = true;
 
@@ -49,22 +49,15 @@ class MessageTracker
     }
 
   private:
-    zcm::ZCM* zcmLocal = nullptr;
-
     uint64_t maxTimeErr_us;
 
     std::atomic_bool done {false};
 
-    struct MsgUtimePair {
-        T* msg;
-        uint64_t hostUtime;
-    };
-
-    std::deque<MsgUtimePair> buf;
+    std::deque<T*> buf;
+    uint64_t lastHostUtime = UINT64_MAX;
     size_t bufMax;
     std::mutex bufLock;
     std::condition_variable newMsgCond;
-    zcm::Subscription *s = nullptr;
 
     std::mutex callbackLock;
     std::condition_variable callbackCv;
@@ -89,21 +82,15 @@ class MessageTracker
         }
     }
 
-    void handle(const zcm::ReceiveBuffer* rbuf, const std::string& chan, const T* _msg)
-    {
-        newMsg(_msg, rbuf->recv_utime);
-    }
-
-    MessageTracker() {}
+    Tracker() {}
 
   public:
-    MessageTracker(zcm::ZCM* zcmLocal, std::string channel,
-                   double maxTimeErr = 0.25, size_t maxMsgs = 1,
-                   callback onMsg = nullptr, void* usr = nullptr,
-                   double freqEstConvergenceNumMsgs = 5)
-        : zcmLocal(zcmLocal), maxTimeErr_us(maxTimeErr * 1e6), onMsg(onMsg), usr(usr),
+    Tracker(double maxTimeErr = 0.25, size_t maxMsgs = 1,
+            callback onMsg = callback(), void* usr = nullptr,
+            double freqEstConvergenceNumMsgs = 10)
+        : maxTimeErr_us(maxTimeErr * 1e6), onMsg(onMsg), usr(usr),
               hzFilter(Filter::convergenceTimeToNatFreq(freqEstConvergenceNumMsgs, 0.8), 0.8),
-          jitterFilter(Filter::convergenceTimeToNatFreq(freqEstConvergenceNumMsgs * 5, 1), 1)
+          jitterFilter(Filter::convergenceTimeToNatFreq(freqEstConvergenceNumMsgs, 1), 1)
     {
         if (hasUtime<T>::present == true) {
             T tmp;
@@ -118,14 +105,11 @@ class MessageTracker
 
         bufMax = maxMsgs;
 
-        if (onMsg != nullptr) thr = new std::thread(&MessageTracker<T>::callbackThreadFunc, this);
-        if (zcmLocal && channel != "")
-            s = zcmLocal->subscribe(channel, &MessageTracker<T>::handle, this);
+        if (onMsg) thr = new std::thread(&Tracker<T>::callbackThreadFunc, this);
     }
 
-    virtual ~MessageTracker()
+    virtual ~Tracker()
     {
-        if (s) zcmLocal->unsubscribe(s);
         done = true;
         newMsgCond.notify_all();
         callbackCv.notify_all();
@@ -135,7 +119,7 @@ class MessageTracker
             delete thr;
         }
         while (!buf.empty()) {
-            T* tmp = buf.front().msg;
+            T* tmp = buf.front();
             delete tmp;
             buf.pop_front();
         }
@@ -154,7 +138,7 @@ class MessageTracker
                 if (done) return nullptr;
             }
             if (!buf.empty())
-                ret = new T(*buf.back().msg);
+                ret = new T(*buf.back());
         }
 
         return ret;
@@ -179,7 +163,7 @@ class MessageTracker
             newMsgCond.wait(lk, [&]{
                         if (done) return true;
                         if (buf.empty()) return false;
-                        uint64_t recentUtime = getMsgUtime(buf.back().msg);
+                        uint64_t recentUtime = getMsgUtime(buf.back());
                         if (recentUtime < utime) return false;
                         return true;
                     });
@@ -205,7 +189,7 @@ class MessageTracker
         // non-monitonically increasing utimes and this is the easiest way.
         // This can be made much faster if needed
         for (auto iter = first; iter != last; iter++) {
-            const T* m = iter->msg;
+            const T* m = *iter;
             uint64_t mUtime = getMsgUtime(m);
 
             if (mUtime <= utime && (_m0 == nullptr || mUtime > m0Utime)) {
@@ -270,7 +254,7 @@ class MessageTracker
             newMsgCond.wait(lk, [&]{
                         if (done) return true;
                         if (buf.empty()) return false;
-                        uint64_t recentUtime = getMsgUtime(buf.back().msg);
+                        uint64_t recentUtime = getMsgUtime(buf.back());
                         if (recentUtime < utimeA) return false;
                         return true;
                     });
@@ -279,16 +263,16 @@ class MessageTracker
 
         uint64_t m0Utime = 0, m1Utime = UINT64_MAX;
 
-        for (auto iter : buf) {
-            uint64_t mUtime = getMsgUtime(iter.msg);
+        for (const T* m : buf) {
+            uint64_t mUtime = getMsgUtime(m);
             if (mUtime <= utimeA && mUtime > m0Utime) m0Utime = mUtime;
             if (mUtime >= utimeB && mUtime < m1Utime) m1Utime = mUtime;
         }
 
         std::vector<T*> ret;
-        for (auto iter : buf) {
-            uint64_t mUtime = getMsgUtime(iter.msg);
-            if (mUtime >= m0Utime && mUtime <= m1Utime) ret.push_back(new T(*iter.msg));
+        for (const T* m : buf) {
+            uint64_t mUtime = getMsgUtime(m);
+            if (mUtime >= m0Utime && mUtime <= m1Utime) ret.push_back(new T(*m));
         }
         return ret;
     }
@@ -301,20 +285,17 @@ class MessageTracker
         {
             std::unique_lock<std::mutex> lk(bufLock);
 
-            uint64_t lastHostUtime = UINT64_MAX;
-            if (!buf.empty()) lastHostUtime = buf.back().hostUtime;
-
             // Expire due to buffer being full
             if (buf.size() == bufMax){
-                T* tmp = buf.front().msg;
+                T* tmp = buf.front();
                 delete tmp;
                 buf.pop_front();
             }
 
             // Expire things that are too old
             while (!buf.empty()) {
-                if (getMsgUtime(buf.front().msg) + maxTimeErr_us > getMsgUtime(_msg)) break;
-                T* tmp = buf.front().msg;
+                if (getMsgUtime(buf.front()) + maxTimeErr_us > getMsgUtime(_msg)) break;
+                T* tmp = buf.front();
                 delete tmp;
                 buf.pop_front();
             }
@@ -323,15 +304,20 @@ class MessageTracker
                 double obs = hostUtime - lastHostUtime;
                 hzFilter(obs, 1);
                 double jitterObs = obs - hzFilter[Filter::LOW_PASS];
-                //double jitterObs = hzFilter[Filter::HIGH_PASS];
                 double jitterObsSq = jitterObs * jitterObs;
                 jitterFilter(jitterObsSq, 1);
-                //std::cout << hostUtime << ", " << jitterObs << ", "
-                          //<< jitterObsSq << ", " << jitterFilter[Filter::LOW_PASS]
-                          //<< ", " << sqrt(jitterFilter[Filter::LOW_PASS]) << std::endl;
+                /*
+                std::cout << hostUtime << ", "
+                          << jitterObs << ", "
+                          << sqrt(jitterFilter.lowPass()) << ", "
+                          << obs << ", "
+                          << hzFilter.lowPass()
+                          << std::endl;
+                // */
             }
 
-            buf.push_back({tmp, hostUtime});
+            lastHostUtime = hostUtime;
+            buf.push_back(tmp);
         }
         newMsgCond.notify_all();
 
@@ -361,7 +347,7 @@ class MessageTracker
                 if (done) return UINT64_MAX;
             }
             if (!buf.empty())
-                return buf.back().hostUtime;
+                return lastHostUtime;
         }
         return UINT64_MAX;
     }
@@ -435,7 +421,39 @@ class MessageTracker
         __ZCM_PRINT_OBFUSCATE__(o, std::forward<Rest>(rest)...);
     }
     // *****************************************************************************
+};
 
+template <typename T>
+class MessageTracker : public Tracker<T>
+{
+  private:
+    zcm::ZCM* zcmLocal = nullptr;
+    zcm::Subscription *s = nullptr;
+
+    void handle(const zcm::ReceiveBuffer* rbuf, const std::string& chan, const T* _msg)
+    {
+        Tracker<T>::newMsg(_msg, rbuf->recv_utime);
+    }
+
+    MessageTracker() {}
+
+  public:
+    MessageTracker(zcm::ZCM* zcmLocal, std::string channel,
+                   double maxTimeErr = 0.25, size_t maxMsgs = 1,
+                   typename Tracker<T>::callback onMsg = typename Tracker<T>::callback(),
+                   void* usr = nullptr,
+                   double freqEstConvergenceNumMsgs = 20)
+        : Tracker<T>(maxTimeErr, maxMsgs, onMsg, usr, freqEstConvergenceNumMsgs),
+          zcmLocal(zcmLocal)
+    {
+        if (zcmLocal && channel != "")
+            s = zcmLocal->subscribe(channel, &MessageTracker<T>::handle, this);
+    }
+
+    virtual ~MessageTracker()
+    {
+        if (s) zcmLocal->unsubscribe(s);
+    }
 };
 
 }
