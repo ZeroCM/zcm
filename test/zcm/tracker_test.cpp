@@ -15,6 +15,8 @@ using namespace std;
 
 atomic_int callbackTriggered {0};
 
+constexpr double periodExpected = 1e3;
+
 static void callback(example_t* msg, uint64_t utime, void* usr)
 {
     callbackTriggered++;
@@ -43,12 +45,20 @@ uint32_t put(const uint8_t* data, uint32_t nData, void* usr)
 uint64_t timestamp_now(void* usr)
 {
     static uint64_t i = 100;
-    return i++;
+    static uint64_t j = 0;
+    static bool shouldIncrement = true;
+    if (shouldIncrement) {
+        j++;
+        i += (periodExpected + sin(2 * M_PI * 100 * j * periodExpected / 1e6) *
+             periodExpected / 10);
+    }
+    shouldIncrement = !shouldIncrement;
+    return i;
 }
 
 int main(int argc, char *argv[])
 {
-    constexpr size_t numMsgs = 10000;
+    constexpr size_t numMsgs = 500;
 
     zcm_trans_t* trans = zcm_trans_generic_serial_create(get, put, NULL, timestamp_now, NULL);
 
@@ -57,11 +67,10 @@ int main(int argc, char *argv[])
 
     example_t msg = {0};
 
-    constexpr double periodExpected = 1e4;
     uint64_t now[numMsgs];
     for (size_t i = 0; i < numMsgs; ++i) {
         now[i] = (uint64_t) (i * periodExpected);
-        msg.utime = now[i] + sin(2 * M_PI * 30 * now[i] / 1e6) * 1e3;
+        msg.utime = now[i];
         zcmLocal.publish("EXAMPLE", &msg);
         zcmLocal.flush();
     }
@@ -73,6 +82,9 @@ int main(int argc, char *argv[])
     assert(recv);
     assert((uint64_t)recv->utime >= now[2] && (uint64_t)recv->utime <= now[4]);
     delete recv;
+
+    //cout << mt.getHz() << endl;
+    //cout << mt.getJitterUs() << endl;
 
     assert(mt.getHz() > 1e6 / periodExpected * 0.95 &&
            mt.getHz() < 1e6 / periodExpected * 1.05);

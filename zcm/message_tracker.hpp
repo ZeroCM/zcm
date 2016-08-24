@@ -103,7 +103,7 @@ class MessageTracker
                    double freqEstConvergenceNumMsgs = 5)
         : zcmLocal(zcmLocal), maxTimeErr_us(maxTimeErr * 1e6), onMsg(onMsg), usr(usr),
               hzFilter(Filter::convergenceTimeToNatFreq(freqEstConvergenceNumMsgs, 0.8), 0.8),
-          jitterFilter(Filter::convergenceTimeToNatFreq(freqEstConvergenceNumMsgs, 0.8), 0.8)
+          jitterFilter(Filter::convergenceTimeToNatFreq(freqEstConvergenceNumMsgs * 5, 1), 1)
     {
         if (hasUtime<T>::present == true) {
             T tmp;
@@ -322,8 +322,13 @@ class MessageTracker
             if (lastHostUtime != UINT64_MAX) {
                 double obs = hostUtime - lastHostUtime;
                 hzFilter(obs, 1);
-                double jitterObs = hzFilter[Filter::HIGH_PASS];
-                jitterFilter(jitterObs, 1);
+                double jitterObs = obs - hzFilter[Filter::LOW_PASS];
+                //double jitterObs = hzFilter[Filter::HIGH_PASS];
+                double jitterObsSq = jitterObs * jitterObs;
+                jitterFilter(jitterObsSq, 1);
+                //std::cout << hostUtime << ", " << jitterObs << ", "
+                          //<< jitterObsSq << ", " << jitterFilter[Filter::LOW_PASS]
+                          //<< ", " << sqrt(jitterFilter[Filter::LOW_PASS]) << std::endl;
             }
 
             buf.push_back({tmp, hostUtime});
@@ -364,7 +369,7 @@ class MessageTracker
     double getJitterUs()
     {
         std::unique_lock<std::mutex> lk(bufLock);
-        return jitterFilter[Filter::LOW_PASS];
+        return sqrt(jitterFilter[Filter::LOW_PASS]);
     }
 
   private:
