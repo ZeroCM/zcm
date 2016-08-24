@@ -258,7 +258,7 @@ class Tracker
                         if (recentUtime < utimeA) return false;
                         return true;
                     });
-            if (done) return nullptr;
+            if (done) return std::vector<T*>();
         }
 
         uint64_t m0Utime = 0, m1Utime = UINT64_MAX;
