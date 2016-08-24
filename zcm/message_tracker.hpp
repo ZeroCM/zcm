@@ -136,7 +136,7 @@ class MessageTracker
     }
 
     // You must free the memory returned here
-    virtual T* get(bool blocking = NONBLOCKING)
+    T* get(bool blocking = NONBLOCKING)
     {
         T* ret = nullptr;
 
@@ -157,58 +157,66 @@ class MessageTracker
     // This may return nullptr even in the blocking case
     // TODO: Should consider how to allow the user to ask for an extrapolated
     //       message if bracketted messages arent available
-    virtual T* get(uint64_t utime, bool blocking = NONBLOCKING)
+    T* get(uint64_t utime, bool blocking = NONBLOCKING)
+    {
+        std::unique_lock<std::mutex> lk(bufLock);
+
+        if (blocking == BLOCKING) {
+            // XXX This is technically not okay. "done" can't be an
+            //     atomic as it can change after we've checked it in the
+            //     wait. If it does change, and we go back to sleep,
+            //     we'll never wake up. In other words, if done changes
+            //     to true between the "if (done) return false;" and the
+            //     end of the wait function, we would go back to sleep and
+            //     never wake up again because this class would have already
+            //     cleaned up
+            newMsgCond.wait(lk, [&]{
+                        if (done) return true;
+                        if (buf.empty()) return false;
+                        uint64_t recentUtime = getMsgUtime(buf.back());
+                        if (recentUtime < utime) return false;
+                        return true;
+                    });
+            if (done) return nullptr;
+        }
+
+        return get(utime, buf.begin(), buf.end(), lk);
+    }
+
+    // If you need to have a lock while working with the iterators, pass it in
+    // here to have it unlocked once this function is done working with the iterators
+    template <class InputIter>
+    T* get(uint64_t utime, InputIter first, InputIter last, std::unique_lock<std::mutex>& lk)
     {
         T *m0 = nullptr, *m1 = nullptr; // two poses bracketing the desired utime
         uint64_t m0Utime = 0, m1Utime = UINT64_MAX;
 
-        {
-            std::unique_lock<std::mutex> lk(bufLock);
+        const T *_m0 = nullptr;
+        const T *_m1 = nullptr;
 
-            if (blocking == BLOCKING) {
-                // XXX This is technically not okay. "done" can't be an
-                //     atomic as it can change after we've checked it in the
-                //     wait. If it does change, and we go back to sleep,
-                //     we'll never wake up. In other words, if done changes
-                //     to true between the "if (done) return false;" and the
-                //     end of the wait function, we would go back to sleep and
-                //     never wake up again because this class would have already
-                //     cleaned up
-                newMsgCond.wait(lk, [&]{
-                            if (done) return true;
-                            if (buf.empty()) return false;
-                            uint64_t recentUtime = getMsgUtime(buf.back());
-                            if (recentUtime < utime) return false;
-                            return true;
-                        });
-                if (done) return nullptr;
+        // The reason why we do a linear search is to support the ability
+        // to skip around in logs. We want to support messages with
+        // non-monitonically increasing utimes and this is the easiest way.
+        // This can be made much faster if needed
+        for (auto iter = first; iter != last; iter++) {
+            const T* m = *iter;
+            uint64_t mUtime = getMsgUtime(m);
+
+            if (mUtime <= utime && (_m0 == nullptr || mUtime > m0Utime)) {
+                _m0 = m;
+                m0Utime = mUtime;
             }
 
-            const T *_m0 = nullptr;
-            const T *_m1 = nullptr;
-
-            // The reason why we do a linear search is to support the ability
-            // to skip around in logs. We want to support messages with
-            // non-monitonically increasing utimes and this is the easiest way.
-            // This can be made much faster if needed
-            for (const T* m : buf) {
-                uint64_t mUtime = getMsgUtime(m);
-
-                if (mUtime <= utime && (_m0 == nullptr || mUtime > m0Utime)) {
-                    _m0 = m;
-                    m0Utime = mUtime;
-                }
-
-                if (mUtime >= utime && (_m1 == nullptr || mUtime < m1Utime)) {
-                    _m1 = m;
-                    m1Utime = mUtime;
-                }
+            if (mUtime >= utime && (_m1 == nullptr || mUtime < m1Utime)) {
+                _m1 = m;
+                m1Utime = mUtime;
             }
-
-            if (_m0 != nullptr) m0 = new T(*_m0);
-            if (_m1 != nullptr) m1 = new T(*_m1);
-
         }
+
+        if (_m0 != nullptr) m0 = new T(*_m0);
+        if (_m1 != nullptr) m1 = new T(*_m1);
+
+        if (lk.owns_lock()) lk.unlock();
 
         if (m0 && utime - m0Utime > maxTimeErr_us) {
             delete m0;
@@ -240,18 +248,46 @@ class MessageTracker
         return nullptr;
     }
 
-    /*
-    virtual T* get(uint64_t utime, std::forward_iterator<T*> begin, std::forward_iterator<T*> end)
-
-    virtual std::vector<T*> getRange(uint64_t utimeA, uint64_t utimeB,
-                                     bool blocking = NONBLOCKING)
+    std::vector<T*> getRange(uint64_t utimeA, uint64_t utimeB, bool blocking = NONBLOCKING)
     {
+        std::unique_lock<std::mutex> lk(bufLock);
+
+        if (blocking == BLOCKING) {
+            // XXX This is technically not okay. "done" can't be an
+            //     atomic as it can change after we've checked it in the
+            //     wait. If it does change, and we go back to sleep,
+            //     we'll never wake up. In other words, if done changes
+            //     to true between the "if (done) return false;" and the
+            //     end of the wait function, we would go back to sleep and
+            //     never wake up again because this class would have already
+            //     cleaned up
+            newMsgCond.wait(lk, [&]{
+                        if (done) return true;
+                        if (buf.empty()) return false;
+                        uint64_t recentUtime = getMsgUtime(buf.back());
+                        if (recentUtime < utimeA) return false;
+                        return true;
+                    });
+            if (done) return nullptr;
+        }
+
+        uint64_t m0Utime = 0, m1Utime = UINT64_MAX;
+
+        for (const T* m : buf) {
+            uint64_t mUtime = getMsgUtime(m);
+            if (mUtime <= utimeA && mUtime > m0Utime) m0Utime = mUtime;
+            if (mUtime >= utimeB && mUtime < m1Utime) m1Utime = mUtime;
+        }
+
         std::vector<T*> ret;
+        for (const T* m : buf) {
+            uint64_t mUtime = getMsgUtime(m);
+            if (mUtime >= m0Utime && mUtime <= m1Utime) ret.push_back(new T(*m));
+        }
         return ret;
     }
-    */
 
-    virtual void newMsg(const T* _msg)
+    void newMsg(const T* _msg)
     {
         if (done) return;
 
@@ -296,13 +332,13 @@ class MessageTracker
         }
     }
 
-    virtual double getHz()
+    double getHz()
     {
         std::unique_lock<std::mutex> lk(bufLock);
         return 1e6 / hzFilter[Filter::LOW_PASS];
     }
 
-    virtual double getJitterUs()
+    double getJitterUs()
     {
         std::unique_lock<std::mutex> lk(bufLock);
         return sqrt(jitterFilter[Filter::LOW_PASS]);
