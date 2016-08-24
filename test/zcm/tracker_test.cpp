@@ -1,4 +1,5 @@
 #include <iostream>
+#include <cmath>
 #include <sys/time.h>
 #include <unistd.h>
 
@@ -47,7 +48,7 @@ uint64_t timestamp_now(void* usr)
 
 int main(int argc, char *argv[])
 {
-    constexpr size_t numMsgs = 100;
+    constexpr size_t numMsgs = 10000;
 
     zcm_trans_t* trans = zcm_trans_generic_serial_create(get, put, NULL, timestamp_now, NULL);
 
@@ -56,10 +57,11 @@ int main(int argc, char *argv[])
 
     example_t msg = {0};
 
+    constexpr double periodExpected = 1e4;
     uint64_t now[numMsgs];
     for (size_t i = 0; i < numMsgs; ++i) {
-        now[i] = (uint64_t) (i * 1e6);
-        msg.utime = now[i];
+        now[i] = (uint64_t) (i * periodExpected);
+        msg.utime = now[i] + sin(2 * M_PI * 30 * now[i] / 1e6) * 1e3;
         zcmLocal.publish("EXAMPLE", &msg);
         zcmLocal.flush();
     }
@@ -69,8 +71,12 @@ int main(int argc, char *argv[])
 
     example_t* recv = mt.get(now[3]);
     assert(recv);
-    assert((uint64_t)recv->utime == now[3]);
+    assert((uint64_t)recv->utime >= now[2] && (uint64_t)recv->utime <= now[4]);
     delete recv;
 
-    assert(mt.getHz() > 0.999 && mt.getHz() < 1.0001);
+    assert(mt.getHz() > 1e6 / periodExpected * 0.95 &&
+           mt.getHz() < 1e6 / periodExpected * 1.05);
+
+    assert(mt.getJitterUs() > 600 - 1e2 &&
+           mt.getJitterUs() < 600 + 1e2);
 }

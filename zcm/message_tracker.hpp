@@ -68,7 +68,8 @@ class MessageTracker
     callback onMsg;
     void* usr;
 
-    Filter f;
+    Filter hzFilter;
+    Filter jitterFilter;
 
     void callbackThreadFunc()
     {
@@ -94,9 +95,10 @@ class MessageTracker
     MessageTracker(zcm::ZCM* zcmLocal, std::string channel,
                    double maxTimeErr = 0.25, size_t maxMsgs = 1,
                    callback onMsg = nullptr, void* usr = nullptr,
-                   double freqEstConvergenceNumMsgs = 10)
+                   double freqEstConvergenceNumMsgs = 5)
         : zcmLocal(zcmLocal), maxTimeErr_us(maxTimeErr * 1e6), onMsg(onMsg), usr(usr),
-          f(Filter::convergenceTimeToNatFreq(freqEstConvergenceNumMsgs, 0.8), 0.8)
+              hzFilter(Filter::convergenceTimeToNatFreq(freqEstConvergenceNumMsgs, 0.8), 0.8),
+          jitterFilter(Filter::convergenceTimeToNatFreq(freqEstConvergenceNumMsgs, 0.8), 0.8)
     {
         if (hasUtime<T>::present == true) {
             T tmp;
@@ -277,7 +279,9 @@ class MessageTracker
 
             if (lastUtime != 0) {
                 double obs = getMsgUtime(tmp) - lastUtime;
-                f(obs, 1);
+                hzFilter(obs, 1);
+                double jitterObs = hzFilter[Filter::HIGH_PASS];
+                jitterFilter(jitterObs * jitterObs, 1);
             }
 
             buf.push_back(tmp);
@@ -294,12 +298,14 @@ class MessageTracker
 
     virtual double getHz()
     {
-        return f[f.FilterMode::LOW_PASS] / 1e6;
+        std::unique_lock<std::mutex> lk(bufLock);
+        return 1e6 / hzFilter[Filter::LOW_PASS];
     }
 
     virtual double getJitterUs()
     {
-        return f[f.FilterMode::HIGH_PASS];
+        std::unique_lock<std::mutex> lk(bufLock);
+        return sqrt(jitterFilter[Filter::LOW_PASS]);
     }
 
   private:
