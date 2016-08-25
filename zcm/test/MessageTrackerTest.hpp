@@ -180,5 +180,10 @@ class MessageTrackerTest : public CxxTest::TestSuite
         TS_ASSERT(out != nullptr);
         if (out!= nullptr)
             TS_ASSERT_EQUALS(out->bufInd, 5);
+
+        // free the dynamically allocated memory
+        for (int i = 0; i < 10; i++) {
+            delete buf[i];
+         }
     }
 };
