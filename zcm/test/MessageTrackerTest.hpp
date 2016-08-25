@@ -1,7 +1,7 @@
 #pragma once
 
 #include <iostream>
-#include <deque>
+#include <array>
 #include <thread>
 #include <mutex>
 
@@ -22,6 +22,12 @@ class MessageTrackerTest : public CxxTest::TestSuite
         int decode(void* data, int start, int max) { return 0; }
         static const char* getTypeName() { return "example_t"; }
     };
+
+    struct data_t {
+            uint64_t utime;
+            int offset;
+            int bufInd;
+        };
 
     void testFreqStats()
     {
@@ -112,12 +118,67 @@ class MessageTrackerTest : public CxxTest::TestSuite
         size_t numMsgs = 10;
         zcm::MessageTracker<data_t> mt(nullptr, "", 0.25, numMsgs);
         for (int i = 0; i < 10; i++) {
-            data_t d = {123456780 + (uint64_t)i, 100 + i, 0 + i};
+            data_t d = {123456780 + (uint64_t)i, 100 + i, i};
             mt.newMsg(&d, 0);
         }
         data_t* out = mt.get((uint64_t)123456785);
-        TS_ASSERT_EQUALS(out->bufInd, 5);
+        TS_ASSERT(out != nullptr);
+        if (out!= nullptr)
+            TS_ASSERT_EQUALS(out->bufInd, 5);
         out = mt.get((uint64_t)123456790);
         TS_ASSERT_EQUALS(out->bufInd, 9);
+        TS_ASSERT(out != nullptr);
+        if (out!= nullptr)
+            TS_ASSERT_EQUALS(out->bufInd, 9);
+
+    }
+
+    void testGetTrackerUsingInternalBuf()
+    {
+        size_t numMsgs = 10;
+        zcm::Tracker<data_t> mt(0.25, numMsgs);
+        for (int i = 0; i < 10; i++) {
+            data_t d = {1234567810  + (uint64_t)i * 3, 100 + i, i};
+            mt.newMsg(&d);
+        }
+        data_t* out = mt.get((uint64_t)1234567815);
+        TS_ASSERT(out != nullptr);
+        if (out!= nullptr)
+            TS_ASSERT_EQUALS(out->bufInd, 2);
+        out = mt.get((uint64_t)1234567840);
+        TS_ASSERT(out != nullptr);
+        if (out!= nullptr)
+            TS_ASSERT_EQUALS(out->utime, (uint64_t)1234567837);
+
+    }
+
+    void testGetTrackerUsingProvidedBuf()
+    {
+
+        size_t numMsgs = 10;
+        zcm::Tracker<data_t> mt(0.25, numMsgs);
+        std::array<data_t*, 10> buf;
+        data_t d;
+        for (int i = 0; i < 10; i++) {
+            d.utime = 1234567810  + (uint64_t)i;
+            d.bufInd = i;
+            data_t* tmp = new data_t(d);
+            buf[i] = tmp;
+        }
+
+        std::mutex bufLock;
+        std::unique_lock<std::mutex> lk(bufLock);
+        data_t* out = mt.get((uint64_t)1234567815, buf.begin(), buf.end(), lk);
+        TS_ASSERT(out != nullptr);
+        if (out!= nullptr)
+            TS_ASSERT_EQUALS(out->bufInd, 5);
+        out = mt.get((uint64_t)1234567840, buf.begin(), buf.end(), lk);
+        TS_ASSERT(out != nullptr);
+        if (out!= nullptr)
+            TS_ASSERT_EQUALS(out->bufInd, 9);
+        out = mt.get((uint64_t)1234567813, &buf[5], buf.end(), lk);
+        TS_ASSERT(out != nullptr);
+        if (out!= nullptr)
+            TS_ASSERT_EQUALS(out->bufInd, 5);
     }
 };
