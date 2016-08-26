@@ -1,7 +1,7 @@
 #pragma once
 
 #include <iostream>
-#include <array>
+#include <vector>
 #include <thread>
 #include <mutex>
 
@@ -157,7 +157,7 @@ class MessageTrackerTest : public CxxTest::TestSuite
 
         size_t numMsgs = 10;
         zcm::Tracker<data_t> mt(0.25, numMsgs);
-        std::array<data_t*, 10> buf;
+        std::vector<data_t*> buf(10);
         data_t d;
         for (int i = 0; i < 10; i++) {
             d.utime = 1234567810  + (uint64_t)i;
@@ -176,7 +176,7 @@ class MessageTrackerTest : public CxxTest::TestSuite
         TS_ASSERT(out != nullptr);
         if (out!= nullptr)
             TS_ASSERT_EQUALS(out->bufInd, 9);
-        out = mt.get((uint64_t)1234567813, &buf[5], buf.end(), lk);
+        out = mt.get((uint64_t)1234567813, std::next(buf.begin(), 5), buf.end(), lk);
         TS_ASSERT(out != nullptr);
         if (out!= nullptr)
             TS_ASSERT_EQUALS(out->bufInd, 5);
