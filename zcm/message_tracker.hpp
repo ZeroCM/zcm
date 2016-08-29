@@ -171,13 +171,14 @@ class Tracker
             if (done) return nullptr;
         }
 
-        return get(utime, buf.begin(), buf.end(), lk);
+        return get(utime, buf.begin(), buf.end(), &lk);
     }
 
     // If you need to have a lock while working with the iterators, pass it in
     // here to have it unlocked once this function is done working with the iterators
     template <class InputIter>
-    T* get(uint64_t utime, InputIter first, InputIter last, std::unique_lock<std::mutex>& lk)
+    T* get(uint64_t utime, InputIter first, InputIter last,
+           std::unique_lock<std::mutex>* lk = nullptr)
     {
         T *m0 = nullptr, *m1 = nullptr; // two poses bracketing the desired utime
         uint64_t m0Utime = 0, m1Utime = UINT64_MAX;
@@ -207,7 +208,7 @@ class Tracker
         if (_m0 != nullptr) m0 = new T(*_m0);
         if (_m1 != nullptr) m1 = new T(*_m1);
 
-        if (lk.owns_lock()) lk.unlock();
+        if (lk && lk->owns_lock()) lk->unlock();
 
         if (m0 && utime - m0Utime > maxTimeErr_us) {
             delete m0;

@@ -164,17 +164,15 @@ class MessageTrackerTest : public CxxTest::TestSuite
             buf[i] = tmp;
         }
 
-        std::mutex bufLock;
-        std::unique_lock<std::mutex> lk(bufLock);
-        data_t* out = mt.get((uint64_t)1234567815, buf.begin(), buf.end(), lk);
+        data_t* out = mt.get((uint64_t)1234567815, buf.begin(), buf.end());
         TS_ASSERT(out != nullptr);
         if (out!= nullptr)
             TS_ASSERT_EQUALS(out->bufInd, 5);
-        out = mt.get((uint64_t)1234567840, buf.begin(), buf.end(), lk);
+        out = mt.get((uint64_t)1234567840, buf.begin(), buf.end());
         TS_ASSERT(out != nullptr);
         if (out!= nullptr)
             TS_ASSERT_EQUALS(out->bufInd, 9);
-        out = mt.get((uint64_t)1234567813, std::next(buf.begin(), 5), buf.end(), lk);
+        out = mt.get((uint64_t)1234567813, std::next(buf.begin(), 5), buf.end());
         TS_ASSERT(out != nullptr);
         if (out!= nullptr)
             TS_ASSERT_EQUALS(out->bufInd, 5);
