@@ -23,6 +23,6 @@ class FilterTest : public CxxTest::TestSuite
 
     void testConvergenceTimeEst()
     {
-        std::cout << zcm::Filter::convergenceTimeToNatFreq(10, 0.8) << std::endl;
+        TS_ASSERT_DELTA(zcm::Filter::convergenceTimeToNatFreq(10, 0.8), 0.24848, 1e-5);
     }
 };
