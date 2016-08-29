@@ -46,9 +46,7 @@ class MessageTrackerTest : public CxxTest::TestSuite
     void testGetRange()
     {
         constexpr size_t numMsgs = 1000;
-        // RRR (Bendes) You're telling the message tracker to not track any
-        //              messages older than 100 us     0.0001s = 100us
-        zcm::MessageTracker<example_t> mt(nullptr, "", 0.0001, numMsgs);
+        zcm::MessageTracker<example_t> mt(nullptr, "", 0.001, numMsgs);
         for (size_t i = 0; i < 1000; ++i) {
             example_t tmp;
             tmp.utime = i + 101;
@@ -85,12 +83,6 @@ class MessageTrackerTest : public CxxTest::TestSuite
             TS_ASSERT_EQUALS(msg->utime, 1100);
             delete msg;
         }
-
-        gotRange = mt.getRange(1201, 1300);
-        TS_ASSERT_EQUALS(gotRange.size(), 0);
-
-        gotRange = mt.getRange(0, 0);
-        TS_ASSERT_EQUALS(gotRange.size(), 0);
 
         gotRange = mt.getRange(100, 100);
         TS_ASSERT_EQUALS(gotRange.size(), 1);
