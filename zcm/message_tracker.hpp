@@ -264,13 +264,13 @@ class Tracker
 
         uint64_t m0Utime = UINT64_MAX, m1Utime = UINT64_MAX;
 
+        uint64_t minBound;
+        if (maxTimeErr_us < utimeA) minBound = utimeA - maxTimeErr_us;
+        else                        minBound = 0;
+        uint64_t maxBound = utimeB + maxTimeErr_us;
+
         for (const T* m : buf) {
             uint64_t mUtime = getMsgUtime(m);
-
-            uint64_t minBound;
-            if (maxTimeErr_us < utimeA) minBound = utimeA - maxTimeErr_us;
-            else                        minBound = 0;
-            uint64_t maxBound = utimeB + maxTimeErr_us;
 
             if (mUtime <= utimeA && mUtime >= minBound &&
                     (mUtime > m0Utime || m0Utime == UINT64_MAX))            m0Utime = mUtime;
