@@ -135,20 +135,24 @@ class MessageTrackerTest : public CxxTest::TestSuite
 
     void testGetTrackerUsingInternalBuf()
     {
-        size_t numMsgs = 10;
+        size_t numMsgs = 100;
         zcm::Tracker<data_t> mt(0.25, numMsgs);
-        for (int i = 0; i < 10; i++) {
-            data_t d = {1234567810  + (uint64_t)i * 3, 100 + i, i};
+        for (int i = 0; i < (int) numMsgs; i++) {
+            data_t d = {1234567810  + (uint64_t)i, 100 + i, i};
             mt.newMsg(&d);
         }
         data_t* out = mt.get((uint64_t)1234567815);
         TS_ASSERT(out != nullptr);
         if (out!= nullptr)
-            TS_ASSERT_EQUALS(out->bufInd, 2);
-        out = mt.get((uint64_t)1234567840);
+            TS_ASSERT_EQUALS(out->bufInd, 5);
+        out = mt.get((uint64_t)1234567950);
         TS_ASSERT(out != nullptr);
         if (out!= nullptr)
-            TS_ASSERT_EQUALS(out->utime, (uint64_t)1234567837);
+            TS_ASSERT_EQUALS(out->bufInd, (uint64_t) 99);
+        out = mt.get((uint64_t)1234567890);
+        TS_ASSERT(out != nullptr);
+        if (out!= nullptr)
+            TS_ASSERT_EQUALS(out->utime, (uint64_t)1234567890);
 
     }
 
