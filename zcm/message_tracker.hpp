@@ -17,6 +17,7 @@
 #include <zcm/zcm-cpp.hpp>
 #include <zcm/util/Filter.hpp>
 
+// RRR: why did you have to redefine this, is it not already in debug.h?
 static bool __ZCM_DEBUG_ENABLED__ = (NULL != getenv("ZCM_DEBUG"));
 #define ZCM_DEBUG(...) \
     do { \
@@ -54,6 +55,8 @@ class Tracker
 
     std::atomic_bool done {false};
 
+    // RRR: if the message itself doesn't have a utime, where are you storing the result of
+    //      "getMsgUtime()" so that any of this code works at all when you have utime-less messages
     std::deque<T*> buf;
     uint64_t lastHostUtime = UINT64_MAX;
     size_t bufMax;
@@ -161,6 +164,8 @@ class Tracker
             //     end of the wait function, we would go back to sleep and
             //     never wake up again because this class would have already
             //     cleaned up
+            // RRR: however, done is only set to true BEFORE the condition gets triggered, so
+            //      as long as that stays true, I don't think this is actually a problem
             newMsgCond.wait(lk, [&]{
                         if (done) return true;
                         if (buf.empty()) return false;
@@ -240,6 +245,8 @@ class Tracker
         return nullptr;
     }
 
+    // RRR: worth noting that it will only block until messages after utimeA have been received,
+    //      not until the whole range [A,B] is represented (which is fine, just document it)
     std::vector<T*> getRange(uint64_t utimeA, uint64_t utimeB, bool blocking = NONBLOCKING)
     {
         std::unique_lock<std::mutex> lk(bufLock);
@@ -253,6 +260,7 @@ class Tracker
             //     end of the wait function, we would go back to sleep and
             //     never wake up again because this class would have already
             //     cleaned up
+            // RRR: same as above
             newMsgCond.wait(lk, [&]{
                         if (done) return true;
                         if (buf.empty()) return false;
@@ -265,6 +273,8 @@ class Tracker
 
         uint64_t m0Utime = UINT64_MAX, m1Utime = UINT64_MAX;
 
+        // RRR: document that this range search is "inclusive" ie it returns a message past either
+        //      cap
         uint64_t minBound;
         if (maxTimeErr_us < utimeA) minBound = utimeA - maxTimeErr_us;
         else                        minBound = 0;
@@ -281,6 +291,9 @@ class Tracker
         if (m0Utime == UINT64_MAX) m0Utime = m1Utime;
         if (m1Utime == UINT64_MAX) m1Utime = m0Utime;
 
+        // RRR: following up on the previous comment, it's interesting because if you returned
+        //      the exclusive range, you could actually skip one loop through the list becasue
+        //      you could push messages that were between utimeA and utimeB to the return val
         std::vector<T*> ret;
         for (const T* m : buf) {
             uint64_t mUtime = getMsgUtime(m);
@@ -334,6 +347,10 @@ class Tracker
         newMsgCond.notify_all();
 
         if (thr) {
+            // RRR: interesting, so you aren't guaranteed to get a callback on ever message,
+            //      just on every message when you weren't servicing a callback already.
+            //      I agree that we shouldn't block in the zcm receive thread waiting for that
+            //      callback to finish, just worth documenting it.
             if (callbackLock.try_lock()) {
                 if (callbackMsg) delete callbackMsg;
                 callbackMsg = new T(*_msg);

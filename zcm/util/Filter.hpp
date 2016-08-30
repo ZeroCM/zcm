@@ -31,6 +31,8 @@ class Filter
     {
         this->obs = obs;
         double dx1 = x2;
+        // RRR: could potentially save some calculation by pre-calculating natFreq^2 and
+        //      2*damping*natFreq, but not a huge issue if you don't want to
         double dx2 = -(natFreq * natFreq) * x1 - 2 * damping * natFreq * x2 + obs;
         x1 += dt * dx1;
         x2 += dt * dx2;
@@ -56,6 +58,8 @@ class Filter
     enum FilterMode { LOW_PASS, BAND_PASS, HIGH_PASS };
     inline double operator[](enum FilterMode m) const
     {
+        // RRR: stylistically, I think it's fine to drop the break statements from cases that
+        //      always return
         switch (m) {
             case FilterMode::LOW_PASS:
                 return lowPass();
@@ -67,6 +71,8 @@ class Filter
                 return highPass();
                 break;
         }
+        // RRR: you actually can't get here (known at compile time) because you are doing
+        //      a switch on an enum, so you could delete this
         assert(false && "Should not be able to get here");
         return 0;
     }
