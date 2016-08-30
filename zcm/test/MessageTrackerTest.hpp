@@ -119,12 +119,13 @@ class MessageTrackerTest : public CxxTest::TestSuite
         TS_ASSERT(out != nullptr);
         if (out!= nullptr)
             TS_ASSERT_EQUALS(out->bufInd, 5);
+        delete out;
         out = mt.get((uint64_t)123456790);
         TS_ASSERT_EQUALS(out->bufInd, 9);
         TS_ASSERT(out != nullptr);
         if (out!= nullptr)
             TS_ASSERT_EQUALS(out->bufInd, 9);
-
+        delete out;
     }
 
     void testGetTrackerUsingInternalBuf()
@@ -139,15 +140,17 @@ class MessageTrackerTest : public CxxTest::TestSuite
         TS_ASSERT(out != nullptr);
         if (out!= nullptr)
             TS_ASSERT_EQUALS(out->bufInd, 5);
+        delete out;
         out = mt.get((uint64_t)1234567950);
         TS_ASSERT(out != nullptr);
         if (out!= nullptr)
             TS_ASSERT_EQUALS(out->bufInd, (uint64_t) 99);
+        delete out;
         out = mt.get((uint64_t)1234567890);
         TS_ASSERT(out != nullptr);
         if (out!= nullptr)
             TS_ASSERT_EQUALS(out->utime, (uint64_t)1234567890);
-
+        delete out;
     }
 
     void testGetTrackerUsingProvidedBuf()
@@ -168,15 +171,17 @@ class MessageTrackerTest : public CxxTest::TestSuite
         TS_ASSERT(out != nullptr);
         if (out!= nullptr)
             TS_ASSERT_EQUALS(out->bufInd, 5);
+        delete out;
         out = mt.get((uint64_t)1234567840, buf.begin(), buf.end());
         TS_ASSERT(out != nullptr);
         if (out!= nullptr)
             TS_ASSERT_EQUALS(out->bufInd, 9);
+        delete out;
         out = mt.get((uint64_t)1234567813, std::next(buf.begin(), 5), buf.end());
         TS_ASSERT(out != nullptr);
         if (out!= nullptr)
             TS_ASSERT_EQUALS(out->bufInd, 5);
-
+        delete out;
         // free the dynamically allocated memory
         for (int i = 0; i < 10; i++) {
             delete buf[i];
