@@ -382,7 +382,7 @@ class Tracker
         if (thr) {
             if (callbackLock.try_lock()) {
                 if (callbackMsg) delete callbackMsg;
-                callbackMsg = new MsgType(*_msg);
+                callbackMsg = new MsgType(*_msg, hostUtime);
                 callbackLock.unlock();
                 callbackCv.notify_all();
             }
