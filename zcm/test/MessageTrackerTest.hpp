@@ -103,7 +103,6 @@ class MessageTrackerTest : public CxxTest::TestSuite
 
     void testGetInternalBuf()
     {
-        // RRR: isn't this defined in the class now
         struct data_t {
             uint64_t utime;
             int offset;
@@ -135,7 +134,7 @@ class MessageTrackerTest : public CxxTest::TestSuite
         delete out;
     }
 
-    // RRR: how is this different than the previous test
+    // Same as previous test, just using the Tracker class instead of message trackers
     void testGetTrackerUsingInternalBuf()
     {
         size_t numMsgs = 100;

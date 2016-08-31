@@ -145,7 +145,7 @@ int main(int argc, const char *argv[])
         ex_data.utime = 1 << 0;
         ex_data.position[0] = 1;
         ex_data.position[1] = 2;
-        ex_data.position[3] = 3;
+        ex_data.position[2] = 3;
         ex_data.orientation[0] = 1;
         ex_data.orientation[1] = 0;
         ex_data.orientation[2] = 0;

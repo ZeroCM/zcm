@@ -233,7 +233,8 @@ class Tracker
         // non-monitonically increasing utimes and this is the easiest way.
         // This can be made much faster if needed
         for (auto iter = first; iter != last; iter++) {
-            // RRR This is unsafe unless we assert *iter has a utime field
+            // Note: This is unsafe unless we rely on the static assert at the beginning of
+            //       the function
             const MsgType* m = (MsgType*) *iter;
             uint64_t mUtime = m->utime;
 

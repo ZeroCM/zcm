@@ -13,11 +13,9 @@ class Filter
 
   public:
     Filter(double naturalFreq, double dampingFactor) :
-        natFreq(naturalFreq), damping(dampingFactor)
-    {
-        natFreq2 = natFreq * natFreq;
-        natFreqDamping_times2 = 2 * natFreq * damping;
-    }
+        natFreq(naturalFreq), damping(dampingFactor),
+        natFreq2(naturalFreq * naturalFreq),
+        natFreqDamping_times2(2 * naturalFreq * dampingFactor) {}
 
     static double convergenceTimeToNatFreq(double riseTime, double damping)
     {
