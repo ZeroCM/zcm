@@ -10,13 +10,19 @@ class Filter
     double x2;
     double natFreq, damping;
     double natFreq2, natFreqDamping_times2;
+    bool initialized;
 
   public:
     Filter(double naturalFreq = 1, double dampingFactor = 1) :
         obs(0), x1(0), x2(0),
         natFreq(naturalFreq), damping(dampingFactor),
         natFreq2(naturalFreq * naturalFreq),
-        natFreqDamping_times2(2 * naturalFreq * dampingFactor) {}
+        natFreqDamping_times2(2 * naturalFreq * dampingFactor),
+        initialized(false)
+    {
+        assert(natFreq > 0 && "Filter must have positive natFreq");
+        assert(damping > 0 && "Filter must have positive damping");
+    }
 
     static double convergenceTimeToNatFreq(double riseTime, double damping)
     {
@@ -31,13 +37,25 @@ class Filter
         return (2.230 * damping * damping - 0.078 * damping + 1.12) / riseTime;
     }
 
-    inline void newObs(double obs, double dt)
+    inline void initialize(double obs)
     {
         this->obs = obs;
-        double dx1 = x2;
-        double dx2 = -natFreq2 * x1 - natFreqDamping_times2 * x2 + obs;
-        x1 += dt * dx1;
-        x2 += dt * dx2;
+        x1 = obs / natFreq2;
+        x2 = 0;
+        initialized = true;
+    }
+
+    inline void newObs(double obs, double dt)
+    {
+        if (!initialized) {
+            initialize(obs);
+        } else {
+            this->obs = obs;
+            double dx1 = x2;
+            double dx2 = -natFreq2 * x1 - natFreqDamping_times2 * x2 + obs;
+            x1 += dt * dx1;
+            x2 += dt * dx2;
+        }
     }
 
     inline double lowPass() const
