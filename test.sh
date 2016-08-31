@@ -11,6 +11,8 @@ run()
     fi
 }
 
+echo "This script is currently non-functional. If zcm built, it's probably working"
+
 ## Test type generation
 # run   zcm-gen-test    ./scripts/test-gen.sh
 
@@ -24,3 +26,4 @@ run   forking         ./build/test/zcm/forking
 run   forking2        ./build/test/zcm/forking2
 run   flushing        ./build/test/zcm/flushing
 run   logging         ./build/test/zcm/logtest
+run   trackers        ./build/test/zcm/trackers

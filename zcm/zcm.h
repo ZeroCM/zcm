@@ -102,10 +102,10 @@ int zcm_unsubscribe(zcm_t *zcm, zcm_sub_t *sub);
    Sets zcm errno on failure */
 int  zcm_publish(zcm_t *zcm, const char *channel, const void *data, uint32_t len);
 
-/* Blocking until all published messages have been sent. This should not be
-   called concurrently with zcm_publish(). This function may cause all calls to
-   zcm_publish() to block. This function is only useful in ZCM's blocking
-   transport mode */
+/* Blocking until all published messages have been sent even if the underlying
+   transport is nonblocking. This should not be called concurrently with
+   zcm_publish(). This function may cause all calls to zcm_publish() to block
+   when used with a blocking transport */
 void zcm_flush(zcm_t *zcm);
 
 /* Blocking Mode Only: Functions for controlling the message dispatch loop */
