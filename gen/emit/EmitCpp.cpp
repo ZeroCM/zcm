@@ -223,6 +223,11 @@ struct Emit : public Emitter
 
         emit(1, "public:");
         emit(2, "/**");
+        emit(2, " * Destructs a message properly if anything inherits from it");
+        emit(2, "*/");
+        emit(2, "virtual ~%s() {}", ls.structname.shortname.c_str());
+        emit(0, "");
+        emit(2, "/**");
         emit(2, " * Encode a message into binary form.");
         emit(2, " *");
         emit(2, " * @param buf The output buffer.");

@@ -70,7 +70,7 @@ int main(int argc, char *argv[])
     zcm::ZCM zcmLocal(trans);
     zcm::MessageTracker<example_t> mt(&zcmLocal, "EXAMPLE", numMsgs, numMsgs, callback);
 
-    example_t msg = {0};
+    example_t msg = {};
 
     size_t nTimesJitterWasRight = 0, nTimesHzWasRight = 0;
 

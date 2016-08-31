@@ -24,10 +24,11 @@ class MessageTrackerTest : public CxxTest::TestSuite
     };
 
     struct data_t {
-            uint64_t utime;
-            int offset;
-            int bufInd;
-        };
+        uint64_t utime;
+        int offset;
+        int bufInd;
+        virtual ~data_t() {}
+    };
 
     void testFreqStats()
     {
@@ -108,12 +109,16 @@ class MessageTrackerTest : public CxxTest::TestSuite
             int bufInd;
             int decode(void* data, int start, int max) { return 0; }
             static const char* getTypeName() { return "data_t"; }
+            virtual ~data_t() {}
         };
 
         size_t numMsgs = 10;
         zcm::MessageTracker<data_t> mt(nullptr, "", 0.25, numMsgs);
         for (int i = 0; i < 10; i++) {
-            data_t d = {123456780 + (uint64_t)i, 100 + i, i};
+            data_t d;
+            d.utime = 123456780 + (uint64_t)i;
+            d.offset = 100 + i;
+            d.bufInd = i;
             mt.newMsg(&d, 0);
         }
         data_t* out = mt.get((uint64_t)123456785);
@@ -135,7 +140,10 @@ class MessageTrackerTest : public CxxTest::TestSuite
         size_t numMsgs = 100;
         zcm::Tracker<data_t> mt(0.25, numMsgs);
         for (int i = 0; i < (int) numMsgs; i++) {
-            data_t d = {1234567810  + (uint64_t)i, 100 + i, i};
+            data_t d;
+            d.utime = 1234567810 + (uint64_t)i;
+            d.offset = 100 + i;
+            d.bufInd = i;
             mt.newMsg(&d);
         }
         data_t* out = mt.get((uint64_t)1234567815);
@@ -157,7 +165,6 @@ class MessageTrackerTest : public CxxTest::TestSuite
 
     void testGetTrackerUsingProvidedBuf()
     {
-
         size_t numMsgs = 10;
         zcm::Tracker<data_t> mt(0.25, numMsgs);
         std::vector<data_t*> buf(10);

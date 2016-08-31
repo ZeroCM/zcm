@@ -141,11 +141,15 @@ int main(int argc, const char *argv[])
         handler.num_typed_received = 0;
         handler.bytepacked_typed_received = 0;
 
-        example_t ex_data = {
-               .utime = 1 << 0,
-               .position = { 1, 2, 3 },
-               .orientation = { 1, 0, 0, 0 },
-        };
+        example_t ex_data;
+        ex_data.utime = 1 << 0;
+        ex_data.position[0] = 1;
+        ex_data.position[1] = 2;
+        ex_data.position[3] = 3;
+        ex_data.orientation[0] = 1;
+        ex_data.orientation[1] = 0;
+        ex_data.orientation[2] = 0;
+        ex_data.orientation[3] = 0;
         ex_data.num_ranges = 100;
         ex_data.ranges.resize(ex_data.num_ranges);
         ex_data.name = "example string";
