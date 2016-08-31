@@ -19,6 +19,7 @@ class MessageTrackerTest : public CxxTest::TestSuite
 
     struct example_t {
         uint64_t utime;
+        virtual ~example_t() {}
         int decode(void* data, int start, int max) { return 0; }
         static const char* getTypeName() { return "example_t"; }
     };
@@ -171,6 +172,7 @@ class MessageTrackerTest : public CxxTest::TestSuite
         data_t d;
         for (int i = 0; i < 10; i++) {
             d.utime = 1234567810  + (uint64_t)i;
+            d.offset = 100 + i;
             d.bufInd = i;
             data_t* tmp = new data_t(d);
             buf[i] = tmp;
@@ -195,5 +197,15 @@ class MessageTrackerTest : public CxxTest::TestSuite
         for (int i = 0; i < 10; i++) {
             delete buf[i];
          }
+    }
+
+    void testNoUtime()
+    {
+        struct test_t {
+            int test;
+            virtual ~test_t() {}
+        };
+        // This would not compile if it were broken
+        zcm::Tracker<test_t> mt(0.25, 1);
     }
 };

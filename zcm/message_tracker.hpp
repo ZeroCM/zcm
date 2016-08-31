@@ -41,7 +41,9 @@ class Tracker
   protected:
     virtual uint64_t getMsgUtime(const T* msg)
     {
-        return hasUtime<T>::utime(msg);
+        const MsgType* tmp = dynamic_cast<const MsgType*>(msg);
+        assert(tmp && "Should not be able to get here");
+        return tmp->utime;
     }
 
     // The returned value must be "new" in all cases
@@ -53,6 +55,13 @@ class Tracker
     }
 
   private:
+    static uint64_t timestamp_now()
+    {
+        struct timeval tv;
+        gettimeofday(&tv, NULL);
+        return (uint64_t)tv.tv_sec * 1000000 + tv.tv_usec;
+    }
+
     // *****************************************************************************
     // Insanely hacky trick to determine at compile time if a zcmtype has a
     // field called "utime"
@@ -60,37 +69,15 @@ class Tracker
     //       looked into them much at all, but worth looking at <type_traits>
     //       and what you can do with things like std::true_type and the like)
     template <typename F> struct hasUtime {
-        struct Fallback { void* utime; }; // introduce member name "utime"
+        struct Fallback { int utime; }; // introduce member name "utime"
         struct Derived : F, Fallback {};
 
         template <typename C, C> struct ChT;
 
-        template <typename C>
-        static uint64_t _utime(ChT<void* Fallback::*, &C::utime>*, const F* msg)
-        {
-            struct timeval tv;
-            gettimeofday(&tv, NULL);
-            return (uint64_t)tv.tv_sec * 1000000 + tv.tv_usec;
-        };
-        template <typename C>
-        static uint64_t _utime(void* tmp, ...)
-        {
-            va_list args;
-            va_start(args, tmp);
-            const F* msg = va_arg(args, const F*);
-            va_end(args);
-            return msg->utime;
-        }
-
-        template<typename C> static char (&f(ChT<int Fallback::*, &C::x>*))[1];
+        template<typename C> static char (&f(ChT<int Fallback::*, &C::utime>*))[1];
         template<typename C> static char (&f(...))[2];
 
-        static bool const present = sizeof(f<Derived>(0)) == 2;
-
-        static uint64_t const utime(const F* msg)
-        {
-            return _utime<Derived>(0,msg);
-        }
+        static constexpr bool present = sizeof(f<Derived>(0)) == 2;
     };
     // *****************************************************************************
 
@@ -111,7 +98,7 @@ class Tracker
     template<typename F>
     struct MsgWithUtime<F, false> : public F {
         uint64_t utime;
-        MsgWithUtime(const F& msg) : F(msg) { this->utime = getMsgUtime(&msg); }
+        MsgWithUtime(const F& msg) : F(msg) { this->utime = timestamp_now(); }
         MsgWithUtime(const MsgWithUtime& msg) : F(msg), utime(msg.utime) {}
         virtual ~MsgWithUtime() {}
     };
