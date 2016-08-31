@@ -5,14 +5,15 @@ namespace zcm {
 class Filter
 {
   private:
-    double obs = 0;
-    double x1 = 0;
-    double x2 = 0;
+    double obs;
+    double x1;
+    double x2;
     double natFreq, damping;
     double natFreq2, natFreqDamping_times2;
 
   public:
-    Filter(double naturalFreq, double dampingFactor) :
+    Filter(double naturalFreq = 1, double dampingFactor = 1) :
+        obs(0), x1(0), x2(0),
         natFreq(naturalFreq), damping(dampingFactor),
         natFreq2(naturalFreq * naturalFreq),
         natFreqDamping_times2(2 * naturalFreq * dampingFactor) {}
@@ -54,17 +55,17 @@ class Filter
         return obs - (lowPass() + bandPass());
     }
 
-    inline void operator()(double obs, double dt) { newObs(obs, dt); }
+    inline Filter& operator()(double obs, double dt) { newObs(obs, dt); return *this; }
 
     enum FilterMode { LOW_PASS, BAND_PASS, HIGH_PASS };
     inline double operator[](enum FilterMode m) const
     {
         switch (m) {
-            case FilterMode::LOW_PASS:
+            case LOW_PASS:
                 return lowPass();
-            case FilterMode::BAND_PASS:
+            case BAND_PASS:
                 return bandPass();
-            case FilterMode::HIGH_PASS:
+            case HIGH_PASS:
                 return highPass();
         }
         return 0;
