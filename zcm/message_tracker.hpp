@@ -39,6 +39,8 @@ class Tracker
     static const bool BLOCKING = true;
 
   protected:
+    virtual uint64_t getMsgUtime(const T* msg) { return UINT64_MAX; }
+
     // The returned value must be "new" in all cases
     virtual T* interpolate(uint64_t utimeTarget,
                            const T* A, uint64_t utimeA,
@@ -90,6 +92,14 @@ class Tracker
     };
 
     typedef MsgWithUtime<T, hasUtime<T>::present> MsgType;
+
+    uint64_t getMsgUtime(const MsgType* msg)
+    {
+        uint64_t tmp = getMsgUtime((const T*)msg);
+        if (tmp != UINT64_MAX) return tmp;
+        return msg->utime;
+    }
+
 
     std::deque<MsgType*> buf;
     uint64_t lastHostUtime = UINT64_MAX;
@@ -203,7 +213,7 @@ class Tracker
             newMsgCond.wait(lk, [&]{
                         if (done) return true;
                         if (buf.empty()) return false;
-                        uint64_t recentUtime = buf.back()->utime;
+                        uint64_t recentUtime = getMsgUtime(buf.back());
                         if (recentUtime < utime) return false;
                         return true;
                     });
@@ -235,8 +245,8 @@ class Tracker
         for (auto iter = first; iter != last; iter++) {
             // Note: This is unsafe unless we rely on the static assert at the beginning of
             //       the function
-            const MsgType* m = (MsgType*) *iter;
-            uint64_t mUtime = m->utime;
+            const MsgType* m = (const MsgType*) *iter;
+            uint64_t mUtime = getMsgUtime(m);
 
             if (mUtime <= utime && (_m0 == nullptr || mUtime > m0Utime)) {
                 _m0 = m;
@@ -303,7 +313,7 @@ class Tracker
             newMsgCond.wait(lk, [&]{
                         if (done) return true;
                         if (buf.empty()) return false;
-                        uint64_t recentUtime = buf.back()->utime;
+                        uint64_t recentUtime = getMsgUtime(buf.back());
                         if (recentUtime < utimeA) return false;
                         return true;
                     });
@@ -318,7 +328,7 @@ class Tracker
         uint64_t maxBound = utimeB + maxTimeErr_us;
 
         for (const MsgType* m : buf) {
-            uint64_t mUtime = m->utime;
+            uint64_t mUtime = getMsgUtime(m);
 
             if (mUtime <= utimeA && mUtime >= minBound &&
                     (mUtime > m0Utime || m0Utime == UINT64_MAX))            m0Utime = mUtime;
@@ -330,7 +340,7 @@ class Tracker
 
         std::vector<T*> ret;
         for (const MsgType* m : buf) {
-            uint64_t mUtime = m->utime;
+            uint64_t mUtime = getMsgUtime(m);
             if (mUtime >= m0Utime && mUtime <= m1Utime) ret.push_back(new T(*m));
         }
         return ret;
@@ -353,7 +363,7 @@ class Tracker
 
             // Expire things that are too old
             while (!buf.empty()) {
-                if (buf.front()->utime + maxTimeErr_us > tmp->utime) break;
+                if (getMsgUtime(buf.front()) + maxTimeErr_us > getMsgUtime(tmp)) break;
                 MsgType* tmp = buf.front();
                 delete tmp;
                 buf.pop_front();

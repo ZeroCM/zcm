@@ -170,7 +170,7 @@ class MessageTrackerTest : public CxxTest::TestSuite
         std::vector<data_t*> buf(10);
         data_t d;
         for (int i = 0; i < 10; i++) {
-            d.utime = 1234567810  + (uint64_t)i;
+            d.utime = 1234567810 + (uint64_t)i;
             d.offset = 100 + i;
             d.bufInd = i;
             data_t* tmp = new data_t(d);
