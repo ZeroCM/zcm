@@ -8,6 +8,8 @@
 #define nullptr NULL
 #endif
 
+#include <stdlib.h>
+
 // =============== implementation ===============
 
 // Note: To prevent compiler "redefinition" issues, all functions in this file must be declared
