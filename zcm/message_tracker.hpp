@@ -39,13 +39,6 @@ class Tracker
     static const bool BLOCKING = true;
 
   protected:
-    virtual uint64_t getMsgUtime(const T* msg)
-    {
-        const MsgType* tmp = dynamic_cast<const MsgType*>(msg);
-        assert(tmp && "Should not be able to get here");
-        return tmp->utime;
-    }
-
     // The returned value must be "new" in all cases
     virtual T* interpolate(uint64_t utimeTarget,
                            const T* A, uint64_t utimeA,
@@ -55,13 +48,6 @@ class Tracker
     }
 
   private:
-    static uint64_t timestamp_now()
-    {
-        struct timeval tv;
-        gettimeofday(&tv, NULL);
-        return (uint64_t)tv.tv_sec * 1000000 + tv.tv_usec;
-    }
-
     // *****************************************************************************
     // Insanely hacky trick to determine at compile time if a zcmtype has a
     // field called "utime"
@@ -90,7 +76,7 @@ class Tracker
 
     template<typename F>
     struct MsgWithUtime<F, true> : public F {
-        MsgWithUtime(const F& msg) : F(msg) {}
+        MsgWithUtime(const F& msg, uint64_t utime) : F(msg) {}
         MsgWithUtime(const MsgWithUtime& msg) : F(msg) {}
         virtual ~MsgWithUtime() {}
     };
@@ -98,7 +84,7 @@ class Tracker
     template<typename F>
     struct MsgWithUtime<F, false> : public F {
         uint64_t utime;
-        MsgWithUtime(const F& msg) : F(msg) { this->utime = timestamp_now(); }
+        MsgWithUtime(const F& msg, uint64_t utime) : F(msg), utime(utime) {}
         MsgWithUtime(const MsgWithUtime& msg) : F(msg), utime(msg.utime) {}
         virtual ~MsgWithUtime() {}
     };
@@ -353,7 +339,7 @@ class Tracker
     {
         if (done) return;
 
-        MsgType* tmp = new MsgType(*_msg);
+        MsgType* tmp = new MsgType(*_msg, hostUtime);
         {
             std::unique_lock<std::mutex> lk(bufLock);
 
