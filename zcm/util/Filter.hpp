@@ -49,13 +49,14 @@ class Filter
     {
         if (!initialized) {
             initialize(obs);
-        } else {
-            this->obs = obs;
-            double dx1 = x2;
-            double dx2 = -natFreq2 * x1 - natFreqDamping_times2 * x2 + obs;
-            x1 += dt * dx1;
-            x2 += dt * dx2;
+            return;
         }
+
+        this->obs = obs;
+        double dx1 = x2;
+        double dx2 = -natFreq2 * x1 - natFreqDamping_times2 * x2 + obs;
+        x1 += dt * dx1;
+        x2 += dt * dx2;
     }
 
     inline double lowPass() const
