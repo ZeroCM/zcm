@@ -341,44 +341,40 @@ static int parseConst(ZCMGen& zcmgen, ZCMStruct& lr, tokenize_t *t)
         // TODO: This should migrate to either the ctor or a helper function called just
         //       before the ctor
         char *endptr = NULL;
-        if (lctypename == "int8_t") {
-            long long v = strtoll(t->token, &endptr, 0);
-            if (endptr == t->token || *endptr != '\0')
-                parse_error(t, "Expected integer value");
-            if (v < INT8_MIN || v > INT8_MAX)
-                semantic_error(t, "Integer value out of bounds for int8_t");
-            lc.val.i8 = (int8_t)v;
-        } else if (lctypename == "int16_t") {
-            long long v = strtoll(t->token, &endptr, 0);
-            if (endptr == t->token || *endptr != '\0')
-                parse_error(t, "Expected integer value");
-            if (v < INT16_MIN || v > INT16_MAX)
-                semantic_error(t, "Integer value out of range for int16_t");
-            lc.val.i16 = (int16_t)v;
-        } else if (lctypename == "int32_t") {
-            long long v = strtoll(t->token, &endptr, 0);
-            if (endptr == t->token || *endptr != '\0')
-                parse_error(t, "Expected integer value");
-            if (v < INT32_MIN || v > INT32_MAX)
-                semantic_error(t, "Integer value out of range for int32_t");
-            lc.val.i32 = (int32_t)v;
-        } else if (lctypename == "int64_t") {
-            long long v = strtoll(t->token, &endptr, 0);
-            if (endptr == t->token || *endptr != '\0')
-                parse_error(t, "Expected integer value");
-            lc.val.i64 = (int64_t)v;
-        } else if (lctypename == "float") {
-            double v = strtod(t->token, &endptr);
-            if (endptr == t->token || *endptr != '\0')
-                parse_error(t, "Expected floating point value");
-            if (v > FLT_MAX || v < -FLT_MAX)
-                semantic_error(t, "Floating point value out of range for float");
-            lc.val.f = (float)v;
-        } else if (lctypename == "double") {
-            double v = strtod(t->token, &endptr);
-            if (endptr == t->token || *endptr != '\0')
-                parse_error(t, "Expected floating point value");
-            lc.val.d = v;
+        #define INT_CASE(TYPE, STORE) \
+            } else if (lctypename == #TYPE) { \
+                long long v = strtoll(t->token, &endptr, 0); \
+                if (endptr == t->token || *endptr != '\0') \
+                    parse_error(t, "Expected integer value"); \
+                if (strlen(t->token) > 2 && \
+                        t->token[0] == '0' && (t->token[1] == 'x' || t->token[1] == 'X')) { \
+                    if (strlen(t->token) > sizeof(TYPE) * 2 + 2) \
+                        semantic_error(t, "Too many hex digits specified" \
+                                          #TYPE ": %lld", v); \
+                } else if (v < std::numeric_limits<TYPE>::min() || \
+                           v > std::numeric_limits<TYPE>::max()) { \
+                    semantic_error(t, "Integer value out of bounds for " \
+                                      #TYPE ": %lld", v); \
+                } \
+                STORE = (TYPE)v;
+
+        #define FLT_CASE(TYPE, STORE) \
+            } else if (lctypename == #TYPE) { \
+                double v = strtod(t->token, &endptr); \
+                if (endptr == t->token || *endptr != '\0') \
+                    parse_error(t, "Expected floating point value"); \
+                if (fabs(v) > std::numeric_limits<TYPE>::max() || \
+                        fabs(v) < std::numeric_limits<TYPE>::min()) \
+                    semantic_error(t, "Cannot represent precision"); \
+                lc.val.f = (TYPE) v;
+
+        if (false) {
+        INT_CASE(int8_t,  lc.val.i8)
+        INT_CASE(int16_t, lc.val.i16)
+        INT_CASE(int32_t, lc.val.i32)
+        INT_CASE(int64_t, lc.val.i64)
+        FLT_CASE(float,   lc.val.f)
+        FLT_CASE(double,  lc.val.d)
         } else {
             fprintf(stderr, "[%s]\n", t->token);
             assert(0);
