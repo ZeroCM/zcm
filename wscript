@@ -225,6 +225,8 @@ def generate_signature(ctx):
         target = 'zcm.gitid',
         always = True)
 
+    ctx.install_files('${PREFIX}/lib/', ['zcm.gitid'])
+
 def build(ctx):
     if not ctx.env.ENVIRONMENT_SETUP:
         setup_environment(ctx)
