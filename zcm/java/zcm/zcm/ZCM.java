@@ -45,8 +45,8 @@ public class ZCM
     {
         if (singleton == null) {
             try {
-                // XXX: add back in capability to use the ZCM_DEFAULT_URL env variable
-                //      as the default for getSingleton
+                // TODO: add back in capability to use the ZCM_DEFAULT_URL env variable
+                //       as the default for getSingleton
                 singleton = new ZCM();
             } catch (Exception ex) {
                 System.err.println("ZCM singleton fail: "+ex);

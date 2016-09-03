@@ -257,8 +257,8 @@ def setup_environment(ctx):
 def generate_signature(ctx):
     rootpath = ctx.path.get_src().abspath()
     bldpath = ctx.path.get_bld().abspath()
-    ### XXX this rule for generating .gitid is nasty, refactor...
-    ###     .gitid should be pulled into a reusable tool like zcm-gen
+    ### TODO: this rule for generating .gitid is nasty, refactor...
+    ###       .gitid should be pulled into a reusable tool like zcm-gen
     ctx(rule   = 'cd %s && ((git rev-parse HEAD && ((git tag --contains ; \
                   echo "<no-tag>") | head -n1) && git diff) || \
                   echo "Not built from git" > %s/${TGT}) \

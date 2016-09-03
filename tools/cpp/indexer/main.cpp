@@ -121,7 +121,7 @@ int main(int argc, char* argv[])
         return 1;
     }
     fseeko(log.getFilePtr(), 0, SEEK_END);
-    // XXX Look into handling large logfiles
+    // TODO: Look into handling large logfiles
     off_t logSize = ftello(log.getFilePtr());
 
     ofstream output;

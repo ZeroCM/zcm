@@ -201,7 +201,7 @@ Message *UDPM::recvFragment(Packet *pkt, u32 sz)
 
 void UDPM::checkForMessageLoss()
 {
-    // XXX add this back
+    // ISSUE-101 TODO: add this back
     // TODO warn about message loss somewhere else.
     // u32 ring_capacity = ringbuf->get_capacity();
     // u32 ring_used = ringbuf->get_used();
@@ -536,6 +536,5 @@ static zcm_trans_t *createUdpm(zcm_url_t *url)
 #ifdef USING_TRANS_UDPM
 // Register this transport with ZCM
 const TransportRegister ZCM_TRANS_CLASSNAME::regUdpm(
-    // XXX: the example url does not work
     "udpm", "Transfer data via UDP Multicast (e.g. 'udpm')", createUdpm);
 #endif

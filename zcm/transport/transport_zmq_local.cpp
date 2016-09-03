@@ -226,9 +226,9 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         closedir(d);
     }
 
-    // XXX This only works for channels within this instance! Creating another
-    //     ZCM instance using 'inproc' will cause this scan to miss some channels!
-    //     Need to implement a better technique. Should use a globally shared datastruct.
+    // Note: This only works for channels within this instance! Creating another
+    //       ZCM instance using 'inproc' will cause this scan to miss some channels!
+    //       Need to implement a better technique. Should use a globally shared datastruct.
     void inprocScanForNewChannels()
     {
         for (auto& elt : pubsocks) {
@@ -365,9 +365,9 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
         timeout = (timeout >= 0) ? timeout : -1;
         int rc = zmq_poll(pitems.data(), pitems.size(), timeout);
-        // XXX: implement better error handling, but can't assert because this triggers during
-        //      clean up of the zmq subscriptions and context (may need to look towards having a
-        //      "ZCM_ETERM" return code that we can use to cancel the recv message thread
+        // TODO: implement better error handling, but can't assert because this triggers during
+        //       clean up of the zmq subscriptions and context (may need to look towards having a
+        //       "ZCM_ETERM" return code that we can use to cancel the recv message thread
         if (rc == -1) {
             ZCM_DEBUG("zmq_poll failed with: %s", zmq_strerror(errno));
             return ZCM_EAGAIN;
@@ -385,7 +385,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
                     msg->utime = TimeUtil::utime();
                     if (rc == -1) {
                         fprintf(stderr, "zmq_recv failed with: %s", zmq_strerror(errno));
-                        // XXX: implement error handling, don't just assert
+                        // TODO: implement error handling, don't just assert
                         assert(0 && "unexpected codepath");
                     }
                     assert(0 < rc);

@@ -21,7 +21,7 @@
 # include "zcm/transport_registrar.h"
 # include "zcm/util/debug.h"
 #else
-/** XXX here's to hoping that variadic macros are "portable enough" **/
+/** Note: here's to hoping that variadic macros are "portable enough" **/
 # define ZCM_DEBUG(...)
 #endif
 

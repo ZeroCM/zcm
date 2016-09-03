@@ -726,7 +726,7 @@ static inline int __string_decode_array_cleanup(char **s, int elements)
     return 0;
 }
 
-// XXX (Bendes) Not sure why "const char * const * p" doesn't work
+// TODO: Figure out why "const char * const * p" doesn't work
 static inline int __string_encoded_array_size(char * const *s, int elements)
 {
     int size = 0;
@@ -737,7 +737,7 @@ static inline int __string_encoded_array_size(char * const *s, int elements)
     return size;
 }
 
-// XXX (Bendes) Not sure why "const char * const * p" doesn't work
+// TODO: Figure out why "const char * const * p" doesn't work
 static inline int __string_encode_array(void *_buf, int offset, int maxlen, char * const *p, int elements)
 {
     int pos = 0, thislen;
@@ -776,7 +776,7 @@ static inline int __string_decode_array(const void *_buf, int offset, int maxlen
     return pos;
 }
 
-// XXX (Bendes) Not sure why "const char * const * p" doesn't work
+// TODO: Figure out why "const char * const * p" doesn't work
 static inline int __string_encode_little_endian_array(void *_buf, int offset, int maxlen, char * const *p, int elements)
 {
     int pos = 0, thislen;
@@ -815,7 +815,7 @@ static inline int __string_decode_little_endian_array(const void *_buf, int offs
     return pos;
 }
 
-// XXX (Bendes) Not sure why "const char * const * p" doesn't work
+// TODO: Figure out why "const char * const * p" doesn't work
 static inline int __string_clone_array(char * const *p, char **q, int elements)
 {
     int ret = 0;

@@ -414,7 +414,6 @@ void zcm_blocking_t::dispatchMsg(zcm_msg_t *msg)
     rbuf.data = (char*)msg->buf;
     rbuf.data_size = msg->len;
 
-    // XXX: the following needs to make it into high level docs:
     // Note: We use a lock on dispatch to ensure there is not
     // a race on modifying and reading the 'subs' container.
     // This means users cannot call zcm_subscribe or
