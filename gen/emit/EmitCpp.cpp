@@ -577,7 +577,7 @@ struct Emit : public Emitter
             auto& dim = lm.dimensions[depth];
             int decodeIndent = 1 + depth;
             if(!lm.isConstantSizeArray()) {
-                emit(1 + depth, "if(%s) {", dimSizeAccessor(dim.size).c_str());
+                emit(1 + depth, "if(%s > 0) {", dimSizeAccessor(dim.size).c_str());
                 emitStart(2 + depth, "this->%s", mn);
                 for(int i = 0; i < depth; i++)
                     emitContinue("[a%d]", i);
