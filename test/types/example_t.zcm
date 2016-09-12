@@ -7,4 +7,12 @@ struct example_t
     int16_t  ranges[num_ranges];
     string   name;
     boolean  enabled;
+
+    const int8_t  test_const_8_max_hex  = 0xff;
+    const int16_t test_const_16_max_hex = 0xffff;
+    const int32_t test_const_32_max_hex = 0xffffffff;
+    const int64_t test_const_64_max_hex = 0xffffffffffffffff;
+
+    const float  test_const_float  = 1e-20;
+    const double test_const_double = 12.1e200;
 }

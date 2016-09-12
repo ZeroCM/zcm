@@ -11,7 +11,8 @@
 #include <iostream>
 using namespace std;
 
-void greet(bool printStuff)
+void MyStruct::greet(bool printStuff, const example_t* ex)
 {
-    if (printStuff) cout << "Hello" << endl;
+    if (printStuff) cout << "Hello " << example_t::test_const_float << endl;
+    if (printStuff && ex) cout << "utime = " << ex->utime << endl;
 }

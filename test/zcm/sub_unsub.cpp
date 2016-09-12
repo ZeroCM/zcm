@@ -58,6 +58,7 @@ class Handler
         bytepacked_typed_received |= (int) msg->utime;
         num_typed_received++;
         vprintf("\n");
+        MyStruct::greet(false, msg);
         fflush(stdout);
     }
 };
@@ -85,7 +86,7 @@ int main(int argc, const char *argv[])
         }
     }
 
-    greet();
+    MyStruct::greet();
 
     Handler handler;
 
