@@ -13,5 +13,5 @@ using namespace std;
 
 void greet(bool printStuff)
 {
-    if (printStuff) cout << "Hello" << endl;
+    if (printStuff) cout << "Hello " << example_t::test_const_float << endl;
 }

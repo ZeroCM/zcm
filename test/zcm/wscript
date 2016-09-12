@@ -14,9 +14,15 @@ def build(ctx):
                 rpath = ctx.env.RPATH_zcm,
                 install_path = None)
 
+    ctx.stlib(target = 'multifile_lib',
+              use = 'default zcm testzcmtypes_cpp',
+              source = 'multi_file.cpp',
+              rpath = ctx.env.RPATH_zcm,
+              install_path = None)
+
     ctx.program(target = 'sub_unsub_cpp',
-                use = 'default zcm testzcmtypes_cpp',
-                source = 'sub_unsub.cpp multi_file.cpp',
+                use = 'default zcm testzcmtypes_cpp multifile_lib',
+                source = 'sub_unsub.cpp',
                 rpath = ctx.env.RPATH_zcm,
                 install_path = None)
 
