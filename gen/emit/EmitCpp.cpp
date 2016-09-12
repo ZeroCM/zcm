@@ -106,14 +106,16 @@ struct Emit : public Emitter
 
     void emitPackageNamespaceStart()
     {
+        emit(0, "namespace { /* start anonymous namespace to avoid const static redef */");
         // output namespace declaration
         auto namespaces = StringUtil::split(ls.structname.fullname, '.');
         for (size_t i = 0; i < namespaces.size()-1; i++)
-            emit(0, "namespace %s\n{", namespaces[i].c_str());
+            emit(0, "namespace %s {", namespaces[i].c_str());
     }
 
     void emitPackageNamespaceClose()
     {
+        emit(0, "} /* end of anonymous namespace */ \n");
         auto namespaces = StringUtil::split(ls.structname.fullname, '.');
         for (size_t i = 0; i < namespaces.size()-1; i++)
             emit(0, "}\n");
