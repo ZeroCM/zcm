@@ -106,7 +106,6 @@ struct Emit : public Emitter
 
     void emitPackageNamespaceStart()
     {
-        emit(0, "namespace { /* start anonymous namespace to avoid const static redef */");
         // output namespace declaration
         auto namespaces = StringUtil::split(ls.structname.fullname, '.');
         for (size_t i = 0; i < namespaces.size()-1; i++)
@@ -115,7 +114,6 @@ struct Emit : public Emitter
 
     void emitPackageNamespaceClose()
     {
-        emit(0, "} /* end of anonymous namespace */ \n");
         auto namespaces = StringUtil::split(ls.structname.fullname, '.');
         for (size_t i = 0; i < namespaces.size()-1; i++)
             emit(0, "}\n");
@@ -204,13 +202,24 @@ struct Emit : public Emitter
         // constants
         if (ls.constants.size() > 0) {
             emit(1, "public:");
+            emit(2, "#if __cplusplus > 199711L /* if c++11 */");
             for (auto& lc : ls.constants) {
                 assert(ZCMGen::isLegalConstType(lc.type));
-
                 emitComment(2, lc.comment);
                 string mt = mapTypeName(lc.type);
-                emit(2, "static const %-8s %s;", mt.c_str(), lc.membername.c_str());
+                const char *suffix = lc.type == "int64_t" ? "LL" : "";
+                emit(2, "static constexpr %-8s %s = %s%s;", mt.c_str(),
+                        lc.membername.c_str(), lc.valstr.c_str(), suffix);
             }
+            emit(2, "#else");
+            for (auto& lc : ls.constants) {
+                assert(ZCMGen::isLegalConstType(lc.type));
+                string mt = mapTypeName(lc.type);
+                const char *suffix = lc.type == "int64_t" ? "LL" : "";
+                emit(2, "static const     %-8s %s = %s%s;", mt.c_str(),
+                        lc.membername.c_str(), lc.valstr.c_str(), suffix);
+            }
+            emit(2, "#endif");
             emit(0, "");
         }
 
@@ -267,20 +276,6 @@ struct Emit : public Emitter
         emit(2, "inline static uint64_t _computeHash(const __zcm_hash_ptr *p);");
         emit(0, "};");
         emit(0, "");
-
-        // constants
-        if (ls.constants.size() > 0) {
-            for (auto& lc : ls.constants) {
-                assert(ZCMGen::isLegalConstType(lc.type));
-                emitComment(0, lc.comment);
-                const char *suffix = lc.type == "int64_t" ? "LL" : "";
-                string mt = mapTypeName(lc.type);
-                emit(0, "const %-8s %s::%s = %s%s;", mt.c_str(),
-                     ls.structname.shortname.c_str(),
-                     lc.membername.c_str(), lc.valstr.c_str(), suffix);
-            }
-            emit(0, "");
-        }
     }
 
     void emitHeaderEnd()
