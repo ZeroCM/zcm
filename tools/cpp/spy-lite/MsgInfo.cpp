@@ -110,11 +110,12 @@ float MsgInfo::getHertz()
         return 0.0;
 
     int sz = queue.getSize();
+    if (sz < 2) return 0.0;
     u64 oldest = oldestUtime();
     u64 latest = latestUtime();
     u64 dt = latest - oldest;
-    if(dt == 0.0)
-        return 0.0;
+    if (dt == 0.0)
+        return INFINITY;
 
-    return (float) sz / ((float) dt / 1000000.0);
+    return (float) (sz - 1) / ((float) dt / 1000000.0);
 }
