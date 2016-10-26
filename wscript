@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # encoding: utf-8
 
-import sys,optparse
+import os,sys,optparse
 import waflib
 from waflib import Logs
 from waflib.Errors import WafError
@@ -241,3 +241,7 @@ def build(ctx):
 
     # RRR (Tom) can't do this ... tis a catch 22
     #ctx.recurse('test')
+
+def distclean(ctx):
+    os.system('rm -f examples/waftools/*.pyc')
+    waflib.Scripting.distclean(ctx)

@@ -84,3 +84,7 @@ def build(ctx):
     ctx.recurse('c')
     ctx.recurse('cpp')
     ctx.recurse('java')
+
+def distclean(ctx):
+    os.system('rm -f waftools/*.pyc')
+    waflib.Scripting.distclean(ctx)
