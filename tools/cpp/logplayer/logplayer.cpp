@@ -1,5 +1,6 @@
 #include <iostream>
 #include <sstream>
+#include <fstream>
 #include <string>
 #include <getopt.h>
 #include <atomic>
@@ -7,6 +8,10 @@
 #include <unistd.h>
 
 #include <zcm/zcm-cpp.hpp>
+
+#include "zcm/json/json.h"
+
+#include "util/TimeUtil.hpp"
 
 using namespace std;
 
@@ -24,7 +29,8 @@ struct Args
     bool verbose = false;
     string zcmUrlOut = "";
     string filename = "";
-    string zcmUrlIn = "";
+    string jslpFilename = "";
+    zcm::Json::Value jslpRoot;
 
     bool init(int argc, char *argv[])
     {
@@ -37,8 +43,7 @@ struct Args
         };
 
         int c;
-        while ((c = getopt_long(argc, argv, "hs:vu:", long_opts, 0)) >= 0)
-        {
+        while ((c = getopt_long(argc, argv, "hs:vu:", long_opts, 0)) >= 0) {
             switch (c) {
                 case 's':
                     speed = strtod(optarg, NULL);
@@ -62,9 +67,20 @@ struct Args
 
         filename = string(argv[optind]);
 
-        std::stringstream ss;
-        ss << "file://" << filename << "?speed=" << speed;
-        zcmUrlIn = ss.str();
+        jslpFilename = filename + ".jslp";
+        ifstream jslpFile { jslpFilename };
+        if (jslpFile.good()) {
+            zcm::Json::Reader reader;
+            if (!reader.parse(jslpFile, jslpRoot, false)) {
+                if (verbose) {
+                    cerr << "Failed to parse jslp file " << endl;
+                    cerr << reader.getFormattedErrorMessages() << endl;
+                    return false;
+                }
+            }
+        } else {
+            if (verbose) cerr << "No jslp file specified" << endl;
+        }
 
         return true;
     }
@@ -73,14 +89,16 @@ struct Args
 struct LogPlayer
 {
     Args args;
-    zcm::ZCM *zcmIn = nullptr;
-    zcm::ZCM *zcmOut = nullptr;
+    zcm::LogFile *zcmIn  = nullptr;
+    zcm::ZCM     *zcmOut = nullptr;
+
+    string startChan = "";
 
     LogPlayer() { }
 
     ~LogPlayer()
     {
-        if (zcmIn) delete zcmIn;
+        if (zcmIn)  delete zcmIn;
         if (zcmOut) delete zcmOut;
     }
 
@@ -89,7 +107,7 @@ struct LogPlayer
         if (!args.init(argc, argv))
             return false;
 
-        zcmIn = new zcm::ZCM(args.zcmUrlIn);
+        zcmIn = new zcm::LogFile(args.filename, "r");
         if (!zcmIn->good()) {
             cerr << "Error: Failed to open '" << args.filename << "'" << endl;
             return false;
@@ -103,27 +121,94 @@ struct LogPlayer
 
         cout << "Using playback speed " << args.speed << endl;
 
+        if (args.jslpRoot.isMember("START")) {
+            if (args.jslpRoot["START"]["mode"] == "channel")
+                startChan = args.jslpRoot["START"]["channel"].asString();
+        }
+
         return true;
     }
 
     void run()
     {
-        zcmIn->subscribe(".*", &handler, this);
+        uint64_t lastMsgUtime = 0;
+        uint64_t lastDispatchUtime = 0;
+        bool startedPub = false;
 
-        zcmIn->start();
+        if (startChan == "")
+            startedPub = true;
 
-        while (!done) usleep(1e6);
+        while (!done) {
+            const zcm::LogEvent* le = zcmIn->readNextEvent();
+            if (!le) done = true;
 
-        zcmIn->stop();
-    }
+            uint64_t now = TimeUtil::utime();
 
-    static void handler(const zcm::ReceiveBuffer *rbuf, const string& channel, void *usr)
-    {
-        LogPlayer* lp = (LogPlayer *) usr;
-        if (lp->args.verbose)
-            printf("%.3f Channel %-20s size %d\n", rbuf->recv_utime / 1e6,
-                    channel.c_str(), rbuf->data_size);
-       lp->zcmOut->publish(channel, rbuf->data, rbuf->data_size);
+            if (lastMsgUtime == 0)
+                lastMsgUtime = le->timestamp;
+
+            if (lastDispatchUtime == 0)
+                lastDispatchUtime = now;
+
+            uint64_t localDiff = now - lastDispatchUtime;
+            uint64_t logDiff = le->timestamp - lastMsgUtime;
+            uint64_t logDiffSpeed = logDiff / args.speed;
+            uint64_t diff = logDiffSpeed > localDiff ? logDiffSpeed - localDiff
+                                                     : 0;
+            if (diff > 0) usleep(diff);
+
+            if (startedPub == false && startChan != "")
+                if (le->channel == startChan) startedPub = true;
+
+            auto publish = [&](){
+                if (args.verbose)
+                    printf("%.3f Channel %-20s size %d\n", le->timestamp / 1e6,
+                           le->channel.c_str(), le->datalen);
+
+               zcmOut->publish(le->channel, le->data, le->datalen);
+            };
+
+            if (startedPub) {
+                if (args.jslpRoot.empty()) {
+                    publish();
+                } else if (args.jslpRoot.isMember("CHANNEL")) {
+                    if (!args.jslpRoot["CHANNEL"].isMember("mode")) {
+                        cerr << "Channel filter \"mode\" in jslp file unspecified" << endl;
+                        done = true;
+                        continue;
+                    }
+
+                    if (args.jslpRoot["CHANNEL"]["mode"] == "whitelist") {
+                        if (args.jslpRoot["CHANNEL"]["channels"].isArray()) {
+                            for (auto val : args.jslpRoot["CHANNEL"]["channels"])
+                                if (val == le->channel) publish();
+                        } else if (args.jslpRoot["CHANNEL"]["channels"].isMember(le->channel))
+                            publish();
+                    } else if (args.jslpRoot["CHANNEL"]["mode"] == "blacklist") {
+                        if (args.jslpRoot["CHANNEL"]["channels"].isArray()) {
+                            bool found = false;
+                            for (auto val : args.jslpRoot["CHANNEL"]["channels"])
+                                if (val == le->channel) found = true;
+                            if (found == false) publish();
+                        } else if (!args.jslpRoot["CHANNEL"]["channels"].isMember(le->channel))
+                            publish();
+                    } else if (args.jslpRoot["CHANNEL"]["mode"] == "specified") {
+                        if (!args.jslpRoot["CHANNEL"]["channels"].isMember(le->channel) ||
+                             args.jslpRoot["CHANNEL"]["channels"][le->channel] != false) {
+                            publish();
+                        }
+                    } else {
+                        cerr << "Channel filter \"mode\" unrecognized: "
+                             << args.jslpRoot["CHANNEL"]["mode"] << endl;
+                        done = true;
+                        continue;
+                    }
+                }
+            }
+
+            lastDispatchUtime = TimeUtil::utime();
+            lastMsgUtime = le->timestamp;
+        }
     }
 };
 
