@@ -231,6 +231,16 @@ struct LogPlayer
             uint64_t logDiffSpeed = logDiff / args.speed;
             uint64_t diff = logDiffSpeed > localDiff ? logDiffSpeed - localDiff
                                                      : 0;
+            // RRR: might want to consider adding a slight tolerance here: I tested playback
+            //      of a log with both logplayer and logplayer-gui and was seeing different
+            //      frequencies on the output end:
+            //          - intended original frequency : 200 Hz
+            //          - logplayer-gui               : 190 - 195 Hz
+            //          - logplayer                   : 180 - 185 Hz
+            //      My guess is that part of the issue is that usleep isn't a very accurate
+            //      timing mechanism. It might be hard to improve this without devoting a lot
+            //      of time to it. I believe the java logplayer just doesn't usleep under a
+            //      certain amount, but that only helps so much.
             if (diff > 0) usleep(diff);
 
             if (startedPub == false) {
