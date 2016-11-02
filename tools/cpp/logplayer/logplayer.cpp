@@ -18,6 +18,8 @@ using namespace std;
 
 static atomic_int done {0};
 
+// RRR: You should add some info about jslp files here, or at least direct the user
+//      to a documentation page
 static void usage(char * cmd)
 {
     cerr << "usage: zcm-logplayer [options] [FILE]" << endl
@@ -201,6 +203,8 @@ struct LogPlayer
         uint64_t lastDispatchUtime = 0;
         bool startedPub = false;
 
+        // RRR: I can't recall what our style standard is for zcm, but I like 1 line
+        //      if statements to be on the same line if it fits
         if (startMode == "")
             startedPub = true;
 
@@ -254,6 +258,11 @@ struct LogPlayer
                 if (args.jslpRoot.empty()) {
                     publish();
                 } else if (args.jslpRoot.isMember("FILTER")) {
+                    // RRR: some of these checks only need to be performed once,
+                    //      not for every event. Maybe you could do the checks first
+                    //      and form a different publish lambda function or something
+                    //      (or maybe dump the information into a class / map that is more
+                    //      efficient to dig through).
                     if (!args.jslpRoot["FILTER"].isMember("type")) {
                         cerr << "Filter \"type\" in jslp file unspecified" << endl;
                         done = true;
@@ -284,6 +293,8 @@ struct LogPlayer
                             if (!args.jslpRoot["FILTER"]["channels"].isMember(le->channel)) {
                                 cerr << "jslp file does not specify filtering behavior "
                                      << "for channel: " << le->channel << endl;
+                                // RRR: not the only instance of this, but it would be
+                                //      to have alternate return values for errors
                                 done = true;
                                 continue;
                             }
