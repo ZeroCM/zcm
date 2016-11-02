@@ -6,6 +6,7 @@
 #include <atomic>
 #include <signal.h>
 #include <unistd.h>
+#include <limits>
 
 #include <zcm/zcm-cpp.hpp>
 
@@ -65,6 +66,8 @@ struct Args
             return false;
         }
 
+        if (speed == 0) speed = std::numeric_limits<decltype(speed)>::infinity();
+
         filename = string(argv[optind]);
 
         jslpFilename = filename + ".jslp";
@@ -92,7 +95,9 @@ struct LogPlayer
     zcm::LogFile *zcmIn  = nullptr;
     zcm::ZCM     *zcmOut = nullptr;
 
+    string startMode = "";
     string startChan = "";
+    uint64_t startDelayUs = 0;
 
     LogPlayer() { }
 
@@ -122,8 +127,27 @@ struct LogPlayer
         cout << "Using playback speed " << args.speed << endl;
 
         if (args.jslpRoot.isMember("START")) {
-            if (args.jslpRoot["START"]["mode"] == "channel")
+            if (!args.jslpRoot["START"].isMember("mode")) {
+                cerr << "Start mode unspecified in jslp" << endl;
+                return false;
+            }
+            startMode = args.jslpRoot["START"]["mode"].asString();
+            if (startMode == "channel") {
+                if (!args.jslpRoot["START"].isMember("channel")) {
+                    cerr << "Start channel unspecified in jslp" << endl;
+                    return false;
+                }
                 startChan = args.jslpRoot["START"]["channel"].asString();
+            } else if (startMode == "us_delay") {
+                if (!args.jslpRoot["START"].isMember("us")) {
+                    cerr << "Start channel unspecified in jslp" << endl;
+                    return false;
+                }
+                startDelayUs = args.jslpRoot["START"]["us"].asUInt64();
+            } else {
+                cerr << "Start mode unrecognized in jslp: " << startMode << endl;
+                return false;
+            }
         }
 
         return true;
@@ -131,11 +155,12 @@ struct LogPlayer
 
     void run()
     {
+        uint64_t firstMsgUtime = UINT64_MAX;
         uint64_t lastMsgUtime = 0;
         uint64_t lastDispatchUtime = 0;
         bool startedPub = false;
 
-        if (startChan == "")
+        if (startMode == "")
             startedPub = true;
 
         while (!done) {
@@ -150,15 +175,25 @@ struct LogPlayer
             if (lastDispatchUtime == 0)
                 lastDispatchUtime = now;
 
+            if (firstMsgUtime == UINT64_MAX)
+                firstMsgUtime = (uint64_t) le->timestamp;
+
             uint64_t localDiff = now - lastDispatchUtime;
-            uint64_t logDiff = le->timestamp - lastMsgUtime;
+            uint64_t logDiff = (uint64_t) le->timestamp - lastMsgUtime;
             uint64_t logDiffSpeed = logDiff / args.speed;
             uint64_t diff = logDiffSpeed > localDiff ? logDiffSpeed - localDiff
                                                      : 0;
             if (diff > 0) usleep(diff);
 
-            if (startedPub == false && startChan != "")
-                if (le->channel == startChan) startedPub = true;
+            if (startedPub == false) {
+                if (startMode == "channel") {
+                    if (le->channel == startChan)
+                        startedPub = true;
+                } else if (startMode == "us_delay") {
+                    if ((uint64_t) le->timestamp > firstMsgUtime + startDelayUs)
+                        startedPub = true;
+                }
+            }
 
             auto publish = [&](){
                 if (args.verbose)
@@ -171,35 +206,51 @@ struct LogPlayer
             if (startedPub) {
                 if (args.jslpRoot.empty()) {
                     publish();
-                } else if (args.jslpRoot.isMember("CHANNEL")) {
-                    if (!args.jslpRoot["CHANNEL"].isMember("mode")) {
-                        cerr << "Channel filter \"mode\" in jslp file unspecified" << endl;
+                } else if (args.jslpRoot.isMember("FILTER")) {
+                    if (!args.jslpRoot["FILTER"].isMember("type")) {
+                        cerr << "Filter \"type\" in jslp file unspecified" << endl;
+                        done = true;
+                        continue;
+                    }
+                    if (!args.jslpRoot["FILTER"].isMember("mode")) {
+                        cerr << "Filter \"mode\" in jslp file unspecified" << endl;
                         done = true;
                         continue;
                     }
 
-                    if (args.jslpRoot["CHANNEL"]["mode"] == "whitelist") {
-                        if (args.jslpRoot["CHANNEL"]["channels"].isArray()) {
-                            for (auto val : args.jslpRoot["CHANNEL"]["channels"])
-                                if (val == le->channel) publish();
-                        } else if (args.jslpRoot["CHANNEL"]["channels"].isMember(le->channel))
-                            publish();
-                    } else if (args.jslpRoot["CHANNEL"]["mode"] == "blacklist") {
-                        if (args.jslpRoot["CHANNEL"]["channels"].isArray()) {
-                            bool found = false;
-                            for (auto val : args.jslpRoot["CHANNEL"]["channels"])
-                                if (val == le->channel) found = true;
-                            if (found == false) publish();
-                        } else if (!args.jslpRoot["CHANNEL"]["channels"].isMember(le->channel))
-                            publish();
-                    } else if (args.jslpRoot["CHANNEL"]["mode"] == "specified") {
-                        if (!args.jslpRoot["CHANNEL"]["channels"].isMember(le->channel) ||
-                             args.jslpRoot["CHANNEL"]["channels"][le->channel] != false) {
-                            publish();
+                    if (args.jslpRoot["FILTER"]["type"] == "channels") {
+                        if (args.jslpRoot["FILTER"]["mode"] == "whitelist") {
+                            if (args.jslpRoot["FILTER"]["channels"].isArray()) {
+                                for (auto val : args.jslpRoot["FILTER"]["channels"])
+                                    if (val == le->channel) publish();
+                            } else if (args.jslpRoot["FILTER"]["channels"].isMember(le->channel))
+                                publish();
+                        } else if (args.jslpRoot["FILTER"]["mode"] == "blacklist") {
+                            if (args.jslpRoot["FILTER"]["channels"].isArray()) {
+                                bool found = false;
+                                for (auto val : args.jslpRoot["FILTER"]["channels"])
+                                    if (val == le->channel) found = true;
+                                if (found == false) publish();
+                            } else if (!args.jslpRoot["FILTER"]["channels"].isMember(le->channel))
+                                publish();
+                        } else if (args.jslpRoot["FILTER"]["mode"] == "specified") {
+                            if (!args.jslpRoot["FILTER"]["channels"].isMember(le->channel)) {
+                                cerr << "jslp file does not specify filtering behavior "
+                                     << "for channel: " << le->channel << endl;
+                                done = true;
+                                continue;
+                            }
+                            if (args.jslpRoot["FILTER"]["channels"][le->channel] == true)
+                                publish();
+                        } else {
+                            cerr << "Filter \"mode\" unrecognized: "
+                                 << args.jslpRoot["FILTER"]["mode"] << endl;
+                            done = true;
+                            continue;
                         }
                     } else {
-                        cerr << "Channel filter \"mode\" unrecognized: "
-                             << args.jslpRoot["CHANNEL"]["mode"] << endl;
+                        cerr << "Filter \"type\" unrecognized: "
+                             << args.jslpRoot["FILTER"]["type"] << endl;
                         done = true;
                         continue;
                     }
