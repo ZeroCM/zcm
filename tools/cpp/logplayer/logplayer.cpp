@@ -31,7 +31,7 @@ static void usage(char * cmd)
          << "  -u, --zcm-url=URL      Play logged messages on the specified ZCM URL." << endl
          << "  -o, --output=filename  Instead of broadcasting over zcm, log directly " << endl
          << "                         to a file. Enabling this, ignores the" << endl
-         << "                        \"--speed\" option" << endl
+         << "                         \"--speed\" option" << endl
          << "  -v, --verbose          Print information about each packet." << endl
          << "  -h, --help             Shows some help text and exits." << endl
          << endl;
