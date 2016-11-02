@@ -32,6 +32,10 @@ static void usage(char * cmd)
          << "  -o, --output=filename  Instead of broadcasting over zcm, log directly " << endl
          << "                         to a file. Enabling this, ignores the" << endl
          << "                         \"--speed\" option" << endl
+         << "  -j, --jslp=filename    Use this jslp meta file. " << endl
+         << "                         If unspecified, zcm-logplayer looks for a file " << endl
+         << "                         with the same filename as the input log and " << endl
+         << "                         a .jslp suffix" << endl
          << "  -v, --verbose          Print information about each packet." << endl
          << "  -h, --help             Shows some help text and exits." << endl
          << endl;
@@ -60,17 +64,19 @@ struct Args
             { "output",  required_argument, 0, 'o' },
             { "speed",   required_argument, 0, 's' },
             { "zcm-url", required_argument, 0, 'u' },
+            { "jslp",    required_argument, 0, 'j' },
             { "verbose",       no_argument, 0, 'v' },
             { 0, 0, 0, 0 }
         };
 
         int c;
-        while ((c = getopt_long(argc, argv, "ho:s:vu:", long_opts, 0)) >= 0) {
+        while ((c = getopt_long(argc, argv, "ho:s:u:j:v", long_opts, 0)) >= 0) {
             switch (c) {
-                case 'o':   outfile = string(optarg);       break;
-                case 's':     speed = strtod(optarg, NULL); break;
-                case 'u': zcmUrlOut = string(optarg);       break;
-                case 'v':   verbose = true;                 break;
+                case 'o':      outfile = string(optarg);       break;
+                case 's':        speed = strtod(optarg, NULL); break;
+                case 'u':    zcmUrlOut = string(optarg);       break;
+                case 'j': jslpFilename = string(optarg);       break;
+                case 'v':      verbose = true;                 break;
                 case 'h': usage(argv[0]); return true;
                 default:  usage(argv[0]); return false;
             };
@@ -78,12 +84,13 @@ struct Args
 
         if (optind != argc - 1) {
             cerr << "Please specify a logfile" << endl;
+            usage(argv[0]);
             return false;
         }
 
         filename = string(argv[optind]);
 
-        jslpFilename = filename + ".jslp";
+        if (jslpFilename == "") jslpFilename = filename + ".jslp";
         ifstream jslpFile { jslpFilename };
         if (jslpFile.good()) {
             zcm::Json::Reader reader;
@@ -96,12 +103,15 @@ struct Args
             }
             if (outfile != "") speed = 0;
             cerr << "Found jslp file. Filtering output." << endl;
-        } else {
-            if (verbose) cerr << "No jslp file specified" << endl;
+        } else if (jslpFilename == "") {
+            cerr << "No jslp file specified" << endl;
             if (outfile != "") {
                 cerr << "Output file specified, but no jslp filter metafile found." << endl;
                 return false;
             }
+        } else {
+            cerr << "Unable to find specified jslp file: " << jslpFilename << endl;
+            return false;
         }
 
         if (speed == 0) speed = std::numeric_limits<decltype(speed)>::infinity();
