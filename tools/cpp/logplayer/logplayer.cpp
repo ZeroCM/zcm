@@ -18,6 +18,25 @@ using namespace std;
 
 static atomic_int done {0};
 
+static void usage(char * cmd)
+{
+    cerr << "usage: zcm-logplayer [options] [FILE]" << endl
+         << "" << endl
+         << "    Reads packets from an ZCM log file and publishes them to a " << endl
+         << "    ZCM transport." << endl
+         << "" << endl
+         << "Options:" << endl
+         << "" << endl
+         << "  -s, --speed=NUM        Playback speed multiplier.  Default is 1." << endl
+         << "  -u, --zcm-url=URL      Play logged messages on the specified ZCM URL." << endl
+         << "  -o, --output=filename  Instead of broadcasting over zcm, log directly " << endl
+         << "                         to a file. Enabling this, ignores the" << endl
+         << "                        \"--speed\" option" << endl
+         << "  -v, --verbose          Print information about each packet." << endl
+         << "  -h, --help             Shows some help text and exits." << endl
+         << endl;
+}
+
 static void sighandler(int signal)
 {
     done++;
@@ -32,32 +51,28 @@ struct Args
     string filename = "";
     string jslpFilename = "";
     zcm::Json::Value jslpRoot;
+    string outfile = "";
 
     bool init(int argc, char *argv[])
     {
         struct option long_opts[] = {
-            { "help", no_argument, 0, 'h' },
-            { "speed", required_argument, 0, 's' },
+            { "help",          no_argument, 0, 'h' },
+            { "output",  required_argument, 0, 'o' },
+            { "speed",   required_argument, 0, 's' },
             { "zcm-url", required_argument, 0, 'u' },
-            { "verbose", no_argument, 0, 'v' },
+            { "verbose",       no_argument, 0, 'v' },
             { 0, 0, 0, 0 }
         };
 
         int c;
-        while ((c = getopt_long(argc, argv, "hs:vu:", long_opts, 0)) >= 0) {
+        while ((c = getopt_long(argc, argv, "ho:s:vu:", long_opts, 0)) >= 0) {
             switch (c) {
-                case 's':
-                    speed = strtod(optarg, NULL);
-                    break;
-                case 'u':
-                    zcmUrlOut = string(optarg);
-                    break;
-                case 'v':
-                    verbose = true;
-                    break;
-                case 'h':
-                default:
-                    return false;
+                case 'o':   outfile = string(optarg);       break;
+                case 's':     speed = strtod(optarg, NULL); break;
+                case 'u': zcmUrlOut = string(optarg);       break;
+                case 'v':   verbose = true;                 break;
+                case 'h': usage(argv[0]); return true;
+                default:  usage(argv[0]); return false;
             };
         }
 
@@ -65,8 +80,6 @@ struct Args
             cerr << "Please specify a logfile" << endl;
             return false;
         }
-
-        if (speed == 0) speed = std::numeric_limits<decltype(speed)>::infinity();
 
         filename = string(argv[optind]);
 
@@ -81,9 +94,17 @@ struct Args
                     return false;
                 }
             }
+            if (outfile != "") speed = 0;
+            cerr << "Found jslp file. Filtering output." << endl;
         } else {
             if (verbose) cerr << "No jslp file specified" << endl;
+            if (outfile != "") {
+                cerr << "Output file specified, but no jslp filter metafile found." << endl;
+                return false;
+            }
         }
+
+        if (speed == 0) speed = std::numeric_limits<decltype(speed)>::infinity();
 
         return true;
     }
@@ -94,6 +115,7 @@ struct LogPlayer
     Args args;
     zcm::LogFile *zcmIn  = nullptr;
     zcm::ZCM     *zcmOut = nullptr;
+    zcm::LogFile *logOut = nullptr;
 
     string startMode = "";
     string startChan = "";
@@ -103,8 +125,9 @@ struct LogPlayer
 
     ~LogPlayer()
     {
-        if (zcmIn)  delete zcmIn;
-        if (zcmOut) delete zcmOut;
+        if (logOut) { logOut->close(); delete logOut; }
+        if (zcmIn)  { delete zcmIn;                   }
+        if (zcmOut) { delete zcmOut;                  }
     }
 
     bool init(int argc, char *argv[])
@@ -118,13 +141,21 @@ struct LogPlayer
             return false;
         }
 
-        zcmOut = new zcm::ZCM(args.zcmUrlOut);
-        if (!zcmOut->good()) {
-            cerr << "Error: Failed to create output ZCM" << endl;
-            return false;
-        }
+        if (args.outfile == "") {
+            zcmOut = new zcm::ZCM(args.zcmUrlOut);
+            if (!zcmOut->good()) {
+                cerr << "Error: Failed to create output ZCM" << endl;
+                return false;
+            }
 
-        cout << "Using playback speed " << args.speed << endl;
+            cout << "Using playback speed " << args.speed << endl;
+        } else {
+            logOut = new zcm::LogFile(args.outfile, "w");
+            if (!logOut->good()) {
+                cerr << "Error: Failed to create output log" << endl;
+                return false;
+            }
+        }
 
         if (args.jslpRoot.isMember("START")) {
             if (!args.jslpRoot["START"].isMember("mode")) {
@@ -165,7 +196,10 @@ struct LogPlayer
 
         while (!done) {
             const zcm::LogEvent* le = zcmIn->readNextEvent();
-            if (!le) done = true;
+            if (!le) {
+                done = true;
+                continue;
+            }
 
             uint64_t now = TimeUtil::utime();
 
@@ -200,7 +234,10 @@ struct LogPlayer
                     printf("%.3f Channel %-20s size %d\n", le->timestamp / 1e6,
                            le->channel.c_str(), le->datalen);
 
-               zcmOut->publish(le->channel, le->data, le->datalen);
+                if (args.outfile == "")
+                    zcmOut->publish(le->channel, le->data, le->datalen);
+                else
+                    logOut->writeEvent(le);
             };
 
             if (startedPub) {
@@ -263,29 +300,10 @@ struct LogPlayer
     }
 };
 
-void usage(char * cmd)
-{
-    cerr << "usage: zcm-logplayer [options] [FILE]" << endl
-         << "" << endl
-         << "    Reads packets from an ZCM log file and publishes them to a " << endl
-         << "    ZCM transport." << endl
-         << "" << endl
-         << "Options:" << endl
-         << "" << endl
-         << "  -s, --speed=NUM     Playback speed multiplier.  Default is 1." << endl
-         << "  -u, --zcm-url=URL   Play logged messages on the specified ZCM URL." << endl
-         << "  -v, --verbose       Print information about each packet." << endl
-         << "  -h, --help          Shows some help text and exits." << endl
-         << endl;
-}
-
 int main(int argc, char* argv[])
 {
     LogPlayer lp;
-    if (!lp.init(argc, argv)) {
-        usage(argv[0]);
-        return 1;
-    }
+    if (!lp.init(argc, argv)) return 1;
 
     // Register signal handlers
     signal(SIGINT, sighandler);
@@ -294,7 +312,7 @@ int main(int argc, char* argv[])
 
     lp.run();
 
-    cout << "zcm-logplayer exiting" << endl;
+    cout << "zcm-logplayer done" << endl;
 
     return 0;
 }

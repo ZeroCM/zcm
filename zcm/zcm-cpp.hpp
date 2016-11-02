@@ -145,7 +145,7 @@ struct LogFile
     inline const LogEvent* readNextEvent();
     inline const LogEvent* readPrevEvent();
     inline const LogEvent* readEventAtOffset(off_t offset);
-    inline int writeEvent(LogEvent* event);
+    inline int             writeEvent(const LogEvent* event);
 
   private:
     inline const LogEvent* cplusplusIfyEvent(zcm_eventlog_event_t* le);
