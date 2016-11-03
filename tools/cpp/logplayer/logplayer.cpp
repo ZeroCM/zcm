@@ -18,8 +18,6 @@ using namespace std;
 
 static atomic_int done {0};
 
-// RRR: You should add some info about jslp files here, or at least direct the user
-//      to a documentation page
 static void usage(char * cmd)
 {
     cerr << "usage: zcm-logplayer [options] [FILE]" << endl
@@ -92,8 +90,7 @@ struct Args
 
         filename = string(argv[optind]);
 
-        if (jslpFilename == "") jslpFilename = filename + ".jslp";
-        ifstream jslpFile { jslpFilename };
+        ifstream jslpFile { jslpFilename == "" ? filename + ".jslp" : "" };
         if (jslpFile.good()) {
             zcm::Json::Reader reader;
             if (!reader.parse(jslpFile, jslpRoot, false)) {
@@ -203,10 +200,7 @@ struct LogPlayer
         uint64_t lastDispatchUtime = 0;
         bool startedPub = false;
 
-        // RRR: I can't recall what our style standard is for zcm, but I like 1 line
-        //      if statements to be on the same line if it fits
-        if (startMode == "")
-            startedPub = true;
+        if (startMode == "") startedPub = true;
 
         while (!done) {
             const zcm::LogEvent* le = zcmIn->readNextEvent();
@@ -241,7 +235,11 @@ struct LogPlayer
             //      timing mechanism. It might be hard to improve this without devoting a lot
             //      of time to it. I believe the java logplayer just doesn't usleep under a
             //      certain amount, but that only helps so much.
-            if (diff > 0) usleep(diff);
+            // RRR (Bendes) How about now? See this link: http://www.tldp.org/HOWTO/IO-Port-Programming-4.html
+            timespec delay;
+            delay.tv_sec = (long int) diff / 1000000;
+            delay.tv_nsec = (long int) (diff - (delay.tv_sec * 1000000)) * 1000;
+            if (diff > 3) nanosleep(&delay, nullptr);
 
             if (startedPub == false) {
                 if (startMode == "channel") {
@@ -273,6 +271,7 @@ struct LogPlayer
                     //      and form a different publish lambda function or something
                     //      (or maybe dump the information into a class / map that is more
                     //      efficient to dig through).
+                    // RRR (Bendes) Why is this inefficient?
                     if (!args.jslpRoot["FILTER"].isMember("type")) {
                         cerr << "Filter \"type\" in jslp file unspecified" << endl;
                         done = true;
@@ -305,6 +304,8 @@ struct LogPlayer
                                      << "for channel: " << le->channel << endl;
                                 // RRR: not the only instance of this, but it would be
                                 //      to have alternate return values for errors
+                                //                                                     ^ nice?
+                                // RRR (Bendes) Why? This is just exiting zcm-logplayer
                                 done = true;
                                 continue;
                             }
