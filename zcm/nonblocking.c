@@ -12,10 +12,42 @@ struct zcm_nonblocking
     zcm_t *z;
     zcm_trans_t *zt;
 
+    bool allChannelsEnabled;
+
     /* TODO speed this up */
     size_t nsubs;
     zcm_sub_t subs[ZCM_NONBLOCK_SUBS_MAX];
 };
+
+static bool isRegexChannel(const char* c, size_t clen)
+{
+    /* These chars are considered regex */
+    size_t i;
+    for (i = 0; i < clen; ++i)
+        if (c[i] == '(' || c[i] == ')' || c[i] == '|' ||
+            c[i] == '.' || c[i] == '*' || c[i] == '+') return true;
+
+    return false;
+}
+
+static bool isSupportedRegex(const char* c, size_t clen)
+{
+    /* Currently only support strings formed as such: */
+    /* "[any non-regex character any number of times].*" */
+    if (!isRegexChannel(c, clen)) return true;
+
+    if (clen < 2) return false;
+    if (c[clen - 1] != '*') return false;
+    if (c[clen - 2] != '.') return false;
+
+    size_t i;
+    for (i = 0; i < clen - 2; ++i)
+        if (!((c[i] >= 'a' && c[i] <= 'z') ||
+              (c[i] >= 'A' && c[i] <= 'Z') ||
+              (c[i] >= '0' && c[i] <= '9'))) return false;
+
+    return true;
+}
 
 zcm_nonblocking_t *zcm_nonblocking_create(zcm_t *z, zcm_trans_t *zt)
 {
@@ -25,6 +57,7 @@ zcm_nonblocking_t *zcm_nonblocking_create(zcm_t *z, zcm_trans_t *zt)
     if (!zcm) return NULL;
     zcm->z = z;
     zcm->zt = zt;
+    zcm->allChannelsEnabled = false;
     zcm->nsubs = 0;
     return zcm;
 }
@@ -52,11 +85,24 @@ int zcm_nonblocking_publish(zcm_nonblocking_t *z, const char *channel, const cha
 zcm_sub_t *zcm_nonblocking_subscribe(zcm_nonblocking_t *zcm, const char *channel,
                                      zcm_msg_handler_t cb, void *usr)
 {
-    int ret;
+    int rc;
     size_t i;
 
-    ret = zcm_trans_recvmsg_enable(zcm->zt, channel, true);
-    if (ret != ZCM_EOK) {
+    size_t clen = strlen(channel);
+    bool regex = isRegexChannel(channel, clen);
+    if (regex) {
+        if (!isSupportedRegex(channel, clen)) return NULL;
+        if (!zcm->allChannelsEnabled) {
+            rc = zcm_trans_recvmsg_enable(zcm->zt, NULL, true);
+            zcm->allChannelsEnabled = true;
+        } else {
+            rc = ZCM_EOK;
+        }
+    } else {
+        rc = zcm_trans_recvmsg_enable(zcm->zt, channel, true);
+    }
+
+    if (rc != ZCM_EOK) {
         return NULL;
     }
 
@@ -115,17 +161,34 @@ static void dispatch_message(zcm_nonblocking_t *zcm, zcm_msg_t *msg)
 {
     zcm_recv_buf_t rbuf;
     zcm_sub_t *sub;
+
     size_t i;
-
     for (i = 0; i < zcm->nsubs; i++) {
-        if (strcmp(zcm->subs[i].channel, msg->channel) == 0) {
-            rbuf.zcm = zcm->z;
-            rbuf.data = (char*)msg->buf;
-            rbuf.data_size = msg->len;
-            rbuf.recv_utime = msg->utime;
+        size_t subsChanLen = strlen(zcm->subs[i].channel);
+        if (isRegexChannel(zcm->subs[i].channel, subsChanLen)) {
+            size_t msgLen = strlen(msg->channel);
+            /* This only works because isSupportedRegex() is called on subscribe */
+            if (msgLen > 2 &&
+                strncmp(zcm->subs[i].channel, msg->channel, subsChanLen - 2) == 0) {
 
-            sub = &zcm->subs[i];
-            sub->callback(&rbuf, msg->channel, sub->usr);
+                rbuf.zcm = zcm->z;
+                rbuf.data = (char*)msg->buf;
+                rbuf.data_size = msg->len;
+                rbuf.recv_utime = msg->utime;
+
+                sub = &zcm->subs[i];
+                sub->callback(&rbuf, msg->channel, sub->usr);
+            }
+        } else {
+            if (strcmp(zcm->subs[i].channel, msg->channel) == 0) {
+                rbuf.zcm = zcm->z;
+                rbuf.data = (char*)msg->buf;
+                rbuf.data_size = msg->len;
+                rbuf.recv_utime = msg->utime;
+
+                sub = &zcm->subs[i];
+                sub->callback(&rbuf, msg->channel, sub->usr);
+            }
         }
     }
 }
