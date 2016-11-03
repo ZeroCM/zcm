@@ -53,7 +53,7 @@ modern linux systems.</p>
 <h3>Optional</h3>
 
 <ul>
-<li>All built-in transports: inclusion can be disabled at build-time</li>
+<li>All built-in transports: inclusion must be enabled pre-compile-time</li>
 <li>ZeroMQ: used for the <code>ipc</code> and <code>inproc</code> transports</li>
 <li>Java JNI: used for the Java language bindings and tools implemented in Java</li>
 <li>NodeJS and socket.io: used for client-side web applications. Note that Debian
@@ -62,23 +62,27 @@ package because of the debian renaming of the "node" executable to "nodejs"
 will cause build problems.</li>
 </ul>
 
-<p>All of the optional dependencies can be enabled or disabled at build-time by using
-<code>./waf configure</code>. By default, <em>configure</em> will attempt to find and enable as many
-dependencies as possible. If you wish to disallow a particular feature, you can
-disable it.</p>
+<p>All of the optional dependencies must be enabled at build-time by using
+<code>./waf configure</code>. By default, <em>configure</em> will not attempt to enable any
+dependencies. If you wish to enable a particular feature, you can enable it with
+a <code>--use</code> flag in the <code>./waf configure</code> step.</p>
 
 <h2>Building</h2>
 
 <p>Building is very similar to the GNU Autotools style, but recast in a Waf light:</p>
 
-<pre><code>./waf configure &amp;&amp; ./waf build &amp;&amp; sudo ./waf install
+<pre><code>./waf configure
+./waf build
+sudo ./waf install
 </code></pre>
 
 <p>The command above will build the minimal ZCM possible with almost no features
 enabled. For beginners, we suggest building ZCM with all features enabled so
 tutorials and intros will work flawlessly. For all features:</p>
 
-<pre><code>./waf configure --use-all &amp;&amp; ./waf build &amp;&amp; sudo ./waf install
+<pre><code>./waf configure --use-all
+./waf build
+sudo ./waf install
 </code></pre>
 
 <p>Unless you're lucky, the above command will probably fail due to a missing <em>Optional</em>
@@ -107,7 +111,8 @@ The easiest way to set these variable is to change into the examples folder and 
 
 <p>Now use Waf as before to build the examples</p>
 
-<pre><code>./waf configure &amp;&amp; ./waf build
+<pre><code>./waf configure
+./waf build
 </code></pre>
 
 <p>You can now run the examples located inside the build folder.
@@ -131,7 +136,10 @@ checkout the <a href="tools.html">Tools guide</a></p>
 As an example, imagine that we only intend to use the IPC transport and we don't want
 a dependency to Java. We could build ZCM as follows:</p>
 
-<pre><code>./waf configure --use-ipc --use-zmq &amp;&amp; ./waf build &amp;&amp; ./test.sh &amp;&amp; sudo ./waf install
+<pre><code>./waf configure --use-ipc --use-zmq
+./waf build
+./test.sh
+sudo ./waf install
 </code></pre>
 
 <p>There are many more configuration options that can be passed to the configure script. To
