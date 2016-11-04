@@ -24,8 +24,6 @@ and where it can find a shared library containing the zcmtypes you would like it
 be able to decode. For an example on how to compile the shared library see the example further down.
 
 
-
-
 ### Logger
 
 It is often desirable to record the messaging data events and record them for later
@@ -43,6 +41,19 @@ This tool republishes the events back onto a ZCM transport. For here, any ZCM
 subscriber application can receive the data exactly as it would have live! This
 tool, combined with the logger creates a powerful development approach for
 systems with limited debug-ability.
+
+### Bridge
+
+When architecting a system that uses zcm, you might want to use multiple
+transports. `zcm-bridge` allows you to bridge traffic between two
+transports essentially subscribing to traffic on one transport, republishing it
+on another, and vice versa
+
+### Repeater
+
+`zcm-repeater` is almost identical to `zcm-bridge` but is unidirectional.
+It takes traffic on one transport and channel and rebroadcasts it to a
+new channel
 
 <!-- ADD MORE HERE -->
 
