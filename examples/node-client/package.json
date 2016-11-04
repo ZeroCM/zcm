@@ -3,8 +3,7 @@
   "version": "1.0.0",
   "description": "",
   "dependencies": {
-    "zcm": "~1.0.0",
-    "ref": "~1.0.2",
-    "express": "~4.13.1"
+    "express": "^4.14.0",
+    "ref": "^1.3.3"
   }
 }
