@@ -44,7 +44,8 @@ static bool isSupportedRegex(const char* c, size_t clen)
     for (i = 0; i < clen - 2; ++i)
         if (!((c[i] >= 'a' && c[i] <= 'z') ||
               (c[i] >= 'A' && c[i] <= 'Z') ||
-              (c[i] >= '0' && c[i] <= '9'))) return false;
+              (c[i] >= '0' && c[i] <= '9') ||
+              (c[i] == '_'))) return false;
 
     return true;
 }
