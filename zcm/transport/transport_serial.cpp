@@ -67,13 +67,15 @@ struct Serial
 bool Serial::open(const string& port_, int baud)
 {
     if (baud == 0) {
-        fprintf(stderr, "Serial baud rate not specified in url. Proceeding without setting baud\n");
+        fprintf(stderr, "Serial baud rate not specified in url. "
+                        "Proceeding without setting baud\n");
     } else if (!(baud = convertBaud(baud))) {
         return false;
     }
 
     if (!lockfile_trylock(port_.c_str())) {
-        ZCM_DEBUG("failed to create lock file, refusing to open serial device (%s)", port_.c_str());
+        ZCM_DEBUG("failed to create lock file, refusing to open serial device (%s)",
+                  port_.c_str());
         return false;
     }
     this->port = port_;
@@ -146,6 +148,7 @@ void Serial::close()
     if (isOpen()) {
         ZCM_DEBUG("Closing!\n");
         ::close(fd);
+        fd = 0;
     }
     if (port != "") {
         lockfile_unlock(port.c_str());
@@ -157,7 +160,7 @@ int Serial::write(const u8 *buf, size_t sz)
 {
     assert(this->isOpen());
     int ret = ::write(fd, buf, sz);
-    if(ret == -1) {
+    if (ret == -1) {
         ZCM_DEBUG("ERR: write failed: %s", strerror(errno));
         return -1;
     }
@@ -184,6 +187,10 @@ int Serial::read(u8 *buf, size_t sz, u64 timeoutUs)
             int ret = ::read(fd, buf, sz);
             if (ret == -1) {
                 ZCM_DEBUG("ERR: serial read failed: %s", strerror(errno));
+            } else if (ret == 0) {
+                ZCM_DEBUG("ERR: serial device unplugged");
+                close();
+                return -3;
             }
             return ret;
         } else {
@@ -221,6 +228,9 @@ int Serial::convertBaud(int baud)
 struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 {
     Serial ser;
+    int baud;
+    string address;
+
     unordered_map<string, string> options;
 
     mutex mut; // protects the enabled channels
@@ -257,7 +267,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         for (size_t i = 0; i < opts->numopts; i++)
             options[opts->name[i]] = opts->value[i];
 
-        int baud = 0;
+        baud = 0;
         auto *baudStr = findOption("baud");
         if (!baudStr) {
             fprintf(stderr, "Baud unspecified. Bypassing serial baud setup.\n");
@@ -269,7 +279,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             }
         }
 
-        auto address = zcm_url_address(url);
+        address = zcm_url_address(url);
         ser.open(address, baud);
     }
 
@@ -305,7 +315,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             for (size_t i = 0; i < len; i++) {
                 // Less than 2 bytes of buffer left? Flush it.
                 if (index >= sizeof(buffer)-1) {
-                    ser.write(buffer, index);
+                    int ret = ser.write(buffer, index);
+                    if (ret == -1) assert(false && "Serial port has been unplugged");
                     index = 0;
                 }
                 u8 c = data[i];
@@ -322,10 +333,12 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
         auto finish = [&]() {
             if (index != 0) {
-                ser.write(buffer, index);
+                int ret = ser.write(buffer, index);
+                if (ret == -1) assert(false && "Serial port has been unplugged");
                 index = 0;
             }
-            ser.write(&sum, 1);
+            int ret = ser.write(&sum, 1);
+            if (ret == -1) assert(false && "Serial port has been unplugged");
         };
 
         // Sync bytes are Escape and 1 zero
@@ -377,7 +390,15 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
         auto refillBuffer = [&]() {
             while (index == size) {
-                int n = ser.read(buffer, sizeof(buffer), timeout * 1e3);
+                int n = 0;
+                if (!ser.isOpen()) {
+                    ZCM_DEBUG("serial closed. Attempting reopen");
+                    ser.open(address, baud);
+                    usleep(timeout * 1e3);
+                    assert(false && "Serial port has been unplugged");
+                } else {
+                    n = ser.read(buffer, sizeof(buffer), timeout * 1e3);
+                }
                 if (n <= 0) {
                     ZCM_DEBUG("serial recvmsg: read timed out");
                     size = 0;
