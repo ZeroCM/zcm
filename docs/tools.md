@@ -42,8 +42,8 @@ subscriber application can receive the data exactly as it would have live! This
 tool, combined with the logger creates a powerful development approach for
 systems with limited debug-ability. `zcm-logplayer` also allows for playback
 directly into an output log file. This might seem strange at first since `cp`
-would accomplish the same end goal. However, `zcm-logplayer` also comes with a
-meta file interface indicated by a file with a `jslp` file extension. This file
+would accomplish the same end goal; however, `zcm-logplayer` also comes with a
+meta file interface indicated by a file with a `.jslp` file extension. This file
 specifies certain playback behavior. Currently supported functionality includes
 the ability to whitelist, blacklist, or specify certain channels to be played
 back. Other functionality includes the ability to only start playback of the
@@ -53,14 +53,16 @@ been broadcasted on a specified channel. A definition of a `jslp` file follows:
     {
         "FILTER" : {
             "type"     : "channels",
-            "mode"     : "{whitelist} | {blacklist} | {specified}",
+            "mode"     : "whitelist" | "blacklist" | "specified",
             "channels" : { "MODEL" : false }
         },
         "START" : {
-            "mode"    : "{channel} | {us_delay}",
-            "{channel} | {us_delay}" : {"COMMAND_1_RX"} | {number of us}
+            "mode"    : "channel" | "us_delay",
+            "channel" | "us_delay" : "COMMAND_1_RX" | number_of_us
         }
     }
+
+see examples/tools/logplayer/example.log.jslp for more examples.
 
 
 ### Bridge

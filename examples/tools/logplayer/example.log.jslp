@@ -2,7 +2,7 @@
     "FILTER" : {
         "type" : "channels",
         "mode" : "specified",
-        "channels" : { "EXAMPLE" : false }
+        "channels" : { "EXAMPLE" : true }
     },
 
     //

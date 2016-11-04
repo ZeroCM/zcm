@@ -217,16 +217,7 @@ int zcm_eventlog_write_event(zcm_eventlog_t *l, const zcm_eventlog_event_t *le)
 {
     if (0 != fwrite32(l->f, MAGIC)) return -1;
 
-    // RRR: I didn't think of this earlier, but this is potentially dangerous in
-    //      multithreading situations. Modifying the data but then returning it to its original
-    //      state might not be safe in all situations
-    // RRR (Bendes) But this isn't supposed to be threadsafe haha.
-    //              I'm not sure I follow the concern? None of this function
-    //              is threadsafe haha
-    int64_t tmp_eventnum = le->eventnum;
-    *((int64_t*)&le->eventnum) = l->eventcount;
-    if (0 != fwrite64(l->f, le->eventnum)) return -1;
-    *((int64_t*)&le->eventnum) = tmp_eventnum;
+    if (0 != fwrite64(l->f, l->eventcount)) return -1;
 
     if (0 != fwrite64(l->f, le->timestamp)) return -1;
     if (0 != fwrite32(l->f, le->channellen)) return -1;

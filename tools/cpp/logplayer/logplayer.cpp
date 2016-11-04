@@ -225,17 +225,13 @@ struct LogPlayer
             uint64_t logDiffSpeed = logDiff / args.speed;
             uint64_t diff = logDiffSpeed > localDiff ? logDiffSpeed - localDiff
                                                      : 0;
-            // RRR: might want to consider adding a slight tolerance here: I tested playback
-            //      of a log with both logplayer and logplayer-gui and was seeing different
-            //      frequencies on the output end:
-            //          - intended original frequency : 200 Hz
-            //          - logplayer-gui               : 190 - 195 Hz
-            //          - logplayer                   : 180 - 185 Hz
-            //      My guess is that part of the issue is that usleep isn't a very accurate
-            //      timing mechanism. It might be hard to improve this without devoting a lot
-            //      of time to it. I believe the java logplayer just doesn't usleep under a
-            //      certain amount, but that only helps so much.
-            // RRR (Bendes) How about now? See this link: http://www.tldp.org/HOWTO/IO-Port-Programming-4.html
+            // TODO: this doesn't reproduce the input frequency perfectly but that is likely
+            //       due to the difficulty of accurately timing events with the OS scheduler
+            //       active. If it becomes an issue in the future, we could devote more time
+            //       to improving the loop timing accuracy.
+            //       Note that this inaccuracy does not apply if you are filting a log into
+            //       a different log via a jslp file because the log times are preserved.
+            //       Possible resource: http://www.tldp.org/HOWTO/IO-Port-Programming-4.html
             timespec delay;
             delay.tv_sec = (long int) diff / 1000000;
             delay.tv_nsec = (long int) (diff - (delay.tv_sec * 1000000)) * 1000;
