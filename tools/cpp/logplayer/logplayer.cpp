@@ -7,6 +7,7 @@
 #include <signal.h>
 #include <unistd.h>
 #include <limits>
+#include <unordered_map>
 
 #include <zcm/zcm-cpp.hpp>
 
@@ -130,6 +131,16 @@ struct LogPlayer
     string startChan = "";
     uint64_t startDelayUs = 0;
 
+    bool filtering;
+
+    enum class FilterType { CHANNELS, NUM_TYPES };
+    FilterType filterType;
+
+    enum class FilterMode { WHITELIST, BLACKLIST, SPECIFIED, NUM_MODES };
+    FilterMode filterMode;
+
+    unordered_map<string, bool> channelMap;
+
     LogPlayer() { }
 
     ~LogPlayer()
@@ -190,11 +201,53 @@ struct LogPlayer
             }
         }
 
+        filtering = args.jslpRoot.isMember("FILTER");
+        if (filtering) {
+            if (!args.jslpRoot["FILTER"].isMember("type")) {
+                cerr << "Filter \"type\" in jslp file unspecified" << endl;
+                return false;
+            }
+            if (!args.jslpRoot["FILTER"].isMember("mode")) {
+                cerr << "Filter \"mode\" in jslp file unspecified" << endl;
+                return false;
+            }
+        }
+
+        if (args.jslpRoot["FILTER"]["type"] == "channels") {
+            filterType = FilterType::CHANNELS;
+        } else {
+            cerr << "Filter \"mode\" unrecognized: "
+                 << args.jslpRoot["FILTER"]["mode"] << endl;
+            return false;
+        }
+
+        if (args.jslpRoot["FILTER"]["mode"] == "whitelist") {
+            filterMode = FilterMode::WHITELIST;
+        } else if (args.jslpRoot["FILTER"]["mode"] == "blacklist") {
+            filterMode = FilterMode::BLACKLIST;
+        } else if (args.jslpRoot["FILTER"]["mode"] == "specified") {
+            filterMode = FilterMode::SPECIFIED;
+        } else {
+            cerr << "Filter \"type\" unrecognized: "
+                 << args.jslpRoot["FILTER"]["type"] << endl;
+            return false;
+        }
+
+        for (auto val : args.jslpRoot["FILTER"]["channels"]) {
+            if (filterMode == FilterMode::SPECIFIED)
+                channelMap[val.asString()] =
+                    args.jslpRoot["FILTER"]["channels"][val.asString()].asBool();
+            else
+                channelMap[val.asString()] = true;
+        }
+
         return true;
     }
 
-    void run()
+    int run()
     {
+        int err = 0;
+
         uint64_t firstMsgUtime = UINT64_MAX;
         uint64_t lastMsgUtime = 0;
         uint64_t lastDispatchUtime = 0;
@@ -259,65 +312,28 @@ struct LogPlayer
             };
 
             if (startedPub) {
-                if (args.jslpRoot.empty()) {
+                if (!filtering) {
                     publish();
-                } else if (args.jslpRoot.isMember("FILTER")) {
-                    // RRR: some of these checks only need to be performed once,
-                    //      not for every event. Maybe you could do the checks first
-                    //      and form a different publish lambda function or something
-                    //      (or maybe dump the information into a class / map that is more
-                    //      efficient to dig through).
-                    // RRR (Bendes) Why is this inefficient?
-                    if (!args.jslpRoot["FILTER"].isMember("type")) {
-                        cerr << "Filter \"type\" in jslp file unspecified" << endl;
-                        done = true;
-                        continue;
-                    }
-                    if (!args.jslpRoot["FILTER"].isMember("mode")) {
-                        cerr << "Filter \"mode\" in jslp file unspecified" << endl;
-                        done = true;
-                        continue;
-                    }
-
-                    if (args.jslpRoot["FILTER"]["type"] == "channels") {
-                        if (args.jslpRoot["FILTER"]["mode"] == "whitelist") {
-                            if (args.jslpRoot["FILTER"]["channels"].isArray()) {
-                                for (auto val : args.jslpRoot["FILTER"]["channels"])
-                                    if (val == le->channel) publish();
-                            } else if (args.jslpRoot["FILTER"]["channels"].isMember(le->channel))
-                                publish();
-                        } else if (args.jslpRoot["FILTER"]["mode"] == "blacklist") {
-                            if (args.jslpRoot["FILTER"]["channels"].isArray()) {
-                                bool found = false;
-                                for (auto val : args.jslpRoot["FILTER"]["channels"])
-                                    if (val == le->channel) found = true;
-                                if (found == false) publish();
-                            } else if (!args.jslpRoot["FILTER"]["channels"].isMember(le->channel))
-                                publish();
-                        } else if (args.jslpRoot["FILTER"]["mode"] == "specified") {
-                            if (!args.jslpRoot["FILTER"]["channels"].isMember(le->channel)) {
+                } else {
+                    if (filterType == FilterType::CHANNELS) {
+                        if (filterMode == FilterMode::WHITELIST) {
+                            if (channelMap.count(le->channel) > 0) publish();
+                        } else if (filterMode == FilterMode::BLACKLIST) {
+                            if (channelMap.count(le->channel) == 0) publish();
+                        } else if (filterMode == FilterMode::SPECIFIED) {
+                            if (channelMap.count(le->channel) == 0) {
                                 cerr << "jslp file does not specify filtering behavior "
                                      << "for channel: " << le->channel << endl;
-                                // RRR: not the only instance of this, but it would be
-                                //      to have alternate return values for errors
-                                //                                                     ^ nice?
-                                // RRR (Bendes) Why? This is just exiting zcm-logplayer
                                 done = true;
+                                err = 1;
                                 continue;
                             }
-                            if (args.jslpRoot["FILTER"]["channels"][le->channel] == true)
-                                publish();
+                            if (channelMap[le->channel]) publish();
                         } else {
-                            cerr << "Filter \"mode\" unrecognized: "
-                                 << args.jslpRoot["FILTER"]["mode"] << endl;
-                            done = true;
-                            continue;
+                            assert(false && "Fatal error.");
                         }
                     } else {
-                        cerr << "Filter \"type\" unrecognized: "
-                             << args.jslpRoot["FILTER"]["type"] << endl;
-                        done = true;
-                        continue;
+                        assert(false && "Fatal error.");
                     }
                 }
             }
@@ -325,6 +341,8 @@ struct LogPlayer
             lastDispatchUtime = TimeUtil::utime();
             lastMsgUtime = le->timestamp;
         }
+
+        return err;
     }
 };
 
@@ -338,9 +356,9 @@ int main(int argc, char* argv[])
     signal(SIGQUIT, sighandler);
     signal(SIGTERM, sighandler);
 
-    lp.run();
+    int ret = lp.run();
 
     cout << "zcm-logplayer done" << endl;
 
-    return 0;
+    return ret;
 }
