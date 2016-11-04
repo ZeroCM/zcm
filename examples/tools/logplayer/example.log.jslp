@@ -3,7 +3,7 @@
         "type" : "channels",
         "mode" : "specified",
         "channels" : { "EXAMPLE" : true }
-    },
+    }
 
     //
     // Other examples
@@ -12,7 +12,7 @@
     //     "type" : "channels",
     //     "mode" : "blacklist",
     //     "channels" : [ "MODEL" ]
-    // },
+    // }
     //
     // "specified" mode will cause logplayer to fail if you forget to specify
     // a channel name present in the log
@@ -21,7 +21,7 @@
     //     "type" : "channels",
     //     "mode" : "specified",
     //     "channels" : { "MODEL" : false }
-    // },
+    // }
     //
     // Start playback after the first message published on channel "EXAMPLE"
     // "START" : { "mode"    : "channel",

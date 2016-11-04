@@ -98,8 +98,8 @@ struct Args
                 if (verbose) {
                     cerr << "Failed to parse jslp file " << endl;
                     cerr << reader.getFormattedErrorMessages() << endl;
-                    return false;
                 }
+                return false;
             }
             if (outfile != "") speed = 0;
             cerr << "Found jslp file. Filtering output." << endl;
@@ -195,11 +195,11 @@ struct LogPlayer
                      << startChan << endl;
             } else if (startModeStr == "us_delay") {
                 startMode = StartMode::US_DELAY;
-                if (!args.jslpRoot["START"].isMember("us")) {
-                    cerr << "Start channel unspecified in jslp" << endl;
+                if (!args.jslpRoot["START"].isMember("us_delay")) {
+                    cerr << "Start us_delay unspecified in jslp" << endl;
                     return false;
                 }
-                startDelayUs = args.jslpRoot["START"]["us"].asUInt64();
+                startDelayUs = args.jslpRoot["START"]["us_delay"].asUInt64();
                 cout << "Starting after " << startDelayUs << " microseconds" << endl;
             } else {
                 cerr << "Start mode unrecognized in jslp: " << startModeStr << endl;
@@ -309,9 +309,9 @@ struct LogPlayer
             timespec delay;
             delay.tv_sec = (long int) diff / 1000000;
             delay.tv_nsec = (long int) (diff - (delay.tv_sec * 1000000)) * 1000;
-            if (diff > 3) nanosleep(&delay, nullptr);
+            if (diff > 3 && startedPub) nanosleep(&delay, nullptr);
 
-            if (startedPub == false) {
+            if (!startedPub) {
                 if (startMode == StartMode::CHANNEL) {
                     if (le->channel == startChan)
                         startedPub = true;
