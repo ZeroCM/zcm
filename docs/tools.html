@@ -68,6 +68,19 @@ subscriber application can receive the data exactly as it would have live! This
 tool, combined with the logger creates a powerful development approach for
 systems with limited debug-ability.</p>
 
+<h3>Bridge</h3>
+
+<p>When architecting a system that uses zcm, you might want to use multiple
+transports. <code>zcm-bridge</code> allows you to bridge traffic between two
+transports essentially subscribing to traffic on one transport, republishing it
+on another, and vice versa</p>
+
+<h3>Repeater</h3>
+
+<p><code>zcm-repeater</code> is almost identical to <code>zcm-bridge</code> but is unidirectional.
+It takes traffic on one transport and channel and rebroadcasts it to a
+new channel</p>
+
 <!-- ADD MORE HERE -->
 
 <h2>ZCM Tools Example</h2>
