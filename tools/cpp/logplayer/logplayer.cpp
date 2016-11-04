@@ -217,44 +217,50 @@ struct LogPlayer
                 cerr << "Filter \"mode\" in jslp file unspecified" << endl;
                 return false;
             }
+
+            if (args.jslpRoot["FILTER"]["type"] == "channels") {
+                filterType = FilterType::CHANNELS;
+                cout << "Filtering based on channels" << endl;
+            } else {
+                cerr << "Filter \"mode\" unrecognized: "
+                     << args.jslpRoot["FILTER"]["mode"] << endl;
+                return false;
+            }
+
+            if (args.jslpRoot["FILTER"]["mode"] == "whitelist") {
+                filterMode = FilterMode::WHITELIST;
+                cout << "Using whitelisting filter" << endl;
+            } else if (args.jslpRoot["FILTER"]["mode"] == "blacklist") {
+                filterMode = FilterMode::BLACKLIST;
+                cout << "Using blacklisting filter" << endl;
+            } else if (args.jslpRoot["FILTER"]["mode"] == "specified") {
+                filterMode = FilterMode::SPECIFIED;
+                cout << "Using specified filter" << endl;
+            } else {
+                cerr << "Filter \"type\" unrecognized: "
+                     << args.jslpRoot["FILTER"]["type"] << endl;
+                return false;
+            }
+
+            auto newChannel = [&] (string channel) {
+                if (filterMode == FilterMode::SPECIFIED)
+                    channelMap[channel] = args.jslpRoot["FILTER"]["channels"][channel].asBool();
+                else
+                    channelMap[channel] = true;
+
+                if (args.verbose)
+                    cout << channel << " : "
+                         << (channelMap[channel] ? "true" : "false") << endl;
+            };
+
+            if (args.jslpRoot["FILTER"]["channels"].isArray()) {
+                for (auto channel : args.jslpRoot["FILTER"]["channels"])
+                    newChannel(channel.asString());
+            } else {
+                for (auto channel : args.jslpRoot["FILTER"]["channels"].getMemberNames())
+                    newChannel(channel);
+            }
         }
-
-        if (args.jslpRoot["FILTER"]["type"] == "channels") {
-            filterType = FilterType::CHANNELS;
-            cout << "Filtering based on channels" << endl;
-        } else {
-            cerr << "Filter \"mode\" unrecognized: "
-                 << args.jslpRoot["FILTER"]["mode"] << endl;
-            return false;
-        }
-
-        if (args.jslpRoot["FILTER"]["mode"] == "whitelist") {
-            filterMode = FilterMode::WHITELIST;
-            cout << "Using whitelisting filter" << endl;
-        } else if (args.jslpRoot["FILTER"]["mode"] == "blacklist") {
-            filterMode = FilterMode::BLACKLIST;
-            cout << "Using blacklisting filter" << endl;
-        } else if (args.jslpRoot["FILTER"]["mode"] == "specified") {
-            filterMode = FilterMode::SPECIFIED;
-            cout << "Using specified filter" << endl;
-        } else {
-            cerr << "Filter \"type\" unrecognized: "
-                 << args.jslpRoot["FILTER"]["type"] << endl;
-            return false;
-        }
-
-        auto newChannel = [&] (string channel, bool val) {
-            channelMap[channel] = val;
-            if (args.verbose)
-                cout << channel << " : "
-                     << (channelMap[channel] ? "true" : "false") << endl;
-        };
-
-        for (auto channel : args.jslpRoot["FILTER"]["channels"].getMemberNames())
-            if (filterMode == FilterMode::SPECIFIED)
-                newChannel(channel, args.jslpRoot["FILTER"]["channels"][channel].asBool());
-            else
-                newChannel(channel, true);
 
         return true;
     }
