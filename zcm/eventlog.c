@@ -213,13 +213,12 @@ void zcm_eventlog_free_event(zcm_eventlog_event_t *le)
     free(le);
 }
 
-int zcm_eventlog_write_event(zcm_eventlog_t *l, zcm_eventlog_event_t *le)
+int zcm_eventlog_write_event(zcm_eventlog_t *l, const zcm_eventlog_event_t *le)
 {
     if (0 != fwrite32(l->f, MAGIC)) return -1;
 
-    le->eventnum = l->eventcount;
+    if (0 != fwrite64(l->f, l->eventcount)) return -1;
 
-    if (0 != fwrite64(l->f, le->eventnum)) return -1;
     if (0 != fwrite64(l->f, le->timestamp)) return -1;
     if (0 != fwrite32(l->f, le->channellen)) return -1;
     if (0 != fwrite32(l->f, le->datalen)) return -1;

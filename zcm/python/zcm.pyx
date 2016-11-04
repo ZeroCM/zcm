@@ -51,7 +51,7 @@ cdef extern from "zcm/zcm.h":
     zcm_eventlog_event_t *zcm_eventlog_read_event_at_offset(zcm_eventlog_t *eventlog, off_t offset)
     void                  zcm_eventlog_free_event(zcm_eventlog_event_t *event)
     int                   zcm_eventlog_write_event(zcm_eventlog_t *eventlog, \
-                                                   zcm_eventlog_event_t *event)
+                                                   const zcm_eventlog_event_t *event)
 
 cdef class ZCMSubscription:
     cdef zcm_sub_t* sub

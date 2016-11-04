@@ -1,0 +1,33 @@
+{
+    "FILTER" : {
+        "type" : "channels",
+        "mode" : "specified",
+        "channels" : { "EXAMPLE" : true }
+    }
+
+    //
+    // Other examples
+    //
+    // "FILTER" : {
+    //     "type" : "channels",
+    //     "mode" : "blacklist",
+    //     "channels" : [ "MODEL" ]
+    // }
+    //
+    // "specified" mode will cause logplayer to fail if you forget to specify
+    // a channel name present in the log
+    //
+    // "FILTER" : {
+    //     "type" : "channels",
+    //     "mode" : "specified",
+    //     "channels" : { "MODEL" : false }
+    // }
+    //
+    // Start playback after the first message published on channel "EXAMPLE"
+    // "START" : { "mode"    : "channel",
+    //             "channel" : "EXAMPLE" }
+    //
+    // Start playback after "us_delay" microseconds have elapsed in the log
+    // "START" : { "mode"    : "us_delay",
+    //             "us_delay" : 1000000 }
+}

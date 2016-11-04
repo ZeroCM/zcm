@@ -433,7 +433,7 @@ inline const LogEvent* LogFile::readEventAtOffset(off_t offset)
     return cplusplusIfyEvent(evt);
 }
 
-inline int LogFile::writeEvent(LogEvent* event)
+inline int LogFile::writeEvent(const LogEvent* event)
 {
     zcm_eventlog_event_t evt;
     evt.eventnum = event->eventnum;
