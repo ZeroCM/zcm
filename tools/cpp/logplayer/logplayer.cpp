@@ -91,7 +91,7 @@ struct Args
 
         filename = string(argv[optind]);
 
-        ifstream jslpFile { jslpFilename == "" ? filename + ".jslp" : "" };
+        ifstream jslpFile { jslpFilename != "" ? jslpFilename : filename + ".jslp" };
         if (jslpFile.good()) {
             zcm::Json::Reader reader;
             if (!reader.parse(jslpFile, jslpRoot, false)) {
@@ -127,7 +127,8 @@ struct LogPlayer
     zcm::ZCM     *zcmOut = nullptr;
     zcm::LogFile *logOut = nullptr;
 
-    string startMode = "";
+    enum class StartMode { CHANNEL, US_DELAY, NUM_MODES };
+    StartMode startMode = StartMode::NUM_MODES;
     string startChan = "";
     uint64_t startDelayUs = 0;
 
@@ -178,25 +179,30 @@ struct LogPlayer
         }
 
         if (args.jslpRoot.isMember("START")) {
+            string startModeStr = args.jslpRoot["START"]["mode"].asString();
             if (!args.jslpRoot["START"].isMember("mode")) {
                 cerr << "Start mode unspecified in jslp" << endl;
                 return false;
             }
-            startMode = args.jslpRoot["START"]["mode"].asString();
-            if (startMode == "channel") {
+            if (startModeStr == "channel") {
+                startMode = StartMode::CHANNEL;
                 if (!args.jslpRoot["START"].isMember("channel")) {
                     cerr << "Start channel unspecified in jslp" << endl;
                     return false;
                 }
                 startChan = args.jslpRoot["START"]["channel"].asString();
-            } else if (startMode == "us_delay") {
+                cout << "Starting after first message published on channel: "
+                     << startChan << endl;
+            } else if (startModeStr == "us_delay") {
+                startMode = StartMode::US_DELAY;
                 if (!args.jslpRoot["START"].isMember("us")) {
                     cerr << "Start channel unspecified in jslp" << endl;
                     return false;
                 }
                 startDelayUs = args.jslpRoot["START"]["us"].asUInt64();
+                cout << "Starting after " << startDelayUs << " microseconds" << endl;
             } else {
-                cerr << "Start mode unrecognized in jslp: " << startMode << endl;
+                cerr << "Start mode unrecognized in jslp: " << startModeStr << endl;
                 return false;
             }
         }
@@ -215,6 +221,7 @@ struct LogPlayer
 
         if (args.jslpRoot["FILTER"]["type"] == "channels") {
             filterType = FilterType::CHANNELS;
+            cout << "Filtering based on channels" << endl;
         } else {
             cerr << "Filter \"mode\" unrecognized: "
                  << args.jslpRoot["FILTER"]["mode"] << endl;
@@ -223,23 +230,31 @@ struct LogPlayer
 
         if (args.jslpRoot["FILTER"]["mode"] == "whitelist") {
             filterMode = FilterMode::WHITELIST;
+            cout << "Using whitelisting filter" << endl;
         } else if (args.jslpRoot["FILTER"]["mode"] == "blacklist") {
             filterMode = FilterMode::BLACKLIST;
+            cout << "Using blacklisting filter" << endl;
         } else if (args.jslpRoot["FILTER"]["mode"] == "specified") {
             filterMode = FilterMode::SPECIFIED;
+            cout << "Using specified filter" << endl;
         } else {
             cerr << "Filter \"type\" unrecognized: "
                  << args.jslpRoot["FILTER"]["type"] << endl;
             return false;
         }
 
-        for (auto val : args.jslpRoot["FILTER"]["channels"]) {
+        auto newChannel = [&] (string channel, bool val) {
+            channelMap[channel] = val;
+            if (args.verbose)
+                cout << channel << " : "
+                     << (channelMap[channel] ? "true" : "false") << endl;
+        };
+
+        for (auto channel : args.jslpRoot["FILTER"]["channels"].getMemberNames())
             if (filterMode == FilterMode::SPECIFIED)
-                channelMap[val.asString()] =
-                    args.jslpRoot["FILTER"]["channels"][val.asString()].asBool();
+                newChannel(channel, args.jslpRoot["FILTER"]["channels"][channel].asBool());
             else
-                channelMap[val.asString()] = true;
-        }
+                newChannel(channel, true);
 
         return true;
     }
@@ -253,7 +268,7 @@ struct LogPlayer
         uint64_t lastDispatchUtime = 0;
         bool startedPub = false;
 
-        if (startMode == "") startedPub = true;
+        if (startMode == StartMode::NUM_MODES) startedPub = true;
 
         while (!done) {
             const zcm::LogEvent* le = zcmIn->readNextEvent();
@@ -291,10 +306,10 @@ struct LogPlayer
             if (diff > 3) nanosleep(&delay, nullptr);
 
             if (startedPub == false) {
-                if (startMode == "channel") {
+                if (startMode == StartMode::CHANNEL) {
                     if (le->channel == startChan)
                         startedPub = true;
-                } else if (startMode == "us_delay") {
+                } else if (startMode == StartMode::US_DELAY) {
                     if ((uint64_t) le->timestamp > firstMsgUtime + startDelayUs)
                         startedPub = true;
                 }
