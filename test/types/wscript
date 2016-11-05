@@ -6,6 +6,8 @@ def build(ctx):
         lang += ['java']
     if ctx.env.USING_NODE:
         lang += ['nodejs']
+    if ctx.env.USING_PYTHON:
+        lang += ['python']
     ctx.zcmgen(name    = 'testzcmtypes',
                source  = ctx.path.ant_glob('*.zcm'),
                lang    = lang,
