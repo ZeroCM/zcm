@@ -225,6 +225,10 @@ def zcmgen(ctx, **kw):
         pythontg = ctx(target = uselib_name + '_python',
                        rule   = 'touch ${TGT}')
 
+    if 'nodejs' in kw['lang']:
+        nodejstg = ctx(target = uselib_name + '_nodejs',
+                       rule   = 'npm install --silent ref > /dev/null && touch ${TGT}')
+
 @extension('.zcm')
 def process_zcmtypes(self, node):
     tsk = self.create_task('zcmgen', node)
@@ -291,22 +295,17 @@ class zcmgen(Task.Task):
         if ('c_stlib' in gen.lang) or ('c_shlib' in gen.lang):
             langs['c'] = '--c --c-typeinfo --c-cpath %s --c-hpath %s --c-include %s' % \
                          (bld, bld, inc)
-            if gen.littleEndian:
-                langs['c'] = langs['c'] + ' --little-endian-encoding '
         if 'cpp' in gen.lang:
             langs['cpp'] = '--cpp --cpp-hpath %s --cpp-include %s' % (bld, inc)
-            if gen.littleEndian:
-                langs['cpp'] = langs['cpp'] + ' --little-endian-encoding '
         if 'java' in gen.lang:
             langs['java'] = '--java --jpath %s --jdefaultpkg %s' % (bld + '/java', gen.javapkg)
-            if gen.littleEndian:
-                langs['java'] = langs['java'] + ' --little-endian-encoding '
         if 'python' in gen.lang:
             langs['python'] = '--python --ppath %s' % (bld)
-            if gen.littleEndian:
-                langs['python'] = langs['python'] + ' --little-endian-encoding '
         if 'nodejs' in gen.lang:
             langs['nodejs'] = '--node --npath %s' % (bld)
+
+        if gen.littleEndian:
+            langs['endian'] = ' --little-endian-encoding '
 
         # no need to check if langs is empty here, already handled in runnable_status()
         return self.exec_command('%s %s %s' % (zcmgen, zcmfile, ' '.join(langs.values())))

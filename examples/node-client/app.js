@@ -3,7 +3,7 @@ var app = express();
 var http = require('http').Server(app);
 app.use(express.static("public"));
 
-var zcm = require('zcm');
+var zcm = require('zcmjs');
 var zcmtypes = require('../build/types/zcmtypes');
 var z = zcm.create(zcmtypes, null, http);
 if (!z) {
