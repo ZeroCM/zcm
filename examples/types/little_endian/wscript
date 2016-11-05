@@ -1,8 +1,0 @@
-#!/usr/bin/env python
-
-def build(ctx):
-    ctx.zcmgen(name         = 'examplezcmtypes-little-endian',
-               source       = ctx.path.ant_glob('../*.zcm'),
-               lang         = ['c_stlib', 'c_shlib', 'cpp'],
-               littleEndian = True)
-
