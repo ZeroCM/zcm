@@ -697,8 +697,6 @@ struct Emit : public Emitter
     }
 };
 
-#include <iostream>
-
 int emitCpp(ZCMGen& zcm)
 {
     // iterate through all defined message types
@@ -707,7 +705,7 @@ int emitCpp(ZCMGen& zcm)
 
         // compute the target filename
         string hpath = zcm.gopt->getString("cpp-hpath");
-        string headerName = hpath + "/" + tn +".hpp";
+        string headerName = hpath + (hpath.size() > 0 ? "/" : ":") + tn +".hpp";
 
         // generate code if needed
         if (zcm.needsGeneration(ls.zcmfile, headerName)) {

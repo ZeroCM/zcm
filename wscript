@@ -172,6 +172,7 @@ def attempt_use_third_party(ctx):
         raise WafError('Failed to find all required submodules. You should run: \n' + \
                        'git submodule update --init --recursive\n' + \
                        'and then reconfigure')
+    return True
 
 def process_zcm_build_options(ctx):
     opt = waflib.Options.options
