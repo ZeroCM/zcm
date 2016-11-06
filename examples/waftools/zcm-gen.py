@@ -226,8 +226,13 @@ def zcmgen(ctx, **kw):
                        rule   = 'touch ${TGT}')
 
     if 'nodejs' in kw['lang']:
-        nodejstg = ctx(target = uselib_name + '_nodejs',
-                       rule   = 'npm install --silent ref > /dev/null && touch ${TGT}')
+        zcmgen = ctx.env['ZCMGEN']
+        bldcmd = '%s --node --npath %s ' % (zcmgen, bld)
+        nodejstg = ctx(name   = uselib_name + '_nodejs',
+                       target = 'zcmtypes.js',
+                       source = tg.source,
+                       rule   = bldcmd + '${SRC} && npm install --silent ref > /dev/null ' + \
+                                '&& touch ${TGT}')
 
 @extension('.zcm')
 def process_zcmtypes(self, node):
@@ -273,8 +278,6 @@ class zcmgen(Task.Task):
             filename = outFileName(gen.bld, inp.abspath(), 'python')
             node = gen.path.find_or_declare(filename)
             self.outputs.append(node)
-        if 'nodejs' in gen.lang:
-            self.set_outputs(gen.path.find_or_declare('zcmtypes.js'))
 
         if not self.outputs:
             raise WafError('No ZCMtypes generated, ensure a valid lang is specified')
@@ -301,8 +304,6 @@ class zcmgen(Task.Task):
             langs['java'] = '--java --jpath %s --jdefaultpkg %s' % (bld + '/java', gen.javapkg)
         if 'python' in gen.lang:
             langs['python'] = '--python --ppath %s' % (bld)
-        if 'nodejs' in gen.lang:
-            langs['nodejs'] = '--node --npath %s' % (bld)
 
         if gen.littleEndian:
             langs['endian'] = ' --little-endian-encoding '
