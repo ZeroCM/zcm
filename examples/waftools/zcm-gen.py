@@ -189,8 +189,7 @@ def zcmgen(ctx, **kw):
                        target = 'zcmtypes.js',
                        source = tg.source,
                        rule   = bldcmd + '${SRC} && ' + \
-                                'npm install --silent ref > /dev/null && ' + \
-                                'touch ${TGT}')
+                                'npm install --silent ref > /dev/null')
 
     if not building:
         return
