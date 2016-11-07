@@ -179,11 +179,21 @@ def zcmgen(ctx, **kw):
              littleEndian = littleEndian,
              javapkg      = javapkg_name)
 
-    if not building:
-        return
-
     bld = ctx.path.get_bld().abspath()
     inc = os.path.dirname(bld)
+
+    if 'nodejs' in kw['lang']:
+        zcmgen = ctx.env['ZCMGEN']
+        bldcmd = '%s --node --npath %s ' % (zcmgen, bld)
+        nodejstg = ctx(name   = uselib_name + '_nodejs',
+                       target = 'zcmtypes.js',
+                       source = tg.source,
+                       rule   = bldcmd + '${SRC} && ' + \
+                                'npm install --silent ref > /dev/null && ' + \
+                                'touch ${TGT}')
+
+    if not building:
+        return
 
     if 'c_stlib' in kw['lang']:
         csrc = []
@@ -224,15 +234,6 @@ def zcmgen(ctx, **kw):
     if 'python' in kw['lang']:
         pythontg = ctx(target = uselib_name + '_python',
                        rule   = 'touch ${TGT}')
-
-    if 'nodejs' in kw['lang']:
-        zcmgen = ctx.env['ZCMGEN']
-        bldcmd = '%s --node --npath %s ' % (zcmgen, bld)
-        nodejstg = ctx(name   = uselib_name + '_nodejs',
-                       target = 'zcmtypes.js',
-                       source = tg.source,
-                       rule   = bldcmd + '${SRC} && npm install --silent ref > /dev/null ' + \
-                                '&& touch ${TGT}')
 
 @extension('.zcm')
 def process_zcmtypes(self, node):
