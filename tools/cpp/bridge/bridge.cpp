@@ -24,29 +24,55 @@ struct Args
     vector<string> Achannels;
     vector<string> Bchannels;
 
+    vector<int> Adec;
+    vector<int> Bdec;
+
     string Aurl = "";
     string Burl = "";
+
+    string Aprefix = "";
+    string Bprefix = "";
 
     bool parse(int argc, char *argv[])
     {
         // set some defaults
-        const char *optstring = "hA:B:a:b:";
+        const char *optstring = "hp:r:A:B:a:b:d:";
         struct option long_opts[] = {
-            { "help", no_argument, 0, 'h' },
-            { "A-endpt", required_argument, 0, 'A'},
-            { "B-endpt", required_argument, 0, 'B'},
-            { "A-channel", required_argument, 0, 'a' },
-            { "B-channel", required_argument, 0, 'b' },
+            { "help",       no_argument, 0, 'h' },
+            { "A-prefix",   required_argument, 0, 'p' },
+            { "A-prefix",   required_argument, 0, 'r' },
+            { "A-endpt",    required_argument, 0, 'A' },
+            { "B-endpt",    required_argument, 0, 'B' },
+            { "A-channel",  required_argument, 0, 'a' },
+            { "B-channel",  required_argument, 0, 'b' },
+            { "decimation", required_argument, 0, 'd' },
             { 0, 0, 0, 0 }
         };
 
         int c;
+        vector<int> *currDec = nullptr;
         while ((c = getopt_long (argc, argv, optstring, long_opts, 0)) >= 0) {
             switch (c) {
-                case 'A': Aurl = optarg; break;
-                case 'B': Burl = optarg; break;
-                case 'a': Achannels.push_back(optarg); break;
-                case 'b': Bchannels.push_back(optarg); break;
+                case 'p': currDec = nullptr; Aprefix = optarg; break;
+                case 'r': currDec = nullptr; Bprefix = optarg; break;
+                case 'A': currDec = nullptr; Aurl = optarg; break;
+                case 'B': currDec = nullptr; Burl = optarg; break;
+                case 'a':
+                    Achannels.push_back(optarg);
+                    Adec.push_back(0);
+                    currDec = &Adec;
+                    break;
+                case 'b':
+                    Bchannels.push_back(optarg);
+                    Bdec.push_back(0);
+                    currDec = &Bdec;
+                    break;
+                case 'd':
+                    ZCM_ASSERT(currDec != nullptr &&
+                               "Decimation must immediately follow a channel");
+                    currDec->back() = atoi(optarg);
+                    currDec = nullptr;
+                    break;
                 case 'h': default: return false;
             };
         }
@@ -76,6 +102,18 @@ struct Bridge
 
     zcm::ZCM *zcmA = nullptr;
     zcm::ZCM *zcmB = nullptr;
+
+    struct BridgeInfo {
+        zcm::ZCM *zcmOut = nullptr;
+        string    prefix = "";
+        int       decimation = 0;
+        int       nSkipped = 0;
+
+        BridgeInfo(zcm::ZCM* zcmOut, const string &prefix, int dec) :
+            zcmOut(zcmOut), prefix(prefix), decimation(dec), nSkipped(0) {}
+
+        BridgeInfo() {}
+    };
 
     Bridge() {}
 
@@ -115,24 +153,51 @@ struct Bridge
 
     static void handler(const zcm::ReceiveBuffer* rbuf, const string& channel, void* usr)
     {
-        ((zcm::ZCM*)usr)->publish(channel, rbuf->data, rbuf->data_size);
+        BridgeInfo* info = (BridgeInfo*)usr;
+        if (info->nSkipped == info->decimation) {
+            // Must create newChannel in here to handle regex based subscriptions.
+            // Ie you cant store the whole channel in BridgeInfo because you
+            // don't necessarily know what channel is until you receive a message
+            string newChannel = info->prefix + channel;
+            info->zcmOut->publish(newChannel, rbuf->data, rbuf->data_size);
+            info->nSkipped = 0;
+        } else {
+            info->nSkipped++;
+        }
     }
 
     void run()
     {
+        vector<BridgeInfo> infoA, infoB;
+
+        infoA.reserve(args.Achannels.size());
+        infoB.reserve(args.Bchannels.size());
+
+        BridgeInfo defaultA(zcmB, args.Bprefix, 0),
+                   defaultB(zcmA, args.Aprefix, 0);
+
         if (args.Achannels.size() == 0) {
-            zcmA->subscribe(".*", &handler, zcmB);
+            zcmA->subscribe(".*", &handler, &defaultA);
         } else {
-            for (auto iter : args.Achannels)
-                zcmA->subscribe(iter, &handler, zcmB);
+            for (size_t i = 0; i < args.Achannels.size(); i++) {
+                infoA.emplace_back(zcmB, args.Bprefix, args.Adec.at(i));
+                zcmA->subscribe(args.Achannels.at(i), &handler, &infoA.back());
+            }
         }
 
         if (args.Bchannels.size() == 0) {
-            zcmB->subscribe(".*", &handler, zcmA);
+            zcmB->subscribe(".*", &handler, &defaultB);
         } else {
-            for (auto iter : args.Bchannels)
-                zcmB->subscribe(iter, &handler, zcmA);
+            for (size_t i = 0; i < args.Bchannels.size(); i++) {
+                infoB.emplace_back(zcmA, args.Aprefix, args.Bdec.at(i));
+                zcmB->subscribe(args.Bchannels.at(i), &handler, &infoB.back());
+            }
         }
+
+        ZCM_ASSERT(infoA.size() == args.Achannels.size() &&
+                   infoA.size() == args.Adec.size() &&
+                   infoB.size() == args.Bchannels.size() &&
+                   infoB.size() == args.Bdec.size());
 
         zcmA->start();
         zcmB->start();
@@ -161,6 +226,8 @@ static void usage()
          << "  -h, --help                 Shows this help text and exits" << endl
          << "  -A, --A-enpt=URL           One end of the bridge. Ex: zcm-bridge -A ipc" << endl
          << "  -B, --B-endpt=URL          One end of the bridge. Ex: zcm-bridge -B udpm://239.255.76.67:7667?ttl=0" << endl
+         << "  -p, --A-prefix=PREFIX      Specify a prefix for all messages published on the A url" << endl
+         << "  -r, --B-prefix=PREFIX      Specify a prefix for all messages published on the B url" << endl
          << "  -a, --A-channel=CHANNEL    One channel to subscribe to on A and repeat to B." << endl
          << "                             This argument can be specified multiple times. If this option is not," << endl
          << "                             present then we subscribe to all messages on the A interface." << endl
@@ -169,6 +236,10 @@ static void usage()
          << "                             This argument can be specified multiple times. If this option is not," << endl
          << "                             present then we subscribe to all messages on the B interface." << endl
          << "                             Ex: zcm-bridge -A ipc -B udpm://239.255.76.67:7667?ttl=0 -b EXAMPLE" << endl
+         << "  -d, --decimation           Decimation level for the preceeding A-channel or B-channel. " << endl
+         << "                             Ex: zcm-bridge -A ipc -B udpm://239.255.76.67:7667?ttl=0 -b EXAMPLE -d 2" << endl
+         << "                             This example would result in the message on EXAMPLE being rebroadcast on" << endl
+         << "                             the A url every third message." << endl
          << "" << endl << endl;
 }
 
