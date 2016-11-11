@@ -39,8 +39,8 @@ struct Args
         const char *optstring = "hp:r:A:B:a:b:d:";
         struct option long_opts[] = {
             { "help",       no_argument, 0, 'h' },
-            { "prefix-a",   required_argument, 0, 'p' },
-            { "prefix-b",   required_argument, 0, 'r' },
+            { "A-prefix",   required_argument, 0, 'p' },
+            { "A-prefix",   required_argument, 0, 'r' },
             { "A-endpt",    required_argument, 0, 'A' },
             { "B-endpt",    required_argument, 0, 'B' },
             { "A-channel",  required_argument, 0, 'a' },
@@ -155,6 +155,9 @@ struct Bridge
     {
         BridgeInfo* info = (BridgeInfo*)usr;
         if (info->nSkipped == info->decimation) {
+            // Must create newChannel in here to handle regex based subscriptions.
+            // Ie you cant store the whole channel in BridgeInfo because you
+            // don't necessarily know what channel is until you receive a message
             string newChannel = info->prefix + channel;
             info->zcmOut->publish(newChannel, rbuf->data, rbuf->data_size);
             info->nSkipped = 0;
@@ -223,8 +226,8 @@ static void usage()
          << "  -h, --help                 Shows this help text and exits" << endl
          << "  -A, --A-enpt=URL           One end of the bridge. Ex: zcm-bridge -A ipc" << endl
          << "  -B, --B-endpt=URL          One end of the bridge. Ex: zcm-bridge -B udpm://239.255.76.67:7667?ttl=0" << endl
-         << "  -p, --prefix-a             Specify a prefix for all messages published on the A url" << endl
-         << "  -r, --prefix-b             Specify a prefix for all messages published on the B url" << endl
+         << "  -p, --A-prefix=PREFIX      Specify a prefix for all messages published on the A url" << endl
+         << "  -r, --B-prefix=PREFIX      Specify a prefix for all messages published on the B url" << endl
          << "  -a, --A-channel=CHANNEL    One channel to subscribe to on A and repeat to B." << endl
          << "                             This argument can be specified multiple times. If this option is not," << endl
          << "                             present then we subscribe to all messages on the A interface." << endl
