@@ -7,9 +7,17 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define MTU 128
-#define BUFFER_SIZE 5*MTU+5*ZCM_CHANNEL_MAXLEN
-#define ESCAPE_CHAR (0xcc)
+#ifndef ZCM_GENERIC_SERIAL_MTU
+#define ZCM_GENERIC_SERIAL_MTU 128
+#endif
+
+#ifndef ZCM_GENERIC_SERIAL_BUFFER_SIZE
+#define ZCM_GENERIC_SERIAL_BUFFER_SIZE 5*ZCM_GENERIC_SERIAL_MTU+5*ZCM_CHANNEL_MAXLEN
+#endif
+
+#ifndef ZCM_GENERIC_SERIAL_ESCAPE_CHAR
+#define ZCM_GENERIC_SERIAL_ESCAPE_CHAR (0xcc)
+#endif
 
 // Framing (size = 8 + chan_len + data_len)
 //   0xCC
@@ -25,7 +33,7 @@
 typedef struct circBuffer_t circBuffer_t;
 struct circBuffer_t
 {
-    uint8_t data[BUFFER_SIZE];
+    uint8_t data[ZCM_GENERIC_SERIAL_BUFFER_SIZE];
     int front;
     int back;
 };
@@ -39,31 +47,32 @@ void cb_init(circBuffer_t* cb)
 int cb_size(circBuffer_t* cb)
 {
     if (cb->back >= cb->front) return cb->back - cb->front;
-    else                       return BUFFER_SIZE - (cb->front - cb->back);
+    else                       return ZCM_GENERIC_SERIAL_BUFFER_SIZE - (cb->front - cb->back);
 }
 
 int cb_room(circBuffer_t* cb)
 {
-    return BUFFER_SIZE - 1 - cb_size(cb);
+    return ZCM_GENERIC_SERIAL_BUFFER_SIZE - 1 - cb_size(cb);
 }
 
 void cb_push(circBuffer_t* cb, uint8_t d)
 {
     cb->data[cb->back++] = d;
-    if (cb->back >= BUFFER_SIZE) cb->back = 0;
+    if (cb->back >= ZCM_GENERIC_SERIAL_BUFFER_SIZE) cb->back = 0;
 }
 
 uint8_t cb_top(circBuffer_t* cb, uint32_t offset)
 {
     int val = cb->front + offset;
-    while (val >= BUFFER_SIZE) val -= BUFFER_SIZE;
+    while (val >= ZCM_GENERIC_SERIAL_BUFFER_SIZE) val -= ZCM_GENERIC_SERIAL_BUFFER_SIZE;
     return cb->data[val];
 }
 
 void cb_pop(circBuffer_t* cb, uint32_t num)
 {
     cb->front += num;
-    while (cb->front >= BUFFER_SIZE) cb->front -= BUFFER_SIZE;
+    while (cb->front >= ZCM_GENERIC_SERIAL_BUFFER_SIZE)
+        cb->front -= ZCM_GENERIC_SERIAL_BUFFER_SIZE;
 }
 
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
@@ -74,7 +83,7 @@ uint32_t cb_flush_out(circBuffer_t* cb,
 	uint32_t written = 0;
 	uint32_t n;
 
-    uint32_t contiguous = MIN(BUFFER_SIZE - cb->front, cb_size(cb));
+    uint32_t contiguous = MIN(ZCM_GENERIC_SERIAL_BUFFER_SIZE - cb->front, cb_size(cb));
     uint32_t wrapped    = cb_size(cb) - contiguous;
 
     n = write(cb->data + cb->front, contiguous, usr);
@@ -108,7 +117,7 @@ uint32_t cb_flush_in(circBuffer_t* cb, uint32_t bytes,
     }
 
     // Otherwise, we need to be a bit more careful about overflowing the back of the buffer.
-    uint32_t contiguous = MIN(BUFFER_SIZE - cb->back, bytes);
+    uint32_t contiguous = MIN(ZCM_GENERIC_SERIAL_BUFFER_SIZE - cb->back, bytes);
     uint32_t wrapped    = bytes - contiguous;
 
     n = read(cb->data + cb->back, contiguous, usr);
@@ -117,7 +126,7 @@ uint32_t cb_flush_in(circBuffer_t* cb, uint32_t bytes,
     if (n != contiguous) return bytesRead; // back could NOT have hit BUFFER_SIZE in this case
 
     // may need to wrap back here (if bytes >= BUFFER_SIZE - cb->back) but not otherwise
-    if (cb->back >= BUFFER_SIZE) cb->back = 0;
+    if (cb->back >= ZCM_GENERIC_SERIAL_BUFFER_SIZE) cb->back = 0;
     if (wrapped == 0) return bytesRead;
 
     n = read(cb->data, wrapped, usr);
@@ -136,7 +145,7 @@ struct zcm_trans_generic_serial_t
     circBuffer_t sendBuffer;
     circBuffer_t recvBuffer;
     char         recvChanName[ZCM_CHANNEL_MAXLEN+1];
-    char         recvMsgData[MTU];
+    char         recvMsgData[ZCM_GENERIC_SERIAL_MTU];
 
     uint32_t (*get)(uint8_t* data, uint32_t nData, void* usr);
     uint32_t (*put)(const uint8_t* data, uint32_t nData, void* usr);
@@ -148,7 +157,7 @@ struct zcm_trans_generic_serial_t
 
 size_t serial_get_mtu(zcm_trans_generic_serial_t *zt)
 {
-    return MTU;
+    return ZCM_GENERIC_SERIAL_MTU;
 }
 
 int serial_sendmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t msg)
@@ -157,12 +166,12 @@ int serial_sendmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t msg)
     size_t nPushed = 0;
 
     if (chan_len > ZCM_CHANNEL_MAXLEN)                               return ZCM_EINVALID;
-    if (msg.len > MTU)                                               return ZCM_EINVALID;
+    if (msg.len > ZCM_GENERIC_SERIAL_MTU)                            return ZCM_EINVALID;
     if (FRAME_BYTES + chan_len + msg.len > cb_room(&zt->sendBuffer)) return ZCM_EAGAIN;
 
-    cb_push(&zt->sendBuffer, ESCAPE_CHAR); nPushed++;
-    cb_push(&zt->sendBuffer, 0x00);        nPushed++;
-    cb_push(&zt->sendBuffer, chan_len);    nPushed++;
+    cb_push(&zt->sendBuffer, ZCM_GENERIC_SERIAL_ESCAPE_CHAR); nPushed++;
+    cb_push(&zt->sendBuffer, 0x00);                           nPushed++;
+    cb_push(&zt->sendBuffer, chan_len);                       nPushed++;
 
     uint32_t len = (uint32_t)msg.len;
     cb_push(&zt->sendBuffer, (len>>24)&0xff); nPushed++;
@@ -177,7 +186,7 @@ int serial_sendmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t msg)
 
         cb_push(&zt->sendBuffer, c); nPushed++;
 
-        if (c == ESCAPE_CHAR) {
+        if (c == ZCM_GENERIC_SERIAL_ESCAPE_CHAR) {
         	// the escape character doesn't count, so we have chan_len - i characters
         	// remaining in channel + the msg + the checksum.
             if (cb_room(&zt->sendBuffer) > chan_len - i + msg.len + 1) {
@@ -196,7 +205,7 @@ int serial_sendmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t msg)
 
         cb_push(&zt->sendBuffer, c); nPushed++;
 
-        if (c == ESCAPE_CHAR) {
+        if (c == ZCM_GENERIC_SERIAL_ESCAPE_CHAR) {
         	// the escape character doesn't count, so we have msg.len - i characters
         	// remaining in the msg + the checksum.
             if (cb_room(&zt->sendBuffer) > msg.len - i + 1) {
@@ -233,8 +242,8 @@ int serial_recvmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t *msg, int timeout)
     uint32_t consumed = 0;
 
     // Sync
-    if (cb_top(&zt->recvBuffer, consumed++) != ESCAPE_CHAR) goto fail;
-    if (cb_top(&zt->recvBuffer, consumed++) != 0x00       ) goto fail;
+    if (cb_top(&zt->recvBuffer, consumed++) != ZCM_GENERIC_SERIAL_ESCAPE_CHAR) goto fail;
+    if (cb_top(&zt->recvBuffer, consumed++) != 0x00       )                    goto fail;
 
     // Msg sizes
     uint8_t chan_len = cb_top(&zt->recvBuffer, consumed++);
@@ -243,8 +252,8 @@ int serial_recvmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t *msg, int timeout)
     msg->len |= cb_top(&zt->recvBuffer, consumed++) << 8;
     msg->len |= cb_top(&zt->recvBuffer, consumed++);
 
-    if (chan_len > ZCM_CHANNEL_MAXLEN) goto fail;
-    if (msg->len > MTU)                goto fail;
+    if (chan_len > ZCM_CHANNEL_MAXLEN)     goto fail;
+    if (msg->len > ZCM_GENERIC_SERIAL_MTU) goto fail;
 
     if (incomingSize < FRAME_BYTES + chan_len + msg->len) return ZCM_EAGAIN;
 
@@ -256,14 +265,14 @@ int serial_recvmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t *msg, int timeout)
 
         char c = cb_top(&zt->recvBuffer, consumed++);
 
-        if (c == ESCAPE_CHAR) {
+        if (c == ZCM_GENERIC_SERIAL_ESCAPE_CHAR) {
         	// the escape character doesn't count, so we have chan_len - i characters
         	// remaining in channel + the msg + the checksum.
             if (consumed + chan_len - i + msg->len + 1 > incomingSize) return ZCM_EAGAIN;
 
             c = cb_top(&zt->recvBuffer, consumed++);
 
-            if (c != ESCAPE_CHAR) {
+            if (c != ZCM_GENERIC_SERIAL_ESCAPE_CHAR) {
                 consumed-=2;
                 goto fail;
             }
@@ -280,14 +289,14 @@ int serial_recvmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t *msg, int timeout)
 
         char c = cb_top(&zt->recvBuffer, consumed++);
 
-        if (c == ESCAPE_CHAR) {
+        if (c == ZCM_GENERIC_SERIAL_ESCAPE_CHAR) {
         	// the escape character doesn't count, so we have msg.len - i characters
         	// remaining in the msg + the checksum.
             if (consumed + msg->len - i + 1 > incomingSize) return ZCM_EAGAIN;
 
             c = cb_top(&zt->recvBuffer, consumed++);
 
-            if (c != ESCAPE_CHAR) {
+            if (c != ZCM_GENERIC_SERIAL_ESCAPE_CHAR) {
                 consumed-=2;
                 goto fail;
             }
@@ -366,6 +375,8 @@ zcm_trans_t *zcm_trans_generic_serial_create(
         void* time_usr)
 {
     zcm_trans_generic_serial_t *zt = malloc(sizeof(zcm_trans_generic_serial_t));
+    if (zt == NULL) return NULL;
+
     zt->trans.trans_type = ZCM_NONBLOCKING;
     zt->trans.vtbl = &methods;
     cb_init(&zt->sendBuffer);
