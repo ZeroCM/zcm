@@ -2,9 +2,12 @@
   "name": "zcm-example",
   "version": "1.0.0",
   "description": "",
+  "scripts": {
+    "postinstall": "cp ../../build/zcm/js/zcm-client.js public/js/."
+  },
   "dependencies": {
     "express": "^4.14.0",
     "ref": "^1.3.3",
-    "zerocm": "^1.0.1"
+    "zerocm": "file:../../build/zcm/js/zcm-1.0.0.tgz"
   }
 }

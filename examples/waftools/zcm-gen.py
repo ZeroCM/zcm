@@ -77,8 +77,12 @@ def configure(ctx):
 #     py files:   add directory containing .py files to your sys path and target
 #                 import directives at "$pkg/type_name_t"
 #
-# RRR: definitely add this now that we are adding node
-#   TODO: NodeJS
+#   NodeJS:       types will be compiled into a zcmtypes.js file which is
+#                 'require'd in your nodejs main app.js file and passed into
+#                 nodes zcm constructor
+#     wscript:    add '${name}_nodejs to the list of "use" dependencies if you
+#                 have any build time dependencies (most nodejs dependencies,
+#                 however, are runtime so this will often, if not always, go unused).
 #
 # Note on running the output java classes:
 #   Because of the way that java's CLASSPATH works, even though waf will link the appropriate jar
@@ -189,14 +193,13 @@ def zcmgen(ctx, **kw):
 
     if 'nodejs' in lang:
         # RRR: why can't this be part of the other zcmgen area?
+        # RRR: Because all zcmtypes go into 1 single nodejs output file.
+        #      The other way overwrites that file for each output type
         bldcmd = '%s --node --npath %s ' % (ctx.env['ZCMGEN'], bld)
         nodejstg = ctx(name   = uselib_name + '_nodejs',
                        target = 'zcmtypes.js',
                        source = tg.source,
-                       rule   = bldcmd + '${SRC} && ' + \
-                                'npm install --silent ref > /dev/null')
-        # RRR: don't like that this means you need internet to waf build, is there not
-        #      a way we can push the npm step somewhere else?
+                       rule   = bldcmd + '${SRC}')
 
     if not building:
         return
@@ -225,6 +228,9 @@ def zcmgen(ctx, **kw):
     if 'cpp' in lang:
         # RRR: I kinda forget why we had to add these "touch" rules, do we still need
         #      them or can we remove it (and if we need them, should we add one for nodejs)?
+        # RRR: Dont remember why we need them but dont need one for nodejs.
+        #      My guess is that this is a result of this whole file not being
+        #      done properly (as per waf suggested guidelines)
         cpptg = ctx(target          = uselib_name + '_cpp',
                     rule            = 'touch ${TGT}',
                     export_includes = inc)
