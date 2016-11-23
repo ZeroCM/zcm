@@ -10,11 +10,13 @@ def build(ctx):
         blddir = task.generator.path.get_bld().abspath()
         task.exec_command('(cd %s && npm pack %s > /dev/null)' % (blddir, srcdir))
 
+    # RRR: ctx.env.VERSION needs to match the version number found in package.json else this
+    #      will error
     # should add an install that does npm install -g
     ctx(rule = build_node_pkg,
         color = 'PINK',
         source = ctx.path.ant_glob('node/*'),
-        target = 'zcm-'+ctx.env.VERSION+'.tgz')
+        target = 'zerocm-'+ctx.env.VERSION+'.tgz')
 
     def build_client_pkg(task):
         inp = ' '.join(n.abspath() for n in task.inputs)
@@ -22,6 +24,9 @@ def build(ctx):
         cmd = 'cat %s > %s' % (inp, out)
         task.exec_command(cmd)
 
+    # RRR: socket.io.js shouldn't stored in our repo, when installed through npm, it
+    #      contains the client side code that can be served fairly simply.
+    #      see http://socket.io/get-started/chat/ for an easy example
     ctx(rule = build_client_pkg,
         source = 'client/socket.io.js client/index.js',
         target = 'zcm-client.js')

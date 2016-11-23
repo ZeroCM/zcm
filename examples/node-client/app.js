@@ -3,7 +3,9 @@ var app = express();
 var http = require('http').Server(app);
 app.use(express.static("public"));
 
-var zcm = require('zcmjs');
+// RRR: I want this to install from my local copy, not from npm, how do
+//      we get that to work (simply)?
+var zcm = require('zerocm');
 var zcmtypes = require('../build/types/zcmtypes');
 var z = zcm.create(zcmtypes, null, http);
 if (!z) {

@@ -77,6 +77,7 @@ def configure(ctx):
 #     py files:   add directory containing .py files to your sys path and target
 #                 import directives at "$pkg/type_name_t"
 #
+# RRR: definitely add this now that we are adding node
 #   TODO: NodeJS
 #
 # Note on running the output java classes:
@@ -163,38 +164,44 @@ def zcmgen(ctx, **kw):
         # TODO: this should probably be a more specific error type
         raise WafError('zcmgen requires keword argument: "lang"')
 
-    # exit early if no source files input
-    if not kw['source']:
-        return
-
     lang = kw['lang']
     if isinstance(kw['lang'], basestring):
         lang = kw['lang'].split(' ')
+
+    if 'source' not in kw:
+        # TODO: this should probably be a more specific error type
+        raise WafError('zcmgen requires keword argument: "source"')
+
+    # exit early if no source files input
+    if not kw['source']:
+        return
 
     # Add .zcm files to build so the process_zcmtypes rule picks them up
     genfiles_name = uselib_name + '_genfiles'
     tg = ctx(name         = genfiles_name,
              source       = kw['source'],
-             lang         = kw['lang'],
+             lang         = lang,
              littleEndian = littleEndian,
              javapkg      = javapkg_name)
 
     bld = ctx.path.get_bld().abspath()
     inc = os.path.dirname(bld)
 
-    if 'nodejs' in kw['lang']:
-        zcmgen = ctx.env['ZCMGEN']
-        bldcmd = '%s --node --npath %s ' % (zcmgen, bld)
+    if 'nodejs' in lang:
+        # RRR: why can't this be part of the other zcmgen area?
+        bldcmd = '%s --node --npath %s ' % (ctx.env['ZCMGEN'], bld)
         nodejstg = ctx(name   = uselib_name + '_nodejs',
                        target = 'zcmtypes.js',
                        source = tg.source,
                        rule   = bldcmd + '${SRC} && ' + \
                                 'npm install --silent ref > /dev/null')
+        # RRR: don't like that this means you need internet to waf build, is there not
+        #      a way we can push the npm step somewhere else?
 
     if not building:
         return
 
-    if 'c_stlib' in kw['lang']:
+    if 'c_stlib' in lang:
         csrc = []
         for src in tg.source:
             outfile = outFileName(ctx, src.abspath(), 'c')
@@ -207,7 +214,7 @@ def zcmgen(ctx, **kw):
                              export_includes = inc,
                              source          = csrc)
 
-    if 'c_shlib' in kw['lang']:
+    if 'c_shlib' in lang:
         cshlibtg = ctx.shlib(name            = uselib_name + '_c_shlib',
                              target          = uselib_name,
                              use             = ['default', 'zcm'],
@@ -215,12 +222,14 @@ def zcmgen(ctx, **kw):
                              export_includes = inc,
                              source          = csrc)
 
-    if 'cpp' in kw['lang']:
+    if 'cpp' in lang:
+        # RRR: I kinda forget why we had to add these "touch" rules, do we still need
+        #      them or can we remove it (and if we need them, should we add one for nodejs)?
         cpptg = ctx(target          = uselib_name + '_cpp',
                     rule            = 'touch ${TGT}',
                     export_includes = inc)
 
-    if 'java' in kw['lang']:
+    if 'java' in lang:
         javatg = ctx(name       = uselib_name + '_java',
                      features   = 'javac jar',
                      use        = ['zcmjar', genfiles_name],
@@ -230,7 +239,7 @@ def zcmgen(ctx, **kw):
                      basedir    = 'java/classes',  # basedir for jar
                      destfile   = uselib_name + '.jar')
 
-    if 'python' in kw['lang']:
+    if 'python' in lang:
         pythontg = ctx(target = uselib_name + '_python',
                        rule   = 'touch ${TGT}')
 
