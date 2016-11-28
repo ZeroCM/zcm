@@ -4,9 +4,7 @@ var http = require('http').Server(app);
 app.use(express.static("public"));
 
 var zcm = require('zerocm');
-// RRR: getting a node error from here now when zcmtypes.js tries to require 'ref'
-//      (probably have to distclean to test this properly)
-var zcmtypes = require('../build/types/zcmtypes');
+var zcmtypes = require('zcmtypes');
 var z = zcm.create(zcmtypes, null, http);
 if (!z) {
     throw "Failed to create ZCM";

@@ -1,2 +1,3 @@
 !.gitignore
 public/js/zcm-client.js
+zcmtypes.js
