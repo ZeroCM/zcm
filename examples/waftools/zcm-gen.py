@@ -223,13 +223,6 @@ def zcmgen(ctx, **kw):
                              source          = csrc)
 
     if 'cpp' in lang:
-        # RRR: I kinda forget why we had to add these "touch" rules, do we still need
-        #      them or can we remove it (and if we need them, should we add one for nodejs)?
-        # RRR: Dont remember why we need them but dont need one for nodejs.
-        #      My guess is that this is a result of this whole file not being
-        #      done properly (as per waf suggested guidelines)
-        # RRR: what parts are "not waf-y"? Can we fix it or at least identify what needs to be
-        #      fixed?
         cpptg = ctx(target          = uselib_name + '_cpp',
                     rule            = 'touch ${TGT}',
                     export_includes = inc)
