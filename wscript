@@ -66,15 +66,42 @@ def configure(ctx):
     ctx.load('zcm-gen')
     process_zcm_configure_options(ctx)
 
+def processCppVersion(ctx, f):
+    version = ctx.cmd_and_log('grep VERSION %s | cut -d \' \' -f3' % (f),
+                              output=waflib.Context.STDOUT,
+                              quiet=waflib.Context.BOTH).strip()
+    version = version.split("\n")
+    version = '.'.join(version)
+    return version
+
+def processNodeVersion(ctx, f):
+    version = ctx.cmd_and_log('grep version %s | cut -d \'"\' -f4' % (f),
+                              output=waflib.Context.STDOUT,
+                              quiet=waflib.Context.BOTH).strip()
+    return version
+
+def version(ctx):
+    versionNODE = processNodeVersion(ctx, 'zcm/js/node/package.json')
+    versionZCM  = processCppVersion(ctx, 'zcm/zcm.h')
+    versionGEN  = processCppVersion(ctx, 'gen/version.h')
+
+    if versionZCM != versionGEN:
+        raise WafError("Version mismatch between core and zcm gen")
+
+    if versionZCM != versionNODE:
+        raise WafError("Version mismatch between core and nodejs")
+
+    Logs.pprint('RED','ZCM Version: %s' % (versionZCM))
+
+    return versionZCM
+
 def process_zcm_configure_options(ctx):
     opt = waflib.Options.options
     env = ctx.env
     def hasopt(key):
         return opt.use_all or getattr(opt, key)
 
-    # RRR: this number still needs to match the version in our package.json file so that the
-    #      install works properly
-    env.VERSION='1.0.0'
+    env.VERSION = version(ctx)
 
     env.USING_CPP         = True
     env.USING_JAVA        = hasopt('use_java') and attempt_use_java(ctx)
