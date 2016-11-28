@@ -30,6 +30,9 @@ def build(ctx):
     # RRR: I think we should preference installing socket.io through npm and linking their file
     #      as specified by their todo. I've added comments in the node-client example index.html
     #      that shows how you do it (with a current install of socket.io)
+    # RRR: also we should install this tarball in /usr/local/share/zcm or something (i suppose
+    #      an npm install global would work too, but would rather keep internet-requiring commands
+    #      out of the normal waf build
     ctx(rule = build_client_pkg,
         source = 'client/socket.io.js client/index.js',
         target = 'zcm-client.js')
