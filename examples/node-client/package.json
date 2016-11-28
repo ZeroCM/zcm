@@ -3,11 +3,13 @@
   "version": "1.0.0",
   "description": "",
   "scripts": {
+    "//" : [ "Note: users should use their own post-install script to copy the ",
+             "      zcm-client.js file into a client-visible folder" ],
     "postinstall": "cp ../../build/zcm/js/zcm-client.js public/js/."
   },
   "dependencies": {
     "express": "^4.14.0",
     "ref": "^1.3.3",
-    "zerocm": "file:../../build/zcm/js/zcm-1.0.0.tgz"
+    "zerocm": "file:../../build/zcm/js/zerocm-1.0.0.tgz"
   }
 }

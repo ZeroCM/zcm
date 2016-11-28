@@ -192,9 +192,6 @@ def zcmgen(ctx, **kw):
     inc = os.path.dirname(bld)
 
     if 'nodejs' in lang:
-        # RRR: why can't this be part of the other zcmgen area?
-        # RRR: Because all zcmtypes go into 1 single nodejs output file.
-        #      The other way overwrites that file for each output type
         bldcmd = '%s --node --npath %s ' % (ctx.env['ZCMGEN'], bld)
         nodejstg = ctx(name   = uselib_name + '_nodejs',
                        target = 'zcmtypes.js',
@@ -231,6 +228,8 @@ def zcmgen(ctx, **kw):
         # RRR: Dont remember why we need them but dont need one for nodejs.
         #      My guess is that this is a result of this whole file not being
         #      done properly (as per waf suggested guidelines)
+        # RRR: what parts are "not waf-y"? Can we fix it or at least identify what needs to be
+        #      fixed?
         cpptg = ctx(target          = uselib_name + '_cpp',
                     rule            = 'touch ${TGT}',
                     export_includes = inc)

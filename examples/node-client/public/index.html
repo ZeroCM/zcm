@@ -3,6 +3,17 @@
   <head>
     <title>ZCM: Node-Client Example</title>
     <link rel="stylesheet" href="css/style.css">
+    <!--
+      RRR: source the socket.io file first. Note that socket.io must be npm-installed on the
+           server side and "required" in the server, but then it automatically serves the client
+           side code at this url without any other user code. Granted, it means we need to have
+           2 lines of user code on the html side rather than 1, but I think it's a pretty minimal
+           cost to always have the correct version of the socket.io client without having it in
+           our git repo
+
+    <script src="/socket.io/socket.io.js"></script>
+
+    -->
     <script src="js/zcm-client.js"></script>
   </head>
   <body>

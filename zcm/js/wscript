@@ -27,6 +27,9 @@ def build(ctx):
     #      see http://socket.io/get-started/chat/ for an easy example
     # RRR: This is anthony work. I think he was probably trying to get zcm to
     #      be a single client file, a single server file, and a single zcmtypes file
+    # RRR: I think we should preference installing socket.io through npm and linking their file
+    #      as specified by their todo. I've added comments in the node-client example index.html
+    #      that shows how you do it (with a current install of socket.io)
     ctx(rule = build_client_pkg,
         source = 'client/socket.io.js client/index.js',
         target = 'zcm-client.js')

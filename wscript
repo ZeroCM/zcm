@@ -72,7 +72,9 @@ def process_zcm_configure_options(ctx):
     def hasopt(key):
         return opt.use_all or getattr(opt, key)
 
-    env.VERSION='1.0.2'
+    # RRR: this number still needs to match the version in our package.json file so that the
+    #      install works properly
+    env.VERSION='1.0.0'
 
     env.USING_CPP         = True
     env.USING_JAVA        = hasopt('use_java') and attempt_use_java(ctx)

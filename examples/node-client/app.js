@@ -3,11 +3,9 @@ var app = express();
 var http = require('http').Server(app);
 app.use(express.static("public"));
 
-// RRR: I want this to install from my local copy, not from npm, how do
-//      we get that to work (simply)?
-// RRR: This is 'require'd from the node_modules folder no matter how it got
-//      there. We're getting it there via package.json local 'file:' dependency
 var zcm = require('zerocm');
+// RRR: getting a node error from here now when zcmtypes.js tries to require 'ref'
+//      (probably have to distclean to test this properly)
 var zcmtypes = require('../build/types/zcmtypes');
 var z = zcm.create(zcmtypes, null, http);
 if (!z) {
