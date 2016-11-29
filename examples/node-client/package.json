@@ -5,11 +5,11 @@
   "scripts": {
     "//" : [ "Note: users should use their own post-install script to copy the ",
              "      zcm-client.js file into a client-visible folder" ],
-    "postinstall": "cp ../../build/zcm/js/zcm-client.js public/js/. && cp ../build/types/zcmtypes.js node_modules/"
+    "postinstall": "cp /usr/local/share/node/zcm-client.js public/js/. && cp ../build/types/zcmtypes.js node_modules/"
   },
   "dependencies": {
     "express": "^4.14.0",
     "ref": "^1.3.3",
-    "zerocm": "file:../../build/zcm/js/zerocm-1.0.0.tgz"
+    "zerocm": "file:/usr/local/share/node/zerocm-1.0.0.tgz"
   }
 }
