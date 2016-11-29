@@ -66,13 +66,42 @@ def configure(ctx):
     ctx.load('zcm-gen')
     process_zcm_configure_options(ctx)
 
+def processCppVersion(ctx, f):
+    version = ctx.cmd_and_log('grep VERSION %s | cut -d \' \' -f3' % (f),
+                              output=waflib.Context.STDOUT,
+                              quiet=waflib.Context.BOTH).strip()
+    version = version.split("\n")
+    version = '.'.join(version)
+    return version
+
+def processNodeVersion(ctx, f):
+    version = ctx.cmd_and_log('grep version %s | cut -d \'"\' -f4' % (f),
+                              output=waflib.Context.STDOUT,
+                              quiet=waflib.Context.BOTH).strip()
+    return version
+
+def version(ctx):
+    versionNODE = processNodeVersion(ctx, 'zcm/js/node/package.json')
+    versionZCM  = processCppVersion(ctx, 'zcm/zcm.h')
+    versionGEN  = processCppVersion(ctx, 'gen/version.h')
+
+    if versionZCM != versionGEN:
+        raise WafError("Version mismatch between core and zcm gen")
+
+    if versionZCM != versionNODE:
+        raise WafError("Version mismatch between core and nodejs")
+
+    Logs.pprint('RED','ZCM Version: %s' % (versionZCM))
+
+    return versionZCM
+
 def process_zcm_configure_options(ctx):
     opt = waflib.Options.options
     env = ctx.env
     def hasopt(key):
         return opt.use_all or getattr(opt, key)
 
-    env.VERSION='1.0.0'
+    env.VERSION = version(ctx)
 
     env.USING_CPP         = True
     env.USING_JAVA        = hasopt('use_java') and attempt_use_java(ctx)
@@ -141,8 +170,10 @@ def attempt_use_nodejs(ctx):
     # nodejs isn't really required for build, but it felt weird to leave it
     # out since the user is expecting zcm to build for nodejs. It will
     # technically build, but you wont be able to run it without the nodejs package
-    ctx.find_program('nodejs', var='NODEJS',  mandatory=True)
-    ctx.find_program('npm',    var='NPM',     mandatory=True)
+    ctx.find_program('node', var='NODE', mandatory=True)
+    ctx.env.NODE = ctx.env.NODE[0]
+    ctx.find_program('npm', var='NPM', mandatory=True)
+    ctx.env.NPM = ctx.env.NPM[0]
     return True
 
 def attempt_use_python(ctx):

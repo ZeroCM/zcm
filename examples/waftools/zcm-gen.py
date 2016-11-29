@@ -41,15 +41,15 @@ def configure(ctx):
 #   build:        False if only zcmtype generation (no compiling or linking) is desired
 #                 Defaults to true.
 #   lang:         list of languages for which zcmtypes should be generated, options are:
-#                 ['c', 'cpp', 'java', 'python', 'nodejs']
-#                 TODO: add nodejs support
+#                 ['c', 'cpp', 'java', 'python', 'nodejs']. Can also be a space separated string.
 #   littleEndian  True or false based on desired endianess of output. Should almost always
 #                 be false. Don't use this option unless you really know what you're doing
 #   javapkg:      name of the java package
 #                 default = 'zcmtypes' (though it is encouraged to name it something more unique
 #                                       to avoid library naming conflicts)
 #
-#   TODO: add support for changing include directory
+#   TODO: add support for changing c/c++ include directory. Currently defaults so that the
+#         description below works
 #
 # Using the output zcmtypes:
 #   For the following explanations, assume:
@@ -77,7 +77,12 @@ def configure(ctx):
 #     py files:   add directory containing .py files to your sys path and target
 #                 import directives at "$pkg/type_name_t"
 #
-#   TODO: NodeJS
+#   NodeJS:       types will be compiled into a zcmtypes.js file which is
+#                 'require'd in your nodejs main app.js file and passed into
+#                 nodes zcm constructor
+#     wscript:    add '${name}_nodejs to the list of "use" dependencies if you
+#                 have any build time dependencies (most nodejs dependencies,
+#                 however, are runtime so this will often, if not always, go unused).
 #
 # Note on running the output java classes:
 #   Because of the way that java's CLASSPATH works, even though waf will link the appropriate jar
@@ -140,7 +145,9 @@ def getFileParts(ctx, path):
 
 @conf
 def zcmgen(ctx, **kw):
-    # TODO: should raise an error if ctx.env.ZCMGEN is not set
+    if not getattr(ctx.env, 'ZCMGEN', []):
+        raise WafError('zcmgen requires ctx.env.ZCMGEN set to the zcm-gen executable')
+
     uselib_name = 'zcmtypes'
     if 'name' in kw:
         uselib_name = kw['name']
@@ -161,21 +168,40 @@ def zcmgen(ctx, **kw):
         # TODO: this should probably be a more specific error type
         raise WafError('zcmgen requires keword argument: "lang"')
 
+    lang = kw['lang']
+    if isinstance(kw['lang'], basestring):
+        lang = kw['lang'].split(' ')
+
+    if 'source' not in kw:
+        # TODO: this should probably be a more specific error type
+        raise WafError('zcmgen requires keword argument: "source"')
+
+    # exit early if no source files input
+    if not kw['source']:
+        return
+
     # Add .zcm files to build so the process_zcmtypes rule picks them up
     genfiles_name = uselib_name + '_genfiles'
     tg = ctx(name         = genfiles_name,
              source       = kw['source'],
-             lang         = kw['lang'],
+             lang         = lang,
              littleEndian = littleEndian,
              javapkg      = javapkg_name)
-
-    if not building:
-        return
 
     bld = ctx.path.get_bld().abspath()
     inc = os.path.dirname(bld)
 
-    if 'c_stlib' in kw['lang']:
+    if 'nodejs' in lang:
+        bldcmd = '%s --node --npath %s ' % (ctx.env['ZCMGEN'], bld)
+        nodejstg = ctx(name   = uselib_name + '_nodejs',
+                       target = 'zcmtypes.js',
+                       source = tg.source,
+                       rule   = bldcmd + '${SRC}')
+
+    if not building:
+        return
+
+    if 'c_stlib' in lang:
         csrc = []
         for src in tg.source:
             outfile = outFileName(ctx, src.abspath(), 'c')
@@ -188,7 +214,7 @@ def zcmgen(ctx, **kw):
                              export_includes = inc,
                              source          = csrc)
 
-    if 'c_shlib' in kw['lang']:
+    if 'c_shlib' in lang:
         cshlibtg = ctx.shlib(name            = uselib_name + '_c_shlib',
                              target          = uselib_name,
                              use             = ['default', 'zcm'],
@@ -196,12 +222,12 @@ def zcmgen(ctx, **kw):
                              export_includes = inc,
                              source          = csrc)
 
-    if 'cpp' in kw['lang']:
+    if 'cpp' in lang:
         cpptg = ctx(target          = uselib_name + '_cpp',
                     rule            = 'touch ${TGT}',
                     export_includes = inc)
 
-    if 'java' in kw['lang']:
+    if 'java' in lang:
         javatg = ctx(name       = uselib_name + '_java',
                      features   = 'javac jar',
                      use        = ['zcmjar', genfiles_name],
@@ -211,7 +237,7 @@ def zcmgen(ctx, **kw):
                      basedir    = 'java/classes',  # basedir for jar
                      destfile   = uselib_name + '.jar')
 
-    if 'python' in kw['lang']:
+    if 'python' in lang:
         pythontg = ctx(target = uselib_name + '_python',
                        rule   = 'touch ${TGT}')
 
@@ -279,20 +305,15 @@ class zcmgen(Task.Task):
         if ('c_stlib' in gen.lang) or ('c_shlib' in gen.lang):
             langs['c'] = '--c --c-typeinfo --c-cpath %s --c-hpath %s --c-include %s' % \
                          (bld, bld, inc)
-            if gen.littleEndian:
-                langs['c'] = langs['c'] + ' --little-endian-encoding '
         if 'cpp' in gen.lang:
             langs['cpp'] = '--cpp --cpp-hpath %s --cpp-include %s' % (bld, inc)
-            if gen.littleEndian:
-                langs['cpp'] = langs['cpp'] + ' --little-endian-encoding '
         if 'java' in gen.lang:
             langs['java'] = '--java --jpath %s --jdefaultpkg %s' % (bld + '/java', gen.javapkg)
-            if gen.littleEndian:
-                langs['java'] = langs['java'] + ' --little-endian-encoding '
         if 'python' in gen.lang:
             langs['python'] = '--python --ppath %s' % (bld)
-            if gen.littleEndian:
-                langs['python'] = langs['python'] + ' --little-endian-encoding '
+
+        if gen.littleEndian:
+            langs['endian'] = ' --little-endian-encoding '
 
         # no need to check if langs is empty here, already handled in runnable_status()
         return self.exec_command('%s %s %s' % (zcmgen, zcmfile, ' '.join(langs.values())))
