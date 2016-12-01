@@ -324,7 +324,7 @@ of each image in our index in the order provided by the index.
     from image_t import image_t
 
     from zcm import ZCM, LogFile, LogEvent
-    log = LogFile('zcm.log', 'w')
+    log = LogFile('zcm.log', 'r')
 
     import json
     with open('zcm.dbz') as indexFile:
