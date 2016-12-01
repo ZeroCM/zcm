@@ -363,7 +363,7 @@ sys.path.insert(0, './build/types/')
 from image_t import image_t
 
 from zcm import ZCM, LogFile, LogEvent
-log = LogFile('zcm.log', 'w')
+log = LogFile('zcm.log', 'r')
 
 import json
 with open('zcm.dbz') as indexFile:
