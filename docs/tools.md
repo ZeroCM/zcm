@@ -330,12 +330,10 @@ of each image in our index in the order provided by the index.
     with open('zcm.dbz') as indexFile:
         index = json.load(indexFile)
 
-    image = image_t()
-
     i = 0
     while i < len(index['timestamp']['IMAGES']['image_t']):
         evt = log.readEventOffset(int(index['timestamp']['IMAGES']['image_t'][i]))
-        image.decode(evt.getData())
+        image = image_t.decode(evt.getData())
         print image.name + ": " + str(image.timestamp)
 
 
