@@ -74,7 +74,7 @@ int main(int argc, const char *argv[])
 {
     ZCM zcmLocal(zcm_trans_generic_serial_create(&get, &put, NULL, &utime, NULL));
 
-    example_t example;
+    example_t example = {};
     example.num_ranges = 1;
     example.ranges.resize(1);
     example.ranges.at(0) = 1;
