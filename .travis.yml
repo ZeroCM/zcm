@@ -1,0 +1,27 @@
+language: c
+sudo: required
+install: ./scripts/install-deps.sh
+before_script: mkdir ../tmp
+script:
+    ./waf distclean configure --use-all --use-third-party build install --prefix=../tmp/ &&
+    cd examples &&
+    source ./env /home/travis/build/ZeroCM/tmp &&
+    export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/home/travis/build/ZeroCM/tmp/lib/pkgconfig &&
+    export PATH=$PATH:/home/travis/build/ZeroCM/tmp/bin &&
+    ./waf distclean configure build
+dist: xenial
+git:
+    depth: 1
+notifications:
+    webhooks:
+        urls:
+            - https://webhooks.gitter.im/e/e23128f14b1634065c82
+        on_success: change
+        on_failure: always
+        on_start: never
+    email:
+        recipients:
+            - jonathan.bendes@gmail.com
+        on_success: change
+        on_failure: always
+        on_start: never
