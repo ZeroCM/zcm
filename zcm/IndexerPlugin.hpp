@@ -118,6 +118,7 @@ class IndexerPlugin
 
     // pluginIndex is the index you should modify. It is your json object that
     // will be passed back to this function every time the function is called.
+    // This function will be called on every event in the log
     //
     // index is the entire json object containing the output of every plugin run
     // so far
