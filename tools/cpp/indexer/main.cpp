@@ -131,16 +131,32 @@ int main(int argc, char* argv[])
 
     vector<zcm::IndexerPlugin*> plugins;
 
+    bool defaultShouldBeIncluded = true;
     zcm::IndexerPlugin* defaultPlugin = new zcm::IndexerPlugin();
-    plugins.push_back(defaultPlugin);
 
     IndexerPluginDb pluginDb(args.plugin_path, args.debug);
     // Load plugins from path if specified
     if (args.plugin_path != "") {
+        bool dependsOnDefault = false;
         vector<const zcm::IndexerPlugin*> dbPlugins = pluginDb.getPlugins();
         // casting away constness. Don't mess up.
-        for (auto dbp : dbPlugins) plugins.push_back((zcm::IndexerPlugin*) dbp);
+        for (auto dbp : dbPlugins) {
+            plugins.push_back((zcm::IndexerPlugin*) dbp);
+            defaultShouldBeIncluded = false;
+            auto deps = dbp->dependsOn();
+            for (auto dep : deps) {
+                if (dep == defaultPlugin->name()) {
+                    dependsOnDefault = true;
+                    break;
+                }
+            }
+        }
+
+        if (dependsOnDefault)
+            defaultShouldBeIncluded = true;
     }
+
+    if (defaultShouldBeIncluded) plugins.push_back(defaultPlugin);
 
     for (size_t i = 0; i < plugins.size(); ++i) {
         for (size_t j = i + 1; j < plugins.size(); ++j) {
