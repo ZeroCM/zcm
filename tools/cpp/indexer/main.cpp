@@ -145,10 +145,10 @@ int main(int argc, char* argv[])
     if (args.plugin_path != "") {
         bool dependsOnDefault = false;
         vector<const zcm::IndexerPlugin*> dbPlugins = pluginDb.getPlugins();
+        if (!dbPlugins.empty()) defaultShouldBeIncluded = false;
         // casting away constness. Don't mess up.
         for (auto dbp : dbPlugins) {
             plugins.push_back((zcm::IndexerPlugin*) dbp);
-            defaultShouldBeIncluded = false;
             auto deps = dbp->dependsOn();
             for (auto dep : deps) {
                 if (dep == defaultPlugin->name()) {
