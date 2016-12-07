@@ -22,6 +22,7 @@ struct Args
     string type_path   = "";
     bool readable      = false;
     bool debug         = false;
+    bool useDefault    = false;
 
     bool parse(int argc, char *argv[])
     {
@@ -33,7 +34,8 @@ struct Args
             { "plugin-path", required_argument, 0, 'p' },
             { "type-path",   required_argument, 0, 't' },
             { "readable",    no_argument,       0, 'r' },
-            { "debug",       no_argument,       0, 'd' },
+            { "use-default", no_argument,       0, 'd' },
+            { "debug",       no_argument,       0,  0  },
             { "help",        no_argument,       0, 'h' },
             { 0, 0, 0, 0 }
         };
@@ -46,8 +48,12 @@ struct Args
                 case 'p': plugin_path = string(optarg); break;
                 case 't': type_path   = string(optarg); break;
                 case 'r': readable    = true;           break;
-                case 'd': debug       = true;           break;
-                case 'h': default: return false;
+                case 'd': useDefault  = true;           break;
+                case 'h':
+                default:
+                    if (string(argv[optind]) == "debug") {
+                        debug = true;
+                    } else return false;
             };
         }
 
@@ -131,16 +137,32 @@ int main(int argc, char* argv[])
 
     vector<zcm::IndexerPlugin*> plugins;
 
+    bool defaultShouldBeIncluded = true;
     zcm::IndexerPlugin* defaultPlugin = new zcm::IndexerPlugin();
-    plugins.push_back(defaultPlugin);
 
     IndexerPluginDb pluginDb(args.plugin_path, args.debug);
     // Load plugins from path if specified
     if (args.plugin_path != "") {
+        bool dependsOnDefault = false;
         vector<const zcm::IndexerPlugin*> dbPlugins = pluginDb.getPlugins();
+        if (!dbPlugins.empty()) defaultShouldBeIncluded = false;
         // casting away constness. Don't mess up.
-        for (auto dbp : dbPlugins) plugins.push_back((zcm::IndexerPlugin*) dbp);
+        for (auto dbp : dbPlugins) {
+            plugins.push_back((zcm::IndexerPlugin*) dbp);
+            auto deps = dbp->dependsOn();
+            for (auto dep : deps) {
+                if (dep == defaultPlugin->name()) {
+                    dependsOnDefault = true;
+                    break;
+                }
+            }
+        }
+
+        if (dependsOnDefault || args.useDefault)
+            defaultShouldBeIncluded = true;
     }
+
+    if (defaultShouldBeIncluded) plugins.push_back(defaultPlugin);
 
     for (size_t i = 0; i < plugins.size(); ++i) {
         for (size_t j = i + 1; j < plugins.size(); ++j) {
