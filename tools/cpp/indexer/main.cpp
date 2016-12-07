@@ -22,6 +22,7 @@ struct Args
     string type_path   = "";
     bool readable      = false;
     bool debug         = false;
+    bool useDefault    = false;
 
     bool parse(int argc, char *argv[])
     {
@@ -33,7 +34,8 @@ struct Args
             { "plugin-path", required_argument, 0, 'p' },
             { "type-path",   required_argument, 0, 't' },
             { "readable",    no_argument,       0, 'r' },
-            { "debug",       no_argument,       0, 'd' },
+            { "use-default", no_argument,       0, 'd' },
+            { "debug",       no_argument,       0,  0  },
             { "help",        no_argument,       0, 'h' },
             { 0, 0, 0, 0 }
         };
@@ -46,8 +48,12 @@ struct Args
                 case 'p': plugin_path = string(optarg); break;
                 case 't': type_path   = string(optarg); break;
                 case 'r': readable    = true;           break;
-                case 'd': debug       = true;           break;
-                case 'h': default: return false;
+                case 'd': useDefault  = true;           break;
+                case 'h':
+                default:
+                    if (string(argv[optind]) == "debug") {
+                        debug = true;
+                    } else return false;
             };
         }
 
@@ -152,7 +158,7 @@ int main(int argc, char* argv[])
             }
         }
 
-        if (dependsOnDefault)
+        if (dependsOnDefault || args.useDefault)
             defaultShouldBeIncluded = true;
     }
 
