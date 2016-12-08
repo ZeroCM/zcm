@@ -1,6 +1,6 @@
 #include <getopt.h>
 
-#include "zcm/util/TypeDb.hpp"
+#include "util/TypeDb.hpp"
 
 #include "Common.hpp"
 #include "MsgDisplay.hpp"

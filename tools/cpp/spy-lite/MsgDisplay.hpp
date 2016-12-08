@@ -1,5 +1,5 @@
 #pragma once
-#include "zcm/util/TypeDb.hpp"
+#include "util/TypeDb.hpp"
 #include "Common.hpp"
 
 #define MSG_DISPLAY_RECUR_MAX 64

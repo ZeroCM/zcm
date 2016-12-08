@@ -6,8 +6,9 @@
 #include <dlfcn.h>
 
 #include "zcm/util/Common.hpp"
-#include "zcm/util/SymtabElf.hpp"
 #include "util/StringUtil.hpp"
+
+#include "util/SymtabElf.hpp"
 
 #include "IndexerPluginDb.hpp"
 

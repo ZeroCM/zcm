@@ -15,7 +15,6 @@ def build(ctx):
               includes = '..',
               export_includes = '..',
               use = ['default', 'zmq'],
-              lib = 'dl',
               source = ctx.path.ant_glob(['*.cpp', '*.c',
                                           'util/*.c', 'util/*.cpp',
                                           'json/jsoncpp.cpp',

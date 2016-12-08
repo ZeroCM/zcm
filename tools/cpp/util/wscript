@@ -1,0 +1,15 @@
+#! /usr/bin/env python
+# encoding: utf-8
+
+def build(ctx):
+    files = ' '
+    use = 'default '
+
+    if ctx.env.USING_ELF:
+        files += 'SymtabElf.cpp TypeDb.cpp'
+        use += 'elf '
+
+    ctx.stlib(target = 'zcm_tools_util',
+              export_includes = "../",
+              use = use,
+              source = ctx.path.ant_glob(files))
