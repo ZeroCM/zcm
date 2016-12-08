@@ -195,6 +195,9 @@ def attempt_use_cxxtest(ctx):
     return True
 
 def attempt_use_elf(ctx):
+    # RRR: this should make waf configure fail if you don't have it installed yet
+    #      should probably switch from using os.path.exists to a waf tool that
+    #      let's you say mandatory=True (if such a tool exists, like ctx.find_program)
     if not os.path.exists('/usr/include/libelf.h'):
         return False
     ctx.env.LIB_elf = 'elf'

@@ -2,6 +2,8 @@
 # encoding: utf-8
 
 def build(ctx):
+    # RRR: we should probably move this ctx.env.LIB_dl should be in the config section of the
+    #      main wscript (or setup_env)
     ctx.env.LIB_dl = 'dl'
     ctx.stlib(target = 'zcm_tools_util',
               export_includes = "../",
