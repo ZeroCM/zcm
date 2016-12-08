@@ -8,7 +8,7 @@
 
 #include "zcm/json/json.h"
 
-#include "zcm/util/TypeDb.hpp"
+#include "util/TypeDb.hpp"
 
 #include "IndexerPluginDb.hpp"
 

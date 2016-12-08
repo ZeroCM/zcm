@@ -2,8 +2,9 @@
 #include <inttypes.h>
 
 #include "zcm/util/Common.hpp"
-#include "zcm/util/SymtabElf.hpp"
 #include "util/StringUtil.hpp"
+
+#include "SymtabElf.hpp"
 
 #include "TypeDb.hpp"
 

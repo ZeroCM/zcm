@@ -23,5 +23,9 @@ PKGS+='cython '
 ## CxxTest
 PKGS+='cxxtest '
 
+## LibElf
+PKGS+='libelf-dev libelf1 '
+
 sudo apt-get update
 sudo apt-get install -yq $PKGS
+sudo updatedb
