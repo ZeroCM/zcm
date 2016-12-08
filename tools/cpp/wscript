@@ -2,14 +2,13 @@
 # encoding: utf-8
 
 def build(ctx):
-    if ctx.env.USING_ELF:
-        # RRR: Fine for now because we only have the typeDB in util, but it's a little awkward
-        #      "util" requires the USING_ELF. Maybe just do another switch within util?
-        ctx.recurse('util');
-        ctx.recurse('spy-lite');
-        ctx.recurse('indexer');
+    ctx.recurse('util');
     ctx.recurse('logger');
     ctx.recurse('logplayer');
     ctx.recurse('bridge');
     ctx.recurse('repeater');
     ctx.recurse('spy-peek');
+
+    if ctx.env.USING_ELF:
+        ctx.recurse('spy-lite');
+        ctx.recurse('indexer');
