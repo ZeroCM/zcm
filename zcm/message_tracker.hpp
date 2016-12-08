@@ -140,13 +140,12 @@ class Tracker
               hzFilter(Filter::convergenceTimeToNatFreq(freqEstConvergenceNumMsgs, 0.8), 0.8),
           jitterFilter(Filter::convergenceTimeToNatFreq(freqEstConvergenceNumMsgs, 1), 1)
     {
+        T tmp;
+        std::string name = demangle(getType(tmp));
+
         if (hasUtime<T>::present == true) {
-            T tmp;
-            std::string name = demangle(getType(tmp));
             ZCM_DEBUG("Message trackers using 'utime' field of zcmtype ", name);
         } else {
-            T tmp;
-            std::string name = demangle(getType(tmp));
             ZCM_DEBUG("Message trackers using local system receive utime for ",
                       "tracking zcmtype ", name);
         }
