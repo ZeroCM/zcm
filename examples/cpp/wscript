@@ -34,4 +34,8 @@ def build(ctx):
               use    = ['default', 'zcm', 'examplezcmtypes_cpp'],
               source = 'CustomIndexerPlugin.cpp')
 
+    ctx.shlib(target = 'example-transcoder-plugin',
+              use    = ['default', 'zcm', 'examplezcmtypes_cpp'],
+              source = 'CustomTranscoderPlugin.cpp')
+
     ctx.recurse('transport')

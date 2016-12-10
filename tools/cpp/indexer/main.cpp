@@ -99,10 +99,10 @@ struct Args
              << "  -o, --output=indexfile  Output index file to be used with log" << endl
              << "  -p, --plugin-path=path  Path to shared library containing indexer plugins" << endl
              << "                          Can also be specified via the environment variable" << endl
-             << "                          ZCM_LOG_INDEXER_ZCMTYPES_PATH" << endl
+             << "                          ZCM_LOG_INDEXER_PLUGINS_PATH" << endl
              << "  -t, --type-path=path    Path to shared library containing the zcmtypes" << endl
              << "                          Can also be specified via the environment variable" << endl
-             << "                          ZCM_LOG_INDEXER_PLUGINS_PATH" << endl
+             << "                          ZCM_LOG_INDEXER_ZCMTYPES_PATH" << endl
              << "  -r, --readable          Don't minify the output index file. " << endl
              << "                          Leave it human readable" << endl
              << "  -d, --debug             Run a dry run to ensure proper indexer setup" << endl

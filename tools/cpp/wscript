@@ -12,3 +12,4 @@ def build(ctx):
     if ctx.env.USING_ELF:
         ctx.recurse('spy-lite');
         ctx.recurse('indexer');
+        ctx.recurse('transcoder');
