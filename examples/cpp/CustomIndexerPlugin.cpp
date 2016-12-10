@@ -4,7 +4,7 @@
 #include <string>
 #include <algorithm>
 
-#include <zcm/IndexerPlugin.hpp>
+#include <zcm/tools/IndexerPlugin.hpp>
 
 #include "types/example_t.hpp"
 

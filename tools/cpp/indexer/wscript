@@ -4,5 +4,4 @@
 def build(ctx):
     ctx.program(target = 'zcm-log-indexer',
                 use    = ['default', 'zcm', 'zcm_tools_util', 'jsoncpp'],
-                lib    = 'dl',
                 source = ctx.path.ant_glob('*.cpp'))
