@@ -55,7 +55,7 @@ struct Args
         }
 
         if (outlog  == "") {
-            cerr << "Please specify index file output" << endl;
+            cerr << "Please specify log file output" << endl;
             return false;
         }
 
