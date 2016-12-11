@@ -201,12 +201,14 @@ def zcmgen(ctx, **kw):
     if not building:
         return
 
-    if 'c_stlib' in lang:
+    if 'c_stlib' in lang or 'c_shlib' in lang:
         csrc = []
         for src in tg.source:
             outfile = outFileName(ctx, src.abspath(), 'c')
             outnode = ctx.path.find_or_declare(outfile[1])
             csrc.append(outnode)
+
+    if 'c_stlib' in lang:
         cstlibtg = ctx.stlib(name            = uselib_name + '_c_stlib',
                              target          = uselib_name,
                              use             = ['default', 'zcm'],
