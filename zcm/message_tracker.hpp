@@ -153,6 +153,7 @@ class Tracker
         }
 
         bufMax = maxMsgs;
+        assert(maxMsgs > 0 && "Cannot allocate a tracker to track 0 messages");
 
         if (onMsg) thr = new std::thread(&Tracker<T>::callbackThreadFunc, this);
     }
@@ -312,7 +313,7 @@ class Tracker
             std::unique_lock<std::mutex> lk(bufLock);
 
             // Expire due to buffer being full
-            if (buf.size() == bufMax){
+            if (buf.size() == bufMax) {
                 MsgType* tmp = buf.front();
                 delete tmp;
                 buf.pop_front();
