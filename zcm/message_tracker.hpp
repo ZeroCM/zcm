@@ -13,6 +13,7 @@
 #include <cxxabi.h>
 #include <sys/time.h>
 #include <stdarg.h>
+#include <functional>
 
 #include <zcm/zcm-cpp.hpp>
 #include <zcm/util/Filter.hpp>
