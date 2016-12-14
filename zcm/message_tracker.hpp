@@ -66,13 +66,9 @@ class Tracker
 
         static constexpr bool present = sizeof(f<Derived>(0)) == 2;
     };
-    // *****************************************************************************
 
-    uint64_t maxTimeErr_us;
-
-    // This is only to be used for the callback thread func
-    bool done = false;
-
+    // Continuing the craziness. Template specialization allows for storing a
+    // host utime with a msg if there is no msg.utime field
     template<typename F, bool>
     struct MsgWithUtime;
 
@@ -99,6 +95,13 @@ class Tracker
         if (tmp != UINT64_MAX) return tmp;
         return msg->utime;
     }
+
+    // *****************************************************************************
+
+    uint64_t maxTimeErr_us;
+
+    // This is only to be used for the callback thread func
+    bool done = false;
 
 
     std::deque<MsgType*> buf;
@@ -189,14 +192,14 @@ class Tracker
     }
 
     // This may return nullptr even in the blocking case
-    // TODO: Should consider how to allow the user to ask for an extrapolated
-    //       message if bracketted messages arent available
     T* get(uint64_t utime)
     {
         std::unique_lock<std::mutex> lk(bufLock);
         return get(utime, buf.begin(), buf.end(), &lk);
     }
 
+    // TODO: Should consider how to allow the user to ask for an extrapolated
+    //       message if bracketted messages arent available
     // If you need to have a lock while working with the iterators, pass it in
     // here to have it unlocked once this function is done working with the iterators
     template <class InputIter>
@@ -206,6 +209,7 @@ class Tracker
         static_assert(hasUtime<typename std::remove_pointer<typename
                       std::iterator_traits<InputIter>::value_type>::type>::present,
                       "Cannot call get with iterators that contain types without a utime field");
+
         MsgType *m0 = nullptr, *m1 = nullptr; // two poses bracketing the desired utime
         uint64_t m0Utime = 0, m1Utime = UINT64_MAX;
 
@@ -398,7 +402,7 @@ class Tracker
 };
 
 template <typename T>
-class MessageTracker : public Tracker<T>
+class MessageTracker : public virtual Tracker<T>
 {
   private:
     zcm::ZCM* zcmLocal = nullptr;
