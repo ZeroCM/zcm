@@ -3,6 +3,7 @@ sudo: required
 install: ./scripts/install-deps.sh
 before_script: mkdir ../tmp
 script:
+    ./waf distclean configure build &&
     ./waf distclean configure --use-all --use-third-party build install --prefix=../tmp/ &&
     cd examples &&
     source ./env /home/travis/build/ZeroCM/tmp &&
