@@ -96,7 +96,6 @@ def configure(ctx):
 
 def outFileName(ctx, inp, lang, absPath=False):
     fileparts = getFileParts(ctx, inp)
-    print fileparts
 
     def defaultOutFileName(fileparts, absPath):
         ret = ""
