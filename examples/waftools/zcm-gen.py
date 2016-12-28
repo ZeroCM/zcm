@@ -134,8 +134,8 @@ def outFileName(ctx, inp, lang, absPath=False):
 
 def getFileParts(ctx, path):
     package = ctx.cmd_and_log('zcm-gen --package %s' % (path),
-                                  output=waflib.Context.STDOUT,
-                                  quiet=waflib.Context.BOTH).strip()
+                              output=waflib.Context.STDOUT,
+                              quiet=waflib.Context.BOTH).strip()
     pathparts = path.split('/')
     absdirparts = '/'.join(pathparts[:-1])
     nameparts = '/'.join(pathparts[-1:])
@@ -280,6 +280,12 @@ class zcmgen(Task.Task):
                                    'the type or with the "javapkg" build keyword')
                 else:
                     fileparts[1] = gen.javapkg.replace('.', '/')
+            else:
+                if getattr(gen, 'javapkg', None):
+                    fileparts[1] = (gen.javapkg + "/" + fileparts[1]).replace('.', '/')
+                else:
+                    fileparts[1] = fileparts[1].replace('.', '/')
+
             outp = '/'.join(['java', fileparts[1], fileparts[2]])
             outp_node = gen.path.get_bld().make_node(outp)
             self.outputs.append(outp_node)
