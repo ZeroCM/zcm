@@ -96,6 +96,7 @@ def configure(ctx):
 
 def outFileName(ctx, inp, lang, absPath=False):
     fileparts = getFileParts(ctx, inp)
+    print fileparts
 
     def defaultOutFileName(fileparts, absPath):
         ret = ""
@@ -105,7 +106,7 @@ def outFileName(ctx, inp, lang, absPath=False):
         if fileparts[1] != "":
             if ret != "":
                 ret = ret + "/"
-            ret = ret + fileparts[1]
+            ret = ret + '/'.join(fileparts[1].split('.'))
         if fileparts[2] != "":
             if ret != "":
                 ret = ret + "/"
@@ -120,8 +121,8 @@ def outFileName(ctx, inp, lang, absPath=False):
         hfileparts[2] = fileparts[2].replace('.zcm', '.h')
         cfileparts[2] = fileparts[2].replace('.zcm', '.c')
         if fileparts[1] != "":
-            hfileparts[2] = fileparts[1] + "_" + hfileparts[2]
-            cfileparts[2] = fileparts[1] + "_" + cfileparts[2]
+            hfileparts[2] = '_'.join(fileparts[1].split('.')) + "_" + hfileparts[2]
+            cfileparts[2] = '_'.join(fileparts[1].split('.')) + "_" + cfileparts[2]
         return [defaultOutFileName(hfileparts, absPath).replace('.zcm', '.h'),
                 defaultOutFileName(cfileparts, absPath).replace('.zcm', '.c')]
     if lang == 'cpp':
