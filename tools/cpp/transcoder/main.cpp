@@ -9,7 +9,7 @@
 
 #include "zcm/json/json.h"
 
-#include "TranscoderPluginDb.hpp"
+#include "util/TranscoderPluginDb.hpp"
 
 using namespace std;
 
@@ -110,19 +110,15 @@ int main(int argc, char* argv[])
     }
 
 
-    vector<zcm::TranscoderPlugin*> plugins;
-
+    vector<const zcm::TranscoderPlugin*> plugins;
     TranscoderPluginDb pluginDb(args.plugin_path, args.debug);
     // Load plugins from path if specified
     if (args.plugin_path != "") {
-        vector<const zcm::TranscoderPlugin*> dbPlugins = pluginDb.getPlugins();
-        if (dbPlugins.empty()) {
+        plugins = pluginDb.getPlugins();
+        if (plugins.empty()) {
             cerr << "Couldn't find any plugins. Aborting." << endl;
             return 1;
         }
-
-        // casting away constness. Don't mess up.
-        for (auto dbp : dbPlugins) plugins.push_back((zcm::TranscoderPlugin*) dbp);
     }
 
     if (args.debug) return 0;

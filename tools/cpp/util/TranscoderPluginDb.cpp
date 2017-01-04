@@ -8,7 +8,7 @@
 #include "zcm/util/Common.hpp"
 #include "util/StringUtil.hpp"
 
-#include "util/SymtabElf.hpp"
+#include "SymtabElf.hpp"
 
 #include "TranscoderPluginDb.hpp"
 

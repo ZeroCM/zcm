@@ -11,6 +11,7 @@
 #include <condition_variable>
 #include <thread>
 #include <queue>
+#include <vector>
 #include <signal.h>
 
 #include <errno.h>
@@ -20,6 +21,9 @@
 #include "zcm/zcm.h"
 #include "zcm/eventlog.h"
 #include "zcm/util/debug.h"
+#include "zcm/zcm_coretypes.h"
+
+#include "util/TranscoderPluginDb.hpp"
 
 #include <string>
 #include "util/FileUtil.hpp"
@@ -45,26 +49,31 @@ struct Args
     int    rotate             = -1;
     int    fflush_interval_ms = 100;
     i64    max_target_memory  = 0;
+    string plugin_path        = "";
+    bool   debug              = false;
 
     string input_fname;
 
     bool parse(int argc, char *argv[])
     {
         // set some defaults
-        const char *optstring = "hb:c:fi:u:r:s:qvl:m:";
+        const char *optstring = "hb:c:fi:u:r:s:qvl:m:p:d";
         struct option long_opts[] = {
-            { "help", no_argument, 0, 'h' },
-            { "split-mb", required_argument, 0, 'b' },
-            { "channel", required_argument, 0, 'c' },
-            { "force", no_argument, 0, 'f' },
-            { "increment", required_argument, 0, 'i' },
-            { "zcm-url", required_argument, 0, 'u' },
-            { "rotate", required_argument, 0, 'r' },
-            { "strftime", required_argument, 0, 's' },
-            { "quiet", no_argument, 0, 'q' },
-            { "invert-channels", no_argument, 0, 'v' },
-            { "flush-interval", required_argument, 0, 'l'},
-            { "max-target-memory", required_argument, 0, 'm'},
+            { "help",              no_argument,       0, 'h' },
+            { "split-mb",          required_argument, 0, 'b' },
+            { "channel",           required_argument, 0, 'c' },
+            { "force",             no_argument,       0, 'f' },
+            { "increment",         required_argument, 0, 'i' },
+            { "zcm-url",           required_argument, 0, 'u' },
+            { "rotate",            required_argument, 0, 'r' },
+            { "strftime",          required_argument, 0, 's' },
+            { "quiet",             no_argument,       0, 'q' },
+            { "invert-channels",   no_argument,       0, 'v' },
+            { "flush-interval",    required_argument, 0, 'l' },
+            { "max-target-memory", required_argument, 0, 'm' },
+            { "plugin-path",       required_argument, 0, 'p' },
+            { "debug",             no_argument,       0, 'd' },
+
             { 0, 0, 0, 0 }
         };
 
@@ -110,6 +119,12 @@ struct Args
                     break;
                 case 'm':
                     max_target_memory = atoll(optarg);
+                    break;
+                case 'p':
+                    plugin_path = string(optarg);
+                    break;
+                case 'd':
+                    debug = true;
                     break;
                 case 'h':
                 default:
@@ -177,6 +192,8 @@ struct Logger
 
     queue<zcm_eventlog_event_t*> q;
 
+    vector<const zcm::TranscoderPlugin*> plugins;
+
     Logger() {}
 
     ~Logger()
@@ -197,6 +214,17 @@ struct Logger
 
         if (!openLogfile())
             return false;
+
+        TranscoderPluginDb pluginDb(args.plugin_path, args.debug);
+        if (args.plugin_path != "") {
+            plugins = pluginDb.getPlugins();
+            if (plugins.empty()) {
+                fprintf(stderr, "Couldn't find any plugins. Aborting.\n");
+                return false;
+            }
+        }
+
+        if (args.debug) return 0;
 
         // Compile the regex if we are in invert mode
         if (args.invert_channels) {
@@ -301,6 +329,22 @@ struct Logger
     static void handler(const zcm_recv_buf_t *rbuf, const char *channel, void *usr)
     { ((Logger*)usr)->handler_(rbuf, channel); }
 
+    zcm_eventlog_event_t* cIfyEvent(zcm::EventLog::Event)
+    {
+        zcm_eventlog_event_t* pe = new zcm_eventlog_event_t();
+        pe->timestamp  = evt->timestamp;
+
+        const char* chan = evt->channel.c_str();
+        pe->channellen = strlen(chan);
+        pe->channel    = new char[pe->channellen + 1];
+        memcpy(pe->channel, chan, sizeof(char) * pe->channellen);
+        pe->channel[pe->channellen] = '\0';
+
+        pe->datalen    = evt->datalen;
+        pe->data       = new char[evt->datalen];
+        memcpy(pe->data, evt->data, sizeof(char) * evt->datalen);
+        return pe;
+    }
     void handler_(const zcm_recv_buf_t *rbuf, const char *channel)
     {
         if (args.invert_channels) {
@@ -328,17 +372,49 @@ struct Logger
             memcpy(le->channel, channel, sizeof(char) * le->channellen);
             le->data = new char[rbuf->data_size];
             memcpy(le->data, rbuf->data, sizeof(char) * rbuf->data_size);
+
+            vector<zcm_eventlog_event_t*> evts;
+
+            if (!plugins.empty()) {
+                int64_t msg_hash;
+                __int64_t_decode_array(le->data, 0, 8, &msg_hash, 1);
+
+                for (auto& p : plugins) {
+                    vector<const zcm::LogEvent*> pevts =
+                        p->transcodeEvent((uint64_t) msg_hash, le);
+                    for (auto& evt : pevts) {
+                        evts.push_back(pe);
+                    }
+                }
+
+                delete le;
+            } else {
+                evts.push_back(le);
+            }
         }
 
         {
             unique_lock<mutex> lock{lk};
-            if (stillRoom) {
-                q.push(le);
-                totalMemoryUsage += le->datalen + le->channellen + sizeof(zcm_eventlog_event_t);
-            } else {
-                ZCM_DEBUG("Dropping message due to enforced memory constraints");
-                ZCM_DEBUG("Current memory estimations are at %" PRId64 " bytes", totalMemoryUsage);
-            }
+            do {
+                if (stillRoom) {
+                    q.push(evts.back());
+                    evts.pop_back();
+                    totalMemoryUsage += le->datalen + le->channellen +
+                                        sizeof(zcm_eventlog_event_t);
+                } else {
+                    ZCM_DEBUG("Dropping message due to enforced memory constraints");
+                    ZCM_DEBUG("Current memory estimations are at %" PRId64 " bytes",
+                              totalMemoryUsage);
+                    while (!evts.empty()) {
+                        zcm_eventlog_event_t* le;
+                        delete[] le->channel;
+                        delete[] (char*)le->data;
+                        delete le;
+                        evts.pop_back();
+                    }
+                    break;
+                }
+            } while (!evts.empty());
         }
         newEventCond.notify_all();
     }
@@ -491,6 +567,7 @@ static void usage()
             "                             number is at least as large as the maximum message\n"
             "                             size you expect to receive. This argument is\n"
             "                             specified in bytes. Suffixes are not yet supported.\n"
+            "  -p, --plugin-path=path     Path to shared library containing transcoder plugins\n"
             "\n"
             "Rotating / splitting log files\n"
             "==============================\n"
