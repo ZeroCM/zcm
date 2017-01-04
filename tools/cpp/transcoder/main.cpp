@@ -5,10 +5,9 @@
 #include <memory>
 
 #include <zcm/zcm-cpp.hpp>
+#include <zcm/zcm_coretypes.h>
 
 #include "zcm/json/json.h"
-
-#include "util/TypeDb.hpp"
 
 #include "TranscoderPluginDb.hpp"
 
@@ -19,18 +18,16 @@ struct Args
     string inlog       = "";
     string outlog      = "";
     string plugin_path = "";
-    string type_path   = "";
     bool debug         = false;
 
     bool parse(int argc, char *argv[])
     {
         // set some defaults
-        const char *optstring = "l:o:p:t:dh";
+        const char *optstring = "l:o:p:dh";
         struct option long_opts[] = {
             { "log",         required_argument, 0, 'l' },
             { "output",      required_argument, 0, 'o' },
             { "plugin-path", required_argument, 0, 'p' },
-            { "type-path",   required_argument, 0, 't' },
             { "debug",       no_argument,       0, 'd' },
             { "help",        no_argument,       0, 'h' },
             { 0, 0, 0, 0 }
@@ -42,7 +39,6 @@ struct Args
                 case 'l': inlog       = string(optarg); break;
                 case 'o': outlog      = string(optarg); break;
                 case 'p': plugin_path = string(optarg); break;
-                case 't': type_path   = string(optarg); break;
                 case 'd': debug       = true;           break;
                 case 'h': usage();                      return true;
                 default:                                return false;
@@ -56,14 +52,6 @@ struct Args
 
         if (outlog  == "") {
             cerr << "Please specify log file output" << endl;
-            return false;
-        }
-
-        const char* type_path_env = getenv("ZCM_LOG_TRANSCODER_ZCMTYPES_PATH");
-        if (type_path == "" && type_path_env) type_path = type_path_env;
-        if (type_path == "") {
-            cerr << "Please specify a zcmtypes.so path either through -t TYPE_PATH "
-                    "or through the env var ZCM_LOG_INDEXER_ZCMTYPES_PATH" << endl;
             return false;
         }
 
@@ -94,9 +82,6 @@ struct Args
              << "  -p, --plugin-path=path  Path to shared library containing transcoder plugins" << endl
              << "                          Can also be specified via the environment variable" << endl
              << "                          ZCM_LOG_TRANSCODER_PLUGINS_PATH" << endl
-             << "  -t, --type-path=path    Path to shared library containing the zcmtypes" << endl
-             << "                          Can also be specified via the environment variable" << endl
-             << "                          ZCM_LOG_TRANSCODER_ZCMTYPES_PATH" << endl
              << "  -d, --debug             Run a dry run to ensure proper transcoder setup" << endl
              << endl << endl;
     }
@@ -140,8 +125,6 @@ int main(int argc, char* argv[])
         for (auto dbp : dbPlugins) plugins.push_back((zcm::TranscoderPlugin*) dbp);
     }
 
-    TypeDb types(args.type_path, args.debug);
-
     if (args.debug) return 0;
 
     size_t numInEvents = 0, numOutEvents = 0;
@@ -164,8 +147,6 @@ int main(int argc, char* argv[])
 
         int64_t msg_hash;
         __int64_t_decode_array(evt->data, 0, 8, &msg_hash, 1);
-        const TypeMetadata* md = types.getByHash(msg_hash);
-        if (!md) continue;
 
         for (auto& p : plugins) {
             vector<const zcm::LogEvent*> evts = p->transcodeEvent((uint64_t) msg_hash, evt);
