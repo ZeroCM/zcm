@@ -13,7 +13,6 @@
 
 #if __cplusplus > 199711L
 #include <functional>
-#include <utility>
 #endif
 
 namespace zcm {
@@ -127,20 +126,10 @@ struct LogEvent
     int64_t     timestamp;
     std::string channel;
     int32_t     datalen;
-    char*       data = nullptr;
+    char*       data;
 
     LogEvent() {}
-    ~LogEvent() { delete data; }
-
-    /// Swap
-    inline void swap(LogEvent& o)
-    {
-        std::swap(eventnum, o.eventnum);
-        std::swap(timestamp, o.timestamp);
-        std::swap(channel, o.channel);
-        std::swap(datalen, o.datalen);
-        std::swap(data, o.data);
-    }
+    ~LogEvent() {}
 
     /// Copy Ctor
     LogEvent(const LogEvent& o) :
@@ -152,14 +141,6 @@ struct LogEvent
     {
         memcpy(data, o.data, o.datalen * sizeof(char));
     }
-
-    #if __cplusplus > 199711L
-    /// Move Ctor
-    LogEvent(LogEvent&& o) { swap(o); }
-    #endif
-
-    /// Unifying Assignment
-    LogEvent& operator=(LogEvent o) { swap(o); return *this; }
 };
 
 struct LogFile

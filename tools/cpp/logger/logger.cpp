@@ -190,16 +190,18 @@ struct Logger
 
     queue<zcm::LogEvent*> q;
 
+    TranscoderPluginDb* pluginDb = nullptr;
     vector<zcm::TranscoderPlugin*> plugins;
 
     Logger() {}
 
     ~Logger()
     {
-        if (log) log->close();
-        delete log;
+        if (pluginDb) { delete pluginDb; pluginDb = nullptr; }
+        if (log)      { log->close(); delete log; }
 
         while (!q.empty()) {
+            delete[] q.front()->data;
             delete q.front();
             q.pop();
         }
@@ -213,18 +215,22 @@ struct Logger
         if (!openLogfile())
             return false;
 
-        TranscoderPluginDb pluginDb(args.plugin_path, args.debug);
+        pluginDb = new TranscoderPluginDb(args.plugin_path, args.debug);
         // Load plugins from path if specified
         if (args.plugin_path != "") {
-            vector<const zcm::TranscoderPlugin*> dbPlugins = pluginDb.getPlugins();
-            if (plugins.empty()) {
+            vector<const zcm::TranscoderPlugin*> dbPlugins = pluginDb->getPlugins();
+            if (dbPlugins.empty()) {
                 cerr << "Couldn't find any plugins. Aborting." << endl;
-                return 1;
+                return false;
             }
-            for (auto& p : dbPlugins) plugins.push_back((zcm::TranscoderPlugin*) p);
+            vector<string> dbPluginNames = pluginDb->getPluginNames();
+            for (size_t i = 0; i < dbPlugins.size(); ++i) {
+                plugins.push_back((zcm::TranscoderPlugin*) dbPlugins[i]);
+                cout << "Loaded plugin: " << dbPluginNames[i] << endl;
+            }
         }
 
-        if (args.debug) return 0;
+        if (args.debug) return true;
 
         // Compile the regex if we are in invert mode
         if (args.invert_channels) invert_regex = regex{args.chan};
@@ -355,6 +361,7 @@ struct Logger
                         evts.emplace_back(new zcm::LogEvent(*evt));
                 }
 
+                delete[] le->data;
                 delete le;
             } else {
                 evts.push_back(le);
@@ -374,6 +381,7 @@ struct Logger
                     ZCM_DEBUG("Current memory estimations are at %" PRId64 " bytes",
                               totalMemoryUsage);
                     while (!evts.empty()) {
+                        delete[] evts.back()->data;
                         delete evts.back();
                         evts.pop_back();
                     }
@@ -432,6 +440,7 @@ struct Logger
             if (errno == ENOSPC)
                 exit(1);
 
+            delete[] le->data;
             delete le;
             return;
         }
@@ -464,6 +473,7 @@ struct Logger
             last_report_logsize = logsize;
         }
 
+        delete[] le->data;
         delete le;
     }
 

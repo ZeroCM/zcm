@@ -76,7 +76,9 @@ bool TranscoderPluginDb::findPlugins(const string& libname)
         if (!StringUtil::endswith(demangled, method)) continue;
 
         TranscoderPluginMetadata md;
-        md.className = demangled;
+        size_t methodPos = demangled.find(method);
+        assert(methodPos != string::npos && "Shouldn't be able to get here");
+        md.className = demangled.substr(0, methodPos);
         md.makeTranscoderPlugin = nullptr;
 
         if (std::find(pluginMeta.begin(), pluginMeta.end(), md) != pluginMeta.end()) continue;
@@ -97,6 +99,7 @@ bool TranscoderPluginDb::findPlugins(const string& libname)
         DEBUG("Added new plugin with address %p\n", p);
         plugins.push_back(p);
         constPlugins.push_back(plugins.back());
+        names.push_back(meta.className);
     }
 
     DEBUG("Loaded %d plugins from %s\n", (int)plugins.size(), libname.c_str());
@@ -104,8 +107,11 @@ bool TranscoderPluginDb::findPlugins(const string& libname)
     return true;
 }
 
-std::vector<const zcm::TranscoderPlugin*> TranscoderPluginDb::getPlugins()
+std::vector<const zcm::TranscoderPlugin*> TranscoderPluginDb::getPlugins() const
 { return constPlugins; }
+
+std::vector<string> TranscoderPluginDb::getPluginNames() const
+{ return names; }
 
 TranscoderPluginDb::TranscoderPluginDb(const string& paths, bool debug) : debug(debug)
 {
