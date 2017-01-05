@@ -73,6 +73,7 @@ To learn how you can contribute to this project, check out [Contributing](docs/c
   - Java
   - MATLAB (using Java)
   - NodeJS and Client-side Javascript
+  - Python
 
 ## Roadmap
  - Platform Support
@@ -80,7 +81,6 @@ To learn how you can contribute to this project, check out [Contributing](docs/c
    - OS X
    - Any POSIX-1.2001 system (e.g., Cygwin, Solaris, BSD, etc.)
  - Consider porting the rest of the LCM languages
-   - Python
    - C#
    - Lua
  - Explore alternative messaging paradigms using ZCM Types (e.g. those found in ZeroMQ)
