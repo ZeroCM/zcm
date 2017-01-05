@@ -67,8 +67,7 @@ struct Args
 
     void usage()
     {
-        // RRR (Tom) do you want cout or cerr?
-        cerr << "usage: zcm-log-transcoder [options]" << endl
+        cout << "usage: zcm-log-transcoder [options]" << endl
              << "" << endl
              << "    Convert messages in one log file from one zcm type to another" << endl
              << "" << endl
@@ -103,6 +102,7 @@ int main(int argc, char* argv[])
     }
     fseeko(inlog.getFilePtr(), 0, SEEK_END);
     off64_t logSize = ftello(inlog.getFilePtr());
+    fseeko(inlog.getFilePtr(), 0, SEEK_SET);
 
     zcm::LogFile outlog(args.outlog, "w");
     if (!outlog.good()) {
@@ -114,10 +114,12 @@ int main(int argc, char* argv[])
     vector<zcm::TranscoderPlugin*> plugins;
     TranscoderPluginDb pluginDb(args.plugin_path, args.debug);
     // Load plugins from path if specified
-    // RRR (Tom) the comment above is a bit misleading. THe plugins are already loaded
+    // RRR (Tom) the comment above is a bit misleading. The plugins are already loaded
     // from the pluginDb constructor. Here you're just checking that there are
     // indeed plugins available. Either way, I don't think you need to check that
     // plugin_path isn't == "".  You can just move right into the plugins.empty() check.
+    // RRR (Bendes) You need this check. You don't want to return 1 if a path
+    //              wasn't specified. The plugins are optional not required
     if (args.plugin_path != "") {
         vector<const zcm::TranscoderPlugin*> dbPlugins = pluginDb.getPlugins();
         if (plugins.empty()) {
@@ -133,7 +135,6 @@ int main(int argc, char* argv[])
     const zcm::LogEvent* evt;
     off64_t offset;
     // RRR (Tom) i'd suggest just doing this as soon as you get logSize
-    fseeko(inlog.getFilePtr(), 0, SEEK_SET);
 
     while (1) {
         offset = ftello(inlog.getFilePtr());

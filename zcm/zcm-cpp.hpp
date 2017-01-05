@@ -127,21 +127,6 @@ struct LogEvent
     std::string channel;
     int32_t     datalen;
     char*       data;
-
-    LogEvent() {}
-    ~LogEvent() {}
-
-    /// Copy Ctor
-    // RRR (Tom) this seems weird. Don't like the dynamic memory
-    LogEvent(const LogEvent& o) :
-        eventnum(o.eventnum),
-        timestamp(o.timestamp),
-        channel(o.channel),
-        datalen(o.datalen),
-        data(new char[o.datalen])
-    {
-        memcpy(data, o.data, o.datalen * sizeof(char));
-    }
 };
 
 struct LogFile

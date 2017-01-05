@@ -84,8 +84,7 @@ struct Args
 
     void usage()
     {
-        // RRR (Tom) do you want cout or cerr?
-        cerr << "usage: zcm-log-indexer [options]" << endl
+        cout << "usage: zcm-log-indexer [options]" << endl
              << "" << endl
              << "    Load in a log file and write an index json file that" << endl
              << "    allows for faster log indexing." << endl

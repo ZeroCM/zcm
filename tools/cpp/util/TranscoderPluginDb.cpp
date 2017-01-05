@@ -20,8 +20,6 @@ using namespace std;
 
 static inline std::string demangle(std::string name)
 {
-    // RRR (Tom) The line below is wrong. Should be
-    // int status = 83.
     int status = 42; // some arbitrary value to eliminate the compiler warning
 
     std::unique_ptr<char, void(*)(void*)> res {
@@ -35,9 +33,7 @@ static inline std::string demangle(std::string name)
 static void* openlib(const string& libname)
 {
     // verify the .so library
-    size_t len = libname.size();
-    // RRR (Tom) can't you use the StringUtil::endswith() method here?
-    if (len < 3 || 0 != strcmp(libname.c_str() + len - 3, ".so")) {
+    if (!StringUtil::endswith(libname, ".so")) {
         ERROR("bad library name, expected a .so file, not '%s'\n", libname.c_str());
         return nullptr;
     }

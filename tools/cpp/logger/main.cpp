@@ -1,5 +1,3 @@
-// RRR (Tom) For consistency, I'd amend the name of this file to be main.cpp
-// or change transcoder and indexer.
 #include <iostream>
 #include <cstdlib>
 #include <cstring>
@@ -127,7 +125,11 @@ struct Args
                     debug = true;
                     break;
                 case 'h':
+                    usage();
+                    return true;
                 default:
+                    cerr << "Unrecognized option: " << optarg << endl;
+                    usage();
                     return false;
             };
         }
@@ -153,6 +155,66 @@ struct Args
         }
 
         return true;
+    }
+
+    void usage()
+    {
+        cout << "usage: zcm-logger [options] [FILE]" << endl
+             << endl
+             << "    ZCM message logging utility.  Subscribes to all channels on an ZCM" << endl
+             << "    network, and records all messages received on that network to" << endl
+             << "    FILE.  If FILE is not specified, then a filename is automatically" << endl
+             << "    chosen." << endl
+             << endl
+             << "Options:" << endl
+             << endl
+             << "  -c, --channel=CHAN         Channel string to pass to zcm_subscribe." << endl
+             << "                             (default: \".*\")" << endl
+             << "  -l, --flush-interval=MS    Flush the log file to disk every MS milliseconds." << endl
+             << "                             (default: 100)" << endl
+             << "  -f, --force                Overwrite existing files" << endl
+             << "  -h, --help                 Shows this help text and exits" << endl
+             << "  -i, --increment            Automatically append a suffix to FILE" << endl
+             << "                             such that the resulting filename does not" << endl
+             << "                             already exist.  This option precludes -f and" << endl
+             << "                             --rotate" << endl
+             << "  -u, --zcm-url=URL          Log messages on the specified ZCM URL" << endl
+             << "  -m, --max-unwritten-mb=SZ  Maximum size of received but unwritten" << endl
+             << "                             messages to store in memory before dropping" << endl
+             << "                             messages.  (default: 100 MB)" << endl
+             << "  -r, --rotate=NUM           When creating a new log file, rename existing files" << endl
+             << "                             out of the way and always write to FILE.0.  If" << endl
+             << "                             FILE.0 already exists, it is renamed to FILE.1.  If" << endl
+             << "                             FILE.1 exists, it is renamed to FILE.2, etc.  If" << endl
+             << "                             FILE.NUM exists, then it is deleted.  This option" << endl
+             << "                             precludes -i." << endl
+             << "  -b, --split-mb=N           Automatically start writing to a new log" << endl
+             << "                             file once the log file exceeds N MB in size" << endl
+             << "                             (can be fractional).  This option requires -i" << endl
+             << "                             or --rotate." << endl
+             << "  -q, --quiet                Suppress normal output and only report errors." << endl
+             << "  -s, --strftime             Format FILE with strftime." << endl
+             << "  -v, --invert-channels      Invert channels.  Log everything that CHAN" << endl
+             << "                             does not match." << endl
+             << "  -m, --max-target-memory    Attempt to limit the total buffer usage to this" << endl
+             << "                             amount of memory. If specified, ensure that this" << endl
+             << "                             number is at least as large as the maximum message" << endl
+             << "                             size you expect to receive. This argument is" << endl
+             << "                             specified in bytes. Suffixes are not yet supported." << endl
+             << "  -p, --plugin-path=path     Path to shared library containing transcoder plugins" << endl
+             << endl
+             << "Rotating / splitting log files" << endl
+             << "==============================" << endl
+             << "    For long-term logging, zcm-logger can rotate through a fixed number of" << endl
+             << "    log files, moving to a new log file as existing files reach a maximum size." << endl
+             << "    To do this, use --rotate and --split-mb.  For example:" << endl
+             << endl
+             << "        # Rotate through logfile.0, logfile.1, ... logfile.4" << endl
+             << "        zcm-logger --rotate=5 --split-mb=2 logfile" << endl
+             << endl
+             << "    Moving to a new file happens either when the current log file size exceeds" << endl
+             << "    the limit specified by --split-mb, or when zcm-logger receives a SIGHUP." << endl
+             << endl << endl;
     }
 };
 
@@ -242,8 +304,7 @@ struct Logger
 
     const string& getSubChannel()
     {
-        // RRR (Tom) should this be ".*" ?
-        static string all = ".";
+        static string all = ".*";
         // if inverting the channels, subscribe to everything and invert on the callback
         return (!args.invert_channels) ? args.chan : all;
     }
@@ -322,6 +383,8 @@ struct Logger
         log = new zcm::LogFile(filename, (args.rotate > 0) ? "a" : "w");
         if (!log->good()) {
             // RRR (Tom) use cerr like you do elsewhere
+            // RRR (Bendes) this isn't a cerr. It prints a message along with
+            //              the error in ERRNO
             perror("Error: fopen failed");
             delete log;
             return false;
@@ -379,6 +442,7 @@ struct Logger
                     zcm::LogEvent* le = evts.back();
                     // RRR (Tom) I think you've cleaned everything up ok, but
                     // just pointing out you now have two copies of le->data.
+                    // RRR (Bendes) Where?
                     q.push(le);
                     totalMemoryUsage += le->datalen + le->channel.size() + sizeof(*le);
                     evts.pop_back();
@@ -498,76 +562,12 @@ void sighandler(int signal)
     logger.wakeup();
     if (done == 3) exit(1);
 }
-// RRR (Tom) other files have this usage printout in the Args struct.
-static void usage()
-{
-    // RRR (Tom) do you want "cout" or "cerr"?
-    cerr << "usage: zcm-logger [options] [FILE]" << endl
-         << endl
-         << "    ZCM message logging utility.  Subscribes to all channels on an ZCM" << endl
-         << "    network, and records all messages received on that network to" << endl
-         << "    FILE.  If FILE is not specified, then a filename is automatically" << endl
-         << "    chosen." << endl
-         << endl
-         << "Options:" << endl
-         << endl
-         << "  -c, --channel=CHAN         Channel string to pass to zcm_subscribe." << endl
-         << "                             (default: \".*\")" << endl
-         << "  -l, --flush-interval=MS    Flush the log file to disk every MS milliseconds." << endl
-         << "                             (default: 100)" << endl
-         << "  -f, --force                Overwrite existing files" << endl
-         << "  -h, --help                 Shows this help text and exits" << endl
-         << "  -i, --increment            Automatically append a suffix to FILE" << endl
-         << "                             such that the resulting filename does not" << endl
-         << "                             already exist.  This option precludes -f and" << endl
-         << "                             --rotate" << endl
-         << "  -u, --zcm-url=URL          Log messages on the specified ZCM URL" << endl
-         << "  -m, --max-unwritten-mb=SZ  Maximum size of received but unwritten" << endl
-         << "                             messages to store in memory before dropping" << endl
-         << "                             messages.  (default: 100 MB)" << endl
-         << "  -r, --rotate=NUM           When creating a new log file, rename existing files" << endl
-         << "                             out of the way and always write to FILE.0.  If" << endl
-         << "                             FILE.0 already exists, it is renamed to FILE.1.  If" << endl
-         << "                             FILE.1 exists, it is renamed to FILE.2, etc.  If" << endl
-         << "                             FILE.NUM exists, then it is deleted.  This option" << endl
-         << "                             precludes -i." << endl
-         << "  -b, --split-mb=N           Automatically start writing to a new log" << endl
-         << "                             file once the log file exceeds N MB in size" << endl
-         << "                             (can be fractional).  This option requires -i" << endl
-         << "                             or --rotate." << endl
-         << "  -q, --quiet                Suppress normal output and only report errors." << endl
-         << "  -s, --strftime             Format FILE with strftime." << endl
-         << "  -v, --invert-channels      Invert channels.  Log everything that CHAN" << endl
-         << "                             does not match." << endl
-         << "  -m, --max-target-memory    Attempt to limit the total buffer usage to this" << endl
-         << "                             amount of memory. If specified, ensure that this" << endl
-         << "                             number is at least as large as the maximum message" << endl
-         << "                             size you expect to receive. This argument is" << endl
-         << "                             specified in bytes. Suffixes are not yet supported." << endl
-         << "  -p, --plugin-path=path     Path to shared library containing transcoder plugins" << endl
-         << endl
-         << "Rotating / splitting log files" << endl
-         << "==============================" << endl
-         << "    For long-term logging, zcm-logger can rotate through a fixed number of" << endl
-         << "    log files, moving to a new log file as existing files reach a maximum size." << endl
-         << "    To do this, use --rotate and --split-mb.  For example:" << endl
-         << endl
-         << "        # Rotate through logfile.0, logfile.1, ... logfile.4" << endl
-         << "        zcm-logger --rotate=5 --split-mb=2 logfile" << endl
-         << endl
-         << "    Moving to a new file happens either when the current log file size exceeds" << endl
-         << "    the limit specified by --split-mb, or when zcm-logger receives a SIGHUP." << endl
-         << endl << endl;
-}
 
 int main(int argc, char *argv[])
 {
     Platform::setstreambuf();
 
-    if (!logger.init(argc, argv)) {
-        usage();
-        return 1;
-    }
+    if (!logger.init(argc, argv)) return 1;
 
     // begin logging
     zcm::ZCM zcmLocal(logger.args.zcmurl);
