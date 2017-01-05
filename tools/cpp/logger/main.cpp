@@ -382,9 +382,6 @@ struct Logger
         // mode if not.
         log = new zcm::LogFile(filename, (args.rotate > 0) ? "a" : "w");
         if (!log->good()) {
-            // RRR (Tom) use cerr like you do elsewhere
-            // RRR (Bendes) this isn't a cerr. It prints a message along with
-            //              the error in ERRNO
             perror("Error: fopen failed");
             delete log;
             return false;
@@ -440,9 +437,6 @@ struct Logger
             while (!evts.empty()) {
                 if (stillRoom) {
                     zcm::LogEvent* le = evts.back();
-                    // RRR (Tom) I think you've cleaned everything up ok, but
-                    // just pointing out you now have two copies of le->data.
-                    // RRR (Bendes) Where?
                     q.push(le);
                     totalMemoryUsage += le->datalen + le->channel.size() + sizeof(*le);
                     evts.pop_back();

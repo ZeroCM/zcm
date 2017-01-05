@@ -63,11 +63,6 @@ class TranscoderPlugin
     //  newData = new uint8_t[size];
     //  size = newMsg.encode(newData, 0, size);
     //
-    //  RRR (Tom) I think returning new memory for a LogEvent, which would then
-    //  be cleaned up by the transcoder main would be more natural, but I could
-    //  be convinced otherwise.
-    //  RRR (Bendes) Then you can't `return {evt};` you'd have to copy it
-    //
     //  // newEvt would be a class variable
     //  newEvt.timestamp = evt->timestamp;
     //  newEvt.channel = evt->channel;
