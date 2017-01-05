@@ -2,7 +2,6 @@
 
 #include <stdint.h>
 #include <string>
-#include <cstring>
 #include <vector>
 
 #include "zcm/zcm.h"

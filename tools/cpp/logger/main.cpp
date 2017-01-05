@@ -218,6 +218,18 @@ struct Args
     }
 };
 
+static zcm::LogEvent* cloneLogEvent(const zcm::LogEvent* evt)
+{
+    zcm::LogEvent* ret = new zcm::LogEvent;
+    ret->eventnum  = evt->eventnum;
+    ret->timestamp = evt->timestamp;
+    ret->channel   = evt->channel;
+    ret->datalen   = evt->datalen;
+    ret->data      = new char[evt->datalen];
+    memcpy(ret->data, evt->data, evt->datalen * sizeof(char));
+    return ret;
+}
+
 struct Logger
 {
     Args   args;
@@ -422,7 +434,7 @@ struct Logger
                     vector<const zcm::LogEvent*> pevts =
                         p->transcodeEvent((uint64_t) msg_hash, le);
                     for (auto& evt : pevts)
-                        evts.emplace_back(new zcm::LogEvent(*evt));
+                        evts.emplace_back(cloneLogEvent(evt));
                 }
 
                 delete[] le->data;
