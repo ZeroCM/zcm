@@ -113,28 +113,18 @@ int main(int argc, char* argv[])
 
     vector<zcm::TranscoderPlugin*> plugins;
     TranscoderPluginDb pluginDb(args.plugin_path, args.debug);
-    // Load plugins from path if specified
-    // RRR (Tom) the comment above is a bit misleading. The plugins are already loaded
-    // from the pluginDb constructor. Here you're just checking that there are
-    // indeed plugins available. Either way, I don't think you need to check that
-    // plugin_path isn't == "".  You can just move right into the plugins.empty() check.
-    // RRR (Bendes) You need this check. You don't want to return 1 if a path
-    //              wasn't specified. The plugins are optional not required
-    if (args.plugin_path != "") {
-        vector<const zcm::TranscoderPlugin*> dbPlugins = pluginDb.getPlugins();
-        if (plugins.empty()) {
-            cerr << "Couldn't find any plugins. Aborting." << endl;
-            return 1;
-        }
-        for (auto& p : dbPlugins) plugins.push_back((zcm::TranscoderPlugin*) p);
+    vector<const zcm::TranscoderPlugin*> dbPlugins = pluginDb.getPlugins();
+    if (plugins.empty()) {
+        cerr << "Couldn't find any plugins. Aborting." << endl;
+        return 1;
     }
+    for (auto& p : dbPlugins) plugins.push_back((zcm::TranscoderPlugin*) p);
 
     if (args.debug) return 0;
 
     size_t numInEvents = 0, numOutEvents = 0;
     const zcm::LogEvent* evt;
     off64_t offset;
-    // RRR (Tom) i'd suggest just doing this as soon as you get logSize
 
     while (1) {
         offset = ftello(inlog.getFilePtr());
