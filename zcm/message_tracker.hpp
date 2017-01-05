@@ -13,6 +13,7 @@
 #include <cxxabi.h>
 #include <sys/time.h>
 #include <stdarg.h>
+#include <functional>
 
 #include <zcm/zcm-cpp.hpp>
 #include <zcm/util/Filter.hpp>
@@ -35,8 +36,6 @@ class Tracker
     // It will only be called again on a new message that is received *after*
     // the last call to this callback has returned.
     typedef std::function<void (T* msg, uint64_t utime, void* usr)> callback;
-    static const bool NONBLOCKING = false;
-    static const bool BLOCKING = true;
 
   protected:
     virtual uint64_t getMsgUtime(const T* msg) { return UINT64_MAX; }
@@ -67,12 +66,9 @@ class Tracker
 
         static constexpr bool present = sizeof(f<Derived>(0)) == 2;
     };
-    // *****************************************************************************
 
-    uint64_t maxTimeErr_us;
-
-    std::atomic_bool done {false};
-
+    // Continuing the craziness. Template specialization allows for storing a
+    // host utime with a msg if there is no msg.utime field
     template<typename F, bool>
     struct MsgWithUtime;
 
@@ -100,12 +96,18 @@ class Tracker
         return msg->utime;
     }
 
+    // *****************************************************************************
+
+    uint64_t maxTimeErr_us;
+
+    // This is only to be used for the callback thread func
+    bool done = false;
+
 
     std::deque<MsgType*> buf;
     uint64_t lastHostUtime = UINT64_MAX;
     size_t bufMax;
     std::mutex bufLock;
-    std::condition_variable newMsgCond;
 
     std::mutex callbackLock;
     std::condition_variable callbackCv;
@@ -151,77 +153,54 @@ class Tracker
         }
 
         bufMax = maxMsgs;
+        assert(maxMsgs > 0 && "Cannot allocate a tracker to track 0 messages");
 
         if (onMsg) thr = new std::thread(&Tracker<T>::callbackThreadFunc, this);
     }
 
     virtual ~Tracker()
     {
-        done = true;
-        if (done) {
-            newMsgCond.notify_all();
-            callbackCv.notify_all();
+        if (thr) {
+            {
+                std::unique_lock<std::mutex> lk(callbackLock);
+                done = true;
+                callbackCv.notify_all();
+            }
+            thr->join();
+            delete thr;
             if (callbackMsg) delete callbackMsg;
-            if (thr) {
-                thr->join();
-                delete thr;
-            }
-            while (!buf.empty()) {
-                MsgType* tmp = buf.front();
-                delete tmp;
-                buf.pop_front();
-            }
+        }
+
+        std::unique_lock<std::mutex> lk(bufLock);
+        while (!buf.empty()) {
+            MsgType* tmp = buf.front();
+            delete tmp;
+            buf.pop_front();
         }
     }
 
     // You must free the memory returned here
-    T* get(bool blocking = NONBLOCKING)
+    T* get()
     {
         T* ret = nullptr;
 
         {
             std::unique_lock<std::mutex> lk(bufLock);
-            if (blocking == BLOCKING) {
-                if (buf.empty())
-                    newMsgCond.wait(lk, [&]{ return !buf.empty() || done; });
-                if (done) return nullptr;
-            }
-            if (!buf.empty())
-                ret = new T(*buf.back());
+            if (!buf.empty()) ret = new T(*buf.back());
         }
 
         return ret;
     }
 
     // This may return nullptr even in the blocking case
-    // TODO: Should consider how to allow the user to ask for an extrapolated
-    //       message if bracketted messages arent available
-    T* get(uint64_t utime, bool blocking = NONBLOCKING)
+    T* get(uint64_t utime)
     {
         std::unique_lock<std::mutex> lk(bufLock);
-
-        if (blocking == BLOCKING) {
-            // XXX This is technically not okay. "done" can't be an
-            //     atomic as it can change after we've checked it in the
-            //     wait. If it does change, and we go back to sleep,
-            //     we'll never wake up. In other words, if done changes
-            //     to true between the "if (done) return false;" and the
-            //     end of the wait function, we would go back to sleep and
-            //     never wake up again because this class would have already
-            //     cleaned up
-            newMsgCond.wait(lk, [&]{
-                        if (done) return true;
-                        if (buf.empty()) return false;
-                        uint64_t recentUtime = getMsgUtime(buf.back());
-                        if (recentUtime < utime) return false;
-                        return true;
-                    });
-            if (done) return nullptr;
-        }
-
         return get(utime, buf.begin(), buf.end(), &lk);
     }
 
+    // TODO: Should consider how to allow the user to ask for an extrapolated
+    //       message if bracketted messages arent available
     // If you need to have a lock while working with the iterators, pass it in
     // here to have it unlocked once this function is done working with the iterators
     template <class InputIter>
@@ -231,6 +210,7 @@ class Tracker
         static_assert(hasUtime<typename std::remove_pointer<typename
                       std::iterator_traits<InputIter>::value_type>::type>::present,
                       "Cannot call get with iterators that contain types without a utime field");
+
         MsgType *m0 = nullptr, *m1 = nullptr; // two poses bracketing the desired utime
         uint64_t m0Utime = 0, m1Utime = UINT64_MAX;
 
@@ -296,28 +276,9 @@ class Tracker
     // This will only block until messages after utimeA have been received,
     // not until the whole range [A,B] is represented
     // This search is also inclusive and can return a message outside [A,B]
-    std::vector<T*> getRange(uint64_t utimeA, uint64_t utimeB, bool blocking = NONBLOCKING)
+    std::vector<T*> getRange(uint64_t utimeA, uint64_t utimeB)
     {
         std::unique_lock<std::mutex> lk(bufLock);
-
-        if (blocking == BLOCKING) {
-            // XXX This is technically not okay. "done" can't be an
-            //     atomic as it can change after we've checked it in the
-            //     wait. If it does change, and we go back to sleep,
-            //     we'll never wake up. In other words, if done changes
-            //     to true between the "if (done) return false;" and the
-            //     end of the wait function, we would go back to sleep and
-            //     never wake up again because this class would have already
-            //     cleaned up
-            newMsgCond.wait(lk, [&]{
-                        if (done) return true;
-                        if (buf.empty()) return false;
-                        uint64_t recentUtime = getMsgUtime(buf.back());
-                        if (recentUtime < utimeA) return false;
-                        return true;
-                    });
-            if (done) return std::vector<T*>();
-        }
 
         uint64_t m0Utime = UINT64_MAX, m1Utime = UINT64_MAX;
 
@@ -347,14 +308,12 @@ class Tracker
 
     void newMsg(const T* _msg, uint64_t hostUtime = UINT64_MAX)
     {
-        if (done) return;
-
         MsgType* tmp = new MsgType(*_msg, hostUtime);
         {
             std::unique_lock<std::mutex> lk(bufLock);
 
             // Expire due to buffer being full
-            if (buf.size() == bufMax){
+            if (buf.size() == bufMax) {
                 MsgType* tmp = buf.front();
                 delete tmp;
                 buf.pop_front();
@@ -387,7 +346,6 @@ class Tracker
             lastHostUtime = hostUtime;
             buf.push_back(tmp);
         }
-        newMsgCond.notify_all();
 
         if (thr) {
             if (callbackLock.try_lock()) {
@@ -405,17 +363,11 @@ class Tracker
         return 1e6 / hzFilter[Filter::LOW_PASS];
     }
 
-    uint64_t lastMsgHostUtime(bool blocking = NONBLOCKING)
+    uint64_t lastMsgHostUtime()
     {
         {
             std::unique_lock<std::mutex> lk(bufLock);
-            if (blocking == BLOCKING) {
-                if (buf.empty())
-                    newMsgCond.wait(lk, [&]{ return !buf.empty() || done; });
-                if (done) return UINT64_MAX;
-            }
-            if (!buf.empty())
-                return lastHostUtime;
+            if (!buf.empty()) return lastHostUtime;
         }
         return UINT64_MAX;
     }
@@ -451,7 +403,7 @@ class Tracker
 };
 
 template <typename T>
-class MessageTracker : public Tracker<T>
+class MessageTracker : public virtual Tracker<T>
 {
   private:
     zcm::ZCM* zcmLocal = nullptr;
