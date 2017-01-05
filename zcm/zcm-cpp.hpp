@@ -2,6 +2,7 @@
 
 #include <stdint.h>
 #include <string>
+#include <cstring>
 #include <vector>
 
 #include "zcm/zcm.h"
@@ -12,6 +13,7 @@
 
 #if __cplusplus > 199711L
 #include <functional>
+#include <utility>
 #endif
 
 namespace zcm {
@@ -116,7 +118,7 @@ class Subscription
     }
 };
 
-// TODO: why not use or inherrit from the existing zcm data structures for the below
+// TODO: why not use or inherit from the existing zcm data structures for the below
 
 #ifndef ZCM_EMBEDDED
 struct LogEvent
@@ -125,7 +127,39 @@ struct LogEvent
     int64_t     timestamp;
     std::string channel;
     int32_t     datalen;
-    char*       data;
+    char*       data = nullptr;
+
+    LogEvent() {}
+    ~LogEvent() { delete data; }
+
+    /// Swap
+    inline void swap(LogEvent& o)
+    {
+        std::swap(eventnum, o.eventnum);
+        std::swap(timestamp, o.timestamp);
+        std::swap(channel, o.channel);
+        std::swap(datalen, o.datalen);
+        std::swap(data, o.data);
+    }
+
+    /// Copy Ctor
+    LogEvent(const LogEvent& o) :
+        eventnum(o.eventnum),
+        timestamp(o.timestamp),
+        channel(o.channel),
+        datalen(o.datalen),
+        data(new char[o.datalen])
+    {
+        memcpy(data, o.data, o.datalen * sizeof(char));
+    }
+
+    #if __cplusplus > 199711L
+    /// Move Ctor
+    LogEvent(LogEvent&& o) { swap(o); }
+    #endif
+
+    /// Unifying Assignment
+    LogEvent& operator=(LogEvent o) { swap(o); return *this; }
 };
 
 struct LogFile

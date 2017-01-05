@@ -1,5 +1,4 @@
 #include <iostream>
-#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <cassert>
@@ -13,19 +12,18 @@
 #include <queue>
 #include <vector>
 #include <signal.h>
+#include <string>
 
 #include <errno.h>
 #include <time.h>
 #include <getopt.h>
 
-#include "zcm/zcm.h"
-#include "zcm/eventlog.h"
+#include "zcm/zcm-cpp.hpp"
 #include "zcm/util/debug.h"
 #include "zcm/zcm_coretypes.h"
 
 #include "util/TranscoderPluginDb.hpp"
 
-#include <string>
 #include "util/FileUtil.hpp"
 #include "util/TimeUtil.hpp"
 #include "util/Types.hpp"
@@ -143,12 +141,12 @@ struct Args
         }
 
         if (auto_split_mb > 0 && !(auto_increment || (rotate > 0))) {
-            fprintf(stderr, "ERROR.  --split-mb requires either --increment or --rotate\n");
+            cerr << "ERROR.  --split-mb requires either --increment or --rotate" << endl;
             return false;
         }
 
         if (rotate > 0 && auto_increment) {
-            fprintf(stderr, "ERROR.  --increment and --rotate can't both be used\n");
+            cerr << "ERROR.  --increment and --rotate can't both be used" << endl;
             return false;
         }
 
@@ -163,7 +161,7 @@ struct Logger
     string filename;
     string fname_prefix;
 
-    zcm_eventlog_t *log             = nullptr;
+    zcm::LogFile* log = nullptr;
 
     int next_increment_num          = 0;
 
@@ -190,20 +188,20 @@ struct Logger
     mutex lk;
     condition_variable newEventCond;
 
-    queue<zcm_eventlog_event_t*> q;
+    queue<zcm::LogEvent*> q;
 
-    vector<const zcm::TranscoderPlugin*> plugins;
+    vector<zcm::TranscoderPlugin*> plugins;
 
     Logger() {}
 
     ~Logger()
     {
+        if (log) log->close();
+        delete log;
+
         while (!q.empty()) {
-            zcm_eventlog_event_t* le = q.front();
+            delete q.front();
             q.pop();
-            delete[] le->channel;
-            delete[] (char*)le->data;
-            delete le;
         }
     }
 
@@ -216,52 +214,48 @@ struct Logger
             return false;
 
         TranscoderPluginDb pluginDb(args.plugin_path, args.debug);
+        // Load plugins from path if specified
         if (args.plugin_path != "") {
-            plugins = pluginDb.getPlugins();
+            vector<const zcm::TranscoderPlugin*> dbPlugins = pluginDb.getPlugins();
             if (plugins.empty()) {
-                fprintf(stderr, "Couldn't find any plugins. Aborting.\n");
-                return false;
+                cerr << "Couldn't find any plugins. Aborting." << endl;
+                return 1;
             }
+            for (auto& p : dbPlugins) plugins.push_back((zcm::TranscoderPlugin*) p);
         }
 
         if (args.debug) return 0;
 
         // Compile the regex if we are in invert mode
-        if (args.invert_channels) {
-            invert_regex = regex{args.chan};
-        }
+        if (args.invert_channels) invert_regex = regex{args.chan};
 
         return true;
     }
 
-    const char *getSubChannel()
+    const string& getSubChannel()
     {
+        static string all = ".";
         // if inverting the channels, subscribe to everything and invert on the callback
-        return (!args.invert_channels) ? args.chan.c_str() : ".*";
+        return (!args.invert_channels) ? args.chan : all;
     }
 
     void rotate_logfiles()
     {
-        if (!args.quiet)
-            printf("Rotating log files\n");
+        if (!args.quiet) cout << "Rotating log files" << endl;
 
         // delete log files that have fallen off the end of the rotation
         string tomove = fname_prefix + "." + to_string(args.rotate-1);
-        if (FileUtil::exists(tomove)) {
-            if (0 != FileUtil::remove(tomove)) {
-                fprintf(stderr, "ERROR! Unable to delete [%s]\n", tomove.c_str());
-            }
-        }
+        if (FileUtil::exists(tomove))
+            if (0 != FileUtil::remove(tomove))
+                cerr << "ERROR! Unable to delete [" << tomove << "]" << endl;
 
         // Rotate away any existing log files
         for (int file_num = args.rotate-1; file_num >= 0; file_num--) {
             string newname = fname_prefix + "." + to_string(file_num);
             string tomove  = fname_prefix + "." + to_string(file_num-1);
-            if (FileUtil::exists(tomove)) {
-                if (0 != FileUtil::rename(tomove, newname)) {
-                    fprintf(stderr, "ERROR!  Unable to rotate [%s]\n", tomove.c_str());
-                }
-            }
+            if (FileUtil::exists(tomove))
+                if (0 != FileUtil::rename(tomove, newname))
+                    cerr << "ERROR!  Unable to rotate [" << tomove << "]" << endl;
         }
     }
 
@@ -293,14 +287,15 @@ struct Logger
                          fname_prefix.c_str(), next_increment_num);
                 filename = tmp_path;
                 next_increment_num++;
-            } while(FileUtil::exists(filename));
+            } while (FileUtil::exists(filename));
         } else if (args.rotate > 0) {
             filename = fname_prefix + ".0";
         } else {
             filename = fname_prefix;
             if (!args.force_overwrite) {
                 if (FileUtil::exists(filename)) {
-                    fprintf(stderr, "Refusing to overwrite existing file \"%s\"\n", filename.c_str());
+                    cerr << "Refusing to overwrite existing file \""
+                         << filename << "\"" << endl;
                     return false;
                 }
             }
@@ -311,47 +306,25 @@ struct Logger
         if (!FileUtil::dirExists(dirpart))
             FileUtil::mkdirWithParents(dirpart, 0755);
 
-        if(!args.quiet) {
-            printf("Opening log file \"%s\"\n", filename.c_str());
-        }
+        if (!args.quiet) cout << "Opening log file \"" << filename << "\"" << endl;
 
         // open output file in append mode if we're rotating log files, or write
         // mode if not.
-        const char *logmode = (args.rotate > 0) ? "a" : "w";
-        log = zcm_eventlog_create(filename.c_str(), logmode);
-        if (!log) {
+        log = new zcm::LogFile(filename, (args.rotate > 0) ? "a" : "w");
+        if (!log->good()) {
             perror("Error: fopen failed");
+            delete log;
             return false;
         }
         return true;
     }
 
-    static void handler(const zcm_recv_buf_t *rbuf, const char *channel, void *usr)
-    { ((Logger*)usr)->handler_(rbuf, channel); }
-
-    zcm_eventlog_event_t* cIfyEvent(zcm::EventLog::Event)
-    {
-        zcm_eventlog_event_t* pe = new zcm_eventlog_event_t();
-        pe->timestamp  = evt->timestamp;
-
-        const char* chan = evt->channel.c_str();
-        pe->channellen = strlen(chan);
-        pe->channel    = new char[pe->channellen + 1];
-        memcpy(pe->channel, chan, sizeof(char) * pe->channellen);
-        pe->channel[pe->channellen] = '\0';
-
-        pe->datalen    = evt->datalen;
-        pe->data       = new char[evt->datalen];
-        memcpy(pe->data, evt->data, sizeof(char) * evt->datalen);
-        return pe;
-    }
-    void handler_(const zcm_recv_buf_t *rbuf, const char *channel)
+    void handler(const zcm::ReceiveBuffer* rbuf, const string& channel)
     {
         if (args.invert_channels) {
             cmatch match;
-            regex_match(channel, match, invert_regex);
-            if (match.size() > 0)
-                return;
+            regex_match(channel.c_str(), match, invert_regex);
+            if (match.size() > 0) return;
         }
 
         bool stillRoom;
@@ -361,19 +334,15 @@ struct Logger
                 (totalMemoryUsage + rbuf->data_size < args.max_target_memory);
         }
 
-        zcm_eventlog_event_t *le;
-        if (stillRoom) {
-            le = new zcm_eventlog_event_t();
-            le->timestamp = rbuf->recv_utime;
-            le->channellen = strlen(channel);
-            le->datalen = rbuf->data_size;
-            le->channel = new char[le->channellen + 1];
-            le->channel[le->channellen] = '\0'; // terminate the cstr with null char
-            memcpy(le->channel, channel, sizeof(char) * le->channellen);
-            le->data = new char[rbuf->data_size];
-            memcpy(le->data, rbuf->data, sizeof(char) * rbuf->data_size);
+        vector<zcm::LogEvent*> evts;
 
-            vector<zcm_eventlog_event_t*> evts;
+        if (stillRoom) {
+            zcm::LogEvent* le = new zcm::LogEvent;
+            le->timestamp = rbuf->recv_utime;
+            le->channel   = channel;
+            le->datalen   = rbuf->data_size;
+            le->data      = new char[rbuf->data_size];
+            memcpy(le->data, rbuf->data, sizeof(char) * rbuf->data_size);
 
             if (!plugins.empty()) {
                 int64_t msg_hash;
@@ -382,9 +351,8 @@ struct Logger
                 for (auto& p : plugins) {
                     vector<const zcm::LogEvent*> pevts =
                         p->transcodeEvent((uint64_t) msg_hash, le);
-                    for (auto& evt : pevts) {
-                        evts.push_back(pe);
-                    }
+                    for (auto& evt : pevts)
+                        evts.emplace_back(new zcm::LogEvent(*evt));
                 }
 
                 delete le;
@@ -395,33 +363,30 @@ struct Logger
 
         {
             unique_lock<mutex> lock{lk};
-            do {
+            while (!evts.empty()) {
                 if (stillRoom) {
-                    q.push(evts.back());
+                    zcm::LogEvent* le = evts.back();
+                    q.push(le);
+                    totalMemoryUsage += le->datalen + le->channel.size() + sizeof(*le);
                     evts.pop_back();
-                    totalMemoryUsage += le->datalen + le->channellen +
-                                        sizeof(zcm_eventlog_event_t);
                 } else {
                     ZCM_DEBUG("Dropping message due to enforced memory constraints");
                     ZCM_DEBUG("Current memory estimations are at %" PRId64 " bytes",
                               totalMemoryUsage);
                     while (!evts.empty()) {
-                        zcm_eventlog_event_t* le;
-                        delete[] le->channel;
-                        delete[] (char*)le->data;
-                        delete le;
+                        delete evts.back();
                         evts.pop_back();
                     }
                     break;
                 }
-            } while (!evts.empty());
+            }
         }
         newEventCond.notify_all();
     }
 
     void flushWhenReady()
     {
-        zcm_eventlog_event_t *le = nullptr;
+        zcm::LogEvent *le = nullptr;
         size_t qSize = 0;
         i64 memUsed = 0;
         {
@@ -437,7 +402,7 @@ struct Logger
             q.pop();
             qSize = q.size();
             memUsed = totalMemoryUsage; // want to capture the max mem used, not post flush
-            totalMemoryUsage -= (le->datalen + le->channellen + sizeof(zcm_eventlog_event_t));
+            totalMemoryUsage -= (le->datalen + le->channel.size() + sizeof(*le));
         }
         if (qSize != 0) ZCM_DEBUG("Queue size = %zu\n", qSize);
 
@@ -446,44 +411,41 @@ struct Logger
             double logsize_mb = (double)logsize / (1 << 20);
             if (logsize_mb > args.auto_split_mb) {
                 // Yes.  open up a new log file
-                zcm_eventlog_destroy(log);
+                log->close();
                 if (args.rotate > 0)
                     rotate_logfiles();
-                if(!openLogfile())
-                    exit(1);
+                if (!openLogfile()) exit(1);
                 num_splits++;
                 logsize = 0;
                 last_report_logsize = 0;
             }
         }
 
-        if (zcm_eventlog_write_event(log, le) != 0) {
+        if (log->writeEvent(le) != 0) {
             static u64 last_spew_utime = 0;
             string reason = strerror(errno);
             u64 now = TimeUtil::utime();
             if (now - last_spew_utime > 500000) {
-                fprintf(stderr, "zcm_eventlog_write_event: %s\n", reason.c_str());
+                cerr << "zcm_eventlog_write_event: " << reason << endl;
                 last_spew_utime = now;
             }
             if (errno == ENOSPC)
                 exit(1);
 
-            delete[] le->channel;
-            delete[] (char*)le->data;
             delete le;
             return;
         }
 
         if (args.fflush_interval_ms >= 0 &&
             (le->timestamp - last_fflush_time) > (u64)args.fflush_interval_ms * 1000) {
-            Platform::fflush(zcm_eventlog_get_fileptr(log));
+            Platform::fflush(log->getFilePtr());
             last_fflush_time = le->timestamp;
         }
 
         // bookkeeping, cleanup
         nevents++;
         events_since_last_report++;
-        logsize += 4 + 8 + 8 + 4 + le->channellen + 4 + le->datalen;
+        logsize += 4 + 8 + 8 + 4 + le->channel.size() + 4 + le->datalen;
 
         i64 offset_utime = le->timestamp - time0;
         if (!args.quiet && (offset_utime - last_report_time > 1000000)) {
@@ -502,8 +464,6 @@ struct Logger
             last_report_logsize = logsize;
         }
 
-        delete[] le->channel;
-        delete[] (char*)le->data;
         delete le;
     }
 
@@ -525,62 +485,62 @@ void sighandler(int signal)
 
 static void usage()
 {
-    fprintf(stderr, "usage: zcm-logger [options] [FILE]\n"
-            "\n"
-            "    ZCM message logging utility.  Subscribes to all channels on an ZCM\n"
-            "    network, and records all messages received on that network to\n"
-            "    FILE.  If FILE is not specified, then a filename is automatically\n"
-            "    chosen.\n"
-            "\n"
-            "Options:\n"
-            "\n"
-            "  -c, --channel=CHAN         Channel string to pass to zcm_subscribe.\n"
-            "                             (default: \".*\")\n"
-            "  -l, --flush-interval=MS    Flush the log file to disk every MS milliseconds.\n"
-            "                             (default: 100)\n"
-            "  -f, --force                Overwrite existing files\n"
-            "  -h, --help                 Shows this help text and exits\n"
-            "  -i, --increment            Automatically append a suffix to FILE\n"
-            "                             such that the resulting filename does not\n"
-            "                             already exist.  This option precludes -f and\n"
-            "                             --rotate\n"
-            "  -u, --zcm-url=URL          Log messages on the specified ZCM URL\n"
-            "  -m, --max-unwritten-mb=SZ  Maximum size of received but unwritten\n"
-            "                             messages to store in memory before dropping\n"
-            "                             messages.  (default: 100 MB)\n"
-            "  -r, --rotate=NUM           When creating a new log file, rename existing files\n"
-            "                             out of the way and always write to FILE.0.  If\n"
-            "                             FILE.0 already exists, it is renamed to FILE.1.  If\n"
-            "                             FILE.1 exists, it is renamed to FILE.2, etc.  If\n"
-            "                             FILE.NUM exists, then it is deleted.  This option\n"
-            "                             precludes -i.\n"
-            "  -b, --split-mb=N           Automatically start writing to a new log\n"
-            "                             file once the log file exceeds N MB in size\n"
-            "                             (can be fractional).  This option requires -i\n"
-            "                             or --rotate.\n"
-            "  -q, --quiet                Suppress normal output and only report errors.\n"
-            "  -s, --strftime             Format FILE with strftime.\n"
-            "  -v, --invert-channels      Invert channels.  Log everything that CHAN\n"
-            "                             does not match.\n"
-            "  -m, --max-target-memory    Attempt to limit the total buffer usage to this\n"
-            "                             amount of memory. If specified, ensure that this\n"
-            "                             number is at least as large as the maximum message\n"
-            "                             size you expect to receive. This argument is\n"
-            "                             specified in bytes. Suffixes are not yet supported.\n"
-            "  -p, --plugin-path=path     Path to shared library containing transcoder plugins\n"
-            "\n"
-            "Rotating / splitting log files\n"
-            "==============================\n"
-            "    For long-term logging, zcm-logger can rotate through a fixed number of\n"
-            "    log files, moving to a new log file as existing files reach a maximum size.\n"
-            "    To do this, use --rotate and --split-mb.  For example:\n"
-            "\n"
-            "        # Rotate through logfile.0, logfile.1, ... logfile.4\n"
-            "        zcm-logger --rotate=5 --split-mb=2 logfile\n"
-            "\n"
-            "    Moving to a new file happens either when the current log file size exceeds\n"
-            "    the limit specified by --split-mb, or when zcm-logger receives a SIGHUP.\n"
-            "\n");
+    cerr << "usage: zcm-logger [options] [FILE]" << endl
+         << endl
+         << "    ZCM message logging utility.  Subscribes to all channels on an ZCM" << endl
+         << "    network, and records all messages received on that network to" << endl
+         << "    FILE.  If FILE is not specified, then a filename is automatically" << endl
+         << "    chosen." << endl
+         << endl
+         << "Options:" << endl
+         << endl
+         << "  -c, --channel=CHAN         Channel string to pass to zcm_subscribe." << endl
+         << "                             (default: \".*\")" << endl
+         << "  -l, --flush-interval=MS    Flush the log file to disk every MS milliseconds." << endl
+         << "                             (default: 100)" << endl
+         << "  -f, --force                Overwrite existing files" << endl
+         << "  -h, --help                 Shows this help text and exits" << endl
+         << "  -i, --increment            Automatically append a suffix to FILE" << endl
+         << "                             such that the resulting filename does not" << endl
+         << "                             already exist.  This option precludes -f and" << endl
+         << "                             --rotate" << endl
+         << "  -u, --zcm-url=URL          Log messages on the specified ZCM URL" << endl
+         << "  -m, --max-unwritten-mb=SZ  Maximum size of received but unwritten" << endl
+         << "                             messages to store in memory before dropping" << endl
+         << "                             messages.  (default: 100 MB)" << endl
+         << "  -r, --rotate=NUM           When creating a new log file, rename existing files" << endl
+         << "                             out of the way and always write to FILE.0.  If" << endl
+         << "                             FILE.0 already exists, it is renamed to FILE.1.  If" << endl
+         << "                             FILE.1 exists, it is renamed to FILE.2, etc.  If" << endl
+         << "                             FILE.NUM exists, then it is deleted.  This option" << endl
+         << "                             precludes -i." << endl
+         << "  -b, --split-mb=N           Automatically start writing to a new log" << endl
+         << "                             file once the log file exceeds N MB in size" << endl
+         << "                             (can be fractional).  This option requires -i" << endl
+         << "                             or --rotate." << endl
+         << "  -q, --quiet                Suppress normal output and only report errors." << endl
+         << "  -s, --strftime             Format FILE with strftime." << endl
+         << "  -v, --invert-channels      Invert channels.  Log everything that CHAN" << endl
+         << "                             does not match." << endl
+         << "  -m, --max-target-memory    Attempt to limit the total buffer usage to this" << endl
+         << "                             amount of memory. If specified, ensure that this" << endl
+         << "                             number is at least as large as the maximum message" << endl
+         << "                             size you expect to receive. This argument is" << endl
+         << "                             specified in bytes. Suffixes are not yet supported." << endl
+         << "  -p, --plugin-path=path     Path to shared library containing transcoder plugins" << endl
+         << endl
+         << "Rotating / splitting log files" << endl
+         << "==============================" << endl
+         << "    For long-term logging, zcm-logger can rotate through a fixed number of" << endl
+         << "    log files, moving to a new log file as existing files reach a maximum size." << endl
+         << "    To do this, use --rotate and --split-mb.  For example:" << endl
+         << endl
+         << "        # Rotate through logfile.0, logfile.1, ... logfile.4" << endl
+         << "        zcm-logger --rotate=5 --split-mb=2 logfile" << endl
+         << endl
+         << "    Moving to a new file happens either when the current log file size exceeds" << endl
+         << "    the limit specified by --split-mb, or when zcm-logger receives a SIGHUP." << endl
+         << endl << endl;
 }
 
 int main(int argc, char *argv[])
@@ -593,36 +553,34 @@ int main(int argc, char *argv[])
     }
 
     // begin logging
-    zcm_t *zcm = zcm_create(logger.args.zcmurl == "" ? nullptr : logger.args.zcmurl.c_str());
-    if (!zcm) {
-        fprintf(stderr, "Couldn't initialize ZCM!\n");
+    zcm::ZCM zcmLocal(logger.args.zcmurl);
+    if (!zcmLocal.good()) {
+        cerr << "Couldn't initialize ZCM!" << endl;
         if (logger.args.zcmurl != "") {
-            fprintf(stderr, "Unable to parse url: %s\n", logger.args.zcmurl.c_str());
-            fprintf(stderr, "Try running with ZCM_DEBUG=1 for more info\n");
+            cerr << "Unable to parse url: " << logger.args.zcmurl << endl;
+            cerr << "Try running with ZCM_DEBUG=1 for more info" << endl;
         } else {
-            fprintf(stderr, "Please provide a valid zcm url either with the ZCM_DEFAULT_URL\n"
-                            "environment variable, or with the '-u' command line argument.\n");
+            cerr << "Please provide a valid zcm url either with the ZCM_DEFAULT_URL" << endl
+                 << "environment variable, or with the '-u' command line argument." << endl;
         }
         return 1;
     }
 
-    zcm_subscribe(zcm, logger.getSubChannel(), Logger::handler, &logger);
+    zcmLocal.subscribe(logger.getSubChannel(), &Logger::handler, &logger);
 
     // Register signal handlers
-    signal(SIGINT, sighandler);
+    signal(SIGINT,  sighandler);
     signal(SIGQUIT, sighandler);
     signal(SIGTERM, sighandler);
 
-    zcm_start(zcm);
+    zcmLocal.start();
 
-    while (!done)
-        logger.flushWhenReady();
+    while (!done) logger.flushWhenReady();
 
-    zcm_stop(zcm);
-    zcm_flush(zcm);
-    zcm_destroy(zcm);
+    zcmLocal.stop();
+    zcmLocal.flush();
 
-    fprintf(stderr, "Logger exiting\n");
+    cerr << "Logger exiting" << endl;
 
     return 0;
 }

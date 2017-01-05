@@ -23,8 +23,8 @@ class CustomTranscoderPlugin : public zcm::TranscoderPlugin
     CustomTranscoderPlugin();
     virtual ~CustomTranscoderPlugin();
 
-    std::vector<const zcm::LogEvent*> transcodeEvent(int64_t hash,
-                                                     const zcm::LogEvent* evt) override;
+    std::vector<const zcm::LogEvent*>
+        transcodeEvent(int64_t hash, const zcm::LogEvent* evt) override;
 };
 
 
@@ -36,8 +36,8 @@ CustomTranscoderPlugin::CustomTranscoderPlugin() : newData(nullptr) {}
 CustomTranscoderPlugin::~CustomTranscoderPlugin()
 {}
 
-std::vector<const zcm::LogEvent*> CustomTranscoderPlugin::transcodeEvent(int64_t hash,
-                                                                         const zcm::LogEvent* evt)
+std::vector<const zcm::LogEvent*>
+CustomTranscoderPlugin::transcodeEvent(int64_t hash, const zcm::LogEvent* evt)
 {
     if (hash != example_t::getHash())
         return TranscoderPlugin::transcodeEvent(hash, evt);

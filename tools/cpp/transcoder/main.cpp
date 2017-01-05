@@ -110,15 +110,16 @@ int main(int argc, char* argv[])
     }
 
 
-    vector<const zcm::TranscoderPlugin*> plugins;
+    vector<zcm::TranscoderPlugin*> plugins;
     TranscoderPluginDb pluginDb(args.plugin_path, args.debug);
     // Load plugins from path if specified
     if (args.plugin_path != "") {
-        plugins = pluginDb.getPlugins();
+        vector<const zcm::TranscoderPlugin*> dbPlugins = pluginDb.getPlugins();
         if (plugins.empty()) {
             cerr << "Couldn't find any plugins. Aborting." << endl;
             return 1;
         }
+        for (auto& p : dbPlugins) plugins.push_back((zcm::TranscoderPlugin*) p);
     }
 
     if (args.debug) return 0;

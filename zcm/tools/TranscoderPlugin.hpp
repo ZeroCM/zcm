@@ -86,7 +86,7 @@ class TranscoderPlugin
     //  return TranscoderPlugin::transcodeEvent(hash,evt) to not transcode
     //  this event into the output log
     //
-    virtual std::vector<const LogEvent*> transcodeEvent(int64_t hash, const LogEvent* evt) const
+    virtual std::vector<const LogEvent*> transcodeEvent(int64_t hash, const LogEvent* evt)
     {
         return {};
     }
