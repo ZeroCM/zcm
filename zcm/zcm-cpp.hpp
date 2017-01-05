@@ -132,6 +132,7 @@ struct LogEvent
     ~LogEvent() {}
 
     /// Copy Ctor
+    // RRR (Tom) this seems weird. Don't like the dynamic memory
     LogEvent(const LogEvent& o) :
         eventnum(o.eventnum),
         timestamp(o.timestamp),

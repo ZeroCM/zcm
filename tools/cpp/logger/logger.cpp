@@ -1,3 +1,5 @@
+// RRR (Tom) For consistency, I'd amend the name of this file to be main.cpp
+// or change transcoder and indexer.
 #include <iostream>
 #include <cstdlib>
 #include <cstring>
@@ -240,6 +242,7 @@ struct Logger
 
     const string& getSubChannel()
     {
+        // RRR (Tom) should this be ".*" ?
         static string all = ".";
         // if inverting the channels, subscribe to everything and invert on the callback
         return (!args.invert_channels) ? args.chan : all;
@@ -318,6 +321,7 @@ struct Logger
         // mode if not.
         log = new zcm::LogFile(filename, (args.rotate > 0) ? "a" : "w");
         if (!log->good()) {
+            // RRR (Tom) use cerr like you do elsewhere
             perror("Error: fopen failed");
             delete log;
             return false;
@@ -373,6 +377,8 @@ struct Logger
             while (!evts.empty()) {
                 if (stillRoom) {
                     zcm::LogEvent* le = evts.back();
+                    // RRR (Tom) I think you've cleaned everything up ok, but
+                    // just pointing out you now have two copies of le->data.
                     q.push(le);
                     totalMemoryUsage += le->datalen + le->channel.size() + sizeof(*le);
                     evts.pop_back();
@@ -492,9 +498,10 @@ void sighandler(int signal)
     logger.wakeup();
     if (done == 3) exit(1);
 }
-
+// RRR (Tom) other files have this usage printout in the Args struct.
 static void usage()
 {
+    // RRR (Tom) do you want "cout" or "cerr"?
     cerr << "usage: zcm-logger [options] [FILE]" << endl
          << endl
          << "    ZCM message logging utility.  Subscribes to all channels on an ZCM" << endl

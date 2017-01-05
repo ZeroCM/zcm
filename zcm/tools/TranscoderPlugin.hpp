@@ -47,6 +47,7 @@ class TranscoderPlugin
 
     virtual ~TranscoderPlugin() {}
 
+    // RRR (Tom) to from here ======>>>
     //
     // channel is the channel name of the event
     //
@@ -60,7 +61,8 @@ class TranscoderPlugin
     //
     // data and datalen is the payload of the event
     // To recover the zcmtype message from these arguments, simply call:
-    //
+    // RRR (tom) <<<============= to here, you should clarify you're talking about
+    //                            evt->channel, evt->timestamp, and so on
     //  if (hash == msg_t::getHash()) {
     //      old_t oldMsg;
     //      oldMsg.decode(evt->data, 0, evt->datalen);
@@ -75,6 +77,10 @@ class TranscoderPlugin
     //  size = newMsg.encode(newData, 0, size);
     //
     //  // newEvt would be a class variable
+    //  RRR (Tom) I think returning new memory for a LogEvent, which would then
+    //  be cleaned up by the transcoder main would be more natural, but I could
+    //  be convinced otherwise.
+    //
     //  newEvt.timestamp = evt->timestamp;
     //  newEvt.channel = evt->channel;
     //  newEvt.data = newData;

@@ -8,6 +8,7 @@
 struct TranscoderPluginMetadata
 {
     std::string className;
+    // RRR (Tom) what is this.. ?
     zcm::TranscoderPlugin* (*makeTranscoderPlugin)(void);
 
     inline bool operator==(const TranscoderPluginMetadata& o)
