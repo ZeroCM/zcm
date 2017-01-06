@@ -126,7 +126,7 @@ struct Args
                     break;
                 case 'h':
                     usage();
-                    return true;
+                    return false;
                 default:
                     cerr << "Unrecognized option: " << optarg << endl;
                     usage();
