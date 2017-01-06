@@ -28,20 +28,12 @@ struct PrimInfo
         storage(storage), decode(decode), encode(encode) {}
 };
 
-static bool jdefaultpkgWarned = false;
-
 string makeFqn(ZCMGen& zcm, const string& typeName)
 {
-    if (typeName.find('.') != string::npos)
-        return typeName;
-
-    if (!jdefaultpkgWarned && !zcm.gopt->wasSpecified("jdefaultpkg")) {
-        printf("Notice: enclosing ZCM types without package into java namespace '%s'.\n",
-               zcm.gopt->getString("jdefaultpkg").c_str());
-        jdefaultpkgWarned = true;
-    }
-
-    return zcm.gopt->getString("jdefaultpkg") + "." + typeName;
+    string ret = "";
+    if (zcm.gopt->wasSpecified("jdefaultpkg"))
+        ret += zcm.gopt->getString("jdefaultpkg") + ".";
+    return ret + typeName;
 }
 
 // /** # -> replace1
@@ -318,11 +310,14 @@ struct EmitStruct : public Emitter
         emit(0, " */");
         emit(0, "");
 
+        string package = "";
+        if (zcm.gopt->wasSpecified("jdefaultpkg"))
+            package += zcm.gopt->getString("jdefaultpkg");
         if (lr.structname.package.size() > 0)
-            emit(0, "package %s;", lr.structname.package.c_str());
-        else
-            emit(0, "package %s;", zcm.gopt->getString("jdefaultpkg").c_str());
+            if (package != "") package += ".";
+            package += lr.structname.package;
 
+        emit(0, "package %s;", package.c_str());
         emit(0, " ");
         emit(0, "import java.io.*;");
         emit(0, "import java.util.*;");
@@ -567,6 +562,13 @@ int emitJava(ZCMGen& zcm)
     //////////////////////////////////////////////////////////////
     // STRUCTS
     for (auto& lr : zcm.structs) {
+        if (!zcm.gopt->wasSpecified("jdefaultpkg") &&
+            lr.structname.fullname.find('.') == string::npos) {
+            fprintf(stderr, "Please provide a java package for the output java classes -- "
+                            "either via the \"--jdefaultpkg\" flag or inside the type itself\n");
+            return -2;
+        }
+
         string classname = makeFqn(zcm, lr.structname.fullname);
         string path = jpathPrefix + dotsToSlashes(classname) + ".java";
 

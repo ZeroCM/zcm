@@ -116,7 +116,7 @@ class Subscription
     }
 };
 
-// TODO: why not use or inherrit from the existing zcm data structures for the below
+// TODO: why not use or inherit from the existing zcm data structures for the below
 
 #ifndef ZCM_EMBEDDED
 struct LogEvent

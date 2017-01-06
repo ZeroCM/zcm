@@ -3,7 +3,6 @@
 
 def build(ctx):
     ctx.recurse('util');
-    ctx.recurse('logger');
     ctx.recurse('logplayer');
     ctx.recurse('bridge');
     ctx.recurse('repeater');
@@ -12,3 +11,5 @@ def build(ctx):
     if ctx.env.USING_ELF:
         ctx.recurse('spy-lite');
         ctx.recurse('indexer');
+        ctx.recurse('transcoder');
+        ctx.recurse('logger');

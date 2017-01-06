@@ -105,7 +105,7 @@ def outFileName(ctx, inp, lang, absPath=False):
         if fileparts[1] != "":
             if ret != "":
                 ret = ret + "/"
-            ret = ret + fileparts[1]
+            ret = ret + '/'.join(fileparts[1].split('.'))
         if fileparts[2] != "":
             if ret != "":
                 ret = ret + "/"
@@ -120,8 +120,8 @@ def outFileName(ctx, inp, lang, absPath=False):
         hfileparts[2] = fileparts[2].replace('.zcm', '.h')
         cfileparts[2] = fileparts[2].replace('.zcm', '.c')
         if fileparts[1] != "":
-            hfileparts[2] = fileparts[1] + "_" + hfileparts[2]
-            cfileparts[2] = fileparts[1] + "_" + cfileparts[2]
+            hfileparts[2] = '_'.join(fileparts[1].split('.')) + "_" + hfileparts[2]
+            cfileparts[2] = '_'.join(fileparts[1].split('.')) + "_" + cfileparts[2]
         return [defaultOutFileName(hfileparts, absPath).replace('.zcm', '.h'),
                 defaultOutFileName(cfileparts, absPath).replace('.zcm', '.c')]
     if lang == 'cpp':
@@ -134,8 +134,8 @@ def outFileName(ctx, inp, lang, absPath=False):
 
 def getFileParts(ctx, path):
     package = ctx.cmd_and_log('zcm-gen --package %s' % (path),
-                                  output=waflib.Context.STDOUT,
-                                  quiet=waflib.Context.BOTH).strip()
+                              output=waflib.Context.STDOUT,
+                              quiet=waflib.Context.BOTH).strip()
     pathparts = path.split('/')
     absdirparts = '/'.join(pathparts[:-1])
     nameparts = '/'.join(pathparts[-1:])
@@ -201,12 +201,14 @@ def zcmgen(ctx, **kw):
     if not building:
         return
 
-    if 'c_stlib' in lang:
+    if 'c_stlib' in lang or 'c_shlib' in lang:
         csrc = []
         for src in tg.source:
             outfile = outFileName(ctx, src.abspath(), 'c')
             outnode = ctx.path.find_or_declare(outfile[1])
             csrc.append(outnode)
+
+    if 'c_stlib' in lang:
         cstlibtg = ctx.stlib(name            = uselib_name + '_c_stlib',
                              target          = uselib_name,
                              use             = ['default', 'zcm'],
@@ -278,6 +280,12 @@ class zcmgen(Task.Task):
                                    'the type or with the "javapkg" build keyword')
                 else:
                     fileparts[1] = gen.javapkg.replace('.', '/')
+            else:
+                if getattr(gen, 'javapkg', None):
+                    fileparts[1] = (gen.javapkg + "/" + fileparts[1]).replace('.', '/')
+                else:
+                    fileparts[1] = fileparts[1].replace('.', '/')
+
             outp = '/'.join(['java', fileparts[1], fileparts[2]])
             outp_node = gen.path.get_bld().make_node(outp)
             self.outputs.append(outp_node)

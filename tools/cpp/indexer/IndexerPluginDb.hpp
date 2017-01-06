@@ -2,7 +2,7 @@
 
 #include <string>
 
-#include "zcm/IndexerPlugin.hpp"
+#include "zcm/tools/IndexerPlugin.hpp"
 
 struct IndexerPluginMetadata
 {

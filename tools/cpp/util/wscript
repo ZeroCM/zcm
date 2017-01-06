@@ -6,7 +6,7 @@ def build(ctx):
     use = 'default '
 
     if ctx.env.USING_ELF:
-        files += 'SymtabElf.cpp TypeDb.cpp '
+        files += 'SymtabElf.cpp TypeDb.cpp TranscoderPluginDb.cpp '
         use += 'elf '
 
     source = ctx.path.ant_glob(files)
