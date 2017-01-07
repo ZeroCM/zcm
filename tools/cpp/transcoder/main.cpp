@@ -118,7 +118,11 @@ int main(int argc, char* argv[])
         cerr << "Couldn't find any plugins. Aborting." << endl;
         return 1;
     }
-    for (auto& p : dbPlugins) plugins.push_back((zcm::TranscoderPlugin*) p);
+    vector<string> dbPluginNames = pluginDb.getPluginNames();
+    for (size_t i = 0; i < dbPlugins.size(); ++i) {
+        plugins.push_back((zcm::TranscoderPlugin*) dbPlugins[i]);
+        if (args.debug) cout << "Loaded plugin: " << dbPluginNames[i] << endl;
+    }
 
     if (args.debug) return 0;
 

@@ -302,7 +302,7 @@ struct Logger
             vector<string> dbPluginNames = pluginDb->getPluginNames();
             for (size_t i = 0; i < dbPlugins.size(); ++i) {
                 plugins.push_back((zcm::TranscoderPlugin*) dbPlugins[i]);
-                cout << "Loaded plugin: " << dbPluginNames[i] << endl;
+                if (args.debug) cout << "Loaded plugin: " << dbPluginNames[i] << endl;
             }
         }
 
