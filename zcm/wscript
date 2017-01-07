@@ -60,7 +60,6 @@ def build(ctx):
                        'url.h', 'eventlog.h', 'zcm-cpp.hpp', 'zcm-cpp-impl.hpp',
                        'transport_register.hpp', 'message_tracker.hpp'])
 
-    # RRR (Tom) do you intend for these files to be accessed as zcm/tools/tools/file.hpp ?
     ctx.install_files('${PREFIX}/include/zcm/tools',
                       ['tools/IndexerPlugin.hpp',
                        'tools/TranscoderPlugin.hpp'])
