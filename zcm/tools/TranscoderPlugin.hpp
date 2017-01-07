@@ -60,17 +60,16 @@ class TranscoderPlugin
     //  ...
     //  int size = newMsg.getEncodedSize();
     //  delete newData; // this variable would be a class variable
-    //  newData = new uint8_t[size];
+    //  newData = new char[size];
     //  size = newMsg.encode(newData, 0, size);
     //
     //  // newEvt would be a class variable
     //  newEvt.timestamp = evt->timestamp;
     //  newEvt.channel = evt->channel;
-    //  delete newEvt.data;
     //  newEvt.data = newData;
     //  newEvt.datalen = size;
     //
-    //  return { newEvt };
+    //  return { &newEvt };
     //
     //  return a vector of events you want to replace this event with.
     //  return TranscoderPlugin::transcodeEvent(hash,evt) to not transcode

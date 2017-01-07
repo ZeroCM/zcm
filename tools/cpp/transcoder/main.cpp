@@ -134,7 +134,7 @@ int main(int argc, char* argv[])
         offset = ftello(inlog.getFilePtr());
 
         static int lastPrintPercent = 0;
-        int percent = (100.0 * offset / logSize) * 100;
+        int percent = (100.0 * offset / (logSize == 0 ? 1 : logSize)) * 100;
         if (percent != lastPrintPercent) {
             cout << "\r" << "Percent Complete: " << (percent / 100) << flush;
             lastPrintPercent = percent;
