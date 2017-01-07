@@ -409,41 +409,34 @@ struct Logger
             if (match.size() > 0) return;
         }
 
-        bool stillRoom;
-        {
-            unique_lock<mutex> lock{lk};
-            stillRoom = (args.max_target_memory == 0) ? true :
-                (totalMemoryUsage + rbuf->data_size < args.max_target_memory);
-        }
-
         vector<zcm::LogEvent*> evts;
 
-        if (stillRoom) {
-            zcm::LogEvent* le = new zcm::LogEvent;
-            le->timestamp = rbuf->recv_utime;
-            le->channel   = channel;
-            le->datalen   = rbuf->data_size;
-            le->data      = new char[rbuf->data_size];
-            memcpy(le->data, rbuf->data, sizeof(char) * rbuf->data_size);
+        zcm::LogEvent* le = new zcm::LogEvent;
+        le->timestamp = rbuf->recv_utime;
+        le->channel   = channel;
+        le->datalen   = rbuf->data_size;
 
-            if (!plugins.empty()) {
-                int64_t msg_hash;
-                __int64_t_decode_array(le->data, 0, 8, &msg_hash, 1);
+        if (!plugins.empty()) {
+            le->data = rbuf->data;
 
-                for (auto& p : plugins) {
-                    vector<const zcm::LogEvent*> pevts =
-                        p->transcodeEvent((uint64_t) msg_hash, le);
-                    for (auto& evt : pevts)
-                        evts.emplace_back(cloneLogEvent(evt));
-                }
+            int64_t msg_hash;
+            __int64_t_decode_array(le->data, 0, 8, &msg_hash, 1);
 
-                delete[] le->data;
-                delete le;
-            } else {
-                evts.push_back(le);
+            for (auto& p : plugins) {
+                vector<const zcm::LogEvent*> pevts =
+                    p->transcodeEvent((uint64_t) msg_hash, le);
+                for (auto& evt : pevts)
+                    evts.emplace_back(cloneLogEvent(evt));
             }
+
+            delete le;
+        } else {
+            le->data = new char[rbuf->data_size];
+            memcpy(le->data, rbuf->data, sizeof(char) * rbuf->data_size);
+            evts.push_back(le);
         }
 
+        bool stillRoom = true;
         {
             unique_lock<mutex> lock{lk};
             while (!evts.empty()) {
@@ -451,6 +444,8 @@ struct Logger
                     zcm::LogEvent* le = evts.back();
                     q.push(le);
                     totalMemoryUsage += le->datalen + le->channel.size() + sizeof(*le);
+                    stillRoom = (args.max_target_memory == 0) ? true :
+                        (totalMemoryUsage + rbuf->data_size < args.max_target_memory);
                     evts.pop_back();
                 } else {
                     ZCM_DEBUG("Dropping message due to enforced memory constraints");
