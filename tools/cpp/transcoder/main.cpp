@@ -114,7 +114,7 @@ int main(int argc, char* argv[])
     vector<zcm::TranscoderPlugin*> plugins;
     TranscoderPluginDb pluginDb(args.plugin_path, args.debug);
     vector<const zcm::TranscoderPlugin*> dbPlugins = pluginDb.getPlugins();
-    if (plugins.empty()) {
+    if (dbPlugins.empty()) {
         cerr << "Couldn't find any plugins. Aborting." << endl;
         return 1;
     }
