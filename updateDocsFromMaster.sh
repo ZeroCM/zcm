@@ -18,7 +18,9 @@ rm -rf __tmp
 mkdir -p __tmp/docs
 rm -rf __tmp/docs/*
 
-markdown README.md > __tmp/docs/index.html
+markdown README.md > __tmp/docs/index.html.tmp
+tail -n +2 __tmp/docs/index.html.tmp > __tmp/docs/index.html
+rm -f __tmp/docs/index.html.tmp
 for doc in `find docs/* -type f`; do
     docDir=`dirname $doc`
     mkdir -p __tmp/$docDir
