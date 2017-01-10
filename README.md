@@ -65,12 +65,10 @@ To learn how you can contribute to this project, check out [Contributing](docs/c
  - Only one true dependency: A modern C++11 compiler for the non-embedded code.
 
 ## Supported platforms and languages
-
- - Platforms:
+ - Platforms
   - GNU/Linux
   - Web browsers supporting the Websocket API
   - Any C89 capable embedded system
-
  - Languages
   - C89 and greater
   - C++
