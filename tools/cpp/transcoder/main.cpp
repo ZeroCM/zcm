@@ -40,8 +40,7 @@ struct Args
                 case 'o': outlog      = string(optarg); break;
                 case 'p': plugin_path = string(optarg); break;
                 case 'd': debug       = true;           break;
-                case 'h': usage();                      return true;
-                default:                                return false;
+                case 'h': default: usage(); return false;
             };
         }
 
@@ -90,10 +89,7 @@ struct Args
 int main(int argc, char* argv[])
 {
     Args args;
-    if (!args.parse(argc, argv)) {
-        args.usage();
-        return 1;
-    }
+    if (!args.parse(argc, argv)) return 1;
 
     zcm::LogFile inlog(args.inlog, "r");
     if (!inlog.good()) {

@@ -8,6 +8,9 @@
 #include <getopt.h>
 
 #include "zcm/zcm-cpp.hpp"
+#include "zcm/zcm_coretypes.h"
+
+#include "util/TranscoderPluginDb.hpp"
 
 using namespace std;
 
@@ -33,28 +36,33 @@ struct Args
     string Aprefix = "";
     string Bprefix = "";
 
+    string plugin_path = "";
+
+    bool   debug = false;
+
     bool parse(int argc, char *argv[])
     {
         // set some defaults
-        const char *optstring = "hp:r:A:B:a:b:d:";
+        const char *optstring = "hA:B:a:b:D:p:d";
         struct option long_opts[] = {
-            { "help",       no_argument, 0, 'h' },
-            { "A-prefix",   required_argument, 0, 'p' },
-            { "A-prefix",   required_argument, 0, 'r' },
-            { "A-endpt",    required_argument, 0, 'A' },
-            { "B-endpt",    required_argument, 0, 'B' },
-            { "A-channel",  required_argument, 0, 'a' },
-            { "B-channel",  required_argument, 0, 'b' },
-            { "decimation", required_argument, 0, 'd' },
+            { "help",              no_argument, 0,  'h' },
+            { "A-prefix",    required_argument, 0, '\0' },
+            { "B-prefix",    required_argument, 0, '\0' },
+            { "A-endpt",     required_argument, 0,  'A' },
+            { "B-endpt",     required_argument, 0,  'B' },
+            { "A-channel",   required_argument, 0,  'a' },
+            { "B-channel",   required_argument, 0,  'b' },
+            { "decimation",  required_argument, 0,  'D' },
+            { "plugin-path", required_argument, 0,  'p' },
+            { "debug",             no_argument, 0,  'd' },
             { 0, 0, 0, 0 }
         };
 
         int c;
         vector<int> *currDec = nullptr;
-        while ((c = getopt_long (argc, argv, optstring, long_opts, 0)) >= 0) {
+        int option_index;
+        while ((c = getopt_long(argc, argv, optstring, long_opts, &option_index)) >= 0) {
             switch (c) {
-                case 'p': currDec = nullptr; Aprefix = optarg; break;
-                case 'r': currDec = nullptr; Bprefix = optarg; break;
                 case 'A': currDec = nullptr; Aurl = optarg; break;
                 case 'B': currDec = nullptr; Burl = optarg; break;
                 case 'a':
@@ -67,13 +75,28 @@ struct Args
                     Bdec.push_back(0);
                     currDec = &Bdec;
                     break;
-                case 'd':
+                case 'D':
                     ZCM_ASSERT(currDec != nullptr &&
                                "Decimation must immediately follow a channel");
                     currDec->back() = atoi(optarg);
                     currDec = nullptr;
                     break;
-                case 'h': default: return false;
+                case 'p':
+                    plugin_path = string(optarg);
+                    break;
+                case 'd':
+                    debug = true;
+                    break;
+                case 0:
+                    if (string(argv[option_index]) == "--A-prefix") {
+                        currDec = nullptr;
+                        Aprefix = optarg;
+                    } else if (string(argv[option_index]) == "--B-prefix") {
+                        currDec = nullptr;
+                        Bprefix = optarg;
+                    }
+                    break;
+                case 'h': default: usage(); return false;
             };
         }
 
@@ -94,6 +117,38 @@ struct Args
 
         return true;
     }
+
+    void usage()
+    {
+        cerr << "usage: zcm-bridge [options]" << endl
+             << "" << endl
+             << "    ZCM bridge utility. Bridges all data from one ZCM network to another." << endl
+             << "" << endl
+             << "Example:" << endl
+             << "    zcm-bridge -A ipc -B udpm://239.255.76.67:7667?ttl=0" << endl
+             << "" << endl
+             << "Options:" << endl
+             << "" << endl
+             << "  -h, --help                 Shows this help text and exits" << endl
+             << "  -A, --A-enpt=URL           One end of the bridge. Ex: zcm-bridge -A ipc" << endl
+             << "  -B, --B-endpt=URL          One end of the bridge. Ex: zcm-bridge -B udpm://239.255.76.67:7667?ttl=0" << endl
+             << "      --A-prefix=PREFIX      Specify a prefix for all messages published on the A url" << endl
+             << "      --B-prefix=PREFIX      Specify a prefix for all messages published on the B url" << endl
+             << "  -a, --A-channel=CHANNEL    One channel to subscribe to on A and repeat to B." << endl
+             << "                             This argument can be specified multiple times. If this option is not," << endl
+             << "                             present then we subscribe to all messages on the A interface." << endl
+             << "                             Ex: zcm-bridge -A ipc -a EXAMPLE -B udpm://239.255.76.67:7667?ttl=0" << endl
+             << "  -b, --B-channel=CHANNEL    One channel to subscribe to on B and repeat to A." << endl
+             << "                             This argument can be specified multiple times. If this option is not," << endl
+             << "                             present then we subscribe to all messages on the B interface." << endl
+             << "                             Ex: zcm-bridge -A ipc -B udpm://239.255.76.67:7667?ttl=0 -b EXAMPLE" << endl
+             << "  -D, --decimation           Decimation level for the preceeding A-channel or B-channel. " << endl
+             << "                             Ex: zcm-bridge -A ipc -B udpm://239.255.76.67:7667?ttl=0 -b EXAMPLE -d 2" << endl
+             << "                             This example would result in the message on EXAMPLE being rebroadcast on" << endl
+             << "                             the A url every third message." << endl
+             << "  -p, --plugin-path=path     Path to shared library containing transcoder plugins" << endl
+             << "" << endl << endl;
+    }
 };
 
 struct Bridge
@@ -103,7 +158,11 @@ struct Bridge
     zcm::ZCM *zcmA = nullptr;
     zcm::ZCM *zcmB = nullptr;
 
-    struct BridgeInfo {
+    static TranscoderPluginDb* pluginDb;
+    static vector<zcm::TranscoderPlugin*> plugins;
+
+    struct BridgeInfo
+    {
         zcm::ZCM *zcmOut = nullptr;
         string    prefix = "";
         int       decimation = 0;
@@ -121,6 +180,7 @@ struct Bridge
     {
         if (zcmA) delete zcmA;
         if (zcmB) delete zcmB;
+        if (pluginDb) { delete pluginDb; pluginDb = nullptr; }
     }
 
     bool init(int argc, char *argv[])
@@ -148,6 +208,23 @@ struct Bridge
             return false;
         }
 
+        if (!pluginDb) {
+            pluginDb = new TranscoderPluginDb(args.plugin_path, args.debug);
+            // Load plugins from path if specified
+            if (args.plugin_path != "") {
+                vector<const zcm::TranscoderPlugin*> dbPlugins = pluginDb->getPlugins();
+                if (dbPlugins.empty()) {
+                    cerr << "Couldn't find any plugins. Aborting." << endl;
+                    return false;
+                }
+                vector<string> dbPluginNames = pluginDb->getPluginNames();
+                for (size_t i = 0; i < dbPlugins.size(); ++i) {
+                    plugins.push_back((zcm::TranscoderPlugin*) dbPlugins[i]);
+                    if (args.debug) cout << "Loaded plugin: " << dbPluginNames[i] << endl;
+                }
+            }
+        }
+
         return true;
     }
 
@@ -155,12 +232,38 @@ struct Bridge
     {
         BridgeInfo* info = (BridgeInfo*)usr;
         if (info->nSkipped == info->decimation) {
-            // Must create newChannel in here to handle regex based subscriptions.
-            // Ie you cant store the whole channel in BridgeInfo because you
-            // don't necessarily know what channel is until you receive a message
-            string newChannel = info->prefix + channel;
-            info->zcmOut->publish(newChannel, rbuf->data, rbuf->data_size);
             info->nSkipped = 0;
+
+            vector<const zcm::LogEvent*> evts;
+
+            zcm::LogEvent le;
+            le.timestamp = rbuf->recv_utime;
+            le.channel   = channel;
+            le.datalen   = rbuf->data_size;
+            le.data      = rbuf->data;
+
+            if (!plugins.empty()) {
+
+                int64_t msg_hash;
+                __int64_t_decode_array(le.data, 0, 8, &msg_hash, 1);
+
+                for (auto& p : plugins) {
+                    vector<const zcm::LogEvent*> pevts =
+                        p->transcodeEvent((uint64_t) msg_hash, &le);
+                    evts.insert(evts.end(), pevts.begin(), pevts.end());
+                }
+
+            } else {
+                evts.push_back(&le);
+            }
+
+            for (auto* evt : evts) {
+                // Must create newChannel in here to handle regex based subscriptions.
+                // Ie you cant store the whole channel in BridgeInfo because you
+                // don't necessarily know what channel is until you receive a message
+                string newChannel = info->prefix + evt->channel;
+                info->zcmOut->publish(newChannel, evt->data, evt->datalen);
+            }
         } else {
             info->nSkipped++;
         }
@@ -212,44 +315,13 @@ struct Bridge
     }
 };
 
-static void usage()
-{
-    cerr << "usage: zcm-bridge [options]" << endl
-         << "" << endl
-         << "    ZCM bridge utility. Bridges all data from one ZCM network to another." << endl
-         << "" << endl
-         << "Example:" << endl
-         << "    zcm-bridge -A ipc -B udpm://239.255.76.67:7667?ttl=0" << endl
-         << "" << endl
-         << "Options:" << endl
-         << "" << endl
-         << "  -h, --help                 Shows this help text and exits" << endl
-         << "  -A, --A-enpt=URL           One end of the bridge. Ex: zcm-bridge -A ipc" << endl
-         << "  -B, --B-endpt=URL          One end of the bridge. Ex: zcm-bridge -B udpm://239.255.76.67:7667?ttl=0" << endl
-         << "  -p, --A-prefix=PREFIX      Specify a prefix for all messages published on the A url" << endl
-         << "  -r, --B-prefix=PREFIX      Specify a prefix for all messages published on the B url" << endl
-         << "  -a, --A-channel=CHANNEL    One channel to subscribe to on A and repeat to B." << endl
-         << "                             This argument can be specified multiple times. If this option is not," << endl
-         << "                             present then we subscribe to all messages on the A interface." << endl
-         << "                             Ex: zcm-bridge -A ipc -a EXAMPLE -B udpm://239.255.76.67:7667?ttl=0" << endl
-         << "  -b, --B-channel=CHANNEL    One channel to subscribe to on B and repeat to A." << endl
-         << "                             This argument can be specified multiple times. If this option is not," << endl
-         << "                             present then we subscribe to all messages on the B interface." << endl
-         << "                             Ex: zcm-bridge -A ipc -B udpm://239.255.76.67:7667?ttl=0 -b EXAMPLE" << endl
-         << "  -d, --decimation           Decimation level for the preceeding A-channel or B-channel. " << endl
-         << "                             Ex: zcm-bridge -A ipc -B udpm://239.255.76.67:7667?ttl=0 -b EXAMPLE -d 2" << endl
-         << "                             This example would result in the message on EXAMPLE being rebroadcast on" << endl
-         << "                             the A url every third message." << endl
-         << "" << endl << endl;
-}
+TranscoderPluginDb* Bridge::pluginDb = nullptr;
+vector<zcm::TranscoderPlugin*> Bridge::plugins = {};
 
 int main(int argc, char *argv[])
 {
     Bridge bridge{};
-    if (!bridge.init(argc, argv)) {
-        usage();
-        return 1;
-    }
+    if (!bridge.init(argc, argv)) return 1;
 
     // Register signal handlers
     signal(SIGINT, sighandler);

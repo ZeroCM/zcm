@@ -124,13 +124,7 @@ struct Args
                 case 'd':
                     debug = true;
                     break;
-                case 'h':
-                    usage();
-                    return false;
-                default:
-                    cerr << "Unrecognized option: " << optarg << endl;
-                    usage();
-                    return false;
+                case 'h': default: usage(); return false;
             };
         }
 

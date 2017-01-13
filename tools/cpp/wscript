@@ -4,7 +4,6 @@
 def build(ctx):
     ctx.recurse('util');
     ctx.recurse('logplayer');
-    ctx.recurse('bridge');
     ctx.recurse('repeater');
     ctx.recurse('spy-peek');
 
@@ -13,3 +12,4 @@ def build(ctx):
         ctx.recurse('indexer');
         ctx.recurse('transcoder');
         ctx.recurse('logger');
+        ctx.recurse('bridge');

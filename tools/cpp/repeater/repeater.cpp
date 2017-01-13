@@ -27,32 +27,22 @@ struct Args
         // set some defaults
         const char *optstring = "hc:is:d:";
         struct option long_opts[] = {
-            { "help", no_argument, 0, 'h' },
-            { "channel", required_argument, 0, 'c' },
-            { "invert-channels", no_argument, 0, 'i' },
-            { "src-url", required_argument, 0, 's'},
-            { "dest-url", required_argument, 0, 'd'},
+            { "help",                  no_argument, 0, 'h' },
+            { "channel",         required_argument, 0, 'c' },
+            { "invert-channels",       no_argument, 0, 'i' },
+            { "src-url",         required_argument, 0, 's' },
+            { "dest-url",        required_argument, 0, 'd' },
             { 0, 0, 0, 0 }
         };
 
         int c;
         while ((c = getopt_long (argc, argv, optstring, long_opts, 0)) >= 0) {
             switch (c) {
-                case 'c':
-                    chan = optarg;
-                    break;
-                case 's':
-                    src_url = optarg;
-                    break;
-                case 'd':
-                    dest_url = optarg;
-                    break;
-                case 'i':
-                    invert_channels = true;
-                    break;
-                case 'h':
-                default:
-                    return false;
+                case 'c': chan            = optarg; break;
+                case 's': src_url         = optarg; break;
+                case 'd': dest_url        = optarg; break;
+                case 'i': invert_channels = true;   break;
+                case 'h': default: usage(); return false;
             };
         }
 
@@ -73,11 +63,34 @@ struct Args
 
         return true;
     }
+
+    void usage()
+    {
+        fprintf(stderr, "usage: zcm-repeater [options]\n"
+                "\n"
+                "    ZCM repeater utility.  Subscribes to all channels on a source ZCM\n"
+                "    network, and repeats all messages received on that network to\n"
+                "    a destination ZCM network.\n"
+                "\n"
+                "Example:\n"
+                "    zcm-repeater -s ipc -d udpm://224.255.76.67:7667?ttl=0\n"
+                "\n"
+                "Options:\n"
+                "\n"
+                "  -c, --channel=CHAN         Channel string to pass to zcm_subscribe.\n"
+                "                             (default: \".*\")\n"
+                "  -h, --help                 Shows this help text and exits\n"
+                "  -s, --src-url=URL          Subscribe to messages on the specified ZCM URL\n"
+                "  -d, --dest-url=URL         Repeat messages onto the specified ZCM URL\n"
+                "  -i, --invert-channels      Invert channels. Repeat everything that CHAN\n"
+                "                             does not match.\n"
+                "\n");
+    }
 };
 
 struct Repeater
 {
-    Args   args;
+    Args args;
 
     zcm_t *zcmSrc = nullptr;
     zcm_t *zcmDest = nullptr;
@@ -152,36 +165,10 @@ struct Repeater
     }
 };
 
-static void usage()
-{
-    fprintf(stderr, "usage: zcm-repeater [options]\n"
-            "\n"
-            "    ZCM repeater utility.  Subscribes to all channels on a source ZCM\n"
-            "    network, and repeats all messages received on that network to\n"
-            "    a destination ZCM network.\n"
-            "\n"
-            "Example:\n"
-            "    zcm-repeater -s ipc -d udpm://224.255.76.67:7667?ttl=0\n"
-            "\n"
-            "Options:\n"
-            "\n"
-            "  -c, --channel=CHAN         Channel string to pass to zcm_subscribe.\n"
-            "                             (default: \".*\")\n"
-            "  -h, --help                 Shows this help text and exits\n"
-            "  -s, --src-url=URL          Subscribe to messages on the specified ZCM URL\n"
-            "  -d, --dest-url=URL         Repeat messages onto the specified ZCM URL\n"
-            "  -i, --invert-channels      Invert channels. Repeat everything that CHAN\n"
-            "                             does not match.\n"
-            "\n");
-}
-
 int main(int argc, char *argv[])
 {
     Repeater repeater{};
-    if (!repeater.init(argc, argv)) {
-        usage();
-        return 1;
-    }
+    if (!repeater.init(argc, argv)) return 1;
 
     repeater.run();
 
