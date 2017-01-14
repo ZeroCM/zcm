@@ -420,15 +420,18 @@ struct Logger
             for (auto& p : plugins) {
                 vector<const zcm::LogEvent*> pevts =
                     p->transcodeEvent((uint64_t) msg_hash, le);
-                for (auto& evt : pevts)
-                    evts.emplace_back(cloneLogEvent(evt));
+                for (auto* evt : pevts)
+                    if (evt) evts.emplace_back(cloneLogEvent(evt));
+                    else     evts.emplace_back(nullptr);
             }
+        }
 
-            delete le;
-        } else {
+        if (evts.empty()) {
             le->data = new char[rbuf->data_size];
             memcpy(le->data, rbuf->data, sizeof(char) * rbuf->data_size);
             evts.push_back(le);
+        } else {
+            delete le;
         }
 
         bool stillRoom = true;
@@ -437,6 +440,10 @@ struct Logger
             while (!evts.empty()) {
                 if (stillRoom) {
                     zcm::LogEvent* le = evts.back();
+                    if (!le) {
+                        evts.pop_back();
+                        continue;
+                    }
                     q.push(le);
                     totalMemoryUsage += le->datalen + le->channel.size() + sizeof(*le);
                     stillRoom = (args.max_target_memory == 0) ? true :

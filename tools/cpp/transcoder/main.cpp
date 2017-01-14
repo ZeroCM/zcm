@@ -144,7 +144,9 @@ int main(int argc, char* argv[])
 
         for (auto& p : plugins) {
             vector<const zcm::LogEvent*> evts = p->transcodeEvent((uint64_t) msg_hash, evt);
-            for (auto& evt : evts) {
+            if (evts.empty()) evts.push_back(evt);
+            for (auto* evt : evts) {
+                if (!evt) continue;
                 outlog.writeEvent(evt);
                 numOutEvents++;
             }

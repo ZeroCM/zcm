@@ -251,12 +251,12 @@ struct Bridge
                         p->transcodeEvent((uint64_t) msg_hash, &le);
                     evts.insert(evts.end(), pevts.begin(), pevts.end());
                 }
-
-            } else {
-                evts.push_back(&le);
             }
 
+            if (evts.empty()) evts.push_back(&le);
+
             for (auto* evt : evts) {
+                if (!evt) continue;
                 // Must create newChannel in here to handle regex based subscriptions.
                 // Ie you cant store the whole channel in BridgeInfo because you
                 // don't necessarily know what channel is until you receive a message
