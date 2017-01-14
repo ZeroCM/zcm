@@ -230,7 +230,7 @@ struct Bridge
     static void handler(const zcm::ReceiveBuffer* rbuf, const string& channel, void* usr)
     {
         BridgeInfo* info = (BridgeInfo*)usr;
-        if (info->nSkipped == info->decimation) {
+        if (info->nSkipped++ == info->decimation) {
             info->nSkipped = 0;
 
             vector<const zcm::LogEvent*> evts;
@@ -263,8 +263,6 @@ struct Bridge
                 string newChannel = info->prefix + evt->channel;
                 info->zcmOut->publish(newChannel, evt->data, evt->datalen);
             }
-        } else {
-            info->nSkipped++;
         }
     }
 
