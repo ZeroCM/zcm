@@ -208,20 +208,19 @@ struct Bridge
             return false;
         }
 
-        if (!pluginDb) {
+        assert(pluginDb == nullptr);
+        // Load plugins from path if specified
+        if (args.plugin_path != "") {
             pluginDb = new TranscoderPluginDb(args.plugin_path, args.debug);
-            // Load plugins from path if specified
-            if (args.plugin_path != "") {
-                vector<const zcm::TranscoderPlugin*> dbPlugins = pluginDb->getPlugins();
-                if (dbPlugins.empty()) {
-                    cerr << "Couldn't find any plugins. Aborting." << endl;
-                    return false;
-                }
-                vector<string> dbPluginNames = pluginDb->getPluginNames();
-                for (size_t i = 0; i < dbPlugins.size(); ++i) {
-                    plugins.push_back((zcm::TranscoderPlugin*) dbPlugins[i]);
-                    if (args.debug) cout << "Loaded plugin: " << dbPluginNames[i] << endl;
-                }
+            vector<const zcm::TranscoderPlugin*> dbPlugins = pluginDb->getPlugins();
+            if (dbPlugins.empty()) {
+                cerr << "Couldn't find any plugins. Aborting." << endl;
+                return false;
+            }
+            vector<string> dbPluginNames = pluginDb->getPluginNames();
+            for (size_t i = 0; i < dbPlugins.size(); ++i) {
+                plugins.push_back((zcm::TranscoderPlugin*) dbPlugins[i]);
+                if (args.debug) cout << "Loaded plugin: " << dbPluginNames[i] << endl;
             }
         }
 

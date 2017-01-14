@@ -285,9 +285,10 @@ struct Logger
         if (!openLogfile())
             return false;
 
-        pluginDb = new TranscoderPluginDb(args.plugin_path, args.debug);
         // Load plugins from path if specified
+        assert(pluginDb == nullptr);
         if (args.plugin_path != "") {
+            pluginDb = new TranscoderPluginDb(args.plugin_path, args.debug);
             vector<const zcm::TranscoderPlugin*> dbPlugins = pluginDb->getPlugins();
             if (dbPlugins.empty()) {
                 cerr << "Couldn't find any plugins. Aborting." << endl;
