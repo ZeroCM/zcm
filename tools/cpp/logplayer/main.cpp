@@ -19,29 +19,6 @@ using namespace std;
 
 static atomic_int done {0};
 
-static void usage(char * cmd)
-{
-    cerr << "usage: zcm-logplayer [options] [FILE]" << endl
-         << "" << endl
-         << "    Reads packets from an ZCM log file and publishes them to a " << endl
-         << "    ZCM transport." << endl
-         << "" << endl
-         << "Options:" << endl
-         << "" << endl
-         << "  -s, --speed=NUM        Playback speed multiplier.  Default is 1." << endl
-         << "  -u, --zcm-url=URL      Play logged messages on the specified ZCM URL." << endl
-         << "  -o, --output=filename  Instead of broadcasting over zcm, log directly " << endl
-         << "                         to a file. Enabling this, ignores the" << endl
-         << "                         \"--speed\" option" << endl
-         << "  -j, --jslp=filename    Use this jslp meta file. " << endl
-         << "                         If unspecified, zcm-logplayer looks for a file " << endl
-         << "                         with the same filename as the input log and " << endl
-         << "                         a .jslp suffix" << endl
-         << "  -v, --verbose          Print information about each packet." << endl
-         << "  -h, --help             Shows some help text and exits." << endl
-         << endl;
-}
-
 static void sighandler(int signal)
 {
     done++;
@@ -78,14 +55,13 @@ struct Args
                 case 'u':    zcmUrlOut = string(optarg);       break;
                 case 'j': jslpFilename = string(optarg);       break;
                 case 'v':      verbose = true;                 break;
-                case 'h': usage(argv[0]); return true;
-                default:  usage(argv[0]); return false;
+                case 'h': default: usage(); return false;
             };
         }
 
         if (optind != argc - 1) {
             cerr << "Please specify a logfile" << endl;
-            usage(argv[0]);
+            usage();
             return false;
         }
 
@@ -117,6 +93,29 @@ struct Args
         if (speed == 0) speed = std::numeric_limits<decltype(speed)>::infinity();
 
         return true;
+    }
+
+    void usage()
+    {
+        cerr << "usage: zcm-logplayer [options] [FILE]" << endl
+             << "" << endl
+             << "    Reads packets from an ZCM log file and publishes them to a " << endl
+             << "    ZCM transport." << endl
+             << "" << endl
+             << "Options:" << endl
+             << "" << endl
+             << "  -s, --speed=NUM        Playback speed multiplier.  Default is 1." << endl
+             << "  -u, --zcm-url=URL      Play logged messages on the specified ZCM URL." << endl
+             << "  -o, --output=filename  Instead of broadcasting over zcm, log directly " << endl
+             << "                         to a file. Enabling this, ignores the" << endl
+             << "                         \"--speed\" option" << endl
+             << "  -j, --jslp=filename    Use this jslp meta file. " << endl
+             << "                         If unspecified, zcm-logplayer looks for a file " << endl
+             << "                         with the same filename as the input log and " << endl
+             << "                         a .jslp suffix" << endl
+             << "  -v, --verbose          Print information about each packet." << endl
+             << "  -h, --help             Shows some help text and exits." << endl
+             << endl;
     }
 };
 

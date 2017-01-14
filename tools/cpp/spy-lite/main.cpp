@@ -344,52 +344,44 @@ struct Args
         // set some defaults
         const char *optstring = "hu:p:d";
         struct option long_opts[] = {
-            { "help", no_argument, 0, 'h' },
-            { "zcm-url", required_argument, 0, 'u' },
+            { "help",            no_argument, 0, 'h' },
+            { "zcm-url",   required_argument, 0, 'u' },
             { "type-path", required_argument, 0, 'p' },
-            { "debug", no_argument, 0, 'd' },
+            { "debug",           no_argument, 0, 'd' },
             { 0, 0, 0, 0 }
         };
 
         int c;
         while ((c = getopt_long (argc, argv, optstring, long_opts, 0)) >= 0) {
             switch (c) {
-                case 'u':
-                    zcmurl = optarg;
-                    break;
-                case 'd':
-                    debug = true;
-                    break;
-                case 'p':
-                    zcmtypes_path = optarg;
-                    break;
-                case 'h':
-                default:
-                    return false;
+                case 'u': zcmurl        = optarg; break;
+                case 'd': debug         = true;   break;
+                case 'p': zcmtypes_path = optarg; break;
+                case 'h': default: usage(); return false;
             };
         }
 
         return true;
     }
-};
 
-static void usage()
-{
-    fprintf(stderr, "usage: zcm-spy-lite [options]\n"
-            "\n"
-            "    Terminal based spy utility.  Subscribes to all channels on a ZCM\n"
-            "    transport and displays them in an interactive terminal.\n"
-            "Example:\n"
-            "    zcm-spy-lite -u udpm://239.255.76.67:7667 -p path/to/zcmtypes.so\n"
-            "\n"
-            "Options:\n"
-            "\n"
-            "  -h, --help                 Shows this help text and exits\n"
-            "  -u, --zcm-url=URL          Log messages on the specified ZCM URL\n"
-            "  -p, --type-path=PATH       Path to a shared library containing the zcmtypes\n"
-            "  -d, --debug                Run a dry run to ensure proper spy setup\n"
-            "\n");
-}
+    void usage()
+    {
+        fprintf(stderr, "usage: zcm-spy-lite [options]\n"
+                "\n"
+                "    Terminal based spy utility.  Subscribes to all channels on a ZCM\n"
+                "    transport and displays them in an interactive terminal.\n"
+                "Example:\n"
+                "    zcm-spy-lite -u udpm://239.255.76.67:7667 -p path/to/zcmtypes.so\n"
+                "\n"
+                "Options:\n"
+                "\n"
+                "  -h, --help                 Shows this help text and exits\n"
+                "  -u, --zcm-url=URL          Log messages on the specified ZCM URL\n"
+                "  -p, --type-path=PATH       Path to a shared library containing the zcmtypes\n"
+                "  -d, --debug                Run a dry run to ensure proper spy setup\n"
+                "\n");
+    }
+};
 
 int main(int argc, char *argv[])
 {
@@ -397,10 +389,7 @@ int main(int argc, char *argv[])
     bool debug = false;
 
     Args args;
-    if (!args.parse(argc, argv)) {
-        usage();
-        return 1;
-    }
+    if (!args.parse(argc, argv)) return 1;
 
     if (args.debug) debug = true;
 

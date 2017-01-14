@@ -124,13 +124,7 @@ struct Args
                 case 'd':
                     debug = true;
                     break;
-                case 'h':
-                    usage();
-                    return false;
-                default:
-                    cerr << "Unrecognized option: " << optarg << endl;
-                    usage();
-                    return false;
+                case 'h': default: usage(); return false;
             };
         }
 
@@ -291,9 +285,10 @@ struct Logger
         if (!openLogfile())
             return false;
 
-        pluginDb = new TranscoderPluginDb(args.plugin_path, args.debug);
         // Load plugins from path if specified
+        assert(pluginDb == nullptr);
         if (args.plugin_path != "") {
+            pluginDb = new TranscoderPluginDb(args.plugin_path, args.debug);
             vector<const zcm::TranscoderPlugin*> dbPlugins = pluginDb->getPlugins();
             if (dbPlugins.empty()) {
                 cerr << "Couldn't find any plugins. Aborting." << endl;
@@ -425,15 +420,18 @@ struct Logger
             for (auto& p : plugins) {
                 vector<const zcm::LogEvent*> pevts =
                     p->transcodeEvent((uint64_t) msg_hash, le);
-                for (auto& evt : pevts)
-                    evts.emplace_back(cloneLogEvent(evt));
+                for (auto* evt : pevts)
+                    if (evt) evts.emplace_back(cloneLogEvent(evt));
+                    else     evts.emplace_back(nullptr);
             }
+        }
 
-            delete le;
-        } else {
+        if (evts.empty()) {
             le->data = new char[rbuf->data_size];
             memcpy(le->data, rbuf->data, sizeof(char) * rbuf->data_size);
             evts.push_back(le);
+        } else {
+            delete le;
         }
 
         bool stillRoom = true;
@@ -442,6 +440,10 @@ struct Logger
             while (!evts.empty()) {
                 if (stillRoom) {
                     zcm::LogEvent* le = evts.back();
+                    if (!le) {
+                        evts.pop_back();
+                        continue;
+                    }
                     q.push(le);
                     totalMemoryUsage += le->datalen + le->channel.size() + sizeof(*le);
                     stillRoom = (args.max_target_memory == 0) ? true :

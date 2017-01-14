@@ -3,5 +3,5 @@
 
 def build(ctx):
     ctx.program(target = 'zcm-bridge',
-                use = ['default', 'zcm'],
+                use = ['default', 'zcm', 'zcm_tools_util'],
                 source = ctx.path.ant_glob('*.cpp'))

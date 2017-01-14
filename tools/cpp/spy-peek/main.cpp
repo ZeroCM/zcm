@@ -28,37 +28,6 @@ static void handler(const zcm_recv_buf_t *rbuf, const char *channel,
     }
 }
 
-
-static const char *zcmurl = nullptr;
-static bool parse_args(int argc, char *argv[])
-{
-    // set some defaults
-    const char *optstring = "hu:v";
-    struct option long_opts[] = {
-        { "help",    no_argument,       0, 'h' },
-        { "zcm-url", required_argument, 0, 'u' },
-        { "verbose", no_argument,       0, 'v' },
-        { 0, 0, 0, 0 }
-    };
-
-    int c;
-    while ((c = getopt_long (argc, argv, optstring, long_opts, 0)) >= 0) {
-        switch (c) {
-            case 'u':
-                zcmurl = optarg;
-                break;
-            case 'v':
-                verbose = true;
-                break;
-            case 'h':
-            default:
-                return false;
-        };
-    }
-
-    return true;
-}
-
 static void usage()
 {
     fprintf(stderr, "usage: zcm-repeater [options]\n"
@@ -76,12 +45,33 @@ static void usage()
             "\n");
 }
 
+static const char *zcmurl = nullptr;
+static bool parse_args(int argc, char *argv[])
+{
+    // set some defaults
+    const char *optstring = "hu:v";
+    struct option long_opts[] = {
+        { "help",    no_argument,       0, 'h' },
+        { "zcm-url", required_argument, 0, 'u' },
+        { "verbose", no_argument,       0, 'v' },
+        { 0, 0, 0, 0 }
+    };
+
+    int c;
+    while ((c = getopt_long (argc, argv, optstring, long_opts, 0)) >= 0) {
+        switch (c) {
+            case 'u': zcmurl  = optarg; break;
+            case 'v': verbose = true;   break;
+            case 'h': default: usage(); return false;
+        };
+    }
+
+    return true;
+}
+
 int main(int argc, char *argv[])
 {
-    if (!parse_args(argc, argv)) {
-        usage();
-        return 1;
-    }
+    if (!parse_args(argc, argv)) return 1;
 
     zcm_t *zcm = zcm_create(zcmurl);
     if (!zcm) {

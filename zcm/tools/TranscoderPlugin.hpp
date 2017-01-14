@@ -71,13 +71,13 @@ class TranscoderPlugin
     //
     //  return { &newEvt };
     //
-    //  return a vector of events you want to replace this event with.
+    //  return a vector of events you want to transcode this event into.
     //  return TranscoderPlugin::transcodeEvent(hash,evt) to not transcode
     //  this event into the output log
     //
     virtual std::vector<const LogEvent*> transcodeEvent(int64_t hash, const LogEvent* evt)
     {
-        return {};
+        return { nullptr };
     }
 };
 

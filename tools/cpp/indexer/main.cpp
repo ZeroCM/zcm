@@ -41,7 +41,8 @@ struct Args
         };
 
         int c;
-        while ((c = getopt_long (argc, argv, optstring, long_opts, 0)) >= 0) {
+        int option_index;
+        while ((c = getopt_long(argc, argv, optstring, long_opts, &option_index)) >= 0) {
             switch (c) {
                 case 'l': logfile     = string(optarg); break;
                 case 'o': output      = string(optarg); break;
@@ -49,11 +50,10 @@ struct Args
                 case 't': type_path   = string(optarg); break;
                 case 'r': readable    = true;           break;
                 case 'd': useDefault  = true;           break;
-                case 'h':
-                default:
-                    if (string(argv[optind]) == "debug") {
-                        debug = true;
-                    } else return false;
+                case  0:
+                    if (string(argv[option_index]) == "debug") debug = true;
+                    break;
+                case 'h': default: usage(); return false;
             };
         }
 
@@ -113,10 +113,7 @@ struct Args
 int main(int argc, char* argv[])
 {
     Args args;
-    if (!args.parse(argc, argv)) {
-        args.usage();
-        return 1;
-    }
+    if (!args.parse(argc, argv)) return 1;
 
     zcm::LogFile log(args.logfile, "r");
     if (!log.good()) {

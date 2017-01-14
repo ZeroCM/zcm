@@ -40,8 +40,7 @@ struct Args
                 case 'o': outlog      = string(optarg); break;
                 case 'p': plugin_path = string(optarg); break;
                 case 'd': debug       = true;           break;
-                case 'h': usage();                      return true;
-                default:                                return false;
+                case 'h': default: usage(); return false;
             };
         }
 
@@ -90,10 +89,7 @@ struct Args
 int main(int argc, char* argv[])
 {
     Args args;
-    if (!args.parse(argc, argv)) {
-        args.usage();
-        return 1;
-    }
+    if (!args.parse(argc, argv)) return 1;
 
     zcm::LogFile inlog(args.inlog, "r");
     if (!inlog.good()) {
@@ -148,7 +144,9 @@ int main(int argc, char* argv[])
 
         for (auto& p : plugins) {
             vector<const zcm::LogEvent*> evts = p->transcodeEvent((uint64_t) msg_hash, evt);
-            for (auto& evt : evts) {
+            if (evts.empty()) evts.push_back(evt);
+            for (auto* evt : evts) {
+                if (!evt) continue;
                 outlog.writeEvent(evt);
                 numOutEvents++;
             }
