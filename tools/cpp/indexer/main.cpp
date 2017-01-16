@@ -51,7 +51,7 @@ struct Args
                 case 'r': readable    = true;           break;
                 case 'd': useDefault  = true;           break;
                 case  0:
-                    if (string(argv[option_index]) == "debug") debug = true;
+                    if (string(long_opts[option_index].name) == "debug") debug = true;
                     break;
                 case 'h': default: usage(); return false;
             };

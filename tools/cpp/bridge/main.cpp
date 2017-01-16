@@ -46,8 +46,8 @@ struct Args
         const char *optstring = "hA:B:a:b:D:p:d";
         struct option long_opts[] = {
             { "help",              no_argument, 0,  'h' },
-            { "A-prefix",    required_argument, 0, '\0' },
-            { "B-prefix",    required_argument, 0, '\0' },
+            { "A-prefix",    required_argument, 0,   0  },
+            { "B-prefix",    required_argument, 0,   0  },
             { "A-endpt",     required_argument, 0,  'A' },
             { "B-endpt",     required_argument, 0,  'B' },
             { "A-channel",   required_argument, 0,  'a' },
@@ -88,10 +88,10 @@ struct Args
                     debug = true;
                     break;
                 case 0:
-                    if (string(argv[option_index]) == "--A-prefix") {
+                    if (string(long_opts[option_index].name) == "A-prefix") {
                         currDec = nullptr;
                         Aprefix = optarg;
-                    } else if (string(argv[option_index]) == "--B-prefix") {
+                    } else if (string(long_opts[option_index].name) == "B-prefix") {
                         currDec = nullptr;
                         Bprefix = optarg;
                     }
