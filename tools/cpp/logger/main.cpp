@@ -55,13 +55,13 @@ struct Args
     bool parse(int argc, char *argv[])
     {
         // set some defaults
-        const char *optstring = "hb:c:fi:u:r:s:qvl:m:p:d";
+        const char *optstring = "hb:c:fiu:r:s:qvl:m:p:d";
         struct option long_opts[] = {
             { "help",              no_argument,       0, 'h' },
             { "split-mb",          required_argument, 0, 'b' },
             { "channel",           required_argument, 0, 'c' },
             { "force",             no_argument,       0, 'f' },
-            { "increment",         required_argument, 0, 'i' },
+            { "increment",         no_argument,       0, 'i' },
             { "zcm-url",           required_argument, 0, 'u' },
             { "rotate",            required_argument, 0, 'r' },
             { "strftime",          required_argument, 0, 's' },
