@@ -47,7 +47,7 @@ to be a constant headache in some applications we wished to develop.</p>
 <li>Poor support for embedded-system comms</li>
 </ul>
 
-<p>We dreamed of being able to uses LCM Types everywhere. Theoretically, we could use
+<p>We dreamed of being able to use LCM Types everywhere. Theoretically, we could use
 the same type specification for messaging in countless contexts, including:</p>
 
 <ul>
@@ -90,7 +90,7 @@ the page on <a href="transports.html">Transport Layer</a>.</p>
 <h3>ZCM Embedded-System Support</h3>
 
 <p>ZCM is designed with embedded applications in mind. The custom transport layer (see above),
-has a special non-blocking transport API designed fine-tuned for embedded uses. In addition,
+has a special non-blocking transport API designed and fine-tuned for embedded uses. In addition,
 the ZCM non-blocking core library is restricted to "on-the-metal" C89 code. This restriction allows
 embedded systems to use ZCM types and ZCM non-blocking code with little or no modifications.
 To learn more, check out the page on <a href="embedded.html">Embedded Applications</a>.</p>
@@ -110,13 +110,8 @@ allows LCM users to gradually migrate to ZCM.</p>
 <li><code>zcm_handle_timeout()</code> is not supported</li>
 <li><code>zcm_subscription_set_queue_capacity</code> is not supported</li>
 <li>LCMType-style enums are not supported</li>
-<li>The C-based logplayer is not currently supported
-<ul>
-<li>However, the Java-based logplayer is supported</li>
-</ul></li>
 <li>Language bindings not currently supported:
 <ul>
-<li>Python</li>
 <li>Lua</li>
 <li>C#</li>
 </ul></li>
