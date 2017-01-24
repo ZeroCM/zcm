@@ -17,7 +17,7 @@ In particular, we encountered:
   - Poor performance for inter-process message-passing
   - Poor support for embedded-system comms
 
-We dreamed of being able to uses LCM Types everywhere. Theoretically, we could use
+We dreamed of being able to use LCM Types everywhere. Theoretically, we could use
 the same type specification for messaging in countless contexts, including:
 
   - Inter-thread (shared-memory)
@@ -56,7 +56,7 @@ the page on [Transport Layer](transports.md).
 ### ZCM Embedded-System Support
 
 ZCM is designed with embedded applications in mind. The custom transport layer (see above),
-has a special non-blocking transport API designed fine-tuned for embedded uses. In addition,
+has a special non-blocking transport API designed and fine-tuned for embedded uses. In addition,
 the ZCM non-blocking core library is restricted to "on-the-metal" C89 code. This restriction allows
 embedded systems to use ZCM types and ZCM non-blocking code with little or no modifications.
 To learn more, check out the page on [Embedded Applications](embedded.md).
@@ -74,10 +74,7 @@ allows LCM users to gradually migrate to ZCM.
  - `zcm_handle_timeout()` is not supported
  - `zcm_subscription_set_queue_capacity` is not supported
  - LCMType-style enums are not supported
- - The C-based logplayer is not currently supported
-   - However, the Java-based logplayer is supported
  - Language bindings not currently supported:
-   - Python
    - Lua
    - C#
  - Operating Systems not currently supported
