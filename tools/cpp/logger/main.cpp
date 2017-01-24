@@ -360,7 +360,7 @@ struct Logger
             /* Loop through possible file names until we find one that doesn't
              * already exist.  This way, we never overwrite an existing file. */
             do {
-                snprintf(tmp_path, sizeof(tmp_path), "%s.%02d",
+                snprintf(tmp_path, sizeof(tmp_path), "%s.%04d",
                          fname_prefix.c_str(), next_increment_num);
                 filename = tmp_path;
                 next_increment_num++;
