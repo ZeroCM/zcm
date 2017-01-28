@@ -30,16 +30,16 @@ type Zcm
     strerror   ::Function; # String ()
 
     # TODO refine these comments
-    subscribe  ::Function; # Sub   (String channel, Handler handler, Any usr)
-    unsubscribe::Function; # Int32 (Sub)
-    publish    ::Function; # Int32 (String channel, Msg msg)
-    publishRaw ::Function; # Int32 (String channel, Array{Uint8} data, Uint32 datalen)
-    flush      ::Function; # Void  ()
+    subscribe  ::Function; # Ptr{Native.Sub} (String channel, Handler handler, Any usr)
+    unsubscribe::Function; #           Int32 (Ptr{Native.Sub})
+    publish    ::Function; #           Int32 (String channel, Msg msg)
+    publishRaw ::Function; #           Int32 (String channel, Array{Uint8} data, Uint32 datalen)
+    flush      ::Function; #            Void ()
 
-    run        ::Function; # Void  ()
-    start      ::Function; # Void  ()
-    stop       ::Function; # Void  ()
-    handle     ::Function; # Void  ()
+    run        ::Function; #            Void ()
+    start      ::Function; #            Void ()
+    stop       ::Function; #            Void ()
+    handle     ::Function; #            Void ()
 
 
     function Zcm(url::AbstractString)
@@ -69,6 +69,27 @@ type Zcm
             end
         end
 
+        instance.unsubscribe = function(sub::Ptr{Native.Sub})
+            return ccall(("zcm_unsubscribe", "libzcm"), Cint,
+                         (Ptr{Native.Zcm}, Ptr{Native.Sub}), instance.zcm, sub);
+        end
+
+        instance.run = function()
+            ccall(("zcm_run", "libzcm"), Void, (Ptr{Native.Zcm},), instance.zcm);
+        end
+
+        instance.start = function()
+            ccall(("zcm_start", "libzcm"), Void, (Ptr{Native.Zcm},), instance.zcm);
+        end
+
+        instance.stop = function()
+            ccall(("zcm_stop", "libzcm"), Void, (Ptr{Native.Zcm},), instance.zcm);
+        end
+
+        instance.handle = function()
+            ccall(("zcm_handle", "libzcm"), Void, (Ptr{Native.Zcm},), instance.zcm);
+        end
+
         return instance;
     end
 end
@@ -77,10 +98,6 @@ export Zcm;
 type RecvBuf
 end
 export RecvBuf;
-
-type Sub
-end
-export Sub;
 
 type Eventlog
 end
