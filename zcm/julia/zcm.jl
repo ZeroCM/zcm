@@ -26,18 +26,20 @@ end
 type Zcm
     zcm::Ptr{Native.Zcm};
 
-    errno      ::Function;
-    strerror   ::Function;
+    errno      ::Function; # Int32  ()
+    strerror   ::Function; # String ()
 
-    subscribe  ::Function;
-    unsubscribe::Function;
-    publish    ::Function;
-    flush      ::Function;
+    # TODO refine these comments
+    subscribe  ::Function; # Sub   (String channel, Handler handler, Any usr)
+    unsubscribe::Function; # Int32 (Sub)
+    publish    ::Function; # Int32 (String channel, Msg msg)
+    publishRaw ::Function; # Int32 (String channel, Array{Uint8} data, Uint32 datalen)
+    flush      ::Function; # Void  ()
 
-    run        ::Function;
-    start      ::Function;
-    stop       ::Function;
-    handle     ::Function;
+    run        ::Function; # Void  ()
+    start      ::Function; # Void  ()
+    stop       ::Function; # Void  ()
+    handle     ::Function; # Void  ()
 
 
     function Zcm(url::AbstractString)
