@@ -24,20 +24,30 @@ end
 
 # TODO: Just testing an example, this is an example of how you can wrap the user's function ptr
 #       in a way that will be passable to cfunction()
-function qsort!_compare{T}(a_::Ptr{T}, b_::Ptr{T}, lessthan_::Ptr{Void})
+
+type CompareUsr
+    lessthan::Function;
+    usr::Any;
+    CompareUsr(lessthan::Function, usr) = new(lessthan, usr);
+end
+
+function qsort!_compare{T}(a_::Ptr{T}, b_::Ptr{T}, compareUsr_::Ptr{Void})
     a = unsafe_load(a_)
     b = unsafe_load(b_)
-    lessthan = unsafe_pointer_to_objref(lessthan_)::Function;
-    ret::Cint = lessthan(a, b) ? -1 : +1;
+    compareUsr = unsafe_pointer_to_objref(compareUsr_)::CompareUsr;
+    ret::Cint = compareUsr.lessthan(a, b, compareUsr.usr) ? -1 : +1;
 	return ret;
 end
 
-function qsort!{T}(A::Vector{T}, lessthan::Function = <)
+function qsort!{T}(A::Vector{T}, lessthan::Function, usr::Any = 0)
+    compareUsr = CompareUsr(lessthan, usr);
     compare_c = cfunction(qsort!_compare, Cint, (Ptr{T}, Ptr{T}, Ptr{Void}))
     ccall(("qsort_r", "libc"), Void, (Ptr{T}, Csize_t, Csize_t, Ptr{Void}, Any),
-          A, length(A), sizeof(T), compare_c, lessthan)
+          A, length(A), sizeof(T), compare_c, compareUsr)
     return A
 end
+
+# do this: ZCM.qsort!(data, function (a, b, usr) usr <= 0 ? a < b : a > b; end, 0)
 
 
 
@@ -45,10 +55,36 @@ end
 type RecvBuf
     recv_utime::Int64;
     zcm       ::Ptr{Native.Zcm};
-    data      ::Cstring;
+    data      ::Ptr{UInt8};
     data_size ::UInt32;
 end
 export RecvBuf;
+
+type __zcm_handler
+    handler::Any; # Can be either a Function or a Functor, TODO add prototype
+    usr::Any;
+    function __zcm_handler(handler, usr)
+        new(handler, usr);
+    end
+end
+
+function __zcm_handler_wrapper(rbuf::Ptr{RecvBuf}, channel::Cstring, usr_::Ptr{Void})
+    println("hello from wrapper");
+    usr = unsafe_pointer_to_objref(usr_)::__zcm_handler;
+    usr.handler(unsafe_load(rbuf), unsafe_string(channel), usr.usr);
+    return nothing;
+end
+
+type Sub
+    sub::Ptr{Native.Sub};
+
+    # References to protect our callbacks from Julia's garbage collector
+    handler_jl::__zcm_handler;
+    handler_c ::Ptr{Void};
+
+    Sub(sub::Ptr{Native.Sub}, handler_jl::__zcm_handler, handler_c::Ptr{Void}) =
+        new(sub, handler_jl, handler_c);
+end
 
 type Zcm
     zcm::Ptr{Native.Zcm};
@@ -104,32 +140,36 @@ type Zcm
 
         # TODO: get this into docs:
         # Note to self: handler could be either a function or a functor, so long as it has
-        #               handler(rbuf::Ptr{RecvBuf}, channel::String, usr) defined
+        #               handler(rbuf::RecvBuf, channel::String, usr) defined
         instance.subscribeRaw = function(channel::AbstractString, handler, usr)
-            # TODO: almost certainly need to wrap handler in a non-closure function and maintain
-            #       a reference to that function so the garbage collector doesn't clean it up
-            cFuncPtr = cfunction(handler, Void, (Ptr{RecvBuf}, Cstring, Ptr{Void}));
-            return ccall(("zcm_subscribe", "libzcm"), Ptr{Native.Sub},
-                         (Ptr{Native.Zcm}, Cstring, Ptr{Void}, Any),
-                         instance.zcm, channel, cFuncPtr, usr);
+
+            handler_jl = __zcm_handler(handler, usr);
+            handler_c  = cfunction(__zcm_handler_wrapper, Void,
+                                   (Ptr{RecvBuf}, Cstring, Ptr{Void}));
+
+            return Sub(ccall(("zcm_subscribe", "libzcm"), Ptr{Native.Sub},
+                             (Ptr{Native.Zcm}, Cstring, Ptr{Void}, Any),
+                             instance.zcm, channel, handler_c, handler_jl),
+                       handler_jl, handler_c);
         end
 
         # TODO: get this into docs:
         # Note to self: handler could be either a function or a functor, so long as it has
-        #               handler(rbuf::Ptr{RecvBuf}, channel::String, msg::msgtype, usr) defined
+        #               handler(rbuf::RecvBuf, channel::String, msg::MsgType, usr) defined
         instance.subscribe = function(channel::AbstractString, MsgType::DataType, handler, usr)
             return instance.subscribeRaw(channel,
-                                         function (rbuf::Ptr{RecvBuf}, channel::AbstractString, usr)
+                                         function (rbuf::RecvBuf, channel::AbstractString, usr)
                                              msg = MsgType();
                                              # TODO: think we can use `unsafe_wrap` in zcmgen code
                                              #       to turn data ptr into an array
                                              msg.decode(rbuf.data, rbuf.data_size);
+                                             handler(rbuf, channel, msg, usr);
                                          end, usr);
         end
 
-        instance.unsubscribe = function(sub::Ptr{Native.Sub})
+        instance.unsubscribe = function(sub::Sub)
             return ccall(("zcm_unsubscribe", "libzcm"), Cint,
-                         (Ptr{Native.Zcm}, Ptr{Native.Sub}), instance.zcm, sub);
+                         (Ptr{Native.Zcm}, Ptr{Native.Sub}), instance.zcm, sub.sub);
         end
 
         instance.publishRaw = function(channel::AbstractString, data::Array{UInt8}, datalen::UInt32)
