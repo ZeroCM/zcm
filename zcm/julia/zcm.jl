@@ -22,6 +22,25 @@ end
 end
 
 
+# TODO: Just testing an example, this is an example of how you can wrap the user's function ptr
+#       in a way that will be passable to cfunction()
+function qsort!_compare{T}(a_::Ptr{T}, b_::Ptr{T}, lessthan_::Ptr{Void})
+    a = unsafe_load(a_)
+    b = unsafe_load(b_)
+    lessthan = unsafe_pointer_to_objref(lessthan_)::Function;
+    ret::Cint = lessthan(a, b) ? -1 : +1;
+	return ret;
+end
+
+function qsort!{T}(A::Vector{T}, lessthan::Function = <)
+    compare_c = cfunction(qsort!_compare, Cint, (Ptr{T}, Ptr{T}, Ptr{Void}))
+    ccall(("qsort_r", "libc"), Void, (Ptr{T}, Csize_t, Csize_t, Ptr{Void}, Any),
+          A, length(A), sizeof(T), compare_c, lessthan)
+    return A
+end
+
+
+
 # Exported Objects and Methods
 type RecvBuf
     recv_utime::Int64;
