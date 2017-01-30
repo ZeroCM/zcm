@@ -51,9 +51,14 @@ type Zcm
     handle      ::Function; #  () ::Void
 
 
-    function Zcm(url::AbstractString)::Zcm
+    # http://docs.julialang.org/en/stable/manual/calling-c-and-fortran-code/
+    # http://julialang.org/blog/2013/05/callback
+
+
+    function Zcm(url::AbstractString)
         println("Creating zcm with url : ", url);
-        instance = new(ccall(("zcm_create", "libzcm"), Ptr{Native.Zcm}, (Cstring,), url));
+        instance = new();
+        instance.zcm = ccall(("zcm_create", "libzcm"), Ptr{Native.Zcm}, (Cstring,), url);
 
         # user can force cleanup of their instance by calling `finalize(zcm)`
         finalizer(instance, function(zcm::Zcm)
@@ -82,6 +87,12 @@ type Zcm
         # Note to self: handler could be either a function or a functor, so long as it has
         #               handler(rbuf::Ptr{RecvBuf}, channel::String, usr) defined
         instance.subscribeRaw = function(channel::AbstractString, handler, usr)
+            # TODO: almost certainly need to wrap handler in a non-closure function and maintain
+            #       a reference to that function so the garbage collector doesn't clean it up
+            cFuncPtr = cfunction(handler, Void, (Ptr{RecvBuf}, Cstring, Ptr{Void}));
+            return ccall(("zcm_subscribe", "libzcm"), Ptr{Native.Sub},
+                         (Ptr{Native.Zcm}, Cstring, Ptr{Void}, Any),
+                         instance.zcm, channel, cFuncPtr, usr);
         end
 
         # TODO: get this into docs:
@@ -100,6 +111,21 @@ type Zcm
         instance.unsubscribe = function(sub::Ptr{Native.Sub})
             return ccall(("zcm_unsubscribe", "libzcm"), Cint,
                          (Ptr{Native.Zcm}, Ptr{Native.Sub}), instance.zcm, sub);
+        end
+
+        instance.publishRaw = function(channel::AbstractString, data::Array{UInt8}, datalen::UInt32)
+            return ccall(("zcm_publish", "libzcm"), Cint,
+                         (Ptr{Native.Zcm}, Cstring, Ptr{Void}, UInt32),
+                         instance.zcm, channel, data, datalen);
+        end
+
+        # TODO: force msg to be derived from our zcm msg basetype
+        instance.publish = function(channel::AbstractString, msg)
+            return instance.publishRaw(channel, msg.encode(), msg.encodeLen());
+        end
+
+        instance.flush = function()
+            return ccall(("zcm_flush", "libzcm"), Void, (Ptr{Native.Zcm},), instance.zcm);
         end
 
         instance.run = function()
