@@ -60,6 +60,15 @@ type RecvBuf
 end
 export RecvBuf;
 
+# Possible leads on being able to do this with start() and stop()
+# examples:
+#     https://github.com/JuliaGPU/OpenCL.jl/blob/716add3c4315727ff611cc3ac1b6b086be909a95/src/event.jl#L97-L140
+#     https://github.com/JuliaInterop/ZMQ.jl/blob/57786eaac5641bd56ca52b3806e4dd766c892409/src/ZMQ.jl#L329-L358
+# discussions:
+#     https://github.com/JuliaLang/julia/issues/17573
+#     https://groups.google.com/forum/#!msg/julia-users/ztN-UgS9N8c/bcjLBZ8O5w4J
+#     https://github.com/JuliaLang/julia/pull/5657
+
 type __zcm_handler
     handler::Any; # Can be either a Function or a Functor, TODO add prototype
     usr::Any;
@@ -188,14 +197,17 @@ type Zcm
         end
 
         instance.run = function()
+            throw("Not yet implemented: Breaks Julia as there is no way to exit this function");
             ccall(("zcm_run", "libzcm"), Void, (Ptr{Native.Zcm},), instance.zcm);
         end
 
         instance.start = function()
+            throw("Not yet implemented: parallelization issues with Julia and C callbacks");
             ccall(("zcm_start", "libzcm"), Void, (Ptr{Native.Zcm},), instance.zcm);
         end
 
         instance.stop = function()
+            throw("Not yet implemented: parallelization issues with Julia and C callbacks");
             ccall(("zcm_stop", "libzcm"), Void, (Ptr{Native.Zcm},), instance.zcm);
         end
 
