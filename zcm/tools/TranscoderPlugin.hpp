@@ -40,6 +40,9 @@ namespace zcm {
 class TranscoderPlugin
 {
   public:
+    static inline std::vector<const LogEvent*> TYPE_NOT_HANDLED() { return {}; }
+    static inline std::vector<const LogEvent*> TYPE_NO_RECORD() {return {nullptr};};
+
     // Must declare the following function for your plugin. Unable to enforce
     // declaration of static functions in inheritance, so this API trusts you
     // to define this function for your type
@@ -77,7 +80,7 @@ class TranscoderPlugin
     //
     virtual std::vector<const LogEvent*> transcodeEvent(int64_t hash, const LogEvent* evt)
     {
-        return { nullptr };
+        return TYPE_NO_RECORD();
     }
 };
 
