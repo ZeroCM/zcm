@@ -55,7 +55,8 @@ class ZCM
     template <class Msg, class Handler>
     inline Subscription *subscribe(const std::string& channel,
                                    void (Handler::*cb)(const ReceiveBuffer *rbuf,
-                                                       const std::string& channel, const Msg *msg),
+                                                       const std::string& channel,
+                                                       const Msg *msg),
                                    Handler *handler);
 
     template <class Handler>
@@ -66,7 +67,8 @@ class ZCM
 
     template <class Msg>
     inline Subscription *subscribe(const std::string& channel,
-                                   void (*cb)(const ReceiveBuffer *rbuf, const std::string& channel,
+                                   void (*cb)(const ReceiveBuffer *rbuf,
+                                              const std::string& channel,
                                               const Msg *msg, void *usr),
                                    void *usr);
 
@@ -79,7 +81,8 @@ class ZCM
     #endif
 
     inline Subscription *subscribe(const std::string& channel,
-                                   void (*cb)(const ReceiveBuffer *rbuf, const std::string& channel,
+                                   void (*cb)(const ReceiveBuffer *rbuf,
+                                              const std::string& channel,
                                               void *usr),
                                    void *usr);
 
