@@ -252,6 +252,8 @@ int main(int argc, char* argv[])
         for (auto& p : pluginGroups[i])
             p.runThroughLog = p.plugin->setUp(index, index[p.plugin->name()], log);
 
+        fseeko(log.getFilePtr(), 0, SEEK_SET);
+
         while (1) {
             offset = ftello(log.getFilePtr());
 
