@@ -123,7 +123,9 @@ class TypedSubscription : public virtual Subscription
     {
         int status = msgMem.decode(rbuf->data, 0, rbuf->data_size);
         if (status < 0) {
+            #ifndef ZCM_EMBEDDED
             fprintf (stderr, "error %d decoding %s!!!\n", status, Msg::getTypeName());
+            #endif
             return -1;
         }
         return 0;
@@ -161,7 +163,9 @@ class TypedFunctionalSubscription : public virtual Subscription
     {
         int status = msgMem.decode(rbuf->data, 0, rbuf->data_size);
         if (status < 0) {
+            #ifndef ZCM_EMBEDDED
             fprintf (stderr, "error %d decoding %s!!!\n", status, Msg::getTypeName());
+            #endif
             return -1;
         }
         return 0;
@@ -240,7 +244,9 @@ inline Subscription *ZCM::subscribe(const std::string& channel,
                                     Handler *handler)
 {
     if (!zcm) {
+        #ifndef ZCM_EMBEDDED
         fprintf(stderr, "ZCM instance not initialized. Ignoring call to subscribe()\n");
+        #endif
         return nullptr;
     }
 
@@ -262,7 +268,9 @@ inline Subscription *ZCM::subscribe(const std::string& channel,
                                     Handler* handler)
 {
     if (!zcm) {
+        #ifndef ZCM_EMBEDDED
         fprintf(stderr, "ZCM instance not initialized.  Ignoring call to subscribe()\n");
+        #endif
         return nullptr;
     }
 
@@ -285,7 +293,9 @@ inline Subscription *ZCM::subscribe(const std::string& channel,
                                     void *usr)
 {
     if (!zcm) {
+        #ifndef ZCM_EMBEDDED
         fprintf(stderr, "ZCM instance not initialized.  Ignoring call to subscribe()\n");
+        #endif
         return nullptr;
     }
 
@@ -308,7 +318,9 @@ inline Subscription *ZCM::subscribe(const std::string& channel,
                                                         const Msg *msg)> cb)
 {
     if (!zcm) {
+        #ifndef ZCM_EMBEDDED
         fprintf(stderr, "ZCM instance not initialized. Ignoring call to subscribe()\n");
+        #endif
         return nullptr;
     }
 
@@ -330,7 +342,9 @@ inline Subscription *ZCM::subscribe(const std::string& channel,
                                     void *usr)
 {
     if (!zcm) {
+        #ifndef ZCM_EMBEDDED
         fprintf(stderr, "ZCM instance not initialized.  Ignoring call to subscribe()\n");
+        #endif
         return nullptr;
     }
 
