@@ -344,18 +344,35 @@ struct EmitModule : public Emitter
         // XXX: should we be using fullname here?
         auto *sn = ls.structname.shortname.c_str();
         emit(0, "var %s = {", sn);
-        emit(0, "    __hash: '%s',", hash.c_str());
-        emit(0, "    encodedSize: function(msg) {");
+        emit(1, "__hash: '%s',", hash.c_str());
+        emit(1, "__members: [");
+        for (size_t i = 0; i < ls.members.size(); ++i) {
+            string member = "\"" + ls.members[i].membername + "\"";
+            if (i != ls.members.size() - 1)
+                member += ", ";
+            emit(2, "%s", member.c_str());
+        }
+        emit(1, "],");
+        emit(1, "__constants: [");
+        for (size_t i = 0; i < ls.constants.size(); ++i) {
+            string constant = "\"" + ls.constants[i].membername + "\"";
+            if (i != ls.constants.size() - 1)
+                constant += ", ";
+            emit(2, "%s", constant.c_str());
+        }
+        emit(1, "],");
+        emit(1, "encodedSize: function(msg) {");
         emitEncodedSizeBody(2, ls);
-        emit(0, "    },");
-        emit(0, "    encode: function(msg) {");
+        emit(1, "},");
+        emit(1, "encode: function(msg) {");
         emitEncodeBody(2, ls);
-        emit(0, "    },");
-        emit(0, "    decode: function(data) {");
+        emit(1, "},");
+        emit(1, "decode: function(data) {");
         emitDecodeBody(2, ls);
-        emit(0, "    }");
+        emit(1, "}");
         emit(0, "}");
         emit(0, "exports.%s = %s;", sn, sn);
+        emit(0, "");
     }
 
     void emitModule()
