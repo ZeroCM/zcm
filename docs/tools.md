@@ -268,7 +268,7 @@ sorts the content events, and outputs a file containing the offset index
 that contains the offsets of each message type in the log sorted in timestamp order.
 An interface is exposed so you can provide "plugins" to the indexer tool that
 specify other ways you'd like logs to be indexed. The indexer will index logs by
-every available plugin. Take a look at `zcm/IndexerPlugin.hpp` for the plugin
+every available plugin. Take a look at `zcm/tools/IndexerPlugin.hpp` for the plugin
 interface and for an example custom plugin.
 
 So let's go ahead and use `zcm-log-indexer`. But this time, let's use a simpler example.
