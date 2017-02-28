@@ -197,11 +197,11 @@ function zcm(zcmtypes, zcmurl)
     }
 
     return {
-        publish:         publish,
-        subscribe:       subscribe,
-        subscribe_all:   subscribe_all,
-        unsubscribe:     unsubscribe,
-        zcmtypesHashMap: zcmtypeHashMap,
+        publish:        publish,
+        subscribe:      subscribe,
+        subscribe_all:  subscribe_all,
+        unsubscribe:    unsubscribe,
+        zcmtypes:       zcmtypes,
     };
 }
 
@@ -253,7 +253,7 @@ function zcm_create(zcmtypes, zcmurl, http)
                 }
                 nextSub = 0;
             });
-            socket.emit('zcmtypes', ret.zcmtypeHashMap);
+            socket.emit('zcmtypes', ret.zcmtypes);
             console.log("Sending zcmtypes");
         });
     }
