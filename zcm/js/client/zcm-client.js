@@ -13,6 +13,8 @@ var zcm = (function(){
 
         var subIds = 0;
 
+        var zcmtypesHashMap = {};
+
         socket.on('server-to-client', function(data){
             var subId = data.subId;
             if (subId in callbacks) {
@@ -20,6 +22,10 @@ var zcm = (function(){
             }
         });
 
+        socket.on('zcmtypes', function(data){
+            zcmtypesHashMap = data;
+            console.log("Received zcmtypes");
+        });
         /**
          * Publishes a message on the given channel of the specified zcmtype
          * @param {string} channel - the zcm channel to publish on

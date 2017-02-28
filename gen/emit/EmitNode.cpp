@@ -353,14 +353,15 @@ struct EmitModule : public Emitter
             emit(2, "%s", member.c_str());
         }
         emit(1, "],");
-        emit(1, "__constants: [");
+        emit(1, "__constants: {");
         for (size_t i = 0; i < ls.constants.size(); ++i) {
-            string constant = "\"" + ls.constants[i].membername + "\"";
+            string constant = "\"" + ls.constants[i].membername + "\" : " +
+                              "\"" + ls.constants[i].valstr     + "\"";
             if (i != ls.constants.size() - 1)
                 constant += ", ";
             emit(2, "%s", constant.c_str());
         }
-        emit(1, "],");
+        emit(1, "},");
         emit(1, "encodedSize: function(msg) {");
         emitEncodedSizeBody(2, ls);
         emit(1, "},");
