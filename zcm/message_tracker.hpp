@@ -38,12 +38,12 @@ class Tracker
     typedef std::function<void (T* msg, uint64_t utime, void* usr)> callback;
 
   protected:
-    virtual uint64_t getMsgUtime(const T* msg) { return UINT64_MAX; }
+    virtual uint64_t getMsgUtime(const T* msg) const { return UINT64_MAX; }
 
     // The returned value must be "new" in all cases
     virtual T* interpolate(uint64_t utimeTarget,
                            const T* A, uint64_t utimeA,
-                           const T* B, uint64_t utimeB)
+                           const T* B, uint64_t utimeB) const
     {
         return utimeTarget - utimeA < utimeB - utimeTarget ? new T(*A) : new T(*B);
     }
@@ -89,7 +89,7 @@ class Tracker
 
     typedef MsgWithUtime<T, hasUtime<T>::present> MsgType;
 
-    uint64_t getMsgUtime(const MsgType* msg)
+    uint64_t getMsgUtime(const MsgType* msg) const
     {
         uint64_t tmp = getMsgUtime((const T*)msg);
         if (tmp != UINT64_MAX) return tmp;
@@ -107,7 +107,7 @@ class Tracker
     std::deque<MsgType*> buf;
     uint64_t lastHostUtime = UINT64_MAX;
     size_t bufMax;
-    std::mutex bufLock;
+    mutable std::mutex bufLock;
 
     std::mutex callbackLock;
     std::condition_variable callbackCv;
@@ -180,7 +180,7 @@ class Tracker
     }
 
     // You must free the memory returned here
-    T* get()
+    T* get() const
     {
         T* ret = nullptr;
 
@@ -193,7 +193,7 @@ class Tracker
     }
 
     // This may return nullptr even in the blocking case
-    T* get(uint64_t utime)
+    T* get(uint64_t utime) const
     {
         std::unique_lock<std::mutex> lk(bufLock);
         return get(utime, buf.begin(), buf.end(), &lk);
@@ -205,7 +205,7 @@ class Tracker
     // here to have it unlocked once this function is done working with the iterators
     template <class InputIter>
     T* get(uint64_t utime, InputIter first, InputIter last,
-           std::unique_lock<std::mutex>* lk = nullptr)
+           std::unique_lock<std::mutex>* lk = nullptr) const
     {
         static_assert(hasUtime<typename std::remove_pointer<typename
                       std::iterator_traits<InputIter>::value_type>::type>::present,
@@ -276,7 +276,7 @@ class Tracker
     // This will only block until messages after utimeA have been received,
     // not until the whole range [A,B] is represented
     // This search is also inclusive and can return a message outside [A,B]
-    std::vector<T*> getRange(uint64_t utimeA, uint64_t utimeB)
+    std::vector<T*> getRange(uint64_t utimeA, uint64_t utimeB) const
     {
         std::unique_lock<std::mutex> lk(bufLock);
 
@@ -357,13 +357,13 @@ class Tracker
         }
     }
 
-    double getHz()
+    double getHz() const
     {
         std::unique_lock<std::mutex> lk(bufLock);
         return 1e6 / hzFilter[Filter::LOW_PASS];
     }
 
-    uint64_t lastMsgHostUtime()
+    uint64_t lastMsgHostUtime() const
     {
         {
             std::unique_lock<std::mutex> lk(bufLock);
@@ -372,7 +372,7 @@ class Tracker
         return UINT64_MAX;
     }
 
-    double getJitterUs()
+    double getJitterUs() const
     {
         std::unique_lock<std::mutex> lk(bufLock);
         return sqrt(jitterFilter[Filter::LOW_PASS]);
