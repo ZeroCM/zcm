@@ -253,7 +253,7 @@ function zcm_create(zcmtypes, zcmurl, http)
                 }
                 nextSub = 0;
             });
-            socket.emit('zcmtypes', ret.zcmtypes);
+            socket.emit('zcmtypes', zcmtypes);
             console.log("Sending zcmtypes");
         });
     }

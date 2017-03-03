@@ -329,6 +329,16 @@ struct EmitModule : public Emitter
         emit(indent, "return msg;");
     }
 
+    void emitMakeBody(int indent, ZCMStruct& ls, string hash)
+    {
+        emit(indent, "__type : '%s',", ls.structname.shortname.c_str());
+        emit(indent, "__hash : '%s',", hash.c_str());
+        for (auto& lm : ls.members) {
+            auto& mn = lm.membername;
+            emit(indent, "%s : undefined,", mn.c_str());
+        }
+    }
+
     string computeHash(ZCMStruct& ls)
     {
         char buffer[32];
@@ -370,6 +380,9 @@ struct EmitModule : public Emitter
         emit(1, "},");
         emit(1, "decode: function(data) {");
         emitDecodeBody(2, ls);
+        emit(1, "},");
+        emit(1, "make: {");
+        emitMakeBody(2, ls, hash);
         emit(1, "}");
         emit(0, "}");
         emit(0, "exports.%s = %s;", sn, sn);
