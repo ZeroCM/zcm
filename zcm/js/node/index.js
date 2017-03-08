@@ -15,10 +15,10 @@ var charRef = ref.refType('char')
 
 var recvBuf = StructType({
     // Note: it is VERY important that this struct match the zcm_recv_buf_t struct in zcm.h
-    data:  charRef,
-    len:   ref.types.uint32,
     utime: ref.types.uint64,
     zcm:   voidRef,
+    data:  charRef,
+    len:   ref.types.uint32,
 });
 var recvBufRef = ref.refType(recvBuf);
 
