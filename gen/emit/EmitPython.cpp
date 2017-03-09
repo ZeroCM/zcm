@@ -567,13 +567,15 @@ struct PyEmitStruct : public Emitter
         unordered_set<string> dependencies;
         for (auto& lm : ls.members) {
             auto& tn = lm.type.fullname;
-            if (!ZCMGen::isPrimitiveType(tn) && dependencies.find(tn) == dependencies.end()) {
+            if (!ZCMGen::isPrimitiveType(tn) &&
+                dependencies.find(tn) == dependencies.end() &&
+                tn != ls.structname.fullname) {
                 dependencies.insert(tn);
             }
         }
 
-        for (auto& package : dependencies) {
-            emit(0, "from %s import %s", package.c_str(), package.c_str());
+        for (auto& tn : dependencies) {
+            emit(0, "from %s import %s", tn.c_str(), tn.c_str());
             emit(0,"");
         }
     }
