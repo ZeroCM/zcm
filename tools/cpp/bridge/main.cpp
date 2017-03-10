@@ -110,8 +110,8 @@ struct Args
             return false;
         }
 
-        if (Aurl == Burl) {
-            cerr << "A and B endpoint urls must be unique" << endl;
+        if (Aurl == Burl && (Aprefix == "" || Bprefix == "")) {
+            cerr << "A and B endpoint urls must be unique if not using prefices" << endl;
             return false;
         }
 
