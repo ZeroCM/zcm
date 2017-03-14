@@ -329,6 +329,16 @@ struct EmitModule : public Emitter
         emit(indent, "return msg;");
     }
 
+    void emitMakeBody(int indent, ZCMStruct& ls, string hash)
+    {
+        emit(indent, "__type : '%s',", ls.structname.shortname.c_str());
+        emit(indent, "__hash : '%s',", hash.c_str());
+        for (auto& lm : ls.members) {
+            auto& mn = lm.membername;
+            emit(indent, "%s : undefined,", mn.c_str());
+        }
+    }
+
     string computeHash(ZCMStruct& ls)
     {
         char buffer[32];
@@ -344,18 +354,35 @@ struct EmitModule : public Emitter
         // XXX: should we be using fullname here?
         auto *sn = ls.structname.shortname.c_str();
         emit(0, "var %s = {", sn);
-        emit(0, "    __hash: '%s',", hash.c_str());
-        emit(0, "    encodedSize: function(msg) {");
+        emit(1, "__hash: '%s',", hash.c_str());
+        emit(1, "__members: [");
+        for (size_t i = 0; i < ls.members.size(); ++i) {
+            string member = "\"" + ls.members[i].membername + "\"";
+            if (i != ls.members.size() - 1)
+                member += ", ";
+            emit(2, "%s", member.c_str());
+        }
+        emit(1, "],");
+        for (size_t i = 0; i < ls.constants.size(); ++i) {
+            string constant = "\"" + ls.constants[i].membername + "\" : " +
+                              "\"" + ls.constants[i].valstr     + "\",";
+            emit(1, "%s", constant.c_str());
+        }
+        emit(1, "encodedSize: function(msg) {");
         emitEncodedSizeBody(2, ls);
-        emit(0, "    },");
-        emit(0, "    encode: function(msg) {");
+        emit(1, "},");
+        emit(1, "encode: function(msg) {");
         emitEncodeBody(2, ls);
-        emit(0, "    },");
-        emit(0, "    decode: function(data) {");
+        emit(1, "},");
+        emit(1, "decode: function(data) {");
         emitDecodeBody(2, ls);
-        emit(0, "    }");
+        emit(1, "},");
+        emit(1, "make: {");
+        emitMakeBody(2, ls, hash);
+        emit(1, "}");
         emit(0, "}");
         emit(0, "exports.%s = %s;", sn, sn);
+        emit(0, "");
     }
 
     void emitModule()

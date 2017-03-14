@@ -42,5 +42,5 @@ function publish() {
 }
 
 onload = function(){
-    z = zcm.create()
+    z = zcm.create();
 }

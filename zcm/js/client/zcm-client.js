@@ -13,12 +13,25 @@ var zcm = (function(){
 
         var subIds = 0;
 
+        // key is zcmtype name
+        var zcmtypes = {};
+
         socket.on('server-to-client', function(data){
             var subId = data.subId;
             if (subId in callbacks) {
                 callbacks[subId].callback(data.channel, data.msg);
             }
         });
+
+        socket.on('zcmtypes', function(data){
+            zcmtypes = data;
+            for (var type in zcmtypes)
+                console.log("Received zcmtype: " + type);
+        });
+
+        function getZcmtypes() {
+            return zcmtypes;
+        }
 
         /**
          * Publishes a message on the given channel of the specified zcmtype
@@ -84,6 +97,7 @@ var zcm = (function(){
             subscribe:      subscribe,
             subscribe_all:  subscribe_all,
             unsubscribe:    unsubscribe,
+            getZcmtypes:    getZcmtypes,
         };
     }
 
