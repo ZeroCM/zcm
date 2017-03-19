@@ -186,9 +186,16 @@ struct EmitModule : public Emitter
                     emit(indent, "size += tmp * %d; \t//%s", primtypeSize(mtn), mn.c_str());
                 }
             } else {
-                // The +1 and +4 below are to account for the null character
-                // and the writing of the length respectively
-                emit(indent, "size += msg.%s.length + 1 + 4;", mn.c_str());
+                int ndims = (int)lm.dimensions.size();
+                if (ndims == 0) {
+                    // The +1 and +4 below are to account for the null character
+                    // and the writing of the length respectively
+                    emit(indent, "size += msg.%s.length + 1 + 4;", mn.c_str());
+                } else {
+                    emit(indent, "for (var i = 0; i < msg.%s.length; ++i) {", mn.c_str());
+                    emit(indent + 1, "size += msg.%s[i].length + 1 + 4;", mn.c_str());
+                    emit(indent, "}");
+                }
             }
         }
         emit(indent, "return size;");
