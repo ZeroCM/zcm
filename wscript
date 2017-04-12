@@ -273,6 +273,7 @@ def build(ctx):
     if not ctx.env.ENVIRONMENT_SETUP:
         setup_environment(ctx)
 
+    ctx.recurse('scripts')
     ctx.recurse('zcm')
     ctx.recurse('config')
     ctx.recurse('gen')
