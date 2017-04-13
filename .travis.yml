@@ -1,6 +1,6 @@
 language: c
 sudo: required
-install: ./scripts/install-deps.sh
+install: ./scripts/install-deps.sh -i
 before_script: mkdir ../tmp
 script:
     ./waf distclean configure build &&
