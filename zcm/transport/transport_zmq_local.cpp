@@ -21,6 +21,9 @@
 #include <unordered_map>
 #include <mutex>
 #include <thread>
+#include <sys/stat.h>
+#include <sys/types.h>
+
 using namespace std;
 
 // Define this the class name you want
@@ -29,8 +32,6 @@ using namespace std;
 #define START_BUF_SIZE (1 << 20)
 #define ZMQ_IO_THREADS 1
 #define IPC_NAME_PREFIX "zcm-channel-zmq-ipc-"
-#define IPC_ADDR_PREFIX "ipc:///tmp/" IPC_NAME_PREFIX
-#define INPROC_ADDR_PREFIX "inproc://"
 
 enum Type { IPC, INPROC, };
 
@@ -38,6 +39,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 {
     void *ctx;
     Type type;
+
+    string address;
 
     unordered_map<string, void*> pubsocks;
     // socket pair contains the socket + whether it was subscribed to explicitly or not
@@ -53,10 +56,16 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     // concurrently
     mutex mut;
 
-    ZCM_TRANS_CLASSNAME(Type type_)
+    ZCM_TRANS_CLASSNAME(Type type_, zcm_url_t *url)
     {
         trans_type = ZCM_BLOCKING;
         vtbl = &methods;
+
+        address = zcm_url_address(url);
+        // Make directory with all permissions
+        mkdir(string("/tmp/" + address).c_str(), S_IRWXO | S_IRWXG | S_IRWXU);
+
+        printf("IPC Address: %s\n", address.c_str());
 
         recvmsgBuffer = new char[recvmsgBufferSize];
 
@@ -113,9 +122,9 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     {
         switch (type) {
             case IPC:
-                return IPC_ADDR_PREFIX+channel;
+                return "ipc:///tmp/" + address + "/" + IPC_NAME_PREFIX + channel;
             case INPROC:
-                return INPROC_ADDR_PREFIX+channel;
+                return "inproc://" + address + "/" + IPC_NAME_PREFIX + channel;
         }
         assert(0 && "unreachable");
     }
@@ -124,11 +133,12 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     {
         switch (type) {
             case IPC: {
-                string lockfileName = IPC_ADDR_PREFIX+channel;
+                string lockfileName = "ipc:///tmp/" + address + "/" + IPC_NAME_PREFIX + channel;
                 return lockfile_trylock(lockfileName.c_str());
             } break;
             case INPROC: {
-                // TODO: unimpl for INPROC currently
+                string lockfileName = "inproc://" + address + "/" + IPC_NAME_PREFIX + channel;
+                return lockfile_trylock(lockfileName.c_str());
                 return true;
             } break;
         }
@@ -200,7 +210,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         DIR *d;
         dirent *ent;
 
-        if (!(d=opendir("/tmp/")))
+        if (!(d=opendir(string("/tmp/" + address).c_str())))
             return;
 
         while ((ent=readdir(d)) != nullptr) {
@@ -448,12 +458,12 @@ zcm_trans_methods_t ZCM_TRANS_CLASSNAME::methods = {
 
 static zcm_trans_t *createIpc(zcm_url_t *url)
 {
-    return new ZCM_TRANS_CLASSNAME(IPC);
+    return new ZCM_TRANS_CLASSNAME(IPC, url);
 }
 
 static zcm_trans_t *createInproc(zcm_url_t *url)
 {
-    return new ZCM_TRANS_CLASSNAME(INPROC);
+    return new ZCM_TRANS_CLASSNAME(INPROC, url);
 }
 
 // Register this transport with ZCM
