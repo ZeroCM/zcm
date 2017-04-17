@@ -273,35 +273,21 @@ class Tracker
         return nullptr;
     }
 
-    // This will only block until messages after utimeA have been received,
-    // not until the whole range [A,B] is represented
-    // This search is also inclusive and can return a message outside [A,B]
+    // This search is inclusive and can't return a message outside [A,B]
     std::vector<T*> getRange(uint64_t utimeA, uint64_t utimeB) const
     {
         std::unique_lock<std::mutex> lk(bufLock);
-
-        uint64_t m0Utime = UINT64_MAX, m1Utime = UINT64_MAX;
 
         uint64_t minBound;
         if (maxTimeErr_us < utimeA) minBound = utimeA - maxTimeErr_us;
         else                        minBound = 0;
         uint64_t maxBound = utimeB + maxTimeErr_us;
 
-        for (const MsgType* m : buf) {
-            uint64_t mUtime = getMsgUtime(m);
-
-            if (mUtime <= utimeA && mUtime >= minBound &&
-                    (mUtime > m0Utime || m0Utime == UINT64_MAX))            m0Utime = mUtime;
-            if (mUtime >= utimeB && mUtime <= maxBound && mUtime < m1Utime) m1Utime = mUtime;
-        }
-
-        if (m0Utime == UINT64_MAX) m0Utime = m1Utime;
-        if (m1Utime == UINT64_MAX) m1Utime = m0Utime;
-
         std::vector<T*> ret;
         for (const MsgType* m : buf) {
             uint64_t mUtime = getMsgUtime(m);
-            if (mUtime >= m0Utime && mUtime <= m1Utime) ret.push_back(new T(*m));
+            if (minBound <= mUtime && mUtime <= maxBound)
+                ret.push_back(new T(*m));
         }
         return ret;
     }
