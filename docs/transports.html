@@ -54,8 +54,9 @@ be used to <em>summon</em> the transport:</p>
     <td><code>  zcm_create("inproc")                                    </code></td>
   </tr><tr>
     <td>        Inter-process (IPC)                                     </td>
-    <td><code>  ipc                                                     </code></td>
+    <td><code>  ipc://&lt;ipc-subnet&gt;                                </code></td>
     <td><code>  zcm_create("ipc")                                       </code></td>
+    <td><code>  zcm_create("ipc://mysubnet")                            </code></td>
   </tr><tr>
     <td>        UDP Multicast                                           </td>
     <td><code>  udpm://&lt;udpm-ipaddr&gt;:&lt;port&gt;?ttl=&lt;ttl&gt; </code></td>
