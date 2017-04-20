@@ -65,7 +65,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         // Make directory with all permissions
         mkdir(string("/tmp/" + address).c_str(), S_IRWXO | S_IRWXG | S_IRWXU);
 
-        printf("IPC Address: %s\n", address.c_str());
+        ZCM_DEBUG("IPC Address: %s\n", address.c_str());
 
         recvmsgBuffer = new char[recvmsgBufferSize];
 
