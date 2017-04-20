@@ -28,7 +28,7 @@ using namespace std;
 
 // Define this the class name you want
 #define ZCM_TRANS_CLASSNAME TransportSerial
-#define MTU (1<<20)
+#define MTU (1<<14)
 #define ESCAPE_CHAR 0xcc
 
 #define SERIAL_TIMEOUT_US 1e5 // u-seconds
@@ -379,6 +379,10 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
     int recvmsg(zcm_msg_t *msg, int timeout)
     {
+        // XXX DELETE THIS ONCE STATE IS MAINTAINED
+        timeout = MTU * 2.2 * 8.0 / baud * 1e3;
+        // ---------------------------------------
+
         if (timeout < 0) return ZCM_EAGAIN;
 
         u64 utimeRcvStart = TimeUtil::utime();
