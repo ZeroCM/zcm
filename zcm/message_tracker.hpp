@@ -224,7 +224,7 @@ class Tracker
     }
 
     // Same semantics as get()
-    T* get(uint64_t utime) const
+    virtual T* get(uint64_t utime) const
     {
         std::unique_lock<BufLockType> lk(bufLock);
         return get(utime, buf.begin(), buf.end(), &lk);
@@ -305,7 +305,7 @@ class Tracker
     }
 
     // This search is inclusive and can't return a message outside [A,B]
-    std::vector<T*> getRange(uint64_t utimeA, uint64_t utimeB) const
+    virtual std::vector<T*> getRange(uint64_t utimeA, uint64_t utimeB) const
     {
         std::unique_lock<BufLockType> lk(bufLock);
 
