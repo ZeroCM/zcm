@@ -380,7 +380,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     int recvmsg(zcm_msg_t *msg, int timeout)
     {
         // XXX DELETE THIS ONCE STATE IS MAINTAINED
-        timeout = MTU * 2.2 * 8.0 / baud * 1e3;
+        timeout = MTU * 2.2 * 8.0 / (baud == 0 ? 115200 : baud) * 1e3;
         // ---------------------------------------
 
         if (timeout < 0) return ZCM_EAGAIN;
