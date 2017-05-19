@@ -22,6 +22,14 @@ def handler(channel, msg):
     done = done + 1
     lock.release()
 
+def publish():
+    print "Publish message on channel: " + "TEST"
+    zcm.publish("TEST", msg)
+    print "Publish message on channel: " + "TEST_1"
+    zcm.publish("TEST_1", msg)
+    print "Publish message on channel: " + "TEST_2"
+    zcm.publish("TEST_2", msg)
+
 zcm = ZCM("ipc")
 if not zcm.good():
     print "Unable to initialize zcm"
@@ -29,13 +37,15 @@ if not zcm.good():
 zcm.start()
 msg = example_t()
 msg.timestamp = 10
-subs = zcm.subscribe("TEST", example_t, handler)
+subs = zcm.subscribe("TEST.*", example_t, handler)
+publish();
+time.sleep(1);
 while True:
-    zcm.publish("TEST", msg)
+    publish();
     lock.acquire()
     _done = done
     lock.release()
-    if _done == 10:
+    if _done == 9:
         break
     time.sleep(0.25)
 

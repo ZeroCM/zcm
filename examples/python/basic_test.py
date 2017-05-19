@@ -13,7 +13,7 @@ def handler(channel, msg):
     success = "Success"
 
 # make a new zcm object and launch the handle thread
-zcm = ZCM()
+zcm = ZCM("ipc")
 if not zcm.good():
     print "Unable to initialize zcm"
     exit()
