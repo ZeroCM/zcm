@@ -100,7 +100,7 @@ FragBuf *MessagePool::addFragBuf(u32 data_size)
         }
         if (eldest) {
             _removeFragBuf(idx);
-            // XXX Need to free the removed FargBuf*
+            // XXX Need to free the removed FragBuf*
         }
     }
 

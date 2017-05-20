@@ -66,7 +66,7 @@ public class Spy
         JInternalFrame jif = new JInternalFrame("Channels", true);
         jif.setLayout(new BorderLayout());
         jif.add(channelTable.getTableHeader(), BorderLayout.PAGE_START);
-        // XXX weird bug, if clearButton is added after JScrollPane, we get an error.
+        // Note: weird bug, if clearButton is added after JScrollPane, we get an error.
         jif.add(clearButton, BorderLayout.SOUTH);
         jif.add(new JScrollPane(channelTable), BorderLayout.CENTER);
 

@@ -144,14 +144,14 @@ JNIEXPORT jint JNICALL Java_zcm_zcm_ZCMJNI_subscribe
 {
     Internal *I = getNativePtr(env, self);
     assert(I);
-    // XXX: Should delete usr and call DeleteGlobalRef on an unsubscribe call
+    // TODO: Should delete usr and call DeleteGlobalRef on an unsubscribe call
     SubscriptionUsr* usr = malloc(sizeof(SubscriptionUsr));
     usr->self = (*env)->NewGlobalRef(env, zcmObjJ);
     usr->I = I;
 
     const char *channel = (*env)->GetStringUTFChars(env, channelJ, 0);
 
-    // XXX: need to handle the subscription type returned from subscribe
+    // TODO: need to handle the subscription type returned from subscribe
     zcm_subscribe(I->zcm, channel, handler, (void*)usr);
 
     (*env)->ReleaseStringUTFChars(env, channelJ, channel);

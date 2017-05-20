@@ -19,8 +19,8 @@ def configure(ctx):
     #
     # TODO: could improve this to actually use the waf node of the zcm-gen binary as in the
     #       ex. of building a compiler in the waf book (https://waf.io/book/#_advanced_scenarios)
-    # XXX:  I believe because we are not doing the above, changes to the zcm-gen binary do not
-    #       force the regeneration of the zcmtypes. This is generally not a huge problem because
+    # TODO: We should do the above; changes to the zcm-gen binary do not force the regeneration
+    #       of the zcmtypes. This is generally not a huge problem because
     #       zcm-gen stays pretty static, but it is technically a build error.
     # TODO: The user MUST have uselib variables for zcm and zcmjar defined through their own
     #       configuration. We should add them here or move them into a different waf module

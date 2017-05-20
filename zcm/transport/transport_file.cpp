@@ -92,7 +92,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         return MTU;
     }
 
-    // XXX Completely untested
+    // TODO: Test the sendmsg function
     int sendmsg(zcm_msg_t msg)
     {
         assert(good());
@@ -121,10 +121,11 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     {
         assert(mode == "r");
         if (!good()) {
-            // XXX Not sure what to do here since this function has no way of
-            //     communicating to the caller that this function shouldn't be
-            //     called anymore
-            usleep(1e6);
+            // TODO Build in a way for a transport to tell zcm that an "error"
+            //      has occurred. Not sure what to do here since this function
+            //      has no way of communicating to the caller that this function
+            //      shouldn't be called anymore
+            usleep(timeout);
             return ZCM_ECONNECT;
         }
 

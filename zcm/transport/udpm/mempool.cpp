@@ -28,7 +28,7 @@ static bool fitsInU32(size_t v)
 
 static int computeSlot(size_t v)
 {
-    // XXX Only works on 32-bit and 64-bit systems
+    // Note: Only works on 32-bit and 64-bit systems
     assert(sizeof(unsigned) == 4 && CHAR_BIT == 8);
     assert(fitsInU32(v));
     size_t bits = 31 - __builtin_clz((u32)v);
