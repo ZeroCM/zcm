@@ -19,7 +19,6 @@ class FilterTest : public CxxTest::TestSuite
         TS_ASSERT_DELTA(f[zcm::Filter::FilterMode::LOW_PASS],  10, 1e-5);
         TS_ASSERT_DELTA(f[zcm::Filter::FilterMode::BAND_PASS],  0, 1e-5);
         TS_ASSERT_DELTA(f[zcm::Filter::FilterMode::HIGH_PASS],  0, 1e-5);
-        // TODO: Properly test highpass and bandpass
     }
 
     void testConvergenceTimeEst()
