@@ -10,7 +10,7 @@ script:
     export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/home/travis/build/ZeroCM/tmp/lib/pkgconfig &&
     export PATH=$PATH:/home/travis/build/ZeroCM/tmp/bin &&
     ./waf distclean configure build
-dist: xenial
+dist: trusty
 git:
     depth: 1
 notifications:
