@@ -1,6 +1,8 @@
 #include "MsgInfo.hpp"
 #include "Debug.hpp"
 
+#include <limits>
+
 size_t MsgInfo::getViewDepth()
 {
     return disp_state.cur_depth;
@@ -115,7 +117,7 @@ float MsgInfo::getHertz()
     u64 latest = latestUtime();
     u64 dt = latest - oldest;
     if (dt == 0.0)
-        return INFINITY;
+        return std::numeric_limits<float>::infinity();
 
     return (float) (sz - 1) / ((float) dt / 1000000.0);
 }

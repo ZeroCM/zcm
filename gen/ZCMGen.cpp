@@ -1,4 +1,5 @@
 #include "ZCMGen.hpp"
+#include <cmath>
 
 extern "C" {
 #include "tokenize.h"

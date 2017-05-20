@@ -222,7 +222,7 @@ def setup_environment(ctx):
     ctx.post_mode = waflib.Build.POST_LAZY
     process_zcm_build_options(ctx)
 
-    WARNING_FLAGS = ['-Wall', '-Werror', '-Wno-unused-function', '-Wno-format-zero-length']
+    WARNING_FLAGS = ['-Wall', '-Werror', '-Wno-unused-function']
     SYM_FLAGS = ['-g']
     OPT_FLAGS = ['-O3']
     ctx.env.CFLAGS_default    = ['-std=gnu99', '-fPIC', '-pthread'] + WARNING_FLAGS

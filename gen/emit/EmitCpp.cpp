@@ -30,7 +30,8 @@ static string dotsToSlashes(const string& s)
 static string dimSizePrefix(const string& dimSize)
 {
     char *eptr;
-    strtol(dimSize.c_str(), &eptr, 0);
+    int ret = strtol(dimSize.c_str(), &eptr, 0);
+    (void) ret;
     if(*eptr == '\0')
         return "";
     else
@@ -45,7 +46,8 @@ static string dimSizeAccessor(const string& dimSize)
 static bool isDimSizeFixed(const string& dimSize)
 {
     char *eptr;
-    strtol(dimSize.c_str(), &eptr, 0);
+    int ret = strtol(dimSize.c_str(), &eptr, 0);
+    (void) ret;
     return (*eptr == '\0');
 }
 
