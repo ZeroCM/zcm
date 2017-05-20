@@ -87,7 +87,8 @@ static bool structHasStringMember(ZCMStruct& lr)
 static string dimSizePrefix(const string& dimSize)
 {
     char *eptr;
-    strtol(dimSize.c_str(), &eptr, 0);
+    int ret = strtol(dimSize.c_str(), &eptr, 0);
+    (void) ret;
     if(*eptr == '\0')
         return "";
     else

@@ -34,18 +34,24 @@ PKGS+='cxxtest '
 ## LibElf
 PKGS+='libelf-dev libelf1 '
 
+echo "Updating apt repos"
 sudo apt-get update
 ret=$?
 if [[ $ret -ne 0 && "$STRICT" == "true" ]]; then
     echo "Failed to update"
     exit $ret
 fi
-sudo apt-get install -yq $PKGS
-ret=$?
-if [[ $ret -ne 0 && "$STRICT" == "true" ]]; then
-    echo "Failed to install packages"
-    exit $ret
-fi
+echo "Installing from apt"
+for pkg in $PKGS; do
+    echo "Installing $pkg"
+    sudo apt-get install -yq $pkg
+    ret=$?
+    if [[ $ret -ne 0 && "$STRICT" == "true" ]]; then
+        echo "Failed to install packages"
+        exit $ret
+    fi
+done
+echo "Updating db"
 sudo updatedb
 ret=$?
 if [[ $ret -ne 0 && "$STRICT" == "true" ]]; then
