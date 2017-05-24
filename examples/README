@@ -1,0 +1,3 @@
+Remember that you need to have ZCM_DEFAULT_URL defined to use many of these examples.
+You can source a few key environment variables by running `source ./env` inside this
+examples directory
