@@ -221,7 +221,7 @@ class Tracker
         // to skip around in logs. We want to support messages with
         // non-monitonically increasing utimes and this is the easiest way.
         // This can be made much faster if needed
-        for (auto iter = first; iter != last; iter++) {
+        for (auto iter = first; iter != last; ++iter) {
             // Note: This is unsafe unless we rely on the static assert at the beginning of
             //       the function
             const MsgType* m = (const MsgType*) *iter;
@@ -278,15 +278,11 @@ class Tracker
     {
         std::unique_lock<std::mutex> lk(bufLock);
 
-        uint64_t minBound;
-        if (maxTimeErr_us < utimeA) minBound = utimeA - maxTimeErr_us;
-        else                        minBound = 0;
-        uint64_t maxBound = utimeB + maxTimeErr_us;
-
+        // See reason for linear search given in the get() function
         std::vector<T*> ret;
         for (const MsgType* m : buf) {
             uint64_t mUtime = getMsgUtime(m);
-            if (minBound <= mUtime && mUtime <= maxBound)
+            if (utimeA <= mUtime && mUtime <= utimeB)
                 ret.push_back(new T(*m));
         }
         return ret;

@@ -35,7 +35,7 @@ class MessageTrackerTest : public CxxTest::TestSuite
     {
         constexpr size_t numMsgs = 1000;
         zcm::MessageTracker<example_t> mt(nullptr, "", 0.25, numMsgs);
-        for (size_t i = 0; i < 1000; ++i) {
+        for (size_t i = 0; i < numMsgs; ++i) {
             example_t tmp;
             tmp.utime = i * 1e4;
             mt.newMsg(&tmp, tmp.utime + 1);
@@ -48,8 +48,8 @@ class MessageTrackerTest : public CxxTest::TestSuite
     void testGetRange()
     {
         constexpr size_t numMsgs = 1000;
-        zcm::MessageTracker<example_t> mt(nullptr, "", 0.001, numMsgs);
-        for (size_t i = 0; i < 1000; ++i) {
+        zcm::Tracker<example_t> mt(0.25, numMsgs);
+        for (size_t i = 0; i < numMsgs; ++i) {
             example_t tmp;
             tmp.utime = i + 101;
             mt.newMsg(&tmp);
@@ -57,8 +57,11 @@ class MessageTrackerTest : public CxxTest::TestSuite
 
         vector<example_t*> gotRange = mt.getRange(101, 105);
         TS_ASSERT_EQUALS(gotRange.size(), 5);
+        uint64_t lastUtime = 0;
         for (auto msg : gotRange) {
             TS_ASSERT(msg->utime >= 101 && msg->utime <= 105);
+            TS_ASSERT_LESS_THAN(lastUtime, msg->utime);
+            lastUtime = msg->utime;
             delete msg;
         }
 
@@ -72,7 +75,10 @@ class MessageTrackerTest : public CxxTest::TestSuite
         gotRange = mt.getRange(110, 105);
         TS_ASSERT_EQUALS(gotRange.size(), 0);
 
-        gotRange = mt.getRange(0, 1);
+        gotRange = mt.getRange(0, 100);
+        TS_ASSERT_EQUALS(gotRange.size(), 0);
+
+        gotRange = mt.getRange(0, 101);
         TS_ASSERT_EQUALS(gotRange.size(), 1);
         for (auto msg : gotRange) {
             TS_ASSERT_EQUALS(msg->utime, 101);
@@ -80,20 +86,9 @@ class MessageTrackerTest : public CxxTest::TestSuite
         }
 
         gotRange = mt.getRange(1200, 1300);
-        TS_ASSERT_EQUALS(gotRange.size(), 1);
-        for (auto msg : gotRange) {
-            TS_ASSERT_EQUALS(msg->utime, 1100);
-            delete msg;
-        }
+        TS_ASSERT_EQUALS(gotRange.size(), 0);
 
-        gotRange = mt.getRange(100, 100);
-        TS_ASSERT_EQUALS(gotRange.size(), 1);
-        for (auto msg : gotRange) {
-            TS_ASSERT_EQUALS(msg->utime, 101);
-            delete msg;
-        }
-
-        gotRange = mt.getRange(1102, 1205);
+        gotRange = mt.getRange(1100, 1300);
         TS_ASSERT_EQUALS(gotRange.size(), 1);
         for (auto msg : gotRange) {
             TS_ASSERT_EQUALS(msg->utime, 1100);
