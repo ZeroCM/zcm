@@ -315,8 +315,10 @@ struct EmitStruct : public Emitter
         if (zcm.gopt->wasSpecified("jdefaultpkg"))
             package += zcm.gopt->getString("jdefaultpkg");
         if (lr.structname.package.size() > 0)
+		{
             if (package != "") package += ".";
             package += lr.structname.package;
+		}
 
         emit(0, "package %s;", package.c_str());
         emit(0, " ");
