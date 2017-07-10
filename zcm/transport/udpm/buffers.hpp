@@ -171,7 +171,7 @@ struct MessagePool
 
   private:
     void _freeMessageBuffer(Message *b);
-    void _removeFragBuf(unsigned int index);
+    void _removeFragBuf(size_t index);
 
   private:
     MemPool mempool;
