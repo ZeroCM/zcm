@@ -14,6 +14,8 @@
 #include <sys/time.h>
 #include <stdarg.h>
 #include <functional>
+#include <tuple>
+#include <type_traits>
 
 #include <zcm/zcm-cpp.hpp>
 #include <zcm/util/Filter.hpp>
@@ -24,6 +26,9 @@ static bool __ZCM_DEBUG_ENABLED__ = (NULL != getenv("ZCM_DEBUG"));
         if (__ZCM_DEBUG_ENABLED__) \
             __ZCM_PRINT_OBFUSCATE__(std::cout, "ZCM-DEBUG: ", __VA_ARGS__, '\n'); \
     } while(0)
+
+// Forward declaration of the test
+class MessageTrackerTest;
 
 namespace zcm {
 
@@ -107,10 +112,10 @@ class Tracker
     std::deque<MsgType*> buf;
     uint64_t lastHostUtime = UINT64_MAX;
     size_t bufMax;
-    mutable std::mutex bufLock;
+    mutable std::recursive_mutex bufLock;
 
-    std::mutex callbackLock;
-    std::condition_variable callbackCv;
+    decltype(bufLock) callbackLock;
+    std::condition_variable_any callbackCv;
     MsgType* callbackMsg = nullptr;
     std::thread *thr = nullptr;
     callback onMsg;
@@ -121,7 +126,7 @@ class Tracker
 
     void callbackThreadFunc()
     {
-        std::unique_lock<std::mutex> lk(callbackLock);
+        std::unique_lock<decltype(bufLock)> lk(callbackLock);
         while (!done) {
             callbackCv.wait(lk, [&](){ return callbackMsg || done; });
             if (done) return;
@@ -131,8 +136,6 @@ class Tracker
             callbackMsg = nullptr;
         }
     }
-
-    Tracker() {}
 
   public:
     Tracker(double maxTimeErr = 0.25, size_t maxMsgs = 1,
@@ -162,7 +165,7 @@ class Tracker
     {
         if (thr) {
             {
-                std::unique_lock<std::mutex> lk(callbackLock);
+                std::unique_lock<decltype(bufLock)> lk(callbackLock);
                 done = true;
                 callbackCv.notify_all();
             }
@@ -171,7 +174,7 @@ class Tracker
             if (callbackMsg) delete callbackMsg;
         }
 
-        std::unique_lock<std::mutex> lk(bufLock);
+        std::unique_lock<decltype(bufLock)> lk(bufLock);
         while (!buf.empty()) {
             MsgType* tmp = buf.front();
             delete tmp;
@@ -179,23 +182,23 @@ class Tracker
         }
     }
 
-    // You must free the memory returned here
+    // You must free the memory returned here. This may return nullptr
     T* get() const
     {
         T* ret = nullptr;
 
         {
-            std::unique_lock<std::mutex> lk(bufLock);
+            std::unique_lock<decltype(bufLock)> lk(bufLock);
             if (!buf.empty()) ret = new T(*buf.back());
         }
 
         return ret;
     }
 
-    // This may return nullptr even in the blocking case
+    // Same semantics as get()
     T* get(uint64_t utime) const
     {
-        std::unique_lock<std::mutex> lk(bufLock);
+        std::unique_lock<decltype(bufLock)> lk(bufLock);
         return get(utime, buf.begin(), buf.end(), &lk);
     }
 
@@ -205,7 +208,7 @@ class Tracker
     // here to have it unlocked once this function is done working with the iterators
     template <class InputIter>
     T* get(uint64_t utime, InputIter first, InputIter last,
-           std::unique_lock<std::mutex>* lk = nullptr) const
+           std::unique_lock<decltype(bufLock)>* lk = nullptr) const
     {
         static_assert(hasUtime<typename std::remove_pointer<typename
                       std::iterator_traits<InputIter>::value_type>::type>::present,
@@ -276,7 +279,7 @@ class Tracker
     // This search is inclusive and can't return a message outside [A,B]
     std::vector<T*> getRange(uint64_t utimeA, uint64_t utimeB) const
     {
-        std::unique_lock<std::mutex> lk(bufLock);
+        std::unique_lock<decltype(bufLock)> lk(bufLock);
 
         // See reason for linear search given in the get() function
         std::vector<T*> ret;
@@ -288,11 +291,31 @@ class Tracker
         return ret;
     }
 
-    void newMsg(const T* _msg, uint64_t hostUtime = UINT64_MAX)
+    size_t expireBefore(uint64_t utime)
+    {
+        size_t ret = 0;
+        std::unique_lock<decltype(bufLock)> lk(bufLock);
+        // Expire things that are too old
+        while (!buf.empty()) {
+            if (getMsgUtime(buf.front()) >= utime) break;
+            MsgType* tmp = buf.front();
+            delete tmp;
+            buf.pop_front();
+            ++ret;
+        }
+        return ret;
+    }
+
+    // hostUtime is only used and required when _msg does not have an
+    // internal utime field
+    // Returns utime of message
+    virtual uint64_t newMsg(const T* _msg, uint64_t hostUtime = UINT64_MAX)
     {
         MsgType* tmp = new MsgType(*_msg, hostUtime);
+        uint64_t tmpUtime = getMsgUtime(tmp);
+
         {
-            std::unique_lock<std::mutex> lk(bufLock);
+            std::unique_lock<decltype(bufLock)> lk(bufLock);
 
             // Expire due to buffer being full
             if (buf.size() == bufMax) {
@@ -302,12 +325,7 @@ class Tracker
             }
 
             // Expire things that are too old
-            while (!buf.empty()) {
-                if (getMsgUtime(buf.front()) + maxTimeErr_us > getMsgUtime(tmp)) break;
-                MsgType* tmp = buf.front();
-                delete tmp;
-                buf.pop_front();
-            }
+            expireBefore(tmpUtime > maxTimeErr_us ? tmpUtime - maxTimeErr_us : 0);
 
             if (lastHostUtime != UINT64_MAX) {
                 double obs = hostUtime - lastHostUtime;
@@ -337,18 +355,20 @@ class Tracker
                 callbackCv.notify_all();
             }
         }
+
+        return tmpUtime;
     }
 
     double getHz() const
     {
-        std::unique_lock<std::mutex> lk(bufLock);
+        std::unique_lock<decltype(bufLock)> lk(bufLock);
         return 1e6 / hzFilter[Filter::LOW_PASS];
     }
 
     uint64_t lastMsgHostUtime() const
     {
         {
-            std::unique_lock<std::mutex> lk(bufLock);
+            std::unique_lock<decltype(bufLock)> lk(bufLock);
             if (!buf.empty()) return lastHostUtime;
         }
         return UINT64_MAX;
@@ -356,7 +376,7 @@ class Tracker
 
     double getJitterUs() const
     {
-        std::unique_lock<std::mutex> lk(bufLock);
+        std::unique_lock<decltype(bufLock)> lk(bufLock);
         return sqrt(jitterFilter[Filter::LOW_PASS]);
     }
 
@@ -415,6 +435,87 @@ class MessageTracker : public virtual Tracker<T>
     {
         if (s) zcmLocal->unsubscribe(s);
     }
+};
+
+// This class will attempt to synchronize messages of type ZcmType1_Master to
+// messages of type ZcmType2.
+//
+// If you're interested in the details, here they are:
+//
+// Whenever a Synchronizer receives a message of ZcmType1_Master
+// it checks to see if there is a message of type ZcmType2 that has a utime no
+// earlier than than the received message of ZcmType1. If there is a message of
+// type ZcmType2 that satisfies this criteria, then `get` will return a valid pair
+// with the original message and the result of `t2.get(msg1.utime)`. If there is
+// not a later message, this class will wait until a message of type ZcmType2 is
+// received that is no earlier than the message of ZcmType1_Master.
+template <typename ZcmType1_Master, typename ZcmType2, typename Type1Tracker, typename Type2Tracker>
+class SynchronizedMessageTracker
+{
+  public:
+    typedef std::function<void(ZcmType1_Master*, ZcmType2*, void*)> callback;
+
+  private:
+    class TrackerOverride1 : public Type1Tracker
+    {
+      private:
+        const MessageTracker<ZcmType2>* t2;
+
+      public:
+        uint64_t newMsg(const ZcmType1_Master* _msg, uint64_t hostUtime = UINT64_MAX) override
+        {
+            uint64_t utime = MessageTracker<ZcmType1_Master>::newMsg(_msg, hostUtime);
+            return utime;
+        }
+
+        TrackerOverride1(zcm::ZCM* zcmLocal, std::string channel,
+                         double maxTimeErr, size_t maxMsgs,
+                         const MessageTracker<ZcmType2>* t2) :
+            MessageTracker<ZcmType1_Master>(zcmLocal, channel, maxTimeErr, maxMsgs), t2(t2)
+        {}
+    };
+
+    class TrackerOverride2 : public MessageTracker<ZcmType2>
+    {
+      private:
+        const MessageTracker<ZcmType1_Master>* t1;
+
+      public:
+        uint64_t newMsg(const ZcmType2* _msg, uint64_t hostUtime = UINT64_MAX) override
+        {
+            uint64_t utime = MessageTracker<ZcmType2>::newMsg(_msg, hostUtime);
+            return utime;
+        }
+
+        TrackerOverride2(zcm::ZCM* zcmLocal, std::string channel,
+                         double maxTimeErr, size_t maxMsgs,
+                         const MessageTracker<ZcmType1_Master>* t1) :
+            MessageTracker<ZcmType2>(zcmLocal, channel, maxTimeErr, maxMsgs), t1(t1)
+        {}
+    };
+
+    TrackerOverride1 t1;
+    TrackerOverride2 t2;
+
+    callback onSynchronizedMsg;
+    void* usr;
+
+  public:
+    SynchronizedMessageTracker(zcm::ZCM* zcmLocal, size_t maxMsgPairs,
+                               std::string channel_1, double maxTimeErr_1, size_t maxMsgs_1,
+                               std::string channel_2, double maxTimeErr_2, size_t maxMsgs_2,
+                               callback onSynchronizedMsg, void* usr = nullptr) :
+        t1(zcmLocal, channel_1, maxTimeErr_1, maxMsgs_1, &t2),
+        t2(zcmLocal, channel_2, maxTimeErr_2, maxMsgs_2, &t1),
+        onSynchronizedMsg(onSynchronizedMsg), usr(usr)
+    {
+        static_assert(std::is_base_of<MessageTracker<ZcmType1_Master>, Type1Tracker>::value,
+                      "Tracker type1 must be an extension of MessageTracker<type1>");
+        static_assert(std::is_base_of<MessageTracker<ZcmType2>,        Type2Tracker>::value,
+                      "Tracker type2 must be an extension of MessageTracker<type2>");
+    }
+
+    friend class ::MessageTrackerTest;
 };
 
 }

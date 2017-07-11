@@ -19,6 +19,7 @@ class MessageTrackerTest : public CxxTest::TestSuite
 
     struct example_t {
         uint64_t utime;
+        int data;
         virtual ~example_t() {}
         int decode(void* data, int start, int max) { return 0; }
         static const char* getTypeName() { return "example_t"; }
@@ -36,7 +37,7 @@ class MessageTrackerTest : public CxxTest::TestSuite
         constexpr size_t numMsgs = 1000;
         zcm::MessageTracker<example_t> mt(nullptr, "", 0.25, numMsgs);
         for (size_t i = 0; i < numMsgs; ++i) {
-            example_t tmp;
+            example_t tmp = {};
             tmp.utime = i * 1e4;
             mt.newMsg(&tmp, tmp.utime + 1);
             TS_ASSERT_EQUALS(mt.lastMsgHostUtime(), tmp.utime + 1);
@@ -50,7 +51,7 @@ class MessageTrackerTest : public CxxTest::TestSuite
         constexpr size_t numMsgs = 1000;
         zcm::Tracker<example_t> mt(0.25, numMsgs);
         for (size_t i = 0; i < numMsgs; ++i) {
-            example_t tmp;
+            example_t tmp = {};
             tmp.utime = i + 101;
             mt.newMsg(&tmp);
         }
@@ -201,5 +202,47 @@ class MessageTrackerTest : public CxxTest::TestSuite
         };
         // This would not compile if it were broken
         zcm::Tracker<test_t> mt(0.25, 1);
+    }
+
+    void testSynchronizedMessageTracker()
+    {
+        bool pairDetected = false;
+
+        zcm::SynchronizedMessageTracker
+            <example_t, example_t,
+             zcm::MessageTracker<example_t>,
+             zcm::MessageTracker<example_t>>::callback cb =
+        [&pairDetected] (example_t *a, example_t *b, void *usr) {
+            cout << "Pair detected. Utime a: " << a->utime
+                 << "               Utime b: " << b->utime << endl;
+            pairDetected = true;
+        };
+
+        zcm::ZCM zcmL;
+
+        zcm::SynchronizedMessageTracker
+            <example_t, example_t,
+             zcm::MessageTracker<example_t>,
+             zcm::MessageTracker<example_t>> smt(&zcmL, 10,
+                                                 "", 1, 10,
+                                                 "", 1, 10,
+                                                 cb);
+        example_t e1 = {}; e1.utime = 0; e1.data = 0;
+        example_t e2 = {}; e2.utime = 1; e2.data = 1;
+        example_t e3 = {}; e3.utime = 2; e3.data = 2;
+        example_t e4 = {}; e4.utime = 3; e4.data = 3;
+        example_t e5 = {}; e5.utime = 4; e5.data = 4;
+
+        // Message type 1
+        smt.t1.newMsg(&e1, 0);
+        smt.t1.newMsg(&e2, 0);
+
+        // Message type 2
+        smt.t2.newMsg(&e3, 0);
+
+        // Message type 1
+        smt.t1.newMsg(&e4, 0);
+
+        TS_ASSERT(pairDetected);
     }
 };
