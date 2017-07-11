@@ -99,7 +99,7 @@ FragBuf *MessagePool::addFragBuf(u32 data_size)
             }
         }
         if (eldest) {
-            _removeFragBuf(idx);
+            _removeFragBuf((size_t)idx);
             // XXX Need to free the removed FragBuf*
         }
     }
@@ -118,9 +118,9 @@ FragBuf *MessagePool::lookupFragBuf(struct sockaddr_in *key)
     return nullptr;
 }
 
-void MessagePool::_removeFragBuf(int index)
+void MessagePool::_removeFragBuf(size_t index)
 {
-    assert(0 <= index && index < (int)fragbufs.size());
+    assert(index < fragbufs.size());
 
     // Update the total_size of the fragment buffers
     FragBuf *fbuf = fragbufs[index];
@@ -129,7 +129,7 @@ void MessagePool::_removeFragBuf(int index)
     // delete old element, move last element to this slot, and shrink by 1
     size_t lastIdx = fragbufs.size()-1;
     fragbufs[index] = fragbufs[lastIdx];
-    fragbufs.resize(lastIdx);
+    fragbufs.pop_back();
 
     this->freeBuffer(fbuf->buf);
     mempool.free(fbuf);
@@ -139,7 +139,7 @@ void MessagePool::removeFragBuf(FragBuf *fbuf)
 {
     // NOTE: this is kinda slow...
     // Search for the fragbuf index
-    for (int idx = 0; idx < (int)fragbufs.size(); idx++)
+    for (size_t idx = 0; idx < fragbufs.size(); idx++)
         if (fragbufs[idx] == fbuf)
             return this->_removeFragBuf(idx);
 
