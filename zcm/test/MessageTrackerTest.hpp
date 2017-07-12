@@ -213,8 +213,9 @@ class MessageTrackerTest : public CxxTest::TestSuite
              zcm::MessageTracker<example_t>,
              zcm::MessageTracker<example_t>>::callback cb =
         [&pairDetected] (example_t *a, example_t *b, void *usr) {
-            cout << "Pair detected. Utime a: " << a->utime
-                 << "               Utime b: " << b->utime << endl;
+            TS_ASSERT(a); TS_ASSERT(b);
+            cout << endl << "Pair detected. Utime a: " << a->utime << endl
+                         << "               Utime b: " << b->utime << endl;
             pairDetected = true;
         };
 
@@ -227,21 +228,20 @@ class MessageTrackerTest : public CxxTest::TestSuite
                                                  "", 1, 10,
                                                  "", 1, 10,
                                                  cb);
-        example_t e1 = {}; e1.utime = 0; e1.data = 0;
-        example_t e2 = {}; e2.utime = 1; e2.data = 1;
-        example_t e3 = {}; e3.utime = 2; e3.data = 2;
-        example_t e4 = {}; e4.utime = 3; e4.data = 3;
-        example_t e5 = {}; e5.utime = 4; e5.data = 4;
-
-        // Message type 1
-        smt.t1.newMsg(&e1, 0);
-        smt.t1.newMsg(&e2, 0);
+        example_t e1 = {}; e1.utime = 1; e1.data = 1;
+        example_t e2 = {}; e2.utime = 2; e2.data = 2;
+        example_t e3 = {}; e3.utime = 3; e3.data = 3;
+        example_t e5 = {}; e5.utime = 5; e5.data = 5;
 
         // Message type 2
-        smt.t2.newMsg(&e3, 0);
+        smt.t2.newMsg(&e1, 0);
+        smt.t2.newMsg(&e2, 0);
 
         // Message type 1
-        smt.t1.newMsg(&e4, 0);
+        smt.t1.newMsg(&e3, 0);
+
+        // Message type 2
+        smt.t2.newMsg(&e5, 0);
 
         TS_ASSERT(pairDetected);
     }

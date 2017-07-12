@@ -459,40 +459,54 @@ class SynchronizedMessageTracker
     class TrackerOverride1 : public Type1Tracker
     {
       private:
-        const MessageTracker<ZcmType2>* t2;
+        SynchronizedMessageTracker* smt;
 
       public:
         uint64_t newMsg(const ZcmType1_Master* _msg, uint64_t hostUtime = UINT64_MAX) override
         {
-            uint64_t utime = MessageTracker<ZcmType1_Master>::newMsg(_msg, hostUtime);
+            uint64_t utime = Type1Tracker::newMsg(_msg, hostUtime);
+            smt->process1(_msg, utime, &smt->t2);
             return utime;
         }
 
         TrackerOverride1(zcm::ZCM* zcmLocal, std::string channel,
                          double maxTimeErr, size_t maxMsgs,
-                         const MessageTracker<ZcmType2>* t2) :
-            MessageTracker<ZcmType1_Master>(zcmLocal, channel, maxTimeErr, maxMsgs), t2(t2)
+                         SynchronizedMessageTracker* smt) :
+            Type1Tracker(zcmLocal, channel, maxTimeErr, maxMsgs), smt(smt)
         {}
     };
 
-    class TrackerOverride2 : public MessageTracker<ZcmType2>
+    class TrackerOverride2 : public Type2Tracker
     {
       private:
-        const MessageTracker<ZcmType1_Master>* t1;
+        SynchronizedMessageTracker* smt;
 
       public:
         uint64_t newMsg(const ZcmType2* _msg, uint64_t hostUtime = UINT64_MAX) override
         {
-            uint64_t utime = MessageTracker<ZcmType2>::newMsg(_msg, hostUtime);
+            uint64_t utime = Type2Tracker::newMsg(_msg, hostUtime);
+            smt->process2(_msg, utime, &smt->t1);
             return utime;
         }
 
         TrackerOverride2(zcm::ZCM* zcmLocal, std::string channel,
                          double maxTimeErr, size_t maxMsgs,
-                         const MessageTracker<ZcmType1_Master>* t1) :
-            MessageTracker<ZcmType2>(zcmLocal, channel, maxTimeErr, maxMsgs), t1(t1)
+                         SynchronizedMessageTracker* smt) :
+            Type2Tracker(zcmLocal, channel, maxTimeErr, maxMsgs), smt(smt)
         {}
     };
+
+    void process1(const ZcmType1_Master* msg1, uint64_t utime, const Type2Tracker* t2)
+    {
+        // RRR Need to actually decide when to call the callback and what to send to it
+        onSynchronizedMsg(new ZcmType1_Master(*msg1), t2->get(utime), usr);
+    }
+
+    void process2(const ZcmType2* msg2, uint64_t utime, const Type1Tracker* t1)
+    {
+        // RRR Need to actually decide when to call the callback and what to send to it
+        onSynchronizedMsg(t1->get(utime), new ZcmType2(*msg2), usr);
+    }
 
     TrackerOverride1 t1;
     TrackerOverride2 t2;
@@ -505,8 +519,8 @@ class SynchronizedMessageTracker
                                std::string channel_1, double maxTimeErr_1, size_t maxMsgs_1,
                                std::string channel_2, double maxTimeErr_2, size_t maxMsgs_2,
                                callback onSynchronizedMsg, void* usr = nullptr) :
-        t1(zcmLocal, channel_1, maxTimeErr_1, maxMsgs_1, &t2),
-        t2(zcmLocal, channel_2, maxTimeErr_2, maxMsgs_2, &t1),
+        t1(zcmLocal, channel_1, maxTimeErr_1, maxMsgs_1, this),
+        t2(zcmLocal, channel_2, maxTimeErr_2, maxMsgs_2, this),
         onSynchronizedMsg(onSynchronizedMsg), usr(usr)
     {
         static_assert(std::is_base_of<MessageTracker<ZcmType1_Master>, Type1Tracker>::value,
