@@ -223,9 +223,9 @@ class Tracker
     //       message if bracketted messages arent available
     // If you need to have a lock while working with the iterators, pass it in
     // here to have it unlocked once this function is done working with the iterators
-    template <class InputIter>
+    template <class InputIter, typename lockType = std::mutex>
     T* get(uint64_t utime, InputIter first, InputIter last,
-           std::unique_lock<decltype(bufLock)>* lk = nullptr) const
+           std::unique_lock<lockType>* lk = nullptr) const
     {
         static_assert(hasUtime<typename std::remove_pointer<typename
                       std::iterator_traits<InputIter>::value_type>::type>::present,
