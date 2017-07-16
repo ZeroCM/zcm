@@ -234,7 +234,7 @@ class MessageTrackerTest : public CxxTest::TestSuite
         };
 
         zcm::SynchronizedMessageTracker <zcm::MessageTracker<example_t>, tracker>::callback cb =
-        [&] (example_t *a, example_t *b, void *usr) {
+        [&] (const example_t *a, example_t *b, void *usr) {
             TS_ASSERT(a); TS_ASSERT(b);
             if (pairDetected == 0) {
                 TS_ASSERT_EQUALS(a->utime, 3);
@@ -243,7 +243,7 @@ class MessageTrackerTest : public CxxTest::TestSuite
             }
             TS_ASSERT_EQUALS(b->utime, 10);
             ++pairDetected;
-            delete a; delete b;
+            delete b;
         };
 
         zcm::ZCM zcmL;

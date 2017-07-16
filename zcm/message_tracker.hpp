@@ -474,8 +474,9 @@ template <typename Type1Tracker, typename Type2Tracker>
 class SynchronizedMessageTracker
 {
   public:
-    typedef std::function<void(typename Type1Tracker::ZcmType*,
-                               typename Type2Tracker::ZcmType*, void*)> callback;
+    typedef std::function<void(const typename Type1Tracker::ZcmType*,
+                                     typename Type2Tracker::ZcmType*,
+                                     void*)> callback;
 
   private:
     class TrackerOverride1 : public Type1Tracker
@@ -526,7 +527,7 @@ class SynchronizedMessageTracker
         auto it = t2.crbegin();
         if (t2.getMsgUtime(*it) >= utime) {
             auto msg2 = t2.get(utime);
-            if (msg2) onSynchronizedMsg(new typename Type1Tracker::ZcmType(*msg), msg2, usr);
+            if (msg2) onSynchronizedMsg(msg, msg2, usr);
         }
     }
 
@@ -535,7 +536,7 @@ class SynchronizedMessageTracker
         for (auto it = t1.cbegin(); it < t1.cend(); ++it) {
             if (t1.getMsgUtime(*it) < utime) {
                 auto msg2 = t2.get(t1.getMsgUtime(*it));
-                if (msg2) onSynchronizedMsg(new typename Type1Tracker::ZcmType(**it), msg2, usr);
+                if (msg2) onSynchronizedMsg(*it, msg2, usr);
             }
         }
     }
