@@ -94,13 +94,6 @@ class Tracker
 
     typedef MsgWithUtime<T, hasUtime<T>::present> MsgType;
 
-    uint64_t getMsgUtime(const MsgType* msg) const
-    {
-        uint64_t tmp = getMsgUtime((const T*)msg);
-        if (tmp != UINT64_MAX) return tmp;
-        return msg->utime;
-    }
-
     // *****************************************************************************
 
     uint64_t maxTimeErr_us;
@@ -138,6 +131,28 @@ class Tracker
     }
 
   public:
+    typedef decltype(buf) RawType;
+
+    ///////////////////////////////
+    //// Iterator Defn and Ops ////
+    ///////////////////////////////
+
+    typedef typename RawType::        const_iterator         const_iterator;
+    typedef typename RawType::const_reverse_iterator const_reverse_iterator;
+
+    inline          const_iterator cbegin() const { return buf. cbegin(); }
+    inline          const_iterator   cend() const { return buf.   cend(); }
+
+    inline const_reverse_iterator crbegin() const { return buf.crbegin(); }
+    inline const_reverse_iterator   crend() const { return buf.  crend(); }
+
+    uint64_t getMsgUtime(const MsgType* msg) const
+    {
+        uint64_t tmp = getMsgUtime((const T*)msg);
+        if (tmp != UINT64_MAX) return tmp;
+        return msg->utime;
+    }
+
     Tracker(double maxTimeErr = 0.25, size_t maxMsgs = 1,
             callback onMsg = callback(), void* usr = nullptr,
             double freqEstConvergenceNumMsgs = 10)
@@ -380,6 +395,8 @@ class Tracker
         return sqrt(jitterFilter[Filter::LOW_PASS]);
     }
 
+
+
   private:
     template<typename F>
     static inline std::string getType(const F t) { return typeid(t).name(); }
@@ -404,6 +421,8 @@ class Tracker
     }
 };
 
+// Note: Remember you have to call the Tracker<T> constructor directly
+//       yourself due to the virtual inheritance below!
 template <typename T>
 class MessageTracker : public virtual Tracker<T>
 {
@@ -449,7 +468,8 @@ class MessageTracker : public virtual Tracker<T>
 // with the original message and the result of `t2.get(msg1.utime)`. If there is
 // not a later message, this class will wait until a message of type ZcmType2 is
 // received that is no earlier than the message of ZcmType1_Master.
-template <typename ZcmType1_Master, typename ZcmType2, typename Type1Tracker, typename Type2Tracker>
+template <typename ZcmType1_Master, typename ZcmType2,
+          typename    Type1Tracker, typename Type2Tracker>
 class SynchronizedMessageTracker
 {
   public:
@@ -465,13 +485,14 @@ class SynchronizedMessageTracker
         uint64_t newMsg(const ZcmType1_Master* _msg, uint64_t hostUtime = UINT64_MAX) override
         {
             uint64_t utime = Type1Tracker::newMsg(_msg, hostUtime);
-            smt->process1(_msg, utime, &smt->t2);
+            smt->process1(_msg, utime);
             return utime;
         }
 
         TrackerOverride1(zcm::ZCM* zcmLocal, std::string channel,
                          double maxTimeErr, size_t maxMsgs,
                          SynchronizedMessageTracker* smt) :
+            Tracker<ZcmType1_Master>(maxTimeErr, maxMsgs),
             Type1Tracker(zcmLocal, channel, maxTimeErr, maxMsgs), smt(smt)
         {}
     };
@@ -485,27 +506,34 @@ class SynchronizedMessageTracker
         uint64_t newMsg(const ZcmType2* _msg, uint64_t hostUtime = UINT64_MAX) override
         {
             uint64_t utime = Type2Tracker::newMsg(_msg, hostUtime);
-            smt->process2(_msg, utime, &smt->t1);
+            smt->process2(utime);
             return utime;
         }
 
         TrackerOverride2(zcm::ZCM* zcmLocal, std::string channel,
                          double maxTimeErr, size_t maxMsgs,
                          SynchronizedMessageTracker* smt) :
-            Type2Tracker(zcmLocal, channel, maxTimeErr, maxMsgs), smt(smt)
-        {}
+            Tracker<ZcmType2>(maxTimeErr, maxMsgs),
+            Type2Tracker(zcmLocal, channel, maxTimeErr, maxMsgs), smt(smt) {}
     };
 
-    void process1(const ZcmType1_Master* msg1, uint64_t utime, const Type2Tracker* t2)
+    void process1(const ZcmType1_Master* msg, uint64_t utime)
     {
-        // RRR Need to actually decide when to call the callback and what to send to it
-        onSynchronizedMsg(new ZcmType1_Master(*msg1), t2->get(utime), usr);
+        auto it = t2.crbegin();
+        if (t2.getMsgUtime(*it) >= utime) {
+            auto msg2 = t2.get(utime);
+            if (msg2) onSynchronizedMsg(new ZcmType1_Master(*msg), msg2, usr);
+        }
     }
 
-    void process2(const ZcmType2* msg2, uint64_t utime, const Type1Tracker* t1)
+    void process2(uint64_t utime)
     {
-        // RRR Need to actually decide when to call the callback and what to send to it
-        onSynchronizedMsg(t1->get(utime), new ZcmType2(*msg2), usr);
+        for (auto it = t1.cbegin(); it < t1.cend(); ++it) {
+            if (t1.getMsgUtime(*it) < utime) {
+                auto msg2 = t2.get(t1.getMsgUtime(*it));
+                if (msg2) onSynchronizedMsg(new ZcmType1_Master(**it), msg2, usr);
+            }
+        }
     }
 
     TrackerOverride1 t1;

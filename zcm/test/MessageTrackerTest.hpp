@@ -206,17 +206,47 @@ class MessageTrackerTest : public CxxTest::TestSuite
 
     void testSynchronizedMessageTracker()
     {
-        bool pairDetected = false;
+        int pairDetected = 0;
+
+        example_t e1 = {}; e1.utime = 1; e1.data = 1;
+        example_t e2 = {}; e2.utime = 2; e2.data = 2;
+        example_t e3 = {}; e3.utime = 3; e3.data = 3;
+        example_t e4 = {}; e4.utime = 4; e4.data = 4;
+        example_t e5 = {}; e5.utime = 5; e5.data = 5;
 
         zcm::SynchronizedMessageTracker
             <example_t, example_t,
              zcm::MessageTracker<example_t>,
              zcm::MessageTracker<example_t>>::callback cb =
-        [&pairDetected] (example_t *a, example_t *b, void *usr) {
+        [&] (example_t *a, example_t *b, void *usr) {
             TS_ASSERT(a); TS_ASSERT(b);
-            cout << endl << "Pair detected. Utime a: " << a->utime << endl
-                         << "               Utime b: " << b->utime << endl;
-            pairDetected = true;
+            if (pairDetected == 0) {
+                TS_ASSERT_EQUALS(a->utime, 3);
+            } else {
+                TS_ASSERT_EQUALS(a->utime, 4);
+            }
+            TS_ASSERT_EQUALS(b->utime, 10);
+            ++pairDetected;
+            delete a; delete b;
+        };
+
+        class tracker : public zcm::MessageTracker<example_t> {
+          public:
+            tracker(zcm::ZCM* zcmLocal, std::string channel,
+                    double maxTimeErr, size_t maxMsgs) :
+                zcm::Tracker<example_t>(maxTimeErr, maxMsgs),
+                zcm::MessageTracker<example_t>(zcmLocal, channel, maxTimeErr, maxMsgs) {}
+
+            example_t* interpolate(uint64_t utimeTarget,
+                                   const example_t* A, uint64_t utimeA,
+                                   const example_t* B, uint64_t utimeB) const override
+            {
+                TS_ASSERT_EQUALS(utimeA, 2); TS_ASSERT_EQUALS(A->utime, 2);
+                TS_ASSERT_EQUALS(utimeB, 5); TS_ASSERT_EQUALS(B->utime, 5);
+                example_t* ret = new example_t();
+                ret->utime = 10;
+                return ret;
+            }
         };
 
         zcm::ZCM zcmL;
@@ -224,25 +254,29 @@ class MessageTrackerTest : public CxxTest::TestSuite
         zcm::SynchronizedMessageTracker
             <example_t, example_t,
              zcm::MessageTracker<example_t>,
-             zcm::MessageTracker<example_t>> smt(&zcmL, 10,
-                                                 "", 1, 10,
-                                                 "", 1, 10,
-                                                 cb);
-        example_t e1 = {}; e1.utime = 1; e1.data = 1;
-        example_t e2 = {}; e2.utime = 2; e2.data = 2;
-        example_t e3 = {}; e3.utime = 3; e3.data = 3;
-        example_t e5 = {}; e5.utime = 5; e5.data = 5;
+             tracker> smt(&zcmL, 10,
+                          "", 1, 10,
+                          "", 1, 10,
+                          cb);
+
+        std::stringstream ss;
 
         // Message type 2
+        ss << "New message b: " << e1.utime; TS_TRACE(ss.str()); ss = stringstream("");
         smt.t2.newMsg(&e1, 0);
+        ss << "New message b: " << e2.utime; TS_TRACE(ss.str()); ss = stringstream("");
         smt.t2.newMsg(&e2, 0);
 
         // Message type 1
+        ss << "New message a: " << e3.utime; TS_TRACE(ss.str()); ss = stringstream("");
         smt.t1.newMsg(&e3, 0);
 
         // Message type 2
+        ss << "New message b: " << e5.utime; TS_TRACE(ss.str()); ss = stringstream("");
         smt.t2.newMsg(&e5, 0);
 
-        TS_ASSERT(pairDetected);
+        smt.t1.newMsg(&e4, 0);
+
+        TS_ASSERT_EQUALS(pairDetected, 2);
     }
 };
