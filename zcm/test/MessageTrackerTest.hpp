@@ -214,22 +214,6 @@ class MessageTrackerTest : public CxxTest::TestSuite
         example_t e4 = {}; e4.utime = 4; e4.data = 4;
         example_t e5 = {}; e5.utime = 5; e5.data = 5;
 
-        zcm::SynchronizedMessageTracker
-            <example_t, example_t,
-             zcm::MessageTracker<example_t>,
-             zcm::MessageTracker<example_t>>::callback cb =
-        [&] (example_t *a, example_t *b, void *usr) {
-            TS_ASSERT(a); TS_ASSERT(b);
-            if (pairDetected == 0) {
-                TS_ASSERT_EQUALS(a->utime, 3);
-            } else {
-                TS_ASSERT_EQUALS(a->utime, 4);
-            }
-            TS_ASSERT_EQUALS(b->utime, 10);
-            ++pairDetected;
-            delete a; delete b;
-        };
-
         class tracker : public zcm::MessageTracker<example_t> {
           public:
             tracker(zcm::ZCM* zcmLocal, std::string channel,
@@ -249,15 +233,25 @@ class MessageTrackerTest : public CxxTest::TestSuite
             }
         };
 
+        zcm::SynchronizedMessageTracker <zcm::MessageTracker<example_t>, tracker>::callback cb =
+        [&] (example_t *a, example_t *b, void *usr) {
+            TS_ASSERT(a); TS_ASSERT(b);
+            if (pairDetected == 0) {
+                TS_ASSERT_EQUALS(a->utime, 3);
+            } else {
+                TS_ASSERT_EQUALS(a->utime, 4);
+            }
+            TS_ASSERT_EQUALS(b->utime, 10);
+            ++pairDetected;
+            delete a; delete b;
+        };
+
         zcm::ZCM zcmL;
 
-        zcm::SynchronizedMessageTracker
-            <example_t, example_t,
-             zcm::MessageTracker<example_t>,
-             tracker> smt(&zcmL, 10,
-                          "", 1, 10,
-                          "", 1, 10,
-                          cb);
+        zcm::SynchronizedMessageTracker<zcm::MessageTracker<example_t>, tracker> smt(&zcmL, 10,
+                                                                                     "", 1, 10,
+                                                                                     "", 1, 10,
+                                                                                     cb);
 
         std::stringstream ss;
 
