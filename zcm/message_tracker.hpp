@@ -107,6 +107,7 @@ class Tracker
     std::deque<MsgType*> buf;
     uint64_t lastHostUtime = UINT64_MAX;
     size_t bufMax;
+    // RRR: just use a typedef since you need to use the lock type in multiple places in file
     mutable std::recursive_mutex bufLock;
 
     decltype(bufLock) callbackLock;
@@ -133,6 +134,10 @@ class Tracker
     }
 
   public:
+    // RRR: instead of using decltype to make your typedefs, make the typedef first and then
+    //      declare the variable as that type
+    // RRR: seems like this might be better named "ContainerType". To me RawType would
+    //      indicate the type == T
     typedef decltype(buf) RawType;
 
     ///////////////////////////////
@@ -312,6 +317,8 @@ class Tracker
     {
         size_t ret = 0;
         std::unique_lock<decltype(bufLock)> lk(bufLock);
+        // RRR: earlier we *don't* make the assumption that the buffer is ordered by utime,
+        //      but here you are making that assumption. We should make it consistent
         // Expire things that are too old
         while (!buf.empty()) {
             if (getMsgUtime(buf.front()) >= utime) break;
@@ -341,6 +348,12 @@ class Tracker
                 buf.pop_front();
             }
 
+            // RRR: I actually think it is inconsistent to expire messages that are
+            //      before (this_utime - maxTimeErr) because you can have trackers that
+            //      have *low* tolerance for time error but may need to look up messages
+            //      a fair distance in the past. This might be a higher level issue with
+            //      the use of maxTimeErr throughout trackers, but I think we should
+            //      discuss it.
             // Expire things that are too old
             expireBefore(tmpUtime > maxTimeErr_us ? tmpUtime - maxTimeErr_us : 0);
 
@@ -458,6 +471,8 @@ class MessageTracker : public virtual Tracker<T>
     }
 };
 
+// RRR: I feel like ... it's time to break this up into more than 1 file
+
 // This class will attempt to synchronize messages of type Type1Tracker::ZcmType to
 // messages of type Type2Tracker::ZcmType.
 //
@@ -493,6 +508,9 @@ class SynchronizedMessageTracker
             return utime;
         }
 
+        // RRR: curious because I don't know, how does this behave when
+        //      Type1Tracker == Tracker<Type1Tracker::ZcmType> ?
+        //      Is it ok that you are calling the same constructor twice?
         TrackerOverride1(zcm::ZCM* zcmLocal, std::string channel,
                          double maxTimeErr, size_t maxMsgs,
                          SynchronizedMessageTracker* smt) :
@@ -522,6 +540,8 @@ class SynchronizedMessageTracker
             Type2Tracker(zcmLocal, channel, maxTimeErr, maxMsgs), smt(smt) {}
     };
 
+    // RRR: this class requires that messages be coming in utime order, which wasn't an
+    //      assumption the original trackers make, so you probably need to make that clear
     void process1(const typename Type1Tracker::ZcmType* msg, uint64_t utime)
     {
         auto it = t2.crbegin();
@@ -533,6 +553,7 @@ class SynchronizedMessageTracker
 
     void process2(uint64_t utime)
     {
+        // RRR: won't this trigger multiple times per t1 message now?
         for (auto it = t1.cbegin(); it < t1.cend(); ++it) {
             if (t1.getMsgUtime(*it) < utime) {
                 auto msg2 = t2.get(t1.getMsgUtime(*it));
@@ -556,11 +577,17 @@ class SynchronizedMessageTracker
         t2(zcmLocal, channel_2, maxTimeErr_2, maxMsgs_2, this),
         onSynchronizedMsg(onSynchronizedMsg), usr(usr)
     {
+        // RRR: so this only works if the internal trackers are actually MessageTrackers,
+        //      not any other trackers. It'd be pretty cool if you could make it either
+        // RRR: I think this function would throw an error due to the constructor calls
+        //      before hitting these static asserts. If you want the reason for the
+        //      error to be clear, you should move these static asserts just into
+        //      the definition of the class instead of inside this function
         static_assert(std::is_base_of<MessageTracker<typename Type1Tracker::ZcmType>,
-                                                     Type1Tracker>::value,
+                                      Type1Tracker>::value,
                       "Tracker type1 must be an extension of MessageTracker<type1>");
         static_assert(std::is_base_of<MessageTracker<typename Type2Tracker::ZcmType>,
-                                                     Type2Tracker>::value,
+                                      Type2Tracker>::value,
                       "Tracker type2 must be an extension of MessageTracker<type2>");
     }
 
