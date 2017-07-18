@@ -204,7 +204,7 @@ class MessageTrackerTest : public CxxTest::TestSuite
         zcm::Tracker<test_t> mt(0.25, 1);
     }
 
-    void testSynchronizedMessageTracker()
+    void testSynchronizedMessageDispatcher()
     {
         int pairDetected = 0;
 
@@ -213,6 +213,8 @@ class MessageTrackerTest : public CxxTest::TestSuite
         example_t e3 = {}; e3.utime = 3; e3.data = 3;
         example_t e4 = {}; e4.utime = 4; e4.data = 4;
         example_t e5 = {}; e5.utime = 5; e5.data = 5;
+        example_t e6 = {}; e6.utime = 6; e6.data = 6;
+        example_t e7 = {}; e7.utime = 7; e7.data = 7;
 
         class tracker : public zcm::MessageTracker<example_t> {
           public:
@@ -233,7 +235,7 @@ class MessageTrackerTest : public CxxTest::TestSuite
             }
         };
 
-        zcm::SynchronizedMessageTracker <zcm::MessageTracker<example_t>, tracker>::callback cb =
+        zcm::SynchronizedMessageDispatcher <zcm::MessageTracker<example_t>, tracker>::callback cb =
         [&] (const example_t *a, example_t *b, void *usr) {
             TS_ASSERT(a); TS_ASSERT(b);
             if (pairDetected == 0) {
@@ -248,10 +250,11 @@ class MessageTrackerTest : public CxxTest::TestSuite
 
         zcm::ZCM zcmL;
 
-        zcm::SynchronizedMessageTracker<zcm::MessageTracker<example_t>, tracker> smt(&zcmL, 10,
-                                                                                     "", 1, 10,
-                                                                                     "", 1, 10,
-                                                                                     cb);
+        zcm::SynchronizedMessageDispatcher<zcm::MessageTracker<example_t>, tracker>
+            smt(&zcmL, 10,
+                "", 1, 10,
+                "", 1, 10,
+                cb);
 
         std::stringstream ss;
 
@@ -268,8 +271,14 @@ class MessageTrackerTest : public CxxTest::TestSuite
         // Message type 2
         ss << "New message b: " << e5.utime; TS_TRACE(ss.str()); ss = stringstream("");
         smt.t2.newMsg(&e5, 0);
+        ss << "New message b: " << e6.utime; TS_TRACE(ss.str()); ss = stringstream("");
+        smt.t2.newMsg(&e6, 0);
 
+        // Message type 1
+        ss << "New message a: " << e4.utime; TS_TRACE(ss.str()); ss = stringstream("");
         smt.t1.newMsg(&e4, 0);
+        ss << "New message a: " << e7.utime; TS_TRACE(ss.str()); ss = stringstream("");
+        smt.t2.newMsg(&e7, 0);
 
         TS_ASSERT_EQUALS(pairDetected, 2);
     }
