@@ -251,8 +251,8 @@ class MessageTrackerTest : public CxxTest::TestSuite
         zcm::ZCM zcmL;
 
         zcm::SynchronizedMessageDispatcher<zcm::MessageTracker<example_t>, tracker>
-            smt(&zcmL, 10,
-                "", 1, 10,
+            smt(&zcmL,
+                "",    10,
                 "", 1, 10,
                 cb);
 

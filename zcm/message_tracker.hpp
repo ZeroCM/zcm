@@ -453,12 +453,20 @@ class MessageTracker : public virtual Tracker<T>
     zcm::ZCM* zcmLocal = nullptr;
     zcm::Subscription *s = nullptr;
 
-    virtual void handle(const zcm::ReceiveBuffer* rbuf, const std::string& chan, const T* _msg)
+    MessageTracker() {}
+
+    void _handle(const zcm::ReceiveBuffer* rbuf, const std::string& chan, const T* _msg)
     {
-        this->newMsg(_msg, rbuf->recv_utime);
+        this->handle(rbuf, chan, _msg);
     }
 
-    MessageTracker() {}
+  protected:
+    virtual uint64_t handle(const zcm::ReceiveBuffer* rbuf,
+                            const std::string& chan,
+                            const T* _msg)
+    {
+        return Tracker<T>::newMsg(_msg, rbuf->recv_utime);
+    }
 
   public:
     MessageTracker(zcm::ZCM* zcmLocal, const std::string& channel,
@@ -470,17 +478,12 @@ class MessageTracker : public virtual Tracker<T>
           zcmLocal(zcmLocal)
     {
         if (zcmLocal && channel != "")
-            s = zcmLocal->subscribe(channel, &MessageTracker<T>::handle, this);
+            s = zcmLocal->subscribe(channel, &MessageTracker<T>::_handle, this);
     }
 
     virtual ~MessageTracker()
     {
         if (s) zcmLocal->unsubscribe(s);
-    }
-
-    uint64_t newMsg(const T* _msg, uint64_t hostUtime = UINT64_MAX) override
-    {
-        return Tracker<T>::newMsg(_msg, hostUtime);
     }
 };
 
@@ -515,10 +518,10 @@ class SynchronizedMessageDispatcher
         SynchronizedMessageDispatcher* smt;
 
       public:
-        uint64_t newMsg(const typename Type1Tracker::ZcmType* _msg,
-                        uint64_t hostUtime = UINT64_MAX) override
+        uint64_t handle(const zcm::ReceiveBuffer* rbuf, const std::string& chan,
+                        const typename Type1Tracker::ZcmType* _msg) override
         {
-            uint64_t utime = Type1Tracker::newMsg(_msg, hostUtime);
+            uint64_t utime = Type1Tracker::handle(rbuf, chan, _msg);
             smt->process1(_msg, utime);
             return utime;
         }
@@ -537,10 +540,10 @@ class SynchronizedMessageDispatcher
         SynchronizedMessageDispatcher* smt;
 
       public:
-        uint64_t newMsg(const typename Type2Tracker::ZcmType* _msg,
-                        uint64_t hostUtime = UINT64_MAX) override
+        uint64_t handle(const zcm::ReceiveBuffer* rbuf, const std::string& chan,
+                        const typename Type2Tracker::ZcmType* _msg) override
         {
-            uint64_t utime = Type2Tracker::newMsg(_msg, hostUtime);
+            uint64_t utime = Type2Tracker::handle(rbuf, chan, _msg);
             smt->process2(utime);
             return utime;
         }
@@ -595,11 +598,11 @@ class SynchronizedMessageDispatcher
                   "Tracker type2 must be an extension of MessageTracker<type2>");
 
   public:
-    SynchronizedMessageDispatcher(zcm::ZCM* zcmLocal, size_t maxMsgPairs,
-                                  const std::string& channel_1, double maxTimeErr_1, size_t maxMsgs_1,
+    SynchronizedMessageDispatcher(zcm::ZCM* zcmLocal,
+                                  const std::string& channel_1,                      size_t maxMsgs_1,
                                   const std::string& channel_2, double maxTimeErr_2, size_t maxMsgs_2,
                                   callback onSynchronizedMsg, void* usr = nullptr) :
-        t1(zcmLocal, channel_1, maxTimeErr_1, maxMsgs_1, this),
+        t1(zcmLocal, channel_1,            0, maxMsgs_1, this),
         t2(zcmLocal, channel_2, maxTimeErr_2, maxMsgs_2, this),
         onSynchronizedMsg(onSynchronizedMsg), usr(usr) {}
 
