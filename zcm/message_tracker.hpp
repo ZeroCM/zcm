@@ -424,7 +424,7 @@ class Tracker
     template<typename F>
     static inline std::string getType(const F t) { return typeid(t).name(); }
 
-    static inline std::string demangle(std::string name)
+    static inline std::string demangle(const std::string& name)
     {
         int status = -4; // some arbitrary value to eliminate the compiler warning
         std::unique_ptr<char, void(*)(void*)> res {
@@ -453,15 +453,15 @@ class MessageTracker : public virtual Tracker<T>
     zcm::ZCM* zcmLocal = nullptr;
     zcm::Subscription *s = nullptr;
 
-    void handle(const zcm::ReceiveBuffer* rbuf, const std::string& chan, const T* _msg)
+    virtual void handle(const zcm::ReceiveBuffer* rbuf, const std::string& chan, const T* _msg)
     {
-        Tracker<T>::newMsg(_msg, rbuf->recv_utime);
+        this->newMsg(_msg, rbuf->recv_utime);
     }
 
     MessageTracker() {}
 
   public:
-    MessageTracker(zcm::ZCM* zcmLocal, std::string channel,
+    MessageTracker(zcm::ZCM* zcmLocal, const std::string& channel,
                    double maxTimeErr = 0.25, size_t maxMsgs = 1,
                    typename Tracker<T>::callback onMsg = typename Tracker<T>::callback(),
                    void* usr = nullptr,
@@ -476,6 +476,11 @@ class MessageTracker : public virtual Tracker<T>
     virtual ~MessageTracker()
     {
         if (s) zcmLocal->unsubscribe(s);
+    }
+
+    uint64_t newMsg(const T* _msg, uint64_t hostUtime = UINT64_MAX) override
+    {
+        return Tracker<T>::newMsg(_msg, hostUtime);
     }
 };
 
@@ -518,7 +523,7 @@ class SynchronizedMessageDispatcher
             return utime;
         }
 
-        TrackerOverride1(zcm::ZCM* zcmLocal, std::string channel,
+        TrackerOverride1(zcm::ZCM* zcmLocal, const std::string& channel,
                          double maxTimeErr, size_t maxMsgs,
                          SynchronizedMessageDispatcher* smt) :
             Tracker<typename Type1Tracker::ZcmType>(maxTimeErr, maxMsgs),
@@ -540,7 +545,7 @@ class SynchronizedMessageDispatcher
             return utime;
         }
 
-        TrackerOverride2(zcm::ZCM* zcmLocal, std::string channel,
+        TrackerOverride2(zcm::ZCM* zcmLocal, const std::string& channel,
                          double maxTimeErr, size_t maxMsgs,
                          SynchronizedMessageDispatcher* smt) :
             Tracker<typename Type2Tracker::ZcmType>(maxTimeErr, maxMsgs),
@@ -591,9 +596,9 @@ class SynchronizedMessageDispatcher
 
   public:
     SynchronizedMessageDispatcher(zcm::ZCM* zcmLocal, size_t maxMsgPairs,
-                               std::string channel_1, double maxTimeErr_1, size_t maxMsgs_1,
-                               std::string channel_2, double maxTimeErr_2, size_t maxMsgs_2,
-                               callback onSynchronizedMsg, void* usr = nullptr) :
+                                  const std::string& channel_1, double maxTimeErr_1, size_t maxMsgs_1,
+                                  const std::string& channel_2, double maxTimeErr_2, size_t maxMsgs_2,
+                                  callback onSynchronizedMsg, void* usr = nullptr) :
         t1(zcmLocal, channel_1, maxTimeErr_1, maxMsgs_1, this),
         t2(zcmLocal, channel_2, maxTimeErr_2, maxMsgs_2, this),
         onSynchronizedMsg(onSynchronizedMsg), usr(usr) {}
