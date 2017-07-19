@@ -365,19 +365,23 @@ class Tracker
 
             // Run the filter for jitter and frequency
             if (lastHostUtime != UINT64_MAX) {
-                double obs = hostUtime - lastHostUtime;
-                hzFilter(obs, 1);
-                double jitterObs = obs - hzFilter[Filter::LOW_PASS];
-                double jitterObsSq = jitterObs * jitterObs;
-                jitterFilter(jitterObsSq, 1);
-                /*
-                std::cout << hostUtime << ", "
-                          << jitterObs << ", "
-                          << sqrt(jitterFilter.lowPass()) << ", "
-                          << obs << ", "
-                          << hzFilter.lowPass()
-                          << std::endl;
-                // */
+                if (lastHostUtime > hostUtime) {
+                    hzFilter.reset();
+                } else {
+                    double obs = hostUtime - lastHostUtime;
+                    hzFilter(obs, 1);
+                    double jitterObs = obs - hzFilter[Filter::LOW_PASS];
+                    double jitterObsSq = jitterObs * jitterObs;
+                    jitterFilter(jitterObsSq, 1);
+                    /*
+                    std::cout << hostUtime << ", "
+                              << jitterObs << ", "
+                              << sqrt(jitterFilter.lowPass()) << ", "
+                              << obs << ", "
+                              << hzFilter.lowPass()
+                              << std::endl;
+                    // */
+                }
             }
 
             lastHostUtime = hostUtime;

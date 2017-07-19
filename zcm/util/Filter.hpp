@@ -14,7 +14,6 @@ class Filter
 
   public:
     Filter(double naturalFreq = 1, double dampingFactor = 1) :
-        obs(0), x1(0), x2(0),
         natFreq(naturalFreq), damping(dampingFactor),
         natFreq2(naturalFreq * naturalFreq),
         natFreqDamping_times2(2 * naturalFreq * dampingFactor),
@@ -22,6 +21,7 @@ class Filter
     {
         assert(natFreq > 0 && "Filter must have positive natFreq");
         assert(damping > 0 && "Filter must have positive damping");
+        reset();
     }
 
     static double convergenceTimeToNatFreq(double riseTime, double damping)
@@ -43,6 +43,12 @@ class Filter
         x1 = obs / natFreq2;
         x2 = 0;
         initialized = true;
+    }
+
+    inline void reset()
+    {
+        obs = x1 = x2 = 0;
+        initialized = false;
     }
 
     inline void newObs(double obs, double dt)
