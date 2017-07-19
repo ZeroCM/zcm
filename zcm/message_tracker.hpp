@@ -558,6 +558,7 @@ class SynchronizedMessageDispatcher
     void process1(const typename Type1Tracker::ZcmType* msg, uint64_t utime)
     {
         auto it = t2.crbegin();
+        if (it == t2.crend()) return;
         if (t2.getMsgUtime(*it) >= utime) {
             auto msg2 = t2.get(utime);
             if (msg2) {
