@@ -521,7 +521,9 @@ class SynchronizedMessageDispatcher
                         const typename Type1Tracker::ZcmType* _msg) override
         {
             uint64_t utime = Type1Tracker::handle(rbuf, chan, _msg);
-            smt->process1(_msg, utime);
+            auto* msg = Type1Tracker::get(utime);
+            smt->process1(msg, utime);
+            delete msg;
             return utime;
         }
 
