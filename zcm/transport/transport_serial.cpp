@@ -238,6 +238,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
     zcm_trans_t* gst;
 
+    uint64_t timeoutLeft;
+
     string *findOption(const string& s)
     {
         auto it = options.find(s);
@@ -305,7 +307,11 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     static uint32_t get(uint8_t* data, uint32_t nData, void* usr)
     {
         ZCM_TRANS_CLASSNAME* me = cast((zcm_trans_t*) usr);
-        return me->ser.read(data, nData, 1e3);
+        uint64_t startUtime = TimeUtil::utime();
+        int ret = me->ser.read(data, nData, me->timeoutLeft);
+        uint64_t diff = TimeUtil::utime() - startUtime;
+        me->timeoutLeft = me->timeoutLeft > diff ? me->timeoutLeft - diff : 0;
+        return ret;
     }
 
     static uint32_t put(const uint8_t* data, uint32_t nData, void* usr)
@@ -322,19 +328,31 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     { return zcm_trans_get_mtu(this->gst); }
 
     int sendmsg(zcm_msg_t msg)
-    { return zcm_trans_sendmsg(this->gst, msg); }
+    {
+        // Note: No need to lock here ONLY because the internals of
+        //       generic serial transport sendmsg only use the sendBuffer
+        //       and touch no variables related to receiving
+        int ret = zcm_trans_sendmsg(this->gst, msg);
+        if (ret != ZCM_EOK) return ret;
+        return zcm_trans_update(this->gst);
+    }
 
     int recvmsgEnable(const char *channel, bool enable)
     { return zcm_trans_recvmsg_enable(this->gst, channel, enable); }
 
     int recvmsg(zcm_msg_t *msg, int timeout)
     {
+        // Note: No need to lock here ONLY because the internals of
+        //       generic serial transport recvmsg only use the recv related
+        //       data members and touch no variables related to sending
+
         uint64_t startUtime = TimeUtil::utime();
         zcm_trans_update(this->gst);
         // TODO: Check return value to make sure it's ZCM_EOK though right
         //       now it must be by definition
         uint64_t diff = TimeUtil::utime() - startUtime;
-        return zcm_trans_recvmsg(this->gst, msg, (uint64_t) timeout > diff ? timeout - diff : 0);
+        timeoutLeft = (uint64_t) timeout > diff ? timeout - diff : 0;
+        return zcm_trans_recvmsg(this->gst, msg, timeoutLeft);
     }
 
     /********************** STATICS **********************/
