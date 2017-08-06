@@ -289,7 +289,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
                                               &ZCM_TRANS_CLASSNAME::put,
                                               this,
                                               &ZCM_TRANS_CLASSNAME::timestamp_now,
-                                              nullptr);
+                                              nullptr,
+                                              MTU, MTU * 10);
     }
 
     ~ZCM_TRANS_CLASSNAME()
@@ -311,13 +312,14 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         int ret = me->ser.read(data, nData, me->timeoutLeft);
         uint64_t diff = TimeUtil::utime() - startUtime;
         me->timeoutLeft = me->timeoutLeft > diff ? me->timeoutLeft - diff : 0;
-        return ret;
+        return ret < 0 ? 0 : ret;
     }
 
     static uint32_t put(const uint8_t* data, uint32_t nData, void* usr)
     {
         ZCM_TRANS_CLASSNAME* me = cast((zcm_trans_t*) usr);
-        return me->ser.write(data, nData);
+        int ret = me->ser.write(data, nData);
+        return ret < 0 ? 0 : ret;
     }
 
     static uint64_t timestamp_now(void* usr)
@@ -334,25 +336,37 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         //       and touch no variables related to receiving
         int ret = zcm_trans_sendmsg(this->gst, msg);
         if (ret != ZCM_EOK) return ret;
-        return zcm_trans_update(this->gst);
+        return serial_update_tx(this->gst);
     }
 
     int recvmsgEnable(const char *channel, bool enable)
     { return zcm_trans_recvmsg_enable(this->gst, channel, enable); }
 
-    int recvmsg(zcm_msg_t *msg, int timeout)
+    int recvmsg(zcm_msg_t *msg, int timeoutMs)
     {
         // Note: No need to lock here ONLY because the internals of
         //       generic serial transport recvmsg only use the recv related
         //       data members and touch no variables related to sending
 
-        uint64_t startUtime = TimeUtil::utime();
-        zcm_trans_update(this->gst);
-        // TODO: Check return value to make sure it's ZCM_EOK though right
-        //       now it must be by definition
-        uint64_t diff = TimeUtil::utime() - startUtime;
-        timeoutLeft = (uint64_t) timeout > diff ? timeout - diff : 0;
-        return zcm_trans_recvmsg(this->gst, msg, timeoutLeft);
+        timeoutLeft = timeoutMs > 0 ? timeoutMs * 1e3 : numeric_limits<uint64_t>::max();
+        do {
+            uint64_t startUtime = TimeUtil::utime();
+
+            int ret = zcm_trans_recvmsg(this->gst, msg, timeoutLeft);
+            if (ret == ZCM_EOK) return ret;
+
+            uint64_t diff = TimeUtil::utime() - startUtime;
+            startUtime = TimeUtil::utime();
+            timeoutLeft = timeoutLeft > diff ? timeoutLeft - diff : 0;
+
+            serial_update_rx(this->gst);
+
+            diff = TimeUtil::utime() - startUtime;
+            timeoutLeft = timeoutLeft > diff ? timeoutLeft - diff : 0;
+
+        } while (timeoutLeft > 0);
+
+        return ZCM_EAGAIN;
     }
 
     /********************** STATICS **********************/
