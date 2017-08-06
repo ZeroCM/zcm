@@ -15,6 +15,8 @@ zcm_trans_t *zcm_trans_generic_serial_create(
         uint64_t (*timestamp_now)(void* usr),
         void* time_usr);
 
+// TODO: Make a destroy
+
 #ifdef __cplusplus
 }
 #endif
