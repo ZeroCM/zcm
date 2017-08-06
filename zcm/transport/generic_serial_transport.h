@@ -13,7 +13,11 @@ zcm_trans_t *zcm_trans_generic_serial_create(
         uint32_t (*put)(const uint8_t* data, uint32_t nData, void* usr),
         void* put_get_usr,
         uint64_t (*timestamp_now)(void* usr),
-        void* time_usr);
+        void* time_usr,
+        size_t MTU, size_t bufSize);
+
+int serial_update_rx(zcm_trans_t *zt);
+int serial_update_tx(zcm_trans_t *zt);
 
 // TODO: Make a destroy
 
