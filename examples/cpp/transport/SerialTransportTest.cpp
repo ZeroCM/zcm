@@ -72,7 +72,9 @@ class Handler
 
 int main(int argc, const char *argv[])
 {
-    ZCM zcmLocal(zcm_trans_generic_serial_create(&get, &put, NULL, &utime, NULL));
+    ZCM zcmLocal(zcm_trans_generic_serial_create(&get, &put, NULL,
+                                                 &utime, NULL,
+                                                 128, 128*5));
 
     example_t example = {};
     example.num_ranges = 1;
