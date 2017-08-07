@@ -503,58 +503,59 @@ class MessageTracker : public virtual Tracker<T>
 //       Similar to MessageTracker and Tracker above
 //
 template <typename Type1Tracker, typename Type2Tracker>
-class SynchronizedTracker
+class SynchronizedMessageDispatcher
 {
   public:
     typedef std::function<void(const typename Type1Tracker::ZcmType*,
                                      typename Type2Tracker::ZcmType*,
                                      void*)> callback;
 
-  protected:
+  private:
     class TrackerOverride1 : public Type1Tracker
     {
       private:
-        SynchronizedTracker* st;
+        SynchronizedMessageDispatcher* smt;
 
       public:
-        using Tracker<typename Type1Tracker::ZcmType>::newMsg;
-        uint64_t newMsg(const typename Type2Tracker::ZcmType& _msg)
+        uint64_t handle(const zcm::ReceiveBuffer* rbuf, const std::string& chan,
+                        const typename Type1Tracker::ZcmType* _msg) override
         {
-            uint64_t utime = Tracker<typename Type1Tracker::ZcmType>::newMsg(&_msg);
+            uint64_t utime = Type1Tracker::handle(rbuf, chan, _msg);
             auto* msg = Type1Tracker::get(utime);
-            st->process1(msg, utime);
+            smt->process1(msg, utime);
             delete msg;
             return utime;
         }
 
-        TrackerOverride1(double maxTimeErr, size_t maxMsgs,
-                         SynchronizedTracker* st) :
+        TrackerOverride1(zcm::ZCM* zcmLocal, const std::string& channel,
+                         double maxTimeErr, size_t maxMsgs,
+                         SynchronizedMessageDispatcher* smt) :
             Tracker<typename Type1Tracker::ZcmType>(maxTimeErr, maxMsgs),
-            Type1Tracker(zcmLocal, channel, maxTimeErr, maxMsgs), st(st)
+            Type1Tracker(zcmLocal, channel, maxTimeErr, maxMsgs), smt(smt)
         {}
     };
 
     class TrackerOverride2 : public Type2Tracker
     {
       private:
-        SynchronizedTracker* st;
+        SynchronizedMessageDispatcher* smt;
 
       public:
-        using Tracker<typename Type2Tracker::ZcmType>::newMsg;
-        uint64_t newMsg(const typename Type2Tracker::ZcmType& _msg)
+        uint64_t handle(const zcm::ReceiveBuffer* rbuf, const std::string& chan,
+                        const typename Type2Tracker::ZcmType* _msg) override
         {
-            uint64_t utime = Tracker<typename Type2Tracker::ZcmType>::newMsg(&_msg);
-            st->process2(utime);
+            uint64_t utime = Type2Tracker::handle(rbuf, chan, _msg);
+            smt->process2(utime);
             return utime;
         }
 
-        TrackerOverride2(double maxTimeErr, size_t maxMsgs,
-                         SynchronizedTracker* st) :
+        TrackerOverride2(zcm::ZCM* zcmLocal, const std::string& channel,
+                         double maxTimeErr, size_t maxMsgs,
+                         SynchronizedMessageDispatcher* smt) :
             Tracker<typename Type2Tracker::ZcmType>(maxTimeErr, maxMsgs),
-            Type2Tracker(zcmLocal, channel, maxTimeErr, maxMsgs), st(st) {}
+            Type2Tracker(zcmLocal, channel, maxTimeErr, maxMsgs), smt(smt) {}
     };
 
-  private:
     void process1(const typename Type1Tracker::ZcmType* msg, uint64_t utime)
     {
         auto it = t2.crbegin();
@@ -591,74 +592,6 @@ class SynchronizedTracker
     callback onSynchronizedMsg;
     void* usr;
 
-    static_assert(std::is_base_of<Tracker<typename Type1Tracker::ZcmType>,
-                                  Type1Tracker>::value,
-                  "Tracker type1 must be an extension of Tracker<type1>");
-    static_assert(std::is_base_of<Tracker<typename Type2Tracker::ZcmType>,
-                                  Type2Tracker>::value,
-                  "Tracker type2 must be an extension of Tracker<type2>");
-
-  public:
-    SynchronizedTracker(size_t maxMsgs_1, double maxTimeErr_2, size_t maxMsgs_2,
-                        callback onSynchronizedMsg, void* usr = nullptr) :
-        t1(0, maxMsgs_1, this), t2(maxTimeErr_2, maxMsgs_2, this),
-        onSynchronizedMsg(onSynchronizedMsg), usr(usr) {}
-
-    friend class ::MessageTrackerTest;
-};
-
-template <typename Type1Tracker, typename Type2Tracker>
-class SynchronizedMessageDispatcher : public SynchronizedTracker<Type1Tracker, Type2Tracker>
-{
-  private:
-    typedef SynchronizedTracker<Type1Tracker, Type2Tracker> BaseClass;
-    typedef typename BaseClass::TrackerOverride1 Tracker1Base;
-    typedef typename BaseClass::TrackerOverride2 Tracker2Base;
-
-    class MessageTrackerOverride1 : public Tracker1Base
-    {
-      private:
-        SynchronizedMessageDispatcher* smt;
-
-      public:
-        uint64_t handle(const zcm::ReceiveBuffer* rbuf, const std::string& chan,
-                        const typename Type1Tracker::ZcmType* _msg) override
-        {
-            return Tracker1Base::newMsg(*_msg);
-        }
-
-        MessageTrackerOverride1(zcm::ZCM* zcmLocal, const std::string& channel,
-                                double maxTimeErr, size_t maxMsgs,
-                                SynchronizedMessageDispatcher* smt) :
-            Tracker<typename Type1Tracker::ZcmType>(maxTimeErr, maxMsgs),
-            Type1Tracker(zcmLocal, channel, maxTimeErr, maxMsgs), smt(smt)
-        {}
-    };
-
-    class MessageTrackerOverride2 : public Tracker2Base
-    {
-      private:
-        SynchronizedMessageDispatcher* smt;
-
-      public:
-        uint64_t handle(const zcm::ReceiveBuffer* rbuf, const std::string& chan,
-                        const typename Type2Tracker::ZcmType* _msg) override
-        {
-            return Tracker2Base::newMsg(*_msg);
-        }
-
-        MessageTrackerOverride2(zcm::ZCM* zcmLocal, const std::string& channel,
-                                double maxTimeErr, size_t maxMsgs,
-                                SynchronizedMessageDispatcher* smt) :
-            Tracker<typename Type2Tracker::ZcmType>(maxTimeErr, maxMsgs),
-            Type2Tracker(zcmLocal, channel, maxTimeErr, maxMsgs), smt(smt) {}
-    };
-
-    MessageTrackerOverride1 t1;
-    MessageTrackerOverride2 t2;
-
-    void* usr;
-
     static_assert(std::is_base_of<MessageTracker<typename Type1Tracker::ZcmType>,
                                   Type1Tracker>::value,
                   "Tracker type1 must be an extension of MessageTracker<type1>");
@@ -670,10 +603,24 @@ class SynchronizedMessageDispatcher : public SynchronizedTracker<Type1Tracker, T
     SynchronizedMessageDispatcher(zcm::ZCM* zcmLocal,
                                   const std::string& channel_1,                      size_t maxMsgs_1,
                                   const std::string& channel_2, double maxTimeErr_2, size_t maxMsgs_2,
-                                  typename BaseClass::callback onSynchronizedMsg, void* usr = nullptr) :
+                                  callback onSynchronizedMsg, void* usr = nullptr) :
         t1(zcmLocal, channel_1,            0, maxMsgs_1, this),
         t2(zcmLocal, channel_2, maxTimeErr_2, maxMsgs_2, this),
         onSynchronizedMsg(onSynchronizedMsg), usr(usr) {}
+
+    void newType1Msg(const typename Type1Tracker::ZcmType* msg)
+    {
+        zcm::ReceiveBuffer rbuf;
+        rbuf.recv_utime = UINT64_MAX;
+        t1.handle(&rbuf, "", msg);
+    }
+
+    void newType2Msg(const typename Type2Tracker::ZcmType* msg)
+    {
+        zcm::ReceiveBuffer rbuf;
+        rbuf.recv_utime = UINT64_MAX;
+        t2.handle(&rbuf, "", msg);
+    }
 
     friend class ::MessageTrackerTest;
 };
