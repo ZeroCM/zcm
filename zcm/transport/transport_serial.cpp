@@ -72,6 +72,7 @@ bool Serial::open(const string& port_, int baud, bool hwFlowControl)
         fprintf(stderr, "Serial baud rate not specified in url. "
                         "Proceeding without setting baud\n");
     } else if (!(baud = convertBaud(baud))) {
+        fprintf(stderr, "Unrecognized baudrate. Failed to open serial device.\n ");
         return false;
     }
 
@@ -84,7 +85,7 @@ bool Serial::open(const string& port_, int baud, bool hwFlowControl)
 
     int flags = O_RDWR | O_NOCTTY | O_SYNC;
     fd = ::open(port.c_str(), flags, 0);
-    if(fd < 0) {
+    if (fd < 0) {
         ZCM_DEBUG("failed to open serial device (%s): %s", port.c_str(), strerror(errno));
         goto fail;
     }
@@ -98,7 +99,7 @@ bool Serial::open(const string& port_, int baud, bool hwFlowControl)
     struct termios opts;
 
     // get the termios config
-    if(tcgetattr(fd, &opts)) {
+    if (tcgetattr(fd, &opts)) {
         ZCM_DEBUG("failed to get termios options on fd: %s", strerror(errno));
         goto fail;
     }
@@ -137,10 +138,11 @@ bool Serial::open(const string& port_, int baud, bool hwFlowControl)
         errno = saved_errno;
     }
     this->fd = -1;
+
     // Unlock the lock file
-    if (port != "") {
+    if (port != "")
         lockfile_unlock(port.c_str());
-    }
+
     this->port = "";
 
     return false;
@@ -355,9 +357,11 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             int ret = zcm_trans_recvmsg(this->gst, msg, timeoutLeft);
             if (ret == ZCM_EOK) return ret;
 
+            // RRR (Tom) why the intermediate calculation for timeoutLeft? from here -->
             uint64_t diff = TimeUtil::utime() - startUtime;
             startUtime = TimeUtil::utime();
             timeoutLeft = timeoutLeft > diff ? timeoutLeft - diff : 0;
+            // to here <--
 
             serial_update_rx(this->gst);
 
