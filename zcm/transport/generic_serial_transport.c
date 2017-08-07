@@ -42,7 +42,7 @@ void cb_init(circBuffer_t* cb, size_t sz)
 }
 
 void cb_uninit(circBuffer_t* cb)
-{ free(cb->data); cb->data = NULL; }
+{ free(cb->data); cb->data = NULL; cb->capacity = 0; }
 
 int cb_size(circBuffer_t* cb)
 {
@@ -82,16 +82,16 @@ uint32_t cb_flush_out(circBuffer_t* cb,
 {
 	uint32_t written = 0;
 	uint32_t n;
+    uint32_t sz = cb_size(cb);
 
-    uint32_t contiguous = MIN(cb->capacity - cb->front, cb_size(cb));
-    uint32_t wrapped    = cb_size(cb) - contiguous;
+    if (sz == 0) return 0;
 
-    // RRR (Bendes) Not sure if we can just return here if contiguous == 0
-    if (contiguous > 0) {
-        n = write(cb->data + cb->front, contiguous, usr);
-        written += n;
-        cb_pop(cb, n);
-    }
+    uint32_t contiguous = MIN(cb->capacity - cb->front, sz);
+    uint32_t wrapped    = sz - contiguous;
+
+    n = write(cb->data + cb->front, contiguous, usr);
+    written += n;
+    cb_pop(cb, n);
 
     // If we failed to write everything we tried to write, or if there's nothing
     // left to write, return.
@@ -103,6 +103,7 @@ uint32_t cb_flush_out(circBuffer_t* cb,
     return written;
 }
 
+// NOTE: This function should never be called w/ bytes > cb_room(cb)
 uint32_t cb_flush_in(circBuffer_t* cb, uint32_t bytes,
                      uint32_t (*read)(uint8_t* data, uint32_t num, void* usr),
                      void* usr)
@@ -113,9 +114,6 @@ uint32_t cb_flush_in(circBuffer_t* cb, uint32_t bytes,
     // Find out how much room is left between back and end of buffer or back and front
     // of buffer. Because we already know there's room for whatever we're about to place,
     // if back < front, we can just read in every byte starting at "back".
-    //
-    // RRR (Bendes) assert here that: back + bytesRead < front
-    //
     if (cb->back < cb->front) {
     	bytesRead += read(cb->data + cb->back, bytes, usr);
         cb->back += bytesRead;
@@ -132,8 +130,7 @@ uint32_t cb_flush_in(circBuffer_t* cb, uint32_t bytes,
     if (n != contiguous) return bytesRead; // back could NOT have hit BUFFER_SIZE in this case
 
     // may need to wrap back here (if bytes >= BUFFER_SIZE - cb->back) but not otherwise
-    // RRR (Bendes) How could back be > cb->capacity
-    if (cb->back >= cb->capacity) cb->back = 0;
+    if (cb->back == cb->capacity) cb->back = 0;
     if (wrapped == 0) return bytesRead;
 
     n = read(cb->data, wrapped, usr);
@@ -182,9 +179,7 @@ struct zcm_trans_generic_serial_t
 static zcm_trans_generic_serial_t *cast(zcm_trans_t *zt);
 
 size_t serial_get_mtu(zcm_trans_generic_serial_t *zt)
-{
-    return zt->mtu;
-}
+{ return zt->mtu; }
 
 int serial_sendmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t msg)
 {
@@ -384,7 +379,11 @@ static int _serial_recvmsg(zcm_trans_t *zt, zcm_msg_t *msg, int timeout)
 { return serial_recvmsg(cast(zt), msg, timeout); }
 
 static int _serial_update(zcm_trans_t *zt)
-{ return serial_update_rx(zt) == ZCM_EOK ? serial_update_tx(zt) : ZCM_EAGAIN; }
+{
+    int rxRet = serial_update_rx(zt);
+    int txRet = serial_update_tx(zt);
+    return rxRet == ZCM_EOK ? txRet : rxRet;
+}
 
 static void _serial_destroy(zcm_trans_t *zt)
 { free(cast(zt)); }
