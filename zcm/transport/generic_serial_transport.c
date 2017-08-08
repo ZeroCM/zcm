@@ -453,9 +453,9 @@ zcm_trans_t *zcm_trans_generic_serial_create(
     return (zcm_trans_t*) zt;
 }
 
-void zcm_trans_generic_serial_destroy(zcm_trans_t* zt)
+void zcm_trans_generic_serial_destroy(zcm_trans_t* _zt)
 {
-    zcm_trans_generic_serial_t *zt = cast(zt);
+    zcm_trans_generic_serial_t *zt = cast(_zt);
     cb_uninit(&zt->recvBuffer);
     cb_uninit(&zt->sendBuffer);
     free(zt->recvMsgData);
