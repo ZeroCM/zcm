@@ -5,12 +5,14 @@
 extern "C" {
 #endif
 
+#include <stddef.h>
+
 #include "zcm/zcm.h"
 #include "zcm/transport.h"
 
 zcm_trans_t *zcm_trans_generic_serial_create(
-        uint32_t (*get)(uint8_t* data, uint32_t nData, void* usr),
-        uint32_t (*put)(const uint8_t* data, uint32_t nData, void* usr),
+        size_t (*get)(uint8_t* data, size_t nData, void* usr),
+        size_t (*put)(const uint8_t* data, size_t nData, void* usr),
         void* put_get_usr,
         uint64_t (*timestamp_now)(void* usr),
         void* time_usr,

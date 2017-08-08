@@ -44,13 +44,13 @@ void cb_init(circBuffer_t* cb, size_t sz)
 void cb_uninit(circBuffer_t* cb)
 { free(cb->data); cb->data = NULL; cb->capacity = 0; }
 
-int cb_size(circBuffer_t* cb)
+size_t cb_size(circBuffer_t* cb)
 {
     if (cb->back >= cb->front) return cb->back - cb->front;
     else                       return cb->capacity - (cb->front - cb->back);
 }
 
-int cb_room(circBuffer_t* cb)
+size_t cb_room(circBuffer_t* cb)
 {
     return cb->capacity - 1 - cb_size(cb);
 }
@@ -61,14 +61,14 @@ void cb_push(circBuffer_t* cb, uint8_t d)
     if (cb->back >= cb->capacity) cb->back = 0;
 }
 
-uint8_t cb_top(circBuffer_t* cb, uint32_t offset)
+uint8_t cb_top(circBuffer_t* cb, size_t offset)
 {
     int val = cb->front + offset;
     while (val >= cb->capacity) val -= cb->capacity;
     return cb->data[val];
 }
 
-void cb_pop(circBuffer_t* cb, uint32_t num)
+void cb_pop(circBuffer_t* cb, size_t num)
 {
     cb->front += num;
     while (cb->front >= cb->capacity)
@@ -76,18 +76,18 @@ void cb_pop(circBuffer_t* cb, uint32_t num)
 }
 
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
-uint32_t cb_flush_out(circBuffer_t* cb,
-                      uint32_t (*write)(const uint8_t* data, uint32_t num, void* usr),
-                      void* usr)
+size_t cb_flush_out(circBuffer_t* cb,
+                    size_t (*write)(const uint8_t* data, size_t num, void* usr),
+                    void* usr)
 {
-	uint32_t written = 0;
-	uint32_t n;
-    uint32_t sz = cb_size(cb);
+	size_t written = 0;
+	size_t n;
+    size_t sz = cb_size(cb);
 
     if (sz == 0) return 0;
 
-    uint32_t contiguous = MIN(cb->capacity - cb->front, sz);
-    uint32_t wrapped    = sz - contiguous;
+    size_t contiguous = MIN(cb->capacity - cb->front, sz);
+    size_t wrapped    = sz - contiguous;
 
     n = write(cb->data + cb->front, contiguous, usr);
     written += n;
@@ -104,12 +104,12 @@ uint32_t cb_flush_out(circBuffer_t* cb,
 }
 
 // NOTE: This function should never be called w/ bytes > cb_room(cb)
-uint32_t cb_flush_in(circBuffer_t* cb, uint32_t bytes,
-                     uint32_t (*read)(uint8_t* data, uint32_t num, void* usr),
-                     void* usr)
+size_t cb_flush_in(circBuffer_t* cb, size_t bytes,
+                   size_t (*read)(uint8_t* data, size_t num, void* usr),
+                   void* usr)
 {
-	uint32_t bytesRead = 0;
-	uint32_t n;
+	size_t bytesRead = 0;
+	size_t n;
 
     // Find out how much room is left between back and end of buffer or back and front
     // of buffer. Because we already know there's room for whatever we're about to place,
@@ -121,8 +121,8 @@ uint32_t cb_flush_in(circBuffer_t* cb, uint32_t bytes,
     }
 
     // Otherwise, we need to be a bit more careful about overflowing the back of the buffer.
-    uint32_t contiguous = MIN(cb->capacity - cb->back, bytes);
-    uint32_t wrapped    = bytes - contiguous;
+    size_t contiguous = MIN(cb->capacity - cb->back, bytes);
+    size_t wrapped    = bytes - contiguous;
 
     n = read(cb->data + cb->back, contiguous, usr);
     bytesRead += n;
@@ -168,8 +168,8 @@ struct zcm_trans_generic_serial_t
     size_t       mtu;
     uint8_t*     recvMsgData;
 
-    uint32_t (*get)(uint8_t* data, uint32_t nData, void* usr);
-    uint32_t (*put)(const uint8_t* data, uint32_t nData, void* usr);
+    size_t (*get)(uint8_t* data, size_t nData, void* usr);
+    size_t (*put)(const uint8_t* data, size_t nData, void* usr);
     void* put_get_usr;
 
     uint64_t (*time)(void* usr);
@@ -257,11 +257,11 @@ int serial_recvmsg_enable(zcm_trans_generic_serial_t *zt, const char *channel, b
 int serial_recvmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t *msg, int timeout)
 {
     uint64_t utime = zt->time(zt->time_usr);
-    int incomingSize = cb_size(&zt->recvBuffer);
+    size_t incomingSize = cb_size(&zt->recvBuffer);
     if (incomingSize < FRAME_BYTES)
         return ZCM_EAGAIN;
 
-    uint32_t consumed = 0;
+    size_t consumed = 0;
     uint8_t chan_len = 0;
     uint16_t checksum = 0;
     uint8_t expectedHighCS = 0;
@@ -404,8 +404,8 @@ static zcm_trans_generic_serial_t *cast(zcm_trans_t *zt)
 }
 
 zcm_trans_t *zcm_trans_generic_serial_create(
-        uint32_t (*get)(uint8_t* data, uint32_t nData, void* usr),
-        uint32_t (*put)(const uint8_t* data, uint32_t nData, void* usr),
+        size_t (*get)(uint8_t* data, size_t nData, void* usr),
+        size_t (*put)(const uint8_t* data, size_t nData, void* usr),
         void* put_get_usr,
         uint64_t (*timestamp_now)(void* usr),
         void* time_usr,

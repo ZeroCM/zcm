@@ -19,14 +19,12 @@ using namespace zcm;
 
 queue<uint8_t> fifo;
 
-static uint32_t get(uint8_t* data, uint32_t nData, void* usr)
+static size_t get(uint8_t* data, size_t nData, void* usr)
 {
-    unsigned n = MIN(MAX_FIFO, nData);
+    size_t n = MIN(MAX_FIFO, nData);
     n = MIN(fifo.size(), n);
 
-    unsigned i;
-
-    for (i = 0; i < n; i++) {
+    for (size_t i = 0; i < n; i++) {
         data[i] = fifo.front();
         fifo.pop();
     }
@@ -34,13 +32,12 @@ static uint32_t get(uint8_t* data, uint32_t nData, void* usr)
     return n;
 }
 
-static uint32_t put(const uint8_t* data, uint32_t nData, void* usr)
+static size_t put(const uint8_t* data, size_t nData, void* usr)
 {
-    unsigned n = MIN(MAX_FIFO - fifo.size(), nData);
+    size_t n = MIN(MAX_FIFO - fifo.size(), nData);
     //cout << "Put " << n << " bytes" << endl;
 
-    unsigned i;
-    for (i = 0; i < n; i++)
+    for (size_t i = 0; i < n; i++)
         fifo.push(data[i]);
 
     return n;

@@ -307,7 +307,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         return ser.isOpen();
     }
 
-    static uint32_t get(uint8_t* data, uint32_t nData, void* usr)
+    static size_t get(uint8_t* data, size_t nData, void* usr)
     {
         ZCM_TRANS_CLASSNAME* me = cast((zcm_trans_t*) usr);
         uint64_t startUtime = TimeUtil::utime();
@@ -317,7 +317,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         return ret < 0 ? 0 : ret;
     }
 
-    static uint32_t put(const uint8_t* data, uint32_t nData, void* usr)
+    static size_t put(const uint8_t* data, size_t nData, void* usr)
     {
         ZCM_TRANS_CLASSNAME* me = cast((zcm_trans_t*) usr);
         int ret = me->ser.write(data, nData);
@@ -357,11 +357,12 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             int ret = zcm_trans_recvmsg(this->gst, msg, timeoutLeft);
             if (ret == ZCM_EOK) return ret;
 
-            // RRR (Tom) why the intermediate calculation for timeoutLeft? from here -->
             uint64_t diff = TimeUtil::utime() - startUtime;
             startUtime = TimeUtil::utime();
+            // Note: timeoutLeft is calculated here because serial_update_rx
+            //       needs it to be set properly so that the blocking read in
+            //       `get` knows how long it has to exit
             timeoutLeft = timeoutLeft > diff ? timeoutLeft - diff : 0;
-            // to here <--
 
             serial_update_rx(this->gst);
 
