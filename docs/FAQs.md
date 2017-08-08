@@ -2,6 +2,7 @@
 [Home](../README.md)
 # Frequently Asked Questions
 
+
 ### In trying to run the publish test project from the tutorial, i get the error `./publish: error while loading shared libraries: libzcm.so: cannot open shared object file: No such file or directory`
 
 If you see this error when trying to use anything zcm related, then you probably have a problem with your LD\_LIBRARY\_PATH environment variable. Try echoing $LD\_LIBRARY\_PATH and verifying that it points to `/usr/lib:/usr/local/lib`. If it doesn't (which is weird), point it there yourself with:
@@ -25,3 +26,14 @@ the dispatch code reads during callbacks. Due to a lock, calling these functions
 callback causes a deadlock. You should therefore alter the subscriptions outside of your callbacks.
 If your code really needs to change subscriptions in response to a received message, try using a queue
 to pass the work to another thread or in your main-loop if using `zcm_handle`.
+
+
+
+### In NodeJS, why do my server-side subscriptions randomly stop working or segfault?
+
+NodeJS' garbage collector will come around and clean up a subscription unless
+that subscription is referenced elsewhere in your code. The easiest way to get
+around this problem is by calling unsubscribe on all your subscriptions on process.exit
+
+    process.on('exit', function() { z.unsubscribe(sub); });
+
