@@ -61,7 +61,7 @@ int main(int argc, char *argv[])
         }
     }
 
-    zcm_t *zcm = zcm_create("ipc");
+    zcm_t *zcm = zcm_create("");
     if (!zcm)
         return 1;
 

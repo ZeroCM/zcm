@@ -66,7 +66,8 @@ int zcm_init(zcm_t *zcm, const char *url)
     if (!url || url[0] == '\0') {
         url = getenv("ZCM_DEFAULT_URL");
         if (!url) {
-            ZCM_DEBUG("failed to determine the URL. You should pass it to the creator or set ZCM_DEFAULT_URL");
+            fprintf(stderr, "Please specify zcm url when creating zcm or "
+                            "set environment variable ZCM_DEFAULT_URL\n");
             return -1;
         }
     }
