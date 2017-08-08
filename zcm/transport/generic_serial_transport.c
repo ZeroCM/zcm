@@ -32,17 +32,25 @@ struct circBuffer_t
     size_t back;
 };
 
-void cb_init(circBuffer_t* cb, size_t sz)
+bool cb_init(circBuffer_t* cb, size_t sz)
 {
     cb->capacity = sz;
     cb->data = malloc(cb->capacity * sizeof(uint8_t));
-    if (cb->data == NULL) cb->capacity = 0;
     cb->front = 0;
     cb->back  = 0;
+    if (cb->data == NULL) {
+        cb->capacity = 0;
+        return false;
+    }
+    return true;
 }
 
 void cb_uninit(circBuffer_t* cb)
-{ free(cb->data); cb->data = NULL; cb->capacity = 0; }
+{
+    free(cb->data);
+    cb->data = NULL;
+    cb->capacity = 0;
+}
 
 size_t cb_size(circBuffer_t* cb)
 {
@@ -423,8 +431,17 @@ zcm_trans_t *zcm_trans_generic_serial_create(
 
     zt->trans.trans_type = ZCM_NONBLOCKING;
     zt->trans.vtbl = &methods;
-    cb_init(&zt->sendBuffer, bufSize);
-    cb_init(&zt->recvBuffer, bufSize);
+    if (!cb_init(&zt->sendBuffer, bufSize)) {
+        free(zt->recvMsgData);
+        free(zt);
+        return NULL;
+    }
+    if (!cb_init(&zt->recvBuffer, bufSize)) {
+        cb_uninit(&zt->sendBuffer);
+        free(zt->recvMsgData);
+        free(zt);
+        return NULL;
+    }
 
     zt->get = get;
     zt->put = put;
@@ -434,4 +451,13 @@ zcm_trans_t *zcm_trans_generic_serial_create(
     zt->time_usr = time_usr;
 
     return (zcm_trans_t*) zt;
+}
+
+void zcm_trans_generic_serial_destroy(zcm_trans_t* zt)
+{
+    zcm_trans_generic_serial_t *zt = cast(zt);
+    cb_uninit(&zt->recvBuffer);
+    cb_uninit(&zt->sendBuffer);
+    free(zt->recvMsgData);
+    free(zt);
 }

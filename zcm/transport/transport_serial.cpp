@@ -298,8 +298,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     ~ZCM_TRANS_CLASSNAME()
     {
         ser.close();
-        // TODO: Implement this in generic serial transport
-        //       zcm_trans_generic_serial_create(gst);
+        zcm_trans_generic_serial_destroy(gst);
     }
 
     bool good()
