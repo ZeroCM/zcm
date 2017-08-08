@@ -30,7 +30,7 @@ def publish():
     print "Publish message on channel: " + "TEST_2"
     zcm.publish("TEST_2", msg)
 
-zcm = ZCM("ipc")
+zcm = ZCM("")
 if not zcm.good():
     print "Unable to initialize zcm"
     exit()

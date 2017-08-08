@@ -1,0 +1,4 @@
+struct encoded_t {
+    int32_t n;
+    byte msg[n];
+}

@@ -62,10 +62,7 @@ static void sendMessages(zcm::ZCM& zcm)
 
 int main(int argc, char *argv[])
 {
-    const char *URL = "ipc";
-    if (argc > 1) URL = argv[1];
-
-    zcm::ZCM zcm {URL};
+    zcm::ZCM zcm {""};
     if (!zcm.good())
         return 1;
 

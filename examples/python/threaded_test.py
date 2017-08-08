@@ -22,7 +22,7 @@ def handler(channel, msg):
     done = done + 1
     lock.release()
 
-zcm = ZCM("ipc")
+zcm = ZCM("")
 if not zcm.good():
     print "Unable to initialize zcm"
     exit()

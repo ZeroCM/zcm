@@ -4,6 +4,7 @@ from zcm import ZCM
 import sys
 sys.path.insert(0, '../build/types/')
 from example_t import example_t
+from encoded_t import encoded_t
 import time
 
 success = "Failure"
@@ -22,23 +23,11 @@ if not zcm.good():
 msg = example_t()
 msg.timestamp = 10
 
-# set up a subscription on channel "TEST"
-subs = zcm.subscribe("TEST", example_t, handler)
+encoded = encoded_t()
+encoded.msg = msg.encode()
+encoded.n   = len(encoded.msg)
 
-# publish a message
-zcm.publish("TEST", msg)
+decoded = example_t.decode(encoded.msg)
+assert(decoded.timestamp == msg.timestamp)
 
-# wait a second
-time.sleep(1)
-
-# publish another
-zcm.publish("TEST", msg)
-
-# handle incoming message
-zcm.handle()
-
-# clean up
-zcm.unsubscribe(subs)
-
-# notify user of success
-print success
+print("Success")
