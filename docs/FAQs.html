@@ -50,6 +50,15 @@ the dispatch code reads during callbacks. Due to a lock, calling these functions
 callback causes a deadlock. You should therefore alter the subscriptions outside of your callbacks.
 If your code really needs to change subscriptions in response to a received message, try using a queue
 to pass the work to another thread or in your main-loop if using <code>zcm_handle</code>.</p>
+
+<h3>In NodeJS, why do my server-side subscriptions randomly stop working or segfault?</h3>
+
+<p>NodeJS' garbage collector will come around and clean up a subscription unless
+that subscription is referenced elsewhere in your code. The easiest way to get
+around this problem is by calling unsubscribe on all your subscriptions on process.exit</p>
+
+<pre><code>process.on('exit', function() { z.unsubscribe(sub); });
+</code></pre>
 <script>
   (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
   (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
