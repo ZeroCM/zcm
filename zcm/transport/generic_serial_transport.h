@@ -18,10 +18,11 @@ zcm_trans_t *zcm_trans_generic_serial_create(
         void* time_usr,
         size_t MTU, size_t bufSize);
 
+// frees all resources inside of zt and frees zt itself
+void zcm_trans_generic_serial_destroy(zcm_trans_t* zt);
+
 int serial_update_rx(zcm_trans_t *zt);
 int serial_update_tx(zcm_trans_t *zt);
-
-// TODO: Make a destroy
 
 #ifdef __cplusplus
 }
