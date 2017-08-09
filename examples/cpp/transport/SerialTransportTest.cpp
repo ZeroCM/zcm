@@ -24,7 +24,7 @@ static size_t get(uint8_t* data, size_t nData, void* usr)
     size_t n = MIN(MAX_FIFO, nData);
     n = MIN(fifo.size(), n);
 
-    for (size_t i = 0; i < n; i++) {
+    for (size_t i = 0; i < n; ++i) {
         data[i] = fifo.front();
         fifo.pop();
     }
@@ -37,7 +37,7 @@ static size_t put(const uint8_t* data, size_t nData, void* usr)
     size_t n = MIN(MAX_FIFO - fifo.size(), nData);
     //cout << "Put " << n << " bytes" << endl;
 
-    for (size_t i = 0; i < n; i++)
+    for (size_t i = 0; i < n; ++i)
         fifo.push(data[i]);
 
     return n;
