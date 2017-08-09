@@ -35,9 +35,10 @@ struct circBuffer_t
 bool cb_init(circBuffer_t* cb, size_t sz)
 {
     cb->capacity = sz;
-    cb->data = malloc(cb->capacity * sizeof(uint8_t));
     cb->front = 0;
     cb->back  = 0;
+    if (cb->capacity == 0) return false;
+    cb->data = malloc(cb->capacity * sizeof(uint8_t));
     if (cb->data == NULL) {
         cb->capacity = 0;
         return false;
@@ -45,7 +46,7 @@ bool cb_init(circBuffer_t* cb, size_t sz)
     return true;
 }
 
-void cb_uninit(circBuffer_t* cb)
+void cb_deinit(circBuffer_t* cb)
 {
     free(cb->data);
     cb->data = NULL;
@@ -72,15 +73,14 @@ void cb_push(circBuffer_t* cb, uint8_t d)
 uint8_t cb_top(circBuffer_t* cb, size_t offset)
 {
     int val = cb->front + offset;
-    while (val >= cb->capacity) val -= cb->capacity;
+    if (val >= cb->capacity) val -= cb->capacity;
     return cb->data[val];
 }
 
 void cb_pop(circBuffer_t* cb, size_t num)
 {
     cb->front += num;
-    while (cb->front >= cb->capacity)
-        cb->front -= cb->capacity;
+    if (cb->front >= cb->capacity) cb->front -= cb->capacity;
 }
 
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
@@ -172,7 +172,7 @@ struct zcm_trans_generic_serial_t
 
     circBuffer_t sendBuffer;
     circBuffer_t recvBuffer;
-    uint8_t      recvChanName[ZCM_CHANNEL_MAXLEN+1];
+    uint8_t      recvChanName[ZCM_CHANNEL_MAXLEN + 1];
     size_t       mtu;
     uint8_t*     recvMsgData;
 
@@ -209,7 +209,7 @@ int serial_sendmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t msg)
     cb_push(&zt->sendBuffer, (len>> 0)&0xff); ++nPushed;
 
     uint16_t checksum = 0xffff;
-    int i;
+    size_t i;
     for (i = 0; i < chan_len; ++i) {
         uint8_t c = (uint8_t) msg.channel[i];
 
@@ -420,6 +420,7 @@ zcm_trans_t *zcm_trans_generic_serial_create(
         size_t MTU,
         size_t bufSize)
 {
+    if (MTU == 0 || bufSize < FRAME_BYTES + MTU) return NULL;
     zcm_trans_generic_serial_t *zt = malloc(sizeof(zcm_trans_generic_serial_t));
     if (zt == NULL) return NULL;
     zt->mtu = MTU;
@@ -437,7 +438,7 @@ zcm_trans_t *zcm_trans_generic_serial_create(
         return NULL;
     }
     if (!cb_init(&zt->recvBuffer, bufSize)) {
-        cb_uninit(&zt->sendBuffer);
+        cb_deinit(&zt->sendBuffer);
         free(zt->recvMsgData);
         free(zt);
         return NULL;
@@ -456,8 +457,8 @@ zcm_trans_t *zcm_trans_generic_serial_create(
 void zcm_trans_generic_serial_destroy(zcm_trans_t* _zt)
 {
     zcm_trans_generic_serial_t *zt = cast(_zt);
-    cb_uninit(&zt->recvBuffer);
-    cb_uninit(&zt->sendBuffer);
+    cb_deinit(&zt->recvBuffer);
+    cb_deinit(&zt->sendBuffer);
     free(zt->recvMsgData);
     free(zt);
 }
