@@ -27,7 +27,7 @@ class ZCM
     inline ZCM();
     inline ZCM(const std::string& transport);
     inline ZCM(zcm_trans_t *zt);
-    inline ~ZCM();
+    virtual inline ~ZCM();
 
     inline bool good() const;
 
