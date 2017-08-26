@@ -622,6 +622,9 @@ class SynchronizedMessageDispatcher
         t2.handle(&rbuf, "", msg);
     }
 
+    Type1Tracker* getType1Ptr() { return &t1; }
+    Type2Tracker* getType2Ptr() { return &t2; }
+
     friend class ::MessageTrackerTest;
 };
 
