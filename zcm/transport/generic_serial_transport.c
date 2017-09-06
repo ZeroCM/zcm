@@ -26,8 +26,9 @@
 //   data_len  (4 bytes)
 //   *chan
 //   *data
-//   sum(*chan, *data)
-#define FRAME_BYTES 8
+//   sum1(*chan, *data)
+//   sum2(*chan, *data)
+#define FRAME_BYTES 9
 
 // Note: there is little to no error checking in this, misuse will cause problems
 typedef struct circBuffer_t circBuffer_t;

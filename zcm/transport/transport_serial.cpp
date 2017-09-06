@@ -131,12 +131,10 @@ bool Serial::open(const string& port_, int baud, bool hwFlowControl)
     opts.c_cc[VMIN]     = 30;
 
     // set the new termios config
-    if(tcsetattr(fd, TCSANOW, &opts)) {
+    if (tcsetattr(fd, TCSAFLUSH, &opts)) {
         ZCM_DEBUG("failed to set termios options on fd: %s", strerror(errno));
         goto fail;
     }
-
-    tcflush(fd, TCIOFLUSH);
 
     return true;
 
