@@ -45,7 +45,7 @@ struct Serial
     Serial(){}
     ~Serial() { close(); }
 
-    bool open(const string& port, int baud);
+    bool open(const string& port, int baud, bool hwFlowControl);
     bool isOpen() { return fd > 0; };
     void close();
 
@@ -64,7 +64,7 @@ struct Serial
     int fd = -1;
 };
 
-bool Serial::open(const string& port_, int baud)
+bool Serial::open(const string& port_, int baud, bool hwFlowControl)
 {
     if (baud == 0) {
         fprintf(stderr, "Serial baud rate not specified in url. "
@@ -110,6 +110,7 @@ bool Serial::open(const string& port_, int baud)
     opts.c_cflag &= ~CSTOPB;
     opts.c_cflag |= CS8;
     opts.c_cflag &= ~PARENB;
+    if (hwFlowControl) opts.c_cflag |= CRTSCTS;
     opts.c_cc[VTIME]    = 1;
     opts.c_cc[VMIN]     = 30;
 
@@ -229,6 +230,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 {
     Serial ser;
     int baud;
+    bool hwFlowControl;
     string address;
 
     unordered_map<string, string> options;
@@ -279,8 +281,21 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             }
         }
 
+        hwFlowControl = false;
+        auto *hwFlowControlStr = findOption("hw_flow_control");
+        if (hwFlowControlStr) {
+            if (*hwFlowControlStr == "true") {
+                hwFlowControl = true;
+            } else if (*hwFlowControlStr == "false") {
+                hwFlowControl = false;
+            } else {
+                ZCM_DEBUG("expected boolean argument for 'hw_flow_control'");
+                return;
+            }
+        }
+
         address = zcm_url_address(url);
-        ser.open(address, baud);
+        ser.open(address, baud, hwFlowControl);
     }
 
     ~ZCM_TRANS_CLASSNAME()
@@ -398,7 +413,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
                     int n = 0;
                     if (!ser.isOpen()) {
                         ZCM_DEBUG("serial closed. Attempting reopen");
-                        ser.open(address, baud);
+                        ser.open(address, baud, hwFlowControl);
                         usleep(timeout * 1e3);
                         assert(false && "Serial port has been unplugged");
                     } else {
@@ -580,6 +595,7 @@ static zcm_trans_t *create(zcm_url_t *url)
 #ifdef USING_TRANS_SERIAL
 // Register this transport with ZCM
 const TransportRegister ZCM_TRANS_CLASSNAME::reg(
-    "serial", "Transfer data via a serial connection (e.g. 'serial:///dev/ttyUSB0?baud=115200')",
+    "serial", "Transfer data via a serial connection "
+              "(e.g. 'serial:///dev/ttyUSB0?baud=115200&hw_flow_control=true')",
     create);
 #endif
