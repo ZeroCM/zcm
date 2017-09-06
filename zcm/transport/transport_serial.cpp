@@ -175,7 +175,7 @@ int Serial::write(const u8 *buf, size_t sz)
         ZCM_DEBUG("ERR: write failed: %s", strerror(errno));
         return -1;
     }
-    fsync(fd);
+    tcdrain(fd);
     return ret;
 }
 
