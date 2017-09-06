@@ -45,8 +45,14 @@ uint16_t fletcherUpdate(uint8_t b, uint16_t prevSum)
     uint16_t sumHigh = (prevSum >> 8) & 0xff;
     uint16_t sumLow  =  prevSum       & 0xff;
     sumHigh += sumLow += b;
+
     sumLow  = (sumLow  & 0xff) + (sumLow  >> 8);
     sumHigh = (sumHigh & 0xff) + (sumHigh >> 8);
+
+    // Note: double reduction to ensure no overflow after first
+    sumLow  = (sumLow  & 0xff) + (sumLow  >> 8);
+    sumHigh = (sumHigh & 0xff) + (sumHigh >> 8);
+
     return (sumHigh << 8) | sumLow;
 };
 
@@ -276,7 +282,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
         // build 'options'
         auto *opts = zcm_url_opts(url);
-        for (size_t i = 0; i < opts->numopts; i++)
+        for (size_t i = 0; i < opts->numopts; ++i)
             options[opts->name[i]] = opts->value[i];
 
         baud = 0;
@@ -337,7 +343,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         u16 sum = 0xffff;
 
         auto writeBytes = [&](const u8 *data, size_t len) {
-            for (size_t i = 0; i < len; i++) {
+            for (size_t i = 0; i < len; ++i) {
                 // Less than 2 bytes of buffer left? Flush it.
                 if (index >= sizeof(buffer)-1) {
                     int ret = ser.write(buffer, index);
@@ -487,7 +493,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             };
             auto readBytes = [&](u8 *buffer, size_t sz) {
                 u8 c;
-                for (size_t i = 0; i < sz; i++) {
+                for (size_t i = 0; i < sz; ++i) {
                     if (!readByteUnescape(c)) return false;
 					sum = fletcherUpdate(c, sum);
                     buffer[i] = c;

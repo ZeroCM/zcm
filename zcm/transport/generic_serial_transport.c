@@ -142,8 +142,14 @@ static uint16_t fletcherUpdate(uint8_t b, uint16_t prevSum)
     uint16_t sumHigh = (prevSum >> 8) & 0xff;
     uint16_t sumLow  =  prevSum       & 0xff;
     sumHigh += sumLow += b;
+
     sumLow  = (sumLow  & 0xff) + (sumLow  >> 8);
     sumHigh = (sumHigh & 0xff) + (sumHigh >> 8);
+
+    // Note: double reduction to ensure no overflow after first
+    sumLow  = (sumLow  & 0xff) + (sumLow  >> 8);
+    sumHigh = (sumHigh & 0xff) + (sumHigh >> 8);
+
     return (sumHigh << 8) | sumLow;
 }
 
@@ -179,28 +185,28 @@ int serial_sendmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t msg)
     if (msg.len > ZCM_GENERIC_SERIAL_MTU)                            return ZCM_EINVALID;
     if (FRAME_BYTES + chan_len + msg.len > cb_room(&zt->sendBuffer)) return ZCM_EAGAIN;
 
-    cb_push(&zt->sendBuffer, ZCM_GENERIC_SERIAL_ESCAPE_CHAR); nPushed++;
-    cb_push(&zt->sendBuffer, 0x00);                           nPushed++;
-    cb_push(&zt->sendBuffer, chan_len);                       nPushed++;
+    cb_push(&zt->sendBuffer, ZCM_GENERIC_SERIAL_ESCAPE_CHAR); ++nPushed;
+    cb_push(&zt->sendBuffer, 0x00);                           ++nPushed;
+    cb_push(&zt->sendBuffer, chan_len);                       ++nPushed;
 
     uint32_t len = (uint32_t)msg.len;
-    cb_push(&zt->sendBuffer, (len>>24)&0xff); nPushed++;
-    cb_push(&zt->sendBuffer, (len>>16)&0xff); nPushed++;
-    cb_push(&zt->sendBuffer, (len>> 8)&0xff); nPushed++;
-    cb_push(&zt->sendBuffer, (len>> 0)&0xff); nPushed++;
+    cb_push(&zt->sendBuffer, (len>>24)&0xff); ++nPushed;
+    cb_push(&zt->sendBuffer, (len>>16)&0xff); ++nPushed;
+    cb_push(&zt->sendBuffer, (len>> 8)&0xff); ++nPushed;
+    cb_push(&zt->sendBuffer, (len>> 0)&0xff); ++nPushed;
 
     uint16_t sum = 0xffff;
     int i;
     for (i = 0; i < chan_len; ++i) {
         char c = msg.channel[i];
 
-        cb_push(&zt->sendBuffer, c); nPushed++;
+        cb_push(&zt->sendBuffer, c); ++nPushed;
 
         if (c == ZCM_GENERIC_SERIAL_ESCAPE_CHAR) {
         	// the escape character doesn't count, so we have chan_len - i characters
         	// remaining in channel + the msg + the checksum.
             if (cb_room(&zt->sendBuffer) > chan_len - i + msg.len + 1) {
-                cb_push(&zt->sendBuffer, c); nPushed++;
+                cb_push(&zt->sendBuffer, c); ++nPushed;
             } else {
                 cb_pop(&zt->sendBuffer, nPushed);
                 return ZCM_EAGAIN;
@@ -213,13 +219,13 @@ int serial_sendmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t msg)
     for (i = 0; i < msg.len; ++i) {
         char c = msg.buf[i];
 
-        cb_push(&zt->sendBuffer, c); nPushed++;
+        cb_push(&zt->sendBuffer, c); ++nPushed;
 
         if (c == ZCM_GENERIC_SERIAL_ESCAPE_CHAR) {
         	// the escape character doesn't count, so we have msg.len - i characters
         	// remaining in the msg + the checksum.
             if (cb_room(&zt->sendBuffer) > msg.len - i + 1) {
-                cb_push(&zt->sendBuffer, c); nPushed++;
+                cb_push(&zt->sendBuffer, c); ++nPushed;
             } else {
                 cb_pop(&zt->sendBuffer, nPushed);
                 return ZCM_EAGAIN;
@@ -229,8 +235,8 @@ int serial_sendmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t msg)
         sum = fletcherUpdate(c, sum);
     }
 
-    cb_push(&zt->sendBuffer, (sum >> 8) & 0xff); nPushed++;
-    cb_push(&zt->sendBuffer,  sum       & 0xff); nPushed++;
+    cb_push(&zt->sendBuffer, (sum >> 8) & 0xff); ++nPushed;
+    cb_push(&zt->sendBuffer,  sum       & 0xff); ++nPushed;
 
     return ZCM_EOK;
 }
