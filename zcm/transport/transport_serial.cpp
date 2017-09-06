@@ -40,6 +40,16 @@ using u16 = uint16_t;
 using u32 = uint32_t;
 using u64 = uint64_t;
 
+uint16_t fletcherUpdate(uint8_t b, uint16_t prevSum)
+{
+    uint16_t sumHigh = (prevSum >> 8) & 0xff;
+    uint16_t sumLow  =  prevSum       & 0xff;
+    sumHigh += sumLow += b;
+    sumLow  = (sumLow  & 0xff) + (sumLow  >> 8);
+    sumHigh = (sumHigh & 0xff) + (sumHigh >> 8);
+    return (sumHigh << 8) | sumLow;
+};
+
 struct Serial
 {
     Serial(){}
@@ -324,7 +334,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
         u8 buffer[1024];
         size_t index = 0;
-        u8 sum = 0;  // TODO introduce better checksum
+        u16 sum = 0xffff;
 
         auto writeBytes = [&](const u8 *data, size_t len) {
             for (size_t i = 0; i < len; i++) {
@@ -335,7 +345,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
                     index = 0;
                 }
                 u8 c = data[i];
-                sum += c;
+                sum = fletcherUpdate(c, sum);
                 // Escape byte?
                 if (c == ESCAPE_CHAR) {
                     buffer[index++] = ESCAPE_CHAR;
@@ -352,7 +362,10 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
                 if (ret == -1) assert(false && "Serial port has been unplugged");
                 index = 0;
             }
-            int ret = ser.write(&sum, 1);
+            uint8_t sumHigh = (sum >> 8) & 0xff;
+            uint8_t sumLow  =  sum       & 0xff;
+            uint8_t _sum[2] = {sumHigh, sumLow};
+            int ret = ser.write(_sum, 2);
             if (ret == -1) assert(false && "Serial port has been unplugged");
         };
 
@@ -405,7 +418,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
             u8 buffer[1024];
             size_t index = 0, size = 0;
-            u8 sum = 0;  // TODO introduce better checksum
+            u16 sum = 0xffff;
             bool timedOut = false;
 
             auto refillBuffer = [&]() {
@@ -475,16 +488,18 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             auto readBytes = [&](u8 *buffer, size_t sz) {
                 u8 c;
                 for (size_t i = 0; i < sz; i++) {
-                    if(!readByteUnescape(c)) return false;
-                    sum += c;
+                    if (!readByteUnescape(c)) return false;
+					sum = fletcherUpdate(c, sum);
                     buffer[i] = c;
                 }
                 return true;
             };
             auto checkFinish = [&]() {
-                u8 expect;
-                if (!readByte(expect)) return false;
-                return expect == sum;
+                u8 expectedHigh, expectedLow;
+                if (!readByte(expectedHigh)) return false;
+                if (!readByte(expectedLow))  return false;
+                u16 received = (expectedHigh << 8) | expectedLow;
+                return received == sum;
             };
 
             u8 channelLen;

@@ -137,6 +137,16 @@ uint32_t cb_flush_in(circBuffer_t* cb, uint32_t bytes,
 
 #undef MIN
 
+static uint16_t fletcherUpdate(uint8_t b, uint16_t prevSum)
+{
+    uint16_t sumHigh = (prevSum >> 8) & 0xff;
+    uint16_t sumLow  =  prevSum       & 0xff;
+    sumHigh += sumLow += b;
+    sumLow  = (sumLow  & 0xff) + (sumLow  >> 8);
+    sumHigh = (sumHigh & 0xff) + (sumHigh >> 8);
+    return (sumHigh << 8) | sumLow;
+}
+
 typedef struct zcm_trans_generic_serial_t zcm_trans_generic_serial_t;
 struct zcm_trans_generic_serial_t
 {
@@ -179,7 +189,7 @@ int serial_sendmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t msg)
     cb_push(&zt->sendBuffer, (len>> 8)&0xff); nPushed++;
     cb_push(&zt->sendBuffer, (len>> 0)&0xff); nPushed++;
 
-    uint8_t sum = 0;
+    uint16_t sum = 0xffff;
     int i;
     for (i = 0; i < chan_len; ++i) {
         char c = msg.channel[i];
@@ -197,7 +207,7 @@ int serial_sendmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t msg)
             }
         }
 
-        sum += c;
+        sum = fletcherUpdate(c, sum);
     }
 
     for (i = 0; i < msg.len; ++i) {
@@ -216,10 +226,11 @@ int serial_sendmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t msg)
             }
         }
 
-        sum += c;
+        sum = fletcherUpdate(c, sum);
     }
 
-    cb_push(&zt->sendBuffer, sum); nPushed++;
+    cb_push(&zt->sendBuffer, (sum >> 8) & 0xff); nPushed++;
+    cb_push(&zt->sendBuffer,  sum       & 0xff); nPushed++;
 
     return ZCM_EOK;
 }
@@ -259,7 +270,7 @@ int serial_recvmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t *msg, int timeout)
 
     memset(&zt->recvChanName, '0', ZCM_CHANNEL_MAXLEN);
 
-    uint8_t sum = 0;
+    uint16_t sum = 0xffff;
     int i;
     for (i = 0; i < chan_len; ++i) {
 
@@ -279,7 +290,7 @@ int serial_recvmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t *msg, int timeout)
         }
 
         zt->recvChanName[i] = c;
-        sum += c;
+        sum = fletcherUpdate(c, sum);
     }
 
     zt->recvChanName[chan_len] = '\0';
@@ -303,12 +314,14 @@ int serial_recvmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t *msg, int timeout)
         }
 
         zt->recvMsgData[i] = c;
-        sum += c;
+        sum = fletcherUpdate(c, sum);
     }
 
-    uint8_t expected = cb_top(&zt->recvBuffer, consumed++);
+    uint8_t expectedHigh = cb_top(&zt->recvBuffer, consumed++);
+    uint8_t expectedLow  = cb_top(&zt->recvBuffer, consumed++);
 
-    if (expected == sum) {
+    uint16_t received = (expectedHigh << 8) | expectedLow;
+    if (received == sum) {
         msg->channel = zt->recvChanName;
         msg->buf     = zt->recvMsgData;
         msg->utime   = utime;
