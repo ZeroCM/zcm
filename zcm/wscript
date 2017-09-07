@@ -92,8 +92,8 @@ def package_embedded(tsk):
 
     outputDir = os.path.dirname(tsk.outputs[0].abspath())
 
-    cmd = 'fldr=' + tsk.outputs[0].relpath() + ' && mkdir -p ${fldr%%.*} && ' + \
-          'cd ${fldr%%.*} && tar -xaf ' + str(tsk.inputs[0])
+    cmd = 'fldr=' + tsk.outputs[0].relpath() + ' && rm -rf ${fldr%%.*} && ' + \
+          'mkdir -p ${fldr%%.*} && cd ${fldr%%.*} && tar -xaf ' + str(tsk.inputs[0])
     ret = tsk.exec_command(cmd)
     if ret is not 0:
         raise WafError('Unable to prep files for zcm-embed tarball generation')
