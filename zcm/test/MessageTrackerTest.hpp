@@ -259,25 +259,25 @@ class MessageTrackerTest : public CxxTest::TestSuite
         std::stringstream ss;
 
         // Message type 2
-        ss << "New message b: " << e1.utime; TS_TRACE(ss.str()); ss = stringstream("");
+        ss << "New message b: " << e1.utime; TS_TRACE(ss.str()); ss.str("");
         smt.t2.newMsg(&e1, 0);
-        ss << "New message b: " << e2.utime; TS_TRACE(ss.str()); ss = stringstream("");
+        ss << "New message b: " << e2.utime; TS_TRACE(ss.str()); ss.str("");
         smt.t2.newMsg(&e2, 0);
 
         // Message type 1
-        ss << "New message a: " << e3.utime; TS_TRACE(ss.str()); ss = stringstream("");
+        ss << "New message a: " << e3.utime; TS_TRACE(ss.str()); ss.str("");
         smt.t1.newMsg(&e3, 0);
 
         // Message type 2
-        ss << "New message b: " << e5.utime; TS_TRACE(ss.str()); ss = stringstream("");
+        ss << "New message b: " << e5.utime; TS_TRACE(ss.str()); ss.str("");
         smt.t2.newMsg(&e5, 0);
-        ss << "New message b: " << e6.utime; TS_TRACE(ss.str()); ss = stringstream("");
+        ss << "New message b: " << e6.utime; TS_TRACE(ss.str()); ss.str("");
         smt.t2.newMsg(&e6, 0);
 
         // Message type 1
-        ss << "New message a: " << e4.utime; TS_TRACE(ss.str()); ss = stringstream("");
+        ss << "New message a: " << e4.utime; TS_TRACE(ss.str()); ss.str("");
         smt.t1.newMsg(&e4, 0);
-        ss << "New message a: " << e7.utime; TS_TRACE(ss.str()); ss = stringstream("");
+        ss << "New message a: " << e7.utime; TS_TRACE(ss.str()); ss.str("");
         smt.t2.newMsg(&e7, 0);
 
         TS_ASSERT_EQUALS(pairDetected, 2);
