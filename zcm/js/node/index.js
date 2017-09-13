@@ -133,14 +133,14 @@ function zcm(zcmtypes, zcmurl)
      * @param {string} type - the zcmtype of messages on the channel (must be a generated
      *                        type from zcmtypes.js)
      * @param {dispatchDecodedCallback} cb - callback to handle received messages
-     * @returns {subscriptionRef} reference to the subscription, used to unsubscribe
+     * @param {successCb} successCb - callback for successful subscription
      */
-    function subscribe(channel, type, cb)
+    function subscribe(channel, type, cb, successCb)
     {
         var type = zcmtypes[type];
         var sub = subscribe_raw(channel, function(channel, data) {
             cb(channel, type.decode(data));
-        });
+        }, successCb);
         return sub;
     }
 
@@ -148,7 +148,7 @@ function zcm(zcmtypes, zcmurl)
      * Subscribes to a zcm channel on the created transport
      * @param {string} channel - the zcm channel to subscribe to
      * @param {dispatchRawCallback} cb - callback to handle received messages
-     * @returns {subscriptionRef} reference to the subscription, used to unsubscribe
+     * @param {successCb} successCb - callback for successful subscription
      */
     function subscribe_raw(channel, cb, successCb)
     {
@@ -169,9 +169,9 @@ function zcm(zcmtypes, zcmurl)
     /**
      * Subscribes to all zcm channels on the created transport
      * @param {dispatchDecodedCallback} cb - callback to handle received messages
-     * @returns {subscriptionRef} reference to the subscription, used to unsubscribe
+     * @param {successCb} successCb - callback for successful subscription
      */
-    function subscribe_all(cb)
+    function subscribe_all(cb, successCb)
     {
         return subscribe_all_raw(function(channel, data){
             var hash = ref.readUInt64BE(data, 0);
@@ -181,17 +181,17 @@ function zcm(zcmtypes, zcmurl)
             } else {
                 cb(channel, zcmtypeHashMap[hash].decode(data));
             }
-        });
+        }, successCb);
     }
 
     /**
      * Subscribes to all zcm channels on the created transport
      * @param {dispatchRawCallback} cb - callback to handle received messages
-     * @returns {subscriptionRef} reference to the subscription, used to unsubscribe
+     * @param {successCb} successCb - callback for successful subscription
      */
-    function subscribe_all_raw(cb)
+    function subscribe_all_raw(cb, successCb)
     {
-        return subscribe_raw(".*", cb);
+        return subscribe_raw(".*", cb, successCb);
     }
 
     /**
