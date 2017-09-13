@@ -32,13 +32,13 @@ var subscriptionRef = ref.refType(subscription);
 
 // Define our Foreign Function Interface to the zcm library
 var libzcm = new ffi.Library('libzcm', {
-    'zcm_create':      ['pointer', ['string']],
-    'zcm_destroy':     ['void', ['pointer']],
-    'zcm_publish':     ['int', ['pointer', 'string', 'pointer', 'int']],
-    'zcm_subscribe':   ['pointer', ['pointer', 'string', 'pointer', 'pointer']],
-    'zcm_unsubscribe': ['int', ['pointer', 'pointer']],
-    'zcm_start':       ['void', ['pointer']],
-    'zcm_stop':        ['void', ['pointer']],
+    'zcm_create':          ['pointer', ['string']],
+    'zcm_destroy':         ['void', ['pointer']],
+    'zcm_publish':         ['int', ['pointer', 'string', 'pointer', 'int']],
+    'zcm_try_subscribe':   ['pointer', ['pointer', 'string', 'pointer', 'pointer']],
+    'zcm_try_unsubscribe': ['int', ['pointer', 'pointer']],
+    'zcm_start':           ['void', ['pointer']],
+    'zcm_stop':            ['void', ['pointer']],
 });
 
 /**
@@ -150,13 +150,20 @@ function zcm(zcmtypes, zcmurl)
      * @param {dispatchRawCallback} cb - callback to handle received messages
      * @returns {subscriptionRef} reference to the subscription, used to unsubscribe
      */
-    function subscribe_raw(channel, cb)
+    function subscribe_raw(channel, cb, successCb)
     {
         var dispatcher = makeDispatcher(cb);
         var funcPtr = ffi.Callback('void', [recvBufRef, 'string', 'pointer'], dispatcher);
-        return {"subscription" : libzcm.zcm_subscribe(z, channel, funcPtr, null),
-                "nativeCallbackPtr" : funcPtr,
-                "dispatcher" : dispatcher};
+        setTimeout(function sub() {
+            var subs = libzcm.zcm_try_subscribe(z, channel, funcPtr, null);
+            if (subs == null) {
+                setTimeout(sub, 0);
+                return;
+            }
+            successCb({"subscription"      : subs,
+                       "nativeCallbackPtr" : funcPtr,
+                       "dispatcher"        : dispatcher});
+        }, 0);
     }
 
     /**
@@ -191,9 +198,16 @@ function zcm(zcmtypes, zcmurl)
      * Unsubscribes from the zcm channel referenced by the given subscription
      * @param {subscriptionRef} subscription - ref to the subscription to be unsubscribed from
      */
-    function unsubscribe(subscription)
+    function unsubscribe(subscription, successCb)
     {
-        libzcm.zcm_unsubscribe(z, subscription.subscription);
+        setTimeout(function unsub() {
+            var ret = libzcm.zcm_unsubscribe(z, subscription.subscription);
+            if (ret == -2) {
+                setTimeout(unsub, 0);
+                return;
+            }
+            successCb();
+        }, 0)
     }
 
     return {
