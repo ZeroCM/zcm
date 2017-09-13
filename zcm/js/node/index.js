@@ -234,27 +234,29 @@ function zcm_create(zcmtypes, zcmurl, http)
             });
             socket.on('subscribe', function(data, returnSubscription) {
                 var subId = data.subId;
-                var subscription = ret.subscribe(data.channel, data.type, function(channel, msg) {
+                ret.subscribe(data.channel, data.type, function(channel, msg) {
                     socket.emit('server-to-client', {
                         channel: channel,
                         msg: msg,
                         subId: subId
                     });
+                }, function successCb(subs) {
+                    subscriptions[nextSub] = subscription;
+                    returnSubscription(nextSub++);
                 });
-                subscriptions[nextSub] = subscription;
-                returnSubscription(nextSub++);
             });
             socket.on('subscribe_all', function(data, returnSubscription){
                 var subId = data.subId;
-                var subscription = ret.subscribe_all(function(channel, msg){
+                ret.subscribe_all(function(channel, msg){
                     socket.emit('server-to-client', {
                         channel: channel,
                         msg: msg,
                         subId: subId
                     });
+                }, function successCb(subs) {
+                    subscriptions[nextSub] = subscription;
+                    returnSubscription(nextSub++);
                 });
-                subscriptions[nextSub] = subscription;
-                returnSubscription(nextSub++);
             });
             socket.on('unsubscribe', function(subId) {
                 ret.unsubscribe(subscriptions[subId]);

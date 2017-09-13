@@ -51,14 +51,14 @@ var zcm = (function(){
          *                        type from zcmtypes.js)
          * @param {dispatchDecodedCallback} cb - handler for received messages
          */
-        function subscribe(channel, type, cb) {
+        function subscribe(channel, type, cb, successCb) {
             var subId = subIds++;
             callbacks[subId] = { callback: cb };
             socket.emit("subscribe", {channel: channel, type: type, subId: subId},
-                        function(subscription) {
-                callbacks[subId].subscription = subscription;
-            });
-            return subId;
+                        function (subscription) {
+                            callbacks[subId].subscription = subscription;
+                            if (successCb) successCb(subId);
+                        });
         }
 
         /**
@@ -66,30 +66,32 @@ var zcm = (function(){
          * @param {dispatchDecodedCallback} cb - handler for received messages
          * @return {int} the subscription tag to use to unsubscribe
          */
-        function subscribe_all(cb) {
+        function subscribe_all(cb, successCb) {
             var subId = subIds++;
             callbacks[subId] = { callback: cb };
-            socket.emit("subscribe_all", {subId: subId}, function(subscription) {
-                callbacks[subId].subscription = subscription;
-            });
-            return subId;
+            socket.emit("subscribe_all", {subId: subId},
+                        function(subscription) {
+                            callbacks[subId].subscription = subscription;
+                            if (successCb) successCb(subId);
+                        });
         }
 
         /**
          * Unsubscribes from the zcm messages on the given channel
          * @param {int} subId - the subscription tag to unsubscribe from
          */
-        function unsubscribe(subId) {
+        function unsubscribe(subId, successCb) {
             if (subId in callbacks) {
                 var sub = callbacks[subId].subscription;
                 if (sub != null) { // loose compare here because sub might be undefined
-                    socket.emit("unsubscribe", sub);
-                    delete callbacks[subId];
-                    return true;
+                    socket.emit("unsubscribe", sub,
+                                function success() {
+                                    delete callbacks[subId];
+                                    if (successCb) successCb(true);
+                                });
                 }
             }
-            console.log("No subscription found, cannot unsubscribe");
-            return false;
+            if (successCb) successCb(false);
         }
 
         return {
