@@ -152,6 +152,7 @@ function zcm(zcmtypes, zcmurl)
      */
     function subscribe_raw(channel, cb, successCb)
     {
+        if (!successCb) assert(false, "subcribe requires a success callback to be specified");
         var dispatcher = makeDispatcher(cb);
         var funcPtr = ffi.Callback('void', [recvBufRef, 'string', 'pointer'], dispatcher);
         setTimeout(function sub() {
@@ -201,12 +202,12 @@ function zcm(zcmtypes, zcmurl)
     function unsubscribe(subscription, successCb)
     {
         setTimeout(function unsub() {
-            var ret = libzcm.zcm_unsubscribe(z, subscription.subscription);
+            var ret = libzcm.zcm_try_unsubscribe(z, subscription.subscription);
             if (ret == -2) {
                 setTimeout(unsub, 0);
                 return;
             }
-            successCb();
+            if (successCb) successCb();
         }, 0)
     }
 
@@ -240,7 +241,7 @@ function zcm_create(zcmtypes, zcmurl, http)
                         msg: msg,
                         subId: subId
                     });
-                }, function successCb(subs) {
+                }, function successCb(subscription) {
                     subscriptions[nextSub] = subscription;
                     returnSubscription(nextSub++);
                 });
@@ -253,14 +254,17 @@ function zcm_create(zcmtypes, zcmurl, http)
                         msg: msg,
                         subId: subId
                     });
-                }, function successCb(subs) {
+                }, function successCb(subscription) {
                     subscriptions[nextSub] = subscription;
                     returnSubscription(nextSub++);
                 });
             });
-            socket.on('unsubscribe', function(subId) {
-                ret.unsubscribe(subscriptions[subId]);
-                delete subscriptions[subId];
+            socket.on('unsubscribe', function(subId, successCb) {
+                ret.unsubscribe(subscriptions[subId],
+                                function _successCb() {
+                                    delete subscriptions[subId];
+                                    if (successCb) successCb();
+                                });
             });
             socket.on('disconnect', function(){
                 for (var id in subscriptions) {

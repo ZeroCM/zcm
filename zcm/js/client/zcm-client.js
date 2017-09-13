@@ -85,12 +85,14 @@ var zcm = (function(){
                 var sub = callbacks[subId].subscription;
                 if (sub != null) { // loose compare here because sub might be undefined
                     socket.emit("unsubscribe", sub,
-                                function success() {
+                                function() {
                                     delete callbacks[subId];
                                     if (successCb) successCb(true);
                                 });
                 }
+                return;
             }
+            console.log("No subscription found, cannot unsubscribe");
             if (successCb) successCb(false);
         }
 

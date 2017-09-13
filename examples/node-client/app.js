@@ -29,7 +29,6 @@ z.subscribe_all(function(channel, msg) {
     sub = _sub;
 });
 
-
 http.listen(3000, function(){
   console.log('listening on *:3000');
 });
