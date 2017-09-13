@@ -90,10 +90,22 @@ const char *zcm_strerror(zcm_t *zcm);
    Does NOT set zcm errno on failure */
 zcm_sub_t *zcm_subscribe(zcm_t *zcm, const char *channel, zcm_msg_handler_t cb, void *usr);
 
+/* Subscribe to zcm messages
+   Returns a subscription object on success, and NULL on failure.
+   Can fail to subscribe if zcm is already running
+   Does NOT set zcm errno on failure */
+zcm_sub_t *zcm_try_subscribe(zcm_t *zcm, const char *channel, zcm_msg_handler_t cb, void *usr);
+
 /* Unsubscribe to zcm messages, freeing the subscription object
    Returns 0 on success, and -1 on failure
    Does NOT set zcm errno on failure */
 int zcm_unsubscribe(zcm_t *zcm, zcm_sub_t *sub);
+
+/* Unsubscribe to zcm messages, freeing the subscription object
+   Returns 0 on success, and -1 on failure
+   Can fail to subscribe if zcm is already running
+   Does NOT set zcm errno on failure */
+int zcm_try_unsubscribe(zcm_t *zcm, zcm_sub_t *sub);
 
 /* Publish a zcm message buffer. Note: the message may not be completely
    sent after this call has returned. To block until the messages are transmitted,

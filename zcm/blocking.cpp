@@ -92,8 +92,8 @@ struct zcm_blocking
     void stop();
 
     int publish(const string& channel, const char *data, uint32_t len);
-    zcm_sub_t *subscribe(const string& channel, zcm_msg_handler_t cb, void *usr);
-    int unsubscribe(zcm_sub_t *sub);
+    zcm_sub_t *subscribe(const string& channel, zcm_msg_handler_t cb, void *usr, bool block);
+    int unsubscribe(zcm_sub_t *sub, bool block);
     int handle();
     void flush();
 
@@ -263,9 +263,13 @@ int zcm_blocking_t::publish(const string& channel, const char *data, uint32_t le
 // Note: We use a lock on subscribe() to make sure it can be
 // called concurrently. Without the lock, there is a race
 // on modifying and reading the 'subs' and 'subRegex' containers
-zcm_sub_t *zcm_blocking_t::subscribe(const string& channel, zcm_msg_handler_t cb, void *usr)
+zcm_sub_t *zcm_blocking_t::subscribe(const string& channel,
+                                     zcm_msg_handler_t cb, void *usr,
+                                     bool block)
 {
-    unique_lock<mutex> lk(submut);
+    unique_lock<mutex> lk(submut, std::defer_lock);
+    if (block) lk.lock();
+    else if (!lk.try_lock()) return nullptr;
     int rc;
 
     bool regex = isRegexChannel(channel);
@@ -305,9 +309,11 @@ zcm_sub_t *zcm_blocking_t::subscribe(const string& channel, zcm_msg_handler_t cb
 // Note: We use a lock on unsubscribe() to make sure it can be
 // called concurrently. Without the lock, there is a race
 // on modifying and reading the 'subs' and 'subRegex' containers
-int zcm_blocking_t::unsubscribe(zcm_sub_t *sub)
+int zcm_blocking_t::unsubscribe(zcm_sub_t *sub, bool block)
 {
-    unique_lock<mutex> lk(submut);
+    unique_lock<mutex> lk(submut, std::defer_lock);
+    if (block) lk.lock();
+    else if (!lk.try_lock()) return -2;
 
     bool success = true;
     if (sub->regex) {
@@ -334,7 +340,7 @@ int zcm_blocking_t::unsubscribe(zcm_sub_t *sub)
 int zcm_blocking_t::handle()
 {
     if (mode != MODE_NONE && mode != MODE_HANDLE) {
-        ZCM_DEBUG("Err: call to handle() when 'mode != MODE_SNODE && mode != MODE_HANDLE'");
+        ZCM_DEBUG("Err: call to handle() when 'mode != MODE_NONE && mode != MODE_HANDLE'");
         return -1;
     }
 
@@ -500,15 +506,26 @@ int zcm_blocking_publish(zcm_blocking_t *zcm, const char *channel, const char *d
     return zcm->publish(channel, data, len);
 }
 
-zcm_sub_t *zcm_blocking_subscribe(zcm_blocking_t *zcm, const char *channel, zcm_msg_handler_t cb,
-                                  void *usr)
+zcm_sub_t *zcm_blocking_subscribe(zcm_blocking_t *zcm, const char *channel,
+                                  zcm_msg_handler_t cb, void *usr)
 {
-    return zcm->subscribe(channel, cb, usr);
+    return zcm->subscribe(channel, cb, usr, true);
+}
+
+zcm_sub_t *zcm_blocking_try_subscribe(zcm_blocking_t *zcm, const char *channel,
+                                      zcm_msg_handler_t cb, void *usr)
+{
+    return zcm->subscribe(channel, cb, usr, false);
 }
 
 int zcm_blocking_unsubscribe(zcm_blocking_t *zcm, zcm_sub_t *sub)
 {
-    return zcm->unsubscribe(sub);
+    return zcm->unsubscribe(sub, true);
+}
+
+int zcm_blocking_try_unsubscribe(zcm_blocking_t *zcm, zcm_sub_t *sub)
+{
+    return zcm->unsubscribe(sub, false);
 }
 
 void zcm_blocking_flush(zcm_blocking_t *zcm)
