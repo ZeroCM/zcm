@@ -6,27 +6,39 @@ function handle(channel, msg) {
 
 var subscriptions = [];
 
-function subscribe() {
+function subscribe(successCb) {
     console.log('Subscribing to FOOBAR_SERVER');
-    subscriptions.push({channel: 'FOOBAR_SERVER',
-                        subscription: z.subscribe('FOOBAR_SERVER', 'example_t', handle)});
-    return true;
+    z.subscribe('FOOBAR_SERVER', 'example_t', handle,
+                function _successCb (sub) {
+                    console.log('Subscribed to FOOBAR_SERVER');
+                    subscriptions.push({channel      : 'FOOBAR_SERVER',
+                                        subscription : sub});
+                    if (successCb) successCb(true);
+                });
 }
 
-function unsubscribe() {
-    if (subscriptions.length == 0)
-        return false;
+function unsubscribe(successCb) {
+    if (subscriptions.length == 0) {
+        if (successCb) successCb(false);
+        return;
+    }
     var sub = subscriptions.pop();
     console.log('Unsubscribing from ' + sub.channel);
-    z.unsubscribe(sub.subscription);
-    return true;
+    z.unsubscribe(sub.subscription, function _successCb() {
+        console.log('Unsubscribed from ' + sub.channel);
+        if (successCb) successCb(true);
+    });
 }
 
-function subscribe_all() {
+function subscribe_all(successCb) {
     console.log('Subscribing to .*');
-    subscriptions.push({channel: ".*",
-                        subscription: z.subscribe_all(handle)});
-    return true;
+    z.subscribe_all(handle,
+                    function _successCb (sub) {
+                        console.log('Subscribed to .*');
+                        subscriptions.push({channel      : '.*',
+                                            subscription : sub});
+                        if (successCb) successCb(true);
+                    });
 }
 
 function publish() {

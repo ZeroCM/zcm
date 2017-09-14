@@ -22,10 +22,12 @@ setInterval(function() {
     });
 }, 1000);
 
-var sub = z.subscribe_all(function(channel, msg) {
+var sub = null;
+z.subscribe_all(function(channel, msg) {
     console.log("Subscribe All message received on channel " + channel);
+}, function successCb (_sub) {
+    sub = _sub;
 });
-
 
 http.listen(3000, function(){
   console.log('listening on *:3000');

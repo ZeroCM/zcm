@@ -211,12 +211,40 @@ zcm_sub_t *zcm_subscribe(zcm_t *zcm, const char *channel, zcm_msg_handler_t cb, 
     assert(0 && "unreachable");
 }
 
+zcm_sub_t *zcm_try_subscribe(zcm_t *zcm, const char *channel, zcm_msg_handler_t cb, void *usr)
+{
+#ifndef ZCM_EMBEDDED
+    switch (zcm->type) {
+        case ZCM_BLOCKING:    return zcm_blocking_try_subscribe(zcm->impl, channel, cb, usr); break;
+        case ZCM_NONBLOCKING: return zcm_nonblocking_subscribe (zcm->impl, channel, cb, usr); break;
+    }
+#else
+    assert(zcm->type == ZCM_NONBLOCKING);
+    return zcm_nonblocking_subscribe(zcm->impl, channel, cb, usr);
+#endif
+    assert(0 && "unreachable");
+}
+
 int zcm_unsubscribe(zcm_t *zcm, zcm_sub_t *sub)
 {
 #ifndef ZCM_EMBEDDED
     switch (zcm->type) {
         case ZCM_BLOCKING:    return zcm_blocking_unsubscribe   (zcm->impl, sub); break;
         case ZCM_NONBLOCKING: return zcm_nonblocking_unsubscribe(zcm->impl, sub); break;
+    }
+#else
+    assert(zcm->type == ZCM_NONBLOCKING);
+    return zcm_nonblocking_unsubscribe(zcm->impl, sub);
+#endif
+    assert(0 && "unreachable");
+}
+
+int zcm_try_unsubscribe(zcm_t *zcm, zcm_sub_t *sub)
+{
+#ifndef ZCM_EMBEDDED
+    switch (zcm->type) {
+        case ZCM_BLOCKING:    return zcm_blocking_try_unsubscribe(zcm->impl, sub); break;
+        case ZCM_NONBLOCKING: return zcm_nonblocking_unsubscribe (zcm->impl, sub); break;
     }
 #else
     assert(zcm->type == ZCM_NONBLOCKING);
