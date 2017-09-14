@@ -156,7 +156,7 @@ function zcm(zcmtypes, zcmurl)
         var funcPtr = ffi.Callback('void', [recvBufRef, 'string', 'pointer'], dispatcher);
         setTimeout(function sub() {
             var subs = libzcm.zcm_try_subscribe(z, channel, funcPtr, null);
-            if (subs == null) {
+            if (ref.isNull(subs)) {
                 setTimeout(sub, 0);
                 return;
             }
