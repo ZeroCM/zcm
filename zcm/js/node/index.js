@@ -141,7 +141,6 @@ function zcm(zcmtypes, zcmurl)
         var sub = subscribe_raw(channel, function(channel, data) {
             cb(channel, type.decode(data));
         }, successCb);
-        return sub;
     }
 
     /**
@@ -174,7 +173,7 @@ function zcm(zcmtypes, zcmurl)
      */
     function subscribe_all(cb, successCb)
     {
-        return subscribe_all_raw(function(channel, data){
+        subscribe_all_raw(function(channel, data){
             var hash = ref.readUInt64BE(data, 0);
             if (!(hash in zcmtypeHashMap)) {
                 console.log("Unable to decode zcmtype on channel: " + channel
