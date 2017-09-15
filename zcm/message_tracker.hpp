@@ -524,8 +524,10 @@ class SynchronizedMessageDispatcher
         uint64_t handle(const zcm::ReceiveBuffer* rbuf, const std::string& chan,
                         const typename Type1Tracker::ZcmType* _msg) override
         {
-            std::unique_lock<std::mutex> lk(smt->dataLock);
             uint64_t utime = Type1Tracker::handle(rbuf, chan, _msg);
+            auto* msg = Type1Tracker::get(utime);
+            smt->process1(msg, utime);
+            delete msg;
             return utime;
         }
 
@@ -546,8 +548,8 @@ class SynchronizedMessageDispatcher
         uint64_t handle(const zcm::ReceiveBuffer* rbuf, const std::string& chan,
                         const typename Type2Tracker::ZcmType* _msg) override
         {
-            std::unique_lock<std::mutex> lk(smt->dataLock);
             uint64_t utime = Type2Tracker::handle(rbuf, chan, _msg);
+            smt->process2(utime);
             return utime;
         }
 
@@ -558,10 +560,39 @@ class SynchronizedMessageDispatcher
             Type2Tracker(zcmLocal, channel, maxTimeErr, maxMsgs), smt(smt) {}
     };
 
+    void process1(const typename Type1Tracker::ZcmType* msg, uint64_t utime)
+    {
+        auto it = t2.crbegin();
+        if (it == t2.crend()) return;
+        if (t2.getMsgUtime(*it) >= utime) {
+            auto msg2 = t2.get(utime);
+            if (msg2) {
+                onSynchronizedMsg(msg, msg2, usr);
+                delete *t1.rbegin();
+                t1.erase(t1.rbegin().base());
+            }
+        }
+    }
+
+    void process2(uint64_t utime)
+    {
+        for (auto it = t1.begin(); it != t1.end();) {
+            if (t1.getMsgUtime(*it) < utime) {
+                auto msg2 = t2.get(t1.getMsgUtime(*it));
+                if (msg2) {
+                    onSynchronizedMsg(*it, msg2, usr);
+                    delete *it;
+                    it = t1.erase(it);
+                    continue;
+                }
+            }
+            ++it;
+        }
+    }
+
     TrackerOverride1 t1;
     TrackerOverride2 t2;
 
-    mutable std::mutex dataLock;
     callback onSynchronizedMsg;
     void* usr;
 
@@ -597,21 +628,6 @@ class SynchronizedMessageDispatcher
 
     Type1Tracker* getType1Ptr() { return &t1; }
     Type2Tracker* getType2Ptr() { return &t2; }
-
-    void process()
-    {
-        std::unique_lock<std::mutex> lk(dataLock);
-        for (auto it = t1.begin(); it != t1.end();) {
-            auto msg2 = t2.get(t1.getMsgUtime(*it));
-            if (msg2) {
-                onSynchronizedMsg(*it, msg2, usr);
-                delete *it;
-                it = t1.erase(it);
-                continue;
-            }
-            ++it;
-        }
-    }
 
     friend class ::MessageTrackerTest;
 };
