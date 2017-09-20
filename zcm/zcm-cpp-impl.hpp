@@ -255,7 +255,7 @@ inline Subscription *ZCM::subscribe(const std::string& channel,
     ZCM_ASSERT(sub);
     sub->handler = handler;
     sub->typedHandlerCallback = cb;
-    sub->c_sub = zcm_subscribe(zcm, channel.c_str(), SubType::dispatch, sub);
+    subscribe_raw(sub, channel.c_str(), SubType::dispatch);
 
     subscriptions.push_back(sub);
     return sub;
@@ -279,7 +279,7 @@ inline Subscription *ZCM::subscribe(const std::string& channel,
     ZCM_ASSERT(sub);
     sub->handler = handler;
     sub->handlerCallback = cb;
-    sub->c_sub = zcm_subscribe(zcm, channel.c_str(), SubType::dispatch, sub);
+    subscribe_raw(sub, channel.c_str(), SubType::dispatch);
 
     subscriptions.push_back(sub);
     return sub;
@@ -304,7 +304,7 @@ inline Subscription *ZCM::subscribe(const std::string& channel,
     ZCM_ASSERT(sub);
     sub->usr = usr;
     sub->typedCallback = cb;
-    sub->c_sub = zcm_subscribe(zcm, channel.c_str(), SubType::dispatch, sub);
+    subscribe_raw(sub, channel.c_str(), SubType::dispatch);
 
     subscriptions.push_back(sub);
     return sub;
@@ -329,7 +329,7 @@ inline Subscription *ZCM::subscribe(const std::string& channel,
     ZCM_ASSERT(sub);
     sub->usr = nullptr;
     sub->cb = cb;
-    sub->c_sub = zcm_subscribe(zcm, channel.c_str(), SubType::dispatch, sub);
+    subscribe_raw(sub, channel.c_str(), SubType::dispatch);
 
     subscriptions.push_back(sub);
     return sub;
@@ -353,11 +353,18 @@ inline Subscription *ZCM::subscribe(const std::string& channel,
     ZCM_ASSERT(sub);
     sub->usr = usr;
     sub->callback = cb;
-    sub->c_sub = zcm_subscribe(zcm, channel.c_str(), SubType::dispatch, sub);
+    subscribe_raw(sub, channel.c_str(), SubType::dispatch);
 
     subscriptions.push_back(sub);
     return sub;
 }
+
+inline void ZCM::subscribe_raw(Subscription* sub,
+                               const std::string& channel,
+                               void (*cb)(const ReceiveBuffer *rbuf,
+                                          const char* channel,
+                                          void *usr))
+{ sub->c_sub = zcm_subscribe(zcm, channel.c_str(), cb, sub); }
 
 inline void ZCM::unsubscribe(Subscription *sub)
 {

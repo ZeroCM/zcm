@@ -29,20 +29,20 @@ class ZCM
     inline ZCM(zcm_trans_t *zt);
     virtual inline ~ZCM();
 
-    inline bool good() const;
+    virtual inline bool good() const;
 
-    inline int err(); // get the latest zcm err code
-    inline const char *strerror();
+    virtual inline int err(); // get the latest zcm err code
+    virtual inline const char *strerror();
 
-    inline void run();
-    inline void start();
-    inline void stop();
-    inline int handle();
-    inline int handleNonblock();
+    virtual inline void run();
+    virtual inline void start();
+    virtual inline void stop();
+    virtual inline int handle();
+    virtual inline int handleNonblock();
 
-    inline void flush();
+    virtual inline void flush();
 
-    inline int publish(const std::string& channel, const char *data, uint32_t len);
+    virtual inline int publish(const std::string& channel, const char *data, uint32_t len);
 
     // Note: if we make a publish binding that takes a const message reference, the compiler does
     //       not select the right version between the pointer and reference versions, so when the
@@ -86,10 +86,16 @@ class ZCM
                                               void *usr),
                                    void *usr);
 
-    inline void unsubscribe(Subscription *sub);
+    virtual inline void unsubscribe(Subscription *sub);
 
-    inline zcm_t* getUnderlyingZCM();
+    virtual inline zcm_t* getUnderlyingZCM();
 
+  protected:
+    virtual inline void subscribe_raw(Subscription* sub,
+                                      const std::string& channel,
+                                      void (*cb)(const ReceiveBuffer *rbuf,
+                                                 const char* channel,
+                                                 void *usr));
   private:
     zcm_t *zcm;
     std::vector<Subscription*> subscriptions;
