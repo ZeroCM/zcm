@@ -96,6 +96,8 @@ class ZCM
                                       void (*cb)(const ReceiveBuffer *rbuf,
                                                  const char* channel,
                                                  void *usr));
+
+    virtual inline void unsubscribe_raw(Subscription *sub);
   private:
     zcm_t *zcm;
     std::vector<Subscription*> subscriptions;

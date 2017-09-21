@@ -372,12 +372,17 @@ inline void ZCM::unsubscribe(Subscription *sub)
                                           it = subscriptions.begin();
     for (; it != end; ++it) {
         if (*it == sub) {
-            zcm_unsubscribe(zcm, sub->c_sub);
+            unsubscribe_raw(sub);
             subscriptions.erase(it);
             delete sub;
             break;
         }
     }
+}
+
+inline void ZCM::unsubscribe_raw(Subscription* sub)
+{
+    zcm_unsubscribe(zcm, sub->c_sub);
 }
 
 inline zcm_t *ZCM::getUnderlyingZCM()
