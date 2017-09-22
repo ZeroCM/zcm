@@ -45,6 +45,7 @@ inline ZCM::~ZCM()
 
 inline bool ZCM::good() const
 {
+    // RRR: really want to add `&& err() == ZCM_EOK` to this, but it ISN'T CONST ...
     return zcm != nullptr;
 }
 

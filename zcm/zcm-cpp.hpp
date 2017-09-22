@@ -29,6 +29,10 @@ class ZCM
     inline ZCM(zcm_trans_t *zt);
     virtual inline ~ZCM();
 
+    // RRR: a lot of these aren't required to be virtual right? To get our overriding behavior,
+    //      we really only need to override pub, sub_raw, and unsub_raw. Can't decide if it's
+    //      better to make it a bit more clear what an inheriter should actually override vs
+    //      allow them to override anything so long as they know what they are doing.
     virtual inline bool good() const;
 
     virtual inline int err(); // get the latest zcm err code
@@ -86,8 +90,12 @@ class ZCM
                                               void *usr),
                                    void *usr);
 
+    // RRR: any reason to make this virtual? Seems like overrriders should just use the _raw
+    //      version to get the functionality they want
     virtual inline void unsubscribe(Subscription *sub);
 
+    // RRR: I think I might see the reason to make this virtual, but still can't convince myself
+    //      that it's ever necessary
     virtual inline zcm_t* getUnderlyingZCM();
 
   protected:
