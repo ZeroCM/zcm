@@ -383,7 +383,7 @@ inline void* ZCM::subscribeRaw(const std::string& channel,
                                void (*cb)(const ReceiveBuffer* rbuf,
                                           const char* channel,
                                           void* subUsr),
-                               Subscription* subUsr)
+                               void* subUsr)
 { return zcm_subscribe(zcm, channel.c_str(), cb, subUsr); }
 
 inline void ZCM::unsubscribeRaw(void* rawSub)

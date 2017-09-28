@@ -96,7 +96,7 @@ class ZCM
                                       void (*cb)(const ReceiveBuffer* rbuf,
                                                  const char* channel,
                                                  void* subUsr),
-                                      Subscription* subUsr);
+                                      void* subUsr);
 
     virtual inline void unsubscribeRaw(void* rawSub);
 
