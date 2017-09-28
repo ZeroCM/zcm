@@ -146,7 +146,7 @@ void zcm_cleanup(zcm_t *zcm)
     }
 }
 
-int zcm_errno(zcm_t *zcm)
+int zcm_errno(const zcm_t *zcm)
 {
     return zcm->err;
 }
@@ -159,7 +159,7 @@ static const char *errcode_str[] = {
     "Operation was unexpectedly interrupted",   /* ZCM_EINTR */
 };
 
-const char *zcm_strerror(zcm_t *zcm)
+const char *zcm_strerror(const zcm_t *zcm)
 {
     unsigned err = (unsigned)zcm->err;
     if (err >= ZCM__RESERVED_COUNT) {

@@ -32,6 +32,9 @@ enum zcm_return_codes {
     ZCM_EUNKNOWN  = 255,
 };
 
+/* TODO: The use of `type *name` instead of `type* name` and char* instead of uint8_t*
+ *       throughout this file and much of zcm makes me nauseated */
+
 /* Forward typedef'd structs */
 typedef struct zcm_trans_t zcm_trans_t;
 typedef struct zcm_t zcm_t;
@@ -80,10 +83,11 @@ int  zcm_init_trans(zcm_t *zcm, zcm_trans_t *zt);
 void zcm_cleanup(zcm_t *zcm);
 
 /* Return the last error: a valid from enum zcm_return_codes */
-int zcm_errno(zcm_t *zcm);
+int zcm_errno(const zcm_t *zcm);
 
+/* RRR: We should actually make this take the error code, not the zcm pointer */
 /* Return the last error in string format */
-const char *zcm_strerror(zcm_t *zcm);
+const char *zcm_strerror(const zcm_t *zcm);
 
 /* Subscribe to zcm messages
    Returns a subscription object on success, and NULL on failure

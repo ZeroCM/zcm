@@ -19,34 +19,27 @@ namespace zcm {
 typedef zcm_recv_buf_t ReceiveBuffer;
 class Subscription;
 
-// TODO: unify pointer style pref "Msg* msg" vs "Msg *msg", I'd tend toward the former
-
 class ZCM
 {
   public:
     inline ZCM();
     inline ZCM(const std::string& transport);
-    inline ZCM(zcm_trans_t *zt);
+    inline ZCM(zcm_trans_t* zt);
     virtual inline ~ZCM();
 
-    // RRR: a lot of these aren't required to be virtual right? To get our overriding behavior,
-    //      we really only need to override pub, sub_raw, and unsub_raw. Can't decide if it's
-    //      better to make it a bit more clear what an inheriter should actually override vs
-    //      allow them to override anything so long as they know what they are doing.
     virtual inline bool good() const;
-
-    virtual inline int err(); // get the latest zcm err code
-    virtual inline const char *strerror();
+    virtual inline int err() const; // errno is a reserved name, so this returns zcm_errno()
+    virtual inline const char* strerror() const;
 
     virtual inline void run();
     virtual inline void start();
     virtual inline void stop();
     virtual inline int handle();
     virtual inline int handleNonblock();
-
     virtual inline void flush();
 
-    virtual inline int publish(const std::string& channel, const char *data, uint32_t len);
+  public:
+    inline int publish(const std::string& channel, const char* data, uint32_t len);
 
     // Note: if we make a publish binding that takes a const message reference, the compiler does
     //       not select the right version between the pointer and reference versions, so when the
@@ -54,60 +47,61 @@ class ZCM
     //       compile errors (turns the input into a double pointer). We have to choose one or the
     //       other for the api.
     template <class Msg>
-    inline int publish(const std::string& channel, const Msg *msg);
+    inline int publish(const std::string& channel, const Msg* msg);
+
+    inline Subscription* subscribe(const std::string& channel,
+                                   void (*cb)(const ReceiveBuffer* rbuf,
+                                              const std::string& channel,
+                                              void* usr),
+                                   void* usr);
 
     template <class Msg, class Handler>
-    inline Subscription *subscribe(const std::string& channel,
-                                   void (Handler::*cb)(const ReceiveBuffer *rbuf,
+    inline Subscription* subscribe(const std::string& channel,
+                                   void (Handler::*cb)(const ReceiveBuffer* rbuf,
                                                        const std::string& channel,
-                                                       const Msg *msg),
-                                   Handler *handler);
+                                                       const Msg* msg),
+                                   Handler* handler);
 
     template <class Handler>
-    inline Subscription *subscribe(const std::string& channel,
+    inline Subscription* subscribe(const std::string& channel,
                                    void (Handler::*cb)(const ReceiveBuffer* rbuf,
                                                        const std::string& channel),
                                    Handler* handler);
 
     template <class Msg>
-    inline Subscription *subscribe(const std::string& channel,
-                                   void (*cb)(const ReceiveBuffer *rbuf,
+    inline Subscription* subscribe(const std::string& channel,
+                                   void (*cb)(const ReceiveBuffer* rbuf,
                                               const std::string& channel,
-                                              const Msg *msg, void *usr),
-                                   void *usr);
+                                              const Msg* msg, void* usr),
+                                   void* usr);
 
     #if __cplusplus > 199711L
     template <class Msg>
-    inline Subscription *subscribe(const std::string& channel,
-                                   std::function<void (const ReceiveBuffer *rbuf,
+    inline Subscription* subscribe(const std::string& channel,
+                                   std::function<void (const ReceiveBuffer* rbuf,
                                                        const std::string& channel,
-                                                       const Msg *msg)> cb);
+                                                       const Msg* msg)> cb);
     #endif
 
-    inline Subscription *subscribe(const std::string& channel,
-                                   void (*cb)(const ReceiveBuffer *rbuf,
-                                              const std::string& channel,
-                                              void *usr),
-                                   void *usr);
+    inline void unsubscribe(Subscription* sub);
 
-    // RRR: any reason to make this virtual? Seems like overrriders should just use the _raw
-    //      version to get the functionality they want
-    virtual inline void unsubscribe(Subscription *sub);
-
-    // RRR: I think I might see the reason to make this virtual, but still can't convince myself
-    //      that it's ever necessary
     virtual inline zcm_t* getUnderlyingZCM();
 
   protected:
-    virtual inline void subscribe_raw(Subscription* sub,
-                                      const std::string& channel,
-                                      void (*cb)(const ReceiveBuffer *rbuf,
-                                                 const char* channel,
-                                                 void *usr));
+    /**** Methods for inheritor override ****/
+    virtual inline int publishRaw(const std::string& channel, const char* data, uint32_t len);
 
-    virtual inline void unsubscribe_raw(Subscription *sub);
+    // Returns the raw subscription
+    virtual inline void* subscribeRaw(const std::string& channel,
+                                      void (*cb)(const ReceiveBuffer* rbuf,
+                                                 const char* channel,
+                                                 void* subUsr),
+                                      Subscription* subUsr);
+
+    virtual inline void unsubscribeRaw(void* rawSub);
+
   private:
-    zcm_t *zcm;
+    zcm_t* zcm;
     std::vector<Subscription*> subscriptions;
 };
 
@@ -115,21 +109,21 @@ class ZCM
 class Subscription
 {
     friend class ZCM;
-    zcm_sub_t *c_sub;
 
   protected:
-    void *usr;
-    void (*callback)(const ReceiveBuffer* rbuf, const std::string& channel, void *usr);
+    void* rawSub;
+    void* usr;
+    void (*callback)(const ReceiveBuffer* rbuf, const std::string& channel, void* usr);
 
   public:
     virtual ~Subscription() {}
 
-    inline void dispatch(const ReceiveBuffer *rbuf, const char *channel)
+    inline void dispatch(const ReceiveBuffer* rbuf, const char* channel)
     {
         (*callback)(rbuf, channel, usr);
     }
 
-    static inline void dispatch(const ReceiveBuffer *rbuf, const char *channel, void *usr)
+    static inline void dispatch(const ReceiveBuffer* rbuf, const char* channel, void* usr)
     {
         ((Subscription*)usr)->dispatch(rbuf, channel);
     }

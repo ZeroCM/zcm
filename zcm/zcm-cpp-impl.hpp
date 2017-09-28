@@ -25,7 +25,7 @@ inline ZCM::ZCM(const std::string& transport)
     zcm = zcm_create(transport.c_str());
 }
 
-inline ZCM::ZCM(zcm_trans_t *zt)
+inline ZCM::ZCM(zcm_trans_t* zt)
 {
     zcm = (zcm_t*) malloc(sizeof(zcm_t));
     zcm_init_trans(zcm, zt);
@@ -45,16 +45,15 @@ inline ZCM::~ZCM()
 
 inline bool ZCM::good() const
 {
-    // RRR: really want to add `&& err() == ZCM_EOK` to this, but it ISN'T CONST ...
-    return zcm != nullptr;
+    return zcm != nullptr && err() == ZCM_EOK;
 }
 
-inline int ZCM::err()
+inline int ZCM::err() const
 {
     return zcm_errno(zcm);
 }
 
-inline const char *ZCM::strerror()
+inline const char* ZCM::strerror() const
 {
     return zcm_strerror(zcm);
 }
@@ -89,21 +88,44 @@ inline void ZCM::flush()
     zcm_flush(zcm);
 }
 
-inline int ZCM::publish(const std::string& channel, const char *data, uint32_t len)
+inline int ZCM::publish(const std::string& channel, const char* data, uint32_t len)
 {
-    return zcm_publish(zcm, channel.c_str(), (char*)data, len);
+    return publishRaw(channel, data, len);
 }
 
 template <class Msg>
-inline int ZCM::publish(const std::string& channel, const Msg *msg)
+inline int ZCM::publish(const std::string& channel, const Msg* msg)
 {
     uint32_t len = msg->getEncodedSize();
-    uint8_t *buf = new uint8_t[len];
+    uint8_t* buf = new uint8_t[len];
     ZCM_ASSERT(buf);
     msg->encode(buf, 0, len);
-    int status = this->publish(channel, (const char*)buf, len);
+    int status = publishRaw(channel, (const char*)buf, len);
     delete[] buf;
     return status;
+}
+
+inline Subscription* ZCM::subscribe(const std::string& channel,
+                                    void (*cb)(const ReceiveBuffer* rbuf,
+                                               const std::string& channel, void* usr),
+                                    void* usr)
+{
+    if (!zcm) {
+        #ifndef ZCM_EMBEDDED
+        fprintf(stderr, "ZCM instance not initialized.  Ignoring call to subscribe()\n");
+        #endif
+        return nullptr;
+    }
+
+    typedef Subscription SubType;
+    SubType* sub = new SubType();
+    ZCM_ASSERT(sub);
+    sub->usr = usr;
+    sub->callback = cb;
+    sub->rawSub = subscribeRaw(channel.c_str(), SubType::dispatch, sub);
+
+    subscriptions.push_back(sub);
+    return sub;
 }
 
 // Virtual inheritance to avoid ambiguous base class problem http://stackoverflow.com/a/139329
@@ -114,13 +136,13 @@ class TypedSubscription : public virtual Subscription
 
   protected:
     void (*typedCallback)(const ReceiveBuffer* rbuf, const std::string& channel, const Msg* msg,
-                          void *usr);
+                          void* usr);
     Msg msgMem; // Memory to decode this message into
 
   public:
     virtual ~TypedSubscription() {}
 
-    inline int readMsg(const ReceiveBuffer *rbuf)
+    inline int readMsg(const ReceiveBuffer* rbuf)
     {
         int status = msgMem.decode(rbuf->data, 0, rbuf->data_size);
         if (status < 0) {
@@ -132,13 +154,13 @@ class TypedSubscription : public virtual Subscription
         return 0;
     }
 
-    inline void typedDispatch(const ReceiveBuffer *rbuf, const char *channel)
+    inline void typedDispatch(const ReceiveBuffer* rbuf, const char* channel)
     {
         if (readMsg(rbuf) != 0) return;
         (*typedCallback)(rbuf, channel, &msgMem, usr);
     }
 
-    static inline void dispatch(const ReceiveBuffer *rbuf, const char *channel, void *usr)
+    static inline void dispatch(const ReceiveBuffer* rbuf, const char* channel, void* usr)
     {
         ((TypedSubscription<Msg>*)usr)->typedDispatch(rbuf, channel);
     }
@@ -152,15 +174,15 @@ class TypedFunctionalSubscription : public virtual Subscription
     friend class ZCM;
 
   protected:
-    std::function<void (const ReceiveBuffer *rbuf,
+    std::function<void (const ReceiveBuffer* rbuf,
                         const std::string& channel,
-                        const Msg *msg)> cb;
+                        const Msg* msg)> cb;
     Msg msgMem; // Memory to decode this message into
 
   public:
     virtual ~TypedFunctionalSubscription() {}
 
-    inline int readMsg(const ReceiveBuffer *rbuf)
+    inline int readMsg(const ReceiveBuffer* rbuf)
     {
         int status = msgMem.decode(rbuf->data, 0, rbuf->data_size);
         if (status < 0) {
@@ -172,13 +194,13 @@ class TypedFunctionalSubscription : public virtual Subscription
         return 0;
     }
 
-    inline void typedDispatch(const ReceiveBuffer *rbuf, const char *channel)
+    inline void typedDispatch(const ReceiveBuffer* rbuf, const char* channel)
     {
         if (readMsg(rbuf) != 0) return;
         cb(rbuf, channel, &msgMem);
     }
 
-    static inline void dispatch(const ReceiveBuffer *rbuf, const char *channel, void *usr)
+    static inline void dispatch(const ReceiveBuffer* rbuf, const char* channel, void* usr)
     {
         ((TypedFunctionalSubscription<Msg>*)usr)->typedDispatch(rbuf, channel);
     }
@@ -198,12 +220,12 @@ class HandlerSubscription : public virtual Subscription
   public:
     virtual ~HandlerSubscription() {}
 
-    inline void handlerDispatch(const ReceiveBuffer *rbuf, const char *channel)
+    inline void handlerDispatch(const ReceiveBuffer* rbuf, const char* channel)
     {
         (handler->*handlerCallback)(rbuf, channel);
     }
 
-    static inline void dispatch(const ReceiveBuffer *rbuf, const char *channel, void *usr)
+    static inline void dispatch(const ReceiveBuffer* rbuf, const char* channel, void* usr)
     {
         ((HandlerSubscription<Handler>*)usr)->handlerDispatch(rbuf, channel);
     }
@@ -221,7 +243,7 @@ class TypedHandlerSubscription : public TypedSubscription<Msg>, HandlerSubscript
   public:
     virtual ~TypedHandlerSubscription() {}
 
-    inline void typedHandlerDispatch(const ReceiveBuffer *rbuf, const char *channel)
+    inline void typedHandlerDispatch(const ReceiveBuffer* rbuf, const char* channel)
     {
         // Unfortunately, we need to add "this" here to handle template inheritance:
         // https://isocpp.org/wiki/faq/templates#nondependent-name-lookup-members
@@ -229,7 +251,7 @@ class TypedHandlerSubscription : public TypedSubscription<Msg>, HandlerSubscript
         (this->handler->*typedHandlerCallback)(rbuf, channel, &this->msgMem);
     }
 
-    static inline void dispatch(const ReceiveBuffer *rbuf, const char *channel, void *usr)
+    static inline void dispatch(const ReceiveBuffer* rbuf, const char* channel, void* usr)
     {
         ((TypedHandlerSubscription<Msg, Handler>*)usr)->typedHandlerDispatch(rbuf, channel);
     }
@@ -238,11 +260,11 @@ class TypedHandlerSubscription : public TypedSubscription<Msg>, HandlerSubscript
 
 // TODO: lots of room to condense the implementations of the various subscribe functions
 template <class Msg, class Handler>
-inline Subscription *ZCM::subscribe(const std::string& channel,
-                                    void (Handler::*cb)(const ReceiveBuffer *rbuf,
+inline Subscription* ZCM::subscribe(const std::string& channel,
+                                    void (Handler::*cb)(const ReceiveBuffer* rbuf,
                                                         const std::string& channel,
-                                                        const Msg *msg),
-                                    Handler *handler)
+                                                        const Msg* msg),
+                                    Handler* handler)
 {
     if (!zcm) {
         #ifndef ZCM_EMBEDDED
@@ -252,18 +274,18 @@ inline Subscription *ZCM::subscribe(const std::string& channel,
     }
 
     typedef TypedHandlerSubscription<Msg, Handler> SubType;
-    SubType *sub = new SubType();
+    SubType* sub = new SubType();
     ZCM_ASSERT(sub);
     sub->handler = handler;
     sub->typedHandlerCallback = cb;
-    subscribe_raw(sub, channel.c_str(), SubType::dispatch);
+    sub->rawSub = subscribeRaw(channel.c_str(), SubType::dispatch, sub);
 
     subscriptions.push_back(sub);
     return sub;
 }
 
 template <class Handler>
-inline Subscription *ZCM::subscribe(const std::string& channel,
+inline Subscription* ZCM::subscribe(const std::string& channel,
                                     void (Handler::*cb)(const ReceiveBuffer* rbuf,
                                                         const std::string& channel),
                                     Handler* handler)
@@ -276,22 +298,22 @@ inline Subscription *ZCM::subscribe(const std::string& channel,
     }
 
     typedef HandlerSubscription<Handler> SubType;
-    SubType *sub = new SubType();
+    SubType* sub = new SubType();
     ZCM_ASSERT(sub);
     sub->handler = handler;
     sub->handlerCallback = cb;
-    subscribe_raw(sub, channel.c_str(), SubType::dispatch);
+    sub->rawSub = subscribeRaw(channel.c_str(), SubType::dispatch, sub);
 
     subscriptions.push_back(sub);
     return sub;
 }
 
 template <class Msg>
-inline Subscription *ZCM::subscribe(const std::string& channel,
-                                    void (*cb)(const ReceiveBuffer *rbuf,
+inline Subscription* ZCM::subscribe(const std::string& channel,
+                                    void (*cb)(const ReceiveBuffer* rbuf,
                                                const std::string& channel,
-                                               const Msg *msg, void *usr),
-                                    void *usr)
+                                               const Msg* msg, void* usr),
+                                    void* usr)
 {
     if (!zcm) {
         #ifndef ZCM_EMBEDDED
@@ -301,11 +323,11 @@ inline Subscription *ZCM::subscribe(const std::string& channel,
     }
 
     typedef TypedSubscription<Msg> SubType;
-    SubType *sub = new SubType();
+    SubType* sub = new SubType();
     ZCM_ASSERT(sub);
     sub->usr = usr;
     sub->typedCallback = cb;
-    subscribe_raw(sub, channel.c_str(), SubType::dispatch);
+    sub->rawSub = subscribeRaw(channel.c_str(), SubType::dispatch, sub);
 
     subscriptions.push_back(sub);
     return sub;
@@ -313,10 +335,10 @@ inline Subscription *ZCM::subscribe(const std::string& channel,
 
 #if __cplusplus > 199711L
 template <class Msg>
-inline Subscription *ZCM::subscribe(const std::string& channel,
-                                    std::function<void (const ReceiveBuffer *rbuf,
+inline Subscription* ZCM::subscribe(const std::string& channel,
+                                    std::function<void (const ReceiveBuffer* rbuf,
                                                         const std::string& channel,
-                                                        const Msg *msg)> cb)
+                                                        const Msg* msg)> cb)
 {
     if (!zcm) {
         #ifndef ZCM_EMBEDDED
@@ -326,54 +348,24 @@ inline Subscription *ZCM::subscribe(const std::string& channel,
     }
 
     typedef TypedFunctionalSubscription<Msg> SubType;
-    SubType *sub = new SubType();
+    SubType* sub = new SubType();
     ZCM_ASSERT(sub);
     sub->usr = nullptr;
     sub->cb = cb;
-    subscribe_raw(sub, channel.c_str(), SubType::dispatch);
+    sub->rawSub = subscribeRaw(channel.c_str(), SubType::dispatch, sub);
 
     subscriptions.push_back(sub);
     return sub;
 }
 #endif
 
-inline Subscription *ZCM::subscribe(const std::string& channel,
-                                    void (*cb)(const ReceiveBuffer *rbuf,
-                                               const std::string& channel, void *usr),
-                                    void *usr)
-{
-    if (!zcm) {
-        #ifndef ZCM_EMBEDDED
-        fprintf(stderr, "ZCM instance not initialized.  Ignoring call to subscribe()\n");
-        #endif
-        return nullptr;
-    }
-
-    typedef Subscription SubType;
-    SubType *sub = new SubType();
-    ZCM_ASSERT(sub);
-    sub->usr = usr;
-    sub->callback = cb;
-    subscribe_raw(sub, channel.c_str(), SubType::dispatch);
-
-    subscriptions.push_back(sub);
-    return sub;
-}
-
-inline void ZCM::subscribe_raw(Subscription* sub,
-                               const std::string& channel,
-                               void (*cb)(const ReceiveBuffer *rbuf,
-                                          const char* channel,
-                                          void *usr))
-{ sub->c_sub = zcm_subscribe(zcm, channel.c_str(), cb, sub); }
-
-inline void ZCM::unsubscribe(Subscription *sub)
+inline void ZCM::unsubscribe(Subscription* sub)
 {
     std::vector<Subscription*>::iterator end = subscriptions.end(),
                                           it = subscriptions.begin();
     for (; it != end; ++it) {
         if (*it == sub) {
-            unsubscribe_raw(sub);
+            unsubscribeRaw(sub->rawSub);
             subscriptions.erase(it);
             delete sub;
             break;
@@ -381,15 +373,21 @@ inline void ZCM::unsubscribe(Subscription *sub)
     }
 }
 
-inline void ZCM::unsubscribe_raw(Subscription* sub)
-{
-    zcm_unsubscribe(zcm, sub->c_sub);
-}
+inline zcm_t* ZCM::getUnderlyingZCM()
+{ return zcm; }
 
-inline zcm_t *ZCM::getUnderlyingZCM()
-{
-    return zcm;
-}
+inline int ZCM::publishRaw(const std::string& channel, const char* data, uint32_t len)
+{ return zcm_publish(zcm, channel.c_str(), data, len); }
+
+inline void* ZCM::subscribeRaw(const std::string& channel,
+                               void (*cb)(const ReceiveBuffer* rbuf,
+                                          const char* channel,
+                                          void* subUsr),
+                               Subscription* subUsr)
+{ return zcm_subscribe(zcm, channel.c_str(), cb, subUsr); }
+
+inline void ZCM::unsubscribeRaw(void* rawSub)
+{ zcm_unsubscribe(zcm, (zcm_sub_t*) rawSub); }
 
 #ifndef ZCM_EMBEDDED
 inline LogFile::LogFile(const std::string& path, const std::string& mode)
