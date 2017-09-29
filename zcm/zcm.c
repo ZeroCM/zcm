@@ -127,6 +127,8 @@ int zcm_init_trans(zcm_t *zcm, zcm_trans_t *zt)
     }
 
  fail:
+    zcm->type = ZCM_NONBLOCKING;
+    zcm->impl = NULL;
     zcm->err = ZCM_ECONNECT;
     return -1;
 }
