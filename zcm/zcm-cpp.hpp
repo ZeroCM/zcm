@@ -120,6 +120,11 @@ class Subscription
   public:
     virtual ~Subscription() {}
 
+    void* getRawSub() const
+    {
+        return rawSub;
+    }
+
     inline void dispatch(const ReceiveBuffer* rbuf, const std::string& channel)
     {
         (*callback)(rbuf, channel, usr);
