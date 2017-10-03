@@ -41,8 +41,9 @@ def configure(ctx):
 #   build:        False if only zcmtype generation (no compiling or linking) is desired
 #                 Defaults to true.
 #   lang:         list of languages for which zcmtypes should be generated, options are:
-#                 ['c', 'cpp', 'java', 'python', 'nodejs']. Can also be a space separated string.
-#   littleEndian  True or false based on desired endianess of output. Should almost always
+#                 ['c_stlib', 'c_shlib', 'cpp', 'java', 'python', 'nodejs'].
+#                 Can also be a space separated string.
+#   littleEndian: True or false based on desired endianess of output. Should almost always
 #                 be false. Don't use this option unless you really know what you're doing
 #   javapkg:      name of the java package
 #                 default = 'zcmtypes' (though it is encouraged to name it something more unique
