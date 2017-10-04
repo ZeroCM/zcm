@@ -384,11 +384,7 @@ inline zcm_t* ZCM::getUnderlyingZCM()
 inline int ZCM::publishRaw(const std::string& channel, const char* data, uint32_t len)
 { return zcm_publish(zcm, channel.c_str(), data, len); }
 
-inline void* ZCM::subscribeRaw(const std::string& channel,
-                               void (*cb)(const ReceiveBuffer* rbuf,
-                                          const char* channel,
-                                          void* subUsr),
-                               void* subUsr)
+inline void* ZCM::subscribeRaw(const std::string& channel, MsgHandler cb, void* subUsr)
 { return zcm_subscribe(zcm, channel.c_str(), cb, subUsr); }
 
 inline void ZCM::unsubscribeRaw(void* rawSub)

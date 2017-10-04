@@ -17,6 +17,7 @@
 namespace zcm {
 
 typedef zcm_recv_buf_t ReceiveBuffer;
+typedef zcm_msg_handler_t MsgHandler;
 class Subscription;
 
 class ZCM
@@ -94,11 +95,7 @@ class ZCM
 
     // Returns the raw subscription, rawSub, which will be passed to unsubscribeRaw when
     // zcm->unsubscribe() is called on a cpp subscription
-    virtual inline void* subscribeRaw(const std::string& channel,
-                                      void (*cb)(const ReceiveBuffer* rbuf,
-                                                 const char* channel,
-                                                 void* subUsr),
-                                      void* subUsr);
+    virtual inline void* subscribeRaw(const std::string& channel, MsgHandler cb, void* subUsr);
 
     // Unsubscribes from a raw subscription. Effectively undoing the actions of subscribeRaw
     virtual inline void unsubscribeRaw(void* rawSub);
