@@ -258,28 +258,79 @@ class MessageTrackerTest : public CxxTest::TestSuite
 
         std::stringstream ss;
 
+        zcm::ReceiveBuffer rbuf;
+        rbuf.recv_utime = UINT64_MAX;
         // Message type 2
         ss << "New message b: " << e1.utime; TS_TRACE(ss.str()); ss.str("");
-        smt.t2.newMsg(&e1, 0);
+        smt.t2.handle(&rbuf, "", &e1);
         ss << "New message b: " << e2.utime; TS_TRACE(ss.str()); ss.str("");
-        smt.t2.newMsg(&e2, 0);
+        smt.t2.handle(&rbuf, "", &e2);
 
         // Message type 1
         ss << "New message a: " << e3.utime; TS_TRACE(ss.str()); ss.str("");
-        smt.t1.newMsg(&e3, 0);
+        smt.t1.handle(&rbuf, "", &e3);
 
         // Message type 2
         ss << "New message b: " << e5.utime; TS_TRACE(ss.str()); ss.str("");
-        smt.t2.newMsg(&e5, 0);
+        smt.t2.handle(&rbuf, "", &e5);
         ss << "New message b: " << e6.utime; TS_TRACE(ss.str()); ss.str("");
-        smt.t2.newMsg(&e6, 0);
+        smt.t2.handle(&rbuf, "", &e6);
 
         // Message type 1
         ss << "New message a: " << e4.utime; TS_TRACE(ss.str()); ss.str("");
-        smt.t1.newMsg(&e4, 0);
-        ss << "New message a: " << e7.utime; TS_TRACE(ss.str()); ss.str("");
-        smt.t2.newMsg(&e7, 0);
+        smt.t1.handle(&rbuf, "", &e4);
+        ss << "New message b: " << e7.utime; TS_TRACE(ss.str()); ss.str("");
+        smt.t2.handle(&rbuf, "", &e7);
 
         TS_ASSERT_EQUALS(pairDetected, 2);
+    }
+
+    void testSynchronizedMessageWithModifiedData()
+    {
+        int pairDetected = 0;
+
+        example_t e1 = {}; e1.utime = 1; e1.data = 0;
+        example_t e2 = {}; e2.utime = 2; e2.data = 2;
+
+        class tracker : public zcm::MessageTracker<example_t> {
+          public:
+            tracker(zcm::ZCM* zcmLocal, std::string channel,
+                    double maxTimeErr, size_t maxMsgs) :
+                zcm::Tracker<example_t>(maxTimeErr, maxMsgs),
+                zcm::MessageTracker<example_t>(zcmLocal, channel, maxTimeErr, maxMsgs) {}
+
+            uint64_t newMsg(const example_t* msg, uint64_t hostUtime = UINT64_MAX) override
+            {
+                example_t newMsg = *msg;
+                newMsg.data = 1;
+                return Tracker<example_t>::newMsg(&newMsg, hostUtime);
+            }
+        };
+
+        zcm::SynchronizedMessageDispatcher <zcm::MessageTracker<example_t>, tracker>::callback cb =
+        [&] (const example_t *a, example_t *b, void *usr) {
+            TS_ASSERT(a); TS_ASSERT(b);
+            TS_ASSERT_EQUALS(a->data, 1);
+            ++pairDetected;
+            delete b;
+        };
+
+        zcm::ZCM zcmL;
+
+        zcm::SynchronizedMessageDispatcher<tracker, zcm::MessageTracker<example_t>>
+            smt(&zcmL,
+                "",    10,
+                "", 1, 10,
+                cb);
+
+        std::stringstream ss;
+
+        zcm::ReceiveBuffer rbuf;
+        rbuf.recv_utime = UINT64_MAX;
+        // Message type 2
+        smt.t2.handle(&rbuf, "", &e2);
+        smt.t1.handle(&rbuf, "", &e1);
+
+        TS_ASSERT_EQUALS(pairDetected, 1);
     }
 };
