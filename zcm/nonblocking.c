@@ -63,6 +63,11 @@ zcm_nonblocking_t *zcm_nonblocking_create(zcm_t *z, zcm_trans_t *zt)
     zcm->z = z;
     zcm->zt = zt;
     zcm->allChannelsEnabled = false;
+
+    size_t i;
+    for (i = 0; i < ZCM_NONBLOCK_SUBS_MAX; ++i)
+        zcm->subInUse[i] = false;
+
     zcm->subInUseEnd = 0;
     return zcm;
 }
