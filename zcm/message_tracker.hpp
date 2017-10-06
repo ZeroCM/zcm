@@ -141,6 +141,9 @@ class Tracker
     //// Iterator Defn and Ops ////
     ///////////////////////////////
 
+    // Note: Be careful of asynchronous iterator invalidation if using a tracker
+    //       subscribed to a running zcm thread.
+
     typedef typename ContainerType::              iterator               iterator;
     typedef typename ContainerType::        const_iterator         const_iterator;
     typedef typename ContainerType::      reverse_iterator       reverse_iterator;
@@ -157,11 +160,9 @@ class Tracker
     inline const_reverse_iterator   crend() const { return buf.  crend(); }
 
     template <typename IterType>
-    inline IterType erase(IterType iter)
-    {
-        std::unique_lock<BufLockType> lk(bufLock);
-        return buf.erase(iter);
-    }
+    inline IterType erase(IterType iter) { return buf.erase(iter); }
+
+    ///////////////////////////////
 
     uint64_t getMsgUtime(const MsgType* msg) const
     {
@@ -493,11 +494,11 @@ class MessageTracker : public virtual Tracker<T>
 // This class will attempt to synchronize messages of type Type1Tracker::ZcmType to
 // messages of type Type2Tracker::ZcmType.
 //
-// If you're interested in the details, here they are:
+// details:
 //
 // Whenever a Synchronizer receives a message of Type1Tracker::ZcmType
 // it checks to see if there is a message of type Type2Tracker::ZcmType that has a utime no
-// earlier than than the received message of ZcmType1. If there is a message of
+// earlier than the received message of ZcmType1. If there is a message of
 // type Type2Tracker::ZcmType that satisfies this criteria, then `get` will return a valid pair
 // with the original message and the result of `t2.get(msg1.utime)`. If there is
 // not a later message, this class will wait until a message of type Type2Tracker::ZcmType is
@@ -525,6 +526,7 @@ class SynchronizedMessageDispatcher
                         const typename Type1Tracker::ZcmType* _msg) override
         {
             uint64_t utime = Type1Tracker::handle(rbuf, chan, _msg);
+            // the base tracker could modify the message at that utime
             auto* msg = Type1Tracker::get(utime);
             smt->process1(msg, utime);
             delete msg;
@@ -614,6 +616,7 @@ class SynchronizedMessageDispatcher
 
     void newType1Msg(const typename Type1Tracker::ZcmType* msg)
     {
+        // RRR: this isn't ok, rbuf can't just be garbage
         zcm::ReceiveBuffer rbuf;
         rbuf.recv_utime = UINT64_MAX;
         t1.handle(&rbuf, "", msg);
@@ -621,6 +624,7 @@ class SynchronizedMessageDispatcher
 
     void newType2Msg(const typename Type2Tracker::ZcmType* msg)
     {
+        // RRR: this isn't ok, rbuf can't just be garbage
         zcm::ReceiveBuffer rbuf;
         rbuf.recv_utime = UINT64_MAX;
         t2.handle(&rbuf, "", msg);

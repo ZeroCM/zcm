@@ -258,6 +258,7 @@ class MessageTrackerTest : public CxxTest::TestSuite
 
         std::stringstream ss;
 
+        // RRR: careful when using garbage rbufs
         zcm::ReceiveBuffer rbuf;
         rbuf.recv_utime = UINT64_MAX;
         // Message type 2
@@ -307,13 +308,13 @@ class MessageTrackerTest : public CxxTest::TestSuite
             }
         };
 
-        zcm::SynchronizedMessageDispatcher <zcm::MessageTracker<example_t>, tracker>::callback cb =
-        [&] (const example_t *a, example_t *b, void *usr) {
-            TS_ASSERT(a); TS_ASSERT(b);
-            TS_ASSERT_EQUALS(a->data, 1);
-            ++pairDetected;
-            delete b;
-        };
+        zcm::SynchronizedMessageDispatcher <zcm::MessageTracker<example_t>, tracker>::callback
+            cb = [&] (const example_t *a, example_t *b, void *usr) {
+                     TS_ASSERT(a); TS_ASSERT(b);
+                     TS_ASSERT_EQUALS(a->data, 1);
+                     ++pairDetected;
+                     delete b;
+                 };
 
         zcm::ZCM zcmL;
 
