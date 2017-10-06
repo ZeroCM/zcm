@@ -85,9 +85,11 @@ void zcm_cleanup(zcm_t *zcm);
 /* Return the last error: a valid from enum zcm_return_codes */
 int zcm_errno(const zcm_t *zcm);
 
-/* RRR: We should actually make this take the error code, not the zcm pointer */
 /* Return the last error in string format */
 const char *zcm_strerror(const zcm_t *zcm);
+
+/* Returns the error string from the error number */
+const char *zcm_strerrno(int err);
 
 /* Subscribe to zcm messages
    Returns a subscription object on success, and NULL on failure

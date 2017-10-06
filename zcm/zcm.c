@@ -163,11 +163,15 @@ static const char *errcode_str[] = {
 
 const char *zcm_strerror(const zcm_t *zcm)
 {
-    unsigned err = (unsigned)zcm->err;
-    if (err >= ZCM__RESERVED_COUNT) {
+    return zcm_strerrno(zcm->err);
+}
+
+const char *zcm_strerrno(int err)
+{
+    if (((unsigned) err) >= ZCM__RESERVED_COUNT) {
         return "Unknown error occurred";
     } else {
-        return errcode_str[err];
+        return errcode_str[(unsigned) err];
     }
 }
 

@@ -58,6 +58,11 @@ inline const char* ZCM::strerror() const
     return zcm_strerror(zcm);
 }
 
+inline const char* ZCM::strerrno(int err) const
+{
+    return zcm_strerrno(err);
+}
+
 inline void ZCM::run()
 {
     zcm_run(zcm);

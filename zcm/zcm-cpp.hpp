@@ -30,6 +30,7 @@ class ZCM
     virtual inline bool good() const;
     virtual inline int err() const; // errno is a reserved name, so this returns zcm_errno()
     virtual inline const char* strerror() const;
+    virtual inline const char* strerrno(int err) const;
 
     virtual inline void run();
     virtual inline void start();
