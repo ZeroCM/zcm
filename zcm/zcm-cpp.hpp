@@ -93,12 +93,13 @@ class ZCM
     /**** Methods for inheritor override ****/
     virtual inline int publishRaw(const std::string& channel, const char* data, uint32_t len);
 
-    // Returns the raw subscription, rawSub, which will be passed to unsubscribeRaw when
-    // zcm->unsubscribe() is called on a cpp subscription
-    virtual inline void* subscribeRaw(const std::string& channel, MsgHandler cb, void* subUsr);
+    // Set the value of "rawSub" with your underlying subscription. "rawSub" will be passed
+    // (by reference) into unsubscribeRaw when zcm->unsubscribe() is called on a cpp subscription
+    virtual inline void subscribeRaw(void*& rawSub, const std::string& channel,
+                                     MsgHandler cb, void* usr);
 
     // Unsubscribes from a raw subscription. Effectively undoing the actions of subscribeRaw
-    virtual inline void unsubscribeRaw(void* rawSub);
+    virtual inline void unsubscribeRaw(void*& rawSub);
 
   private:
     zcm_t* zcm;
