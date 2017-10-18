@@ -61,7 +61,7 @@ var libzcm = new ffi.Library('libzcm', {
  */
 function makeDispatcher(cb)
 {
-    return function(rbuf, channel, usr) {
+    return function (rbuf, channel, usr) {
         var pointerSize = ref.coerceType('size_t').alignment;
         var int64Size   = ref.coerceType('uint64').alignment;
         var int32Size   = ref.coerceType('uint32').alignment;
@@ -124,7 +124,7 @@ function zcm(zcmtypes, zcmurl)
      */
     function publish_raw(channel, data)
     {
-        libzcm.zcm_publish.async(z, channel, data, data.length, function(err, res) {});
+        libzcm.zcm_publish.async(z, channel, data, data.length, function (err, res) {});
     }
 
     /**
@@ -137,10 +137,14 @@ function zcm(zcmtypes, zcmurl)
      */
     function subscribe(channel, type, cb, successCb)
     {
-        var type = zcmtypes[type];
-        var sub = subscribe_raw(channel, function(channel, data) {
-            cb(channel, type.decode(data));
-        }, successCb);
+        if (type) {
+            var type = zcmtypes[type];
+            var sub = subscribe_raw(channel, function (channel, data) {
+                cb(channel, type.decode(data));
+            }, successCb);
+        } else {
+            var sub = subscribe_raw(channel, cb, successCb);
+        }
     }
 
     /**
@@ -167,34 +171,6 @@ function zcm(zcmtypes, zcmurl)
     }
 
     /**
-     * Subscribes to all zcm channels on the created transport
-     * @param {dispatchDecodedCallback} cb - callback to handle received messages
-     * @param {successCb} successCb - callback for successful subscription
-     */
-    function subscribe_all(cb, successCb)
-    {
-        subscribe_all_raw(function(channel, data){
-            var hash = ref.readUInt64BE(data, 0);
-            if (!(hash in zcmtypeHashMap)) {
-                console.log("Unable to decode zcmtype on channel: " + channel
-                            + " with hash: " + hash);
-            } else {
-                cb(channel, zcmtypeHashMap[hash].decode(data));
-            }
-        }, successCb);
-    }
-
-    /**
-     * Subscribes to all zcm channels on the created transport
-     * @param {dispatchRawCallback} cb - callback to handle received messages
-     * @param {successCb} successCb - callback for successful subscription
-     */
-    function subscribe_all_raw(cb, successCb)
-    {
-        return subscribe_raw(".*", cb, successCb);
-    }
-
-    /**
      * Unsubscribes from the zcm channel referenced by the given subscription
      * @param {subscriptionRef} subscription - ref to the subscription to be unsubscribed from
      */
@@ -213,7 +189,6 @@ function zcm(zcmtypes, zcmurl)
     return {
         publish:        publish,
         subscribe:      subscribe,
-        subscribe_all:  subscribe_all,
         unsubscribe:    unsubscribe,
         zcmtypes:       zcmtypes,
     };
@@ -226,54 +201,44 @@ function zcm_create(zcmtypes, zcmurl, http)
     if (http) {
         var io = require('socket.io')(http);
 
-        io.on('connection', function(socket) {
+        io.on('connection', function (socket) {
             var subscriptions = {};
             var nextSub = 0;
-            socket.on('client-to-server', function(data) {
+            socket.on('client-to-server', function (data) {
                 ret.publish(data.channel, data.type, data.msg);
             });
-            socket.on('subscribe', function(data, returnSubscription) {
-                var subId = data.subId;
-                ret.subscribe(data.channel, data.type, function(channel, msg) {
+            socket.on('subscribe', function (data, returnSubscription) {
+                var subId = nextSub++;
+                ret.subscribe(data.channel, data.type, function (channel, msg) {
                     socket.emit('server-to-client', {
                         channel: channel,
                         msg: msg,
                         subId: subId
                     });
-                }, function successCb(subscription) {
-                    subscriptions[nextSub] = subscription;
-                    returnSubscription(nextSub++);
+                }, function successCb (subscription) {
+                    subscriptions[subId] = subscription;
+                    returnSubscription(subId);
                 });
             });
-            socket.on('subscribe_all', function(data, returnSubscription){
-                var subId = data.subId;
-                ret.subscribe_all(function(channel, msg){
-                    socket.emit('server-to-client', {
-                        channel: channel,
-                        msg: msg,
-                        subId: subId
-                    });
-                }, function successCb(subscription) {
-                    subscriptions[nextSub] = subscription;
-                    returnSubscription(nextSub++);
-                });
-            });
-            socket.on('unsubscribe', function(subId, successCb) {
+            socket.on('unsubscribe', function (subId, successCb) {
+                if (! (subId in subscriptions)) {
+                    successCb();
+                    return;
+                }
                 ret.unsubscribe(subscriptions[subId],
                                 function _successCb() {
                                     delete subscriptions[subId];
                                     if (successCb) successCb();
                                 });
             });
-            socket.on('disconnect', function(){
-                for (var id in subscriptions) {
-                    ret.unsubscribe(subscriptions[id]);
-                    delete subscriptions[id];
+            socket.on('disconnect', function () {
+                for (var subId in subscriptions) {
+                    ret.unsubscribe(subscriptions[subId]);
+                    delete subscriptions[subId];
                 }
                 nextSub = 0;
             });
             socket.emit('zcmtypes', zcmtypes);
-            console.log("Sending zcmtypes");
         });
     }
 
