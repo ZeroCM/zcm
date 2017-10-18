@@ -10,7 +10,7 @@ function subscribe(successCb) {
     console.log('Subscribing to FOOBAR_SERVER');
     z.subscribe('FOOBAR_SERVER', 'example_t', handle,
                 function _successCb (sub) {
-                    console.log('Subscribed to FOOBAR_SERVER');
+                    console.log('Subscribed to FOOBAR_SERVER. Sub id:', sub);
                     subscriptions.push({channel      : 'FOOBAR_SERVER',
                                         subscription : sub});
                     if (successCb) successCb(true);

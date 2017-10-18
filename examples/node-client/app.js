@@ -23,8 +23,8 @@ setInterval(function() {
 }, 1000);
 
 var sub = null;
-z.subscribe_all(function(channel, msg) {
-    console.log("Subscribe All message received on channel " + channel);
+z.subscribe(".*", null, function(channel, msg) {
+    console.log("Subscribe message received on channel " + channel);
 }, function successCb (_sub) {
     sub = _sub;
 });
