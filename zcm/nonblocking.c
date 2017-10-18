@@ -5,7 +5,6 @@
 #include <string.h>
 
 /* TODO remove malloc for preallocated mem and linked-lists */
-/* RRR: DEFINITELY make this noted somewhere */
 #ifndef ZCM_NONBLOCK_SUBS_MAX
 #define ZCM_NONBLOCK_SUBS_MAX 512
 #endif

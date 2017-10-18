@@ -20,20 +20,28 @@ be used to *summon* the transport:
     <th>        Type          </th>
     <th>        URL Format    </th>
     <th>        Example Usage </th>
-  </tr></thead><tr>
+  </tr></thead>
+  <tr>
     <td>        Inter-thread                                            </td>
     <td><code>  inproc                                                  </code></td>
     <td><code>  zcm_create("inproc")                                    </code></td>
-  </tr><tr>
+  </tr>
+  <tr>
     <td>        Inter-process (IPC)                                     </td>
     <td><code>  ipc://&lt;ipc-subnet&gt;                                </code></td>
-    <td><code>  zcm_create("ipc")                                       </code></td>
-    <td><code>  zcm_create("ipc://mysubnet")                            </code></td>
-  </tr><tr>
+    <td><code>  zcm_create("ipc"), zcm_create("ipc://mysubnet")         </code></td>
+  </tr>
+  <tr>
+    <td>        Nonblocking Inter-thread                                </td>
+    <td><code>  nonblock-inproc                                         </code></td>
+    <td><code>  zcm_create("nonblock-inproc")                           </code></td>
+  </tr>
+  <tr>
     <td>        UDP Multicast                                           </td>
     <td><code>  udpm://&lt;udpm-ipaddr&gt;:&lt;port&gt;?ttl=&lt;ttl&gt; </code></td>
     <td><code>  zcm_create("udpm://239.255.76.67:7667?ttl=0")           </code></td>
-  </tr><tr>
+  </tr>
+  <tr>
     <td>        Serial                                                  </td>
     <td><code>  serial://&lt;path-to-device&gt;?baud=&lt;baud&gt;       </code></td>
     <td><code>  zcm_create("serial:///dev/ttyUSB0?baud=115200")         </code></td>
@@ -201,7 +209,11 @@ IMPORTANT: The `my_transport_create` **must** set the `trans_type` and `vtbl` fi
 
 General Note: None of the non-blocking methods must be thread-safe.
 This API is designed for single-thread, non-blocking, and minimalist
-transports (such as those found in embedded).
+transports (such as those found in embedded). In order to make nonblocking
+transports friendly to embedded systems, memory for subscriptions is
+allocated at compile time. You can control the maximum number of
+subscriptions by defining the preprocessor variable, `ZCM_NONBLOCK_SUBS_MAX`.
+By default, this number is 512.
 
  - `size_t get_mtu(zcm_trans_t *zt)`
 

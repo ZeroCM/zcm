@@ -32,9 +32,6 @@ enum zcm_return_codes {
     ZCM_EUNKNOWN  = 255,
 };
 
-/* TODO: The use of `type *name` instead of `type* name` and char* instead of uint8_t*
- *       throughout this file and much of zcm makes me nauseated */
-
 /* Forward typedef'd structs */
 typedef struct zcm_trans_t zcm_trans_t;
 typedef struct zcm_t zcm_t;

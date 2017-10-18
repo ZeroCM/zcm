@@ -389,7 +389,7 @@ inline void ZCM::subscribeRaw(void*& rawSub, const std::string& channel,
 { rawSub = zcm_subscribe(zcm, channel.c_str(), cb, usr); }
 
 inline void ZCM::unsubscribeRaw(void*& rawSub)
-{ zcm_unsubscribe(zcm, (zcm_sub_t*) rawSub); }
+{ zcm_unsubscribe(zcm, (zcm_sub_t*) rawSub); rawSub = nullptr; }
 
 #ifndef ZCM_EMBEDDED
 inline LogFile::LogFile(const std::string& path, const std::string& mode)

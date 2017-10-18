@@ -120,19 +120,13 @@ class Subscription
     virtual ~Subscription() {}
 
     void* getRawSub() const
-    {
-        return rawSub;
-    }
+    { return rawSub; }
 
     inline void dispatch(const ReceiveBuffer* rbuf, const std::string& channel)
-    {
-        (*callback)(rbuf, channel, usr);
-    }
+    { (*callback)(rbuf, channel, usr); }
 
     static inline void dispatch(const ReceiveBuffer* rbuf, const char* channel, void* usr)
-    {
-        ((Subscription*)usr)->dispatch(rbuf, channel);
-    }
+    { ((Subscription*)usr)->dispatch(rbuf, channel); }
 };
 
 // TODO: why not use or inherit from the existing zcm data structures for the below
