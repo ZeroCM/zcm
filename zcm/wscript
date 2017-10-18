@@ -7,6 +7,10 @@ from waflib.Errors import WafError
 def build(ctx):
     ctx.env.RPATH_zcm = [ctx.path.get_bld().abspath()]
 
+    srcExcludes = ['transport/third-party/embedded']
+    if not ctx.env.USING_THIRD_PARTY:
+        srcExcludes.append('transport/third-party')
+
     ctx.shlib(target = 'zcm',
               # Note: Had to make the include path one level up so that includes
               #       within this directory structure would match the structure
@@ -20,7 +24,7 @@ def build(ctx):
                                           'tools/*.c', 'tools/*.cpp',
                                           'json/jsoncpp.cpp',
                                           'transport/**/*.c', 'transport/**/*.cpp'],
-                                          excl='transport/third-party'))
+                                          excl=srcExcludes))
 
 
     embedSource = ['zcm.h', 'zcm_private.h', 'zcm.c', 'zcm-cpp.hpp', 'zcm-cpp-impl.hpp',

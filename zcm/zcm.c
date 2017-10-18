@@ -127,6 +127,8 @@ int zcm_init_trans(zcm_t *zcm, zcm_trans_t *zt)
     }
 
  fail:
+    zcm->type = ZCM_NONBLOCKING;
+    zcm->impl = NULL;
     zcm->err = ZCM_ECONNECT;
     return -1;
 }
@@ -146,7 +148,7 @@ void zcm_cleanup(zcm_t *zcm)
     }
 }
 
-int zcm_errno(zcm_t *zcm)
+int zcm_errno(const zcm_t *zcm)
 {
     return zcm->err;
 }
@@ -159,13 +161,17 @@ static const char *errcode_str[] = {
     "Operation was unexpectedly interrupted",   /* ZCM_EINTR */
 };
 
-const char *zcm_strerror(zcm_t *zcm)
+const char *zcm_strerror(const zcm_t *zcm)
 {
-    unsigned err = (unsigned)zcm->err;
-    if (err >= ZCM__RESERVED_COUNT) {
+    return zcm_strerrno(zcm->err);
+}
+
+const char *zcm_strerrno(int err)
+{
+    if (((unsigned) err) >= ZCM__RESERVED_COUNT) {
         return "Unknown error occurred";
     } else {
-        return errcode_str[err];
+        return errcode_str[(unsigned) err];
     }
 }
 

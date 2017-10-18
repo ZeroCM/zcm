@@ -16,7 +16,7 @@
 #include <unistd.h>
 #include <limits.h>
 
-#define ZCM_TRANS_NAME TransportFile
+#define ZCM_TRANS_CLASSNAME TransportFile
 #define MTU (SSIZE_MAX)
 
 using namespace std;

@@ -37,10 +37,9 @@ int main(int argc, char *argv[])
     }
 
     zcm_t zcm;
-    if (!zcm_init(&zcm, "nonblock-test"))
-        return 1;
+    if (zcm_init(&zcm, "nonblock-inproc") != 0) return 1;
 
-    example_t_subscribe(&zcm, "EXAMPLE", &my_handler, NULL);
+    example_t_subscription_t* exSub = example_t_subscribe(&zcm, "EXAMPLE", &my_handler, NULL);
 
     example_t my_data = {
         .timestamp = 0,
@@ -53,11 +52,17 @@ int main(int argc, char *argv[])
     my_data.name = "example string";
     my_data.enabled = 1;
 
-    while (1) {
+    size_t i;
+    for (i = 0; i < 10; ++i) {
+        my_data.timestamp = i;
         example_t_publish(&zcm, "EXAMPLE", &my_data);
         usleep(100000);
         zcm_handle_nonblock(&zcm);
     }
+
+    free(my_data.ranges);
+
+    example_t_unsubscribe(&zcm, exSub);
 
     zcm_cleanup(&zcm);
     return 0;

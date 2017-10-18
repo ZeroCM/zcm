@@ -80,10 +80,13 @@ int  zcm_init_trans(zcm_t *zcm, zcm_trans_t *zt);
 void zcm_cleanup(zcm_t *zcm);
 
 /* Return the last error: a valid from enum zcm_return_codes */
-int zcm_errno(zcm_t *zcm);
+int zcm_errno(const zcm_t *zcm);
 
 /* Return the last error in string format */
-const char *zcm_strerror(zcm_t *zcm);
+const char *zcm_strerror(const zcm_t *zcm);
+
+/* Returns the error string from the error number */
+const char *zcm_strerrno(int err);
 
 /* Subscribe to zcm messages
    Returns a subscription object on success, and NULL on failure

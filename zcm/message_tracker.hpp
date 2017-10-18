@@ -460,17 +460,13 @@ class MessageTracker : public virtual Tracker<T>
     MessageTracker() {}
 
     void _handle(const zcm::ReceiveBuffer* rbuf, const std::string& chan, const T* _msg)
-    {
-        this->handle(rbuf, chan, _msg);
-    }
+    { this->handle(rbuf, chan, _msg); }
 
   protected:
     virtual uint64_t handle(const zcm::ReceiveBuffer* rbuf,
                             const std::string& chan,
                             const T* _msg)
-    {
-        return Tracker<T>::newMsg(_msg, rbuf->recv_utime);
-    }
+    { return Tracker<T>::newMsg(_msg, rbuf->recv_utime); }
 
   public:
     MessageTracker(zcm::ZCM* zcmLocal, const std::string& channel,
@@ -486,9 +482,7 @@ class MessageTracker : public virtual Tracker<T>
     }
 
     virtual ~MessageTracker()
-    {
-        if (s) zcmLocal->unsubscribe(s);
-    }
+    { if (s) zcmLocal->unsubscribe(s); }
 };
 
 // This class will attempt to synchronize messages of type Type1Tracker::ZcmType to
