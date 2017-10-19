@@ -53,16 +53,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         return MTU;
     }
 
-    // RRR: why does sendmsg take a zcm_msg_t by value ...
     int sendmsg(zcm_msg_t msg)
     {
-        // RRR: how much of this checking should we actually do in here? Are we willing
-        //      to trust the user a bit to prevent extra checks.
-        if (msg.channel == nullptr || msg.buf == nullptr) {
-            ZCM_DEBUG("nonblock_inproc_send failed: null channel / buf");
-            return ZCM_EINVALID;
-        }
-
         size_t chanLen = 0;
         for (; chanLen < ZCM_CHANNEL_MAXLEN + 1; ++chanLen) {
             if (msg.channel[chanLen] == '\0') break;
