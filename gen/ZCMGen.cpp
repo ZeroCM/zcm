@@ -72,14 +72,14 @@ static bool isLegalMemberName(const string& t)
 
 // Make the hash dependent on the value of the given character. The
 // order that hash_update is called in IS important.
-static i64 hashUpdate(i64 v, char c)
+static u64 hashUpdate(u64 v, char c)
 {
     v = ((v<<8) ^ (v>>55)) + c;
     return v;
 }
 
 // Make the hash dependent on each character in a string.
-static i64 hashUpdate(i64 v, const string& s)
+static u64 hashUpdate(u64 v, const string& s)
 {
     v = hashUpdate(v, s.size());
     for (auto& c : s)
@@ -145,9 +145,9 @@ ZCMConstant::ZCMConstant(const string& type, const string& name, const string& v
     type(type), membername(name), valstr(valstr)
 {}
 
-i64 ZCMStruct::computeHash()
+u64 ZCMStruct::computeHash()
 {
-    i64 v = 0x12345678;
+    u64 v = 0x12345678;
 
     // NOTE: Purposefully, we do NOT include the structname in the hash.
     // this allows people to rename data types and still have them work.
