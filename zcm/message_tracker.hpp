@@ -404,7 +404,8 @@ class Tracker
     double getHz() const
     {
         std::unique_lock<BufLockType> lk(bufLock);
-        return 1e6 / hzFilter[Filter::LOW_PASS];
+        double lp = hzFilter[Filter::LOW_PASS];
+        return lp <= 1e-9 ? -1 : 1e6 / lp;
     }
 
     uint64_t lastMsgHostUtime() const
