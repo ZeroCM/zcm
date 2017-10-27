@@ -85,7 +85,7 @@ struct ZCMStruct
     vector<ZCMConstant>  constants;
 
     string               zcmfile; // file/path of function that declared it
-    i64                  hash;
+    u64                  hash;
 
     // Comments in the ZCM type defition immediately before a struct is declared
     // are attached to that struct.
@@ -123,7 +123,7 @@ struct ZCMStruct
     // Returns the constant of a struct by name. Returns NULL on error.
     ZCMConstant *findConst(const string& name);
 
-    i64 computeHash();
+    u64 computeHash();
 
     void dump();
     ZCMStruct(ZCMGen& zcmgen, const string& zcmfile, const string& structname);
