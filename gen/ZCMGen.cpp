@@ -149,11 +149,6 @@ u64 ZCMStruct::computeHash()
 {
     u64 v = 0x12345678;
 
-    // NOTE: Purposefully, we do NOT include the structname in the hash.
-    // this allows people to rename data types and still have them work.
-    //
-    // In contrast, we DO hash the types of a structs members (and their names).
-
     #ifdef ENABLE_TYPENAME_HASHING
     v = hashUpdate(v, structname.shortname);
     #endif
