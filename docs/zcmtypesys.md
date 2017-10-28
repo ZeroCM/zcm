@@ -106,12 +106,12 @@ errors.
 
 Hashing primatives:
 
-    int64 hashbyte(i64 hash, byte v)
+    i64 hashbyte(i64 hash, byte v)
     {
-        return ((((uint64_t)hash)<<8) ^ (((uint64_t)hash)>>53)) + v;
+        return ((((u64)hash)<<8) ^ (((u64)hash)>>53)) + v;
     }
 
-    int64 hashstring(int64 hash, string s)
+    i64 hashstring(i64 hash, string s)
     {
         hashbyte(s.length);
         for (b in s)
@@ -120,9 +120,9 @@ Hashing primatives:
 
 Hashing zcmtypes:
 
-    int64 hashtype()
+    i64 hashtype()
     {
-        int64 hash = 0x12345678;
+        i64 hash = 0x12345678;
 
         if (HASH_TYPENAME)
             hash = hashstring(hash, zcmtype_name);
@@ -156,7 +156,7 @@ is fairly simple. The algorithm proceeds as follows:
 
     i64 TYPE_hash_recursive()
     {
-        i64 hash = BASE_HASH;
+        u64 hash = BASE_HASH;
                  + SUBTYPE1_hash_recursive()
                  + SUBTYPE2_hash_recursive()
                  + SUBTYPE3_hash_recursive()
