@@ -131,7 +131,8 @@ type Zcm
     # http://julialang.org/blog/2013/05/callback
 
 
-    # RRR: make prints throughout this file optional
+    # RRR: make prints throughout this file optional. Note that printing in a finalizer is not
+    #      ok because it can cause errors on exit if stdout has already been cleaned up
     function Zcm(url::AbstractString)
         println("Creating zcm with url : ", url);
         instance = new();
@@ -140,7 +141,6 @@ type Zcm
         # user can force cleanup of their instance by calling `finalize(zcm)`
         finalizer(instance, function(zcm::Zcm)
                                 if (zcm.zcm != C_NULL)
-                                    println("Destroying zcm instance");
                                     ccall(("zcm_destroy", "libzcm"), Void,
                                           (Ptr{Native.Zcm},), zcm.zcm);
                                     zcm.zcm = C_NULL;
@@ -270,7 +270,6 @@ type LogEvent
         # user can force cleanup of their instance by calling `finalize(zcm)`
         finalizer(instance, function(event::LogEvent)
                                 if (event.event != C_NULL)
-                                    println("Destroying zcm eventlog event instance");
                                     ccall(("zcm_eventlog_free_event", "libzcm"), Void,
                                           (Ptr{Native.EventLogEvent},), event.event);
                                     event.event = C_NULL;
@@ -303,7 +302,6 @@ type LogFile
         # user can force cleanup of their instance by calling `finalize(zcm)`
         finalizer(instance, function(log::LogFile)
                                 if (log.eventLog != C_NULL)
-                                    println("Destroying zcm eventlog instance");
                                     ccall(("zcm_eventlog_destroy", "libzcm"), Void,
                                           (Ptr{Native.EventLog},), log.eventLog);
                                     log.eventLog = C_NULL;
