@@ -1,23 +1,28 @@
 module ZCM
 
+# RRR / Note: Julia requires that the memory layout of the C structs is consistent
+#             between their definitions in zcm headers and this file
 
-# C ptr types
+# C ptr types for types that we don't need the internals of
 module Native
 
 type Zcm
 end
 
-#type RecvBuf
-#end
-
 type Sub
 end
 
-#type Eventlog
-#end
-#
-#type EventlogEvent
-#end
+type EventLog
+end
+
+type EventLogEvent
+    eventnum  ::Int64;
+    timestamp ::Int64;
+    chanlen   ::Int32;
+    datalen   ::Int32;
+    channel   ::Ptr{UInt8};
+    data      ::Ptr{UInt8};
+end
 
 end
 
@@ -51,6 +56,10 @@ end
 
 
 
+# RRR: probably want to move the nativer version of this into the Native section and then
+#      make a julia-usable version (that casts the data Ptr to an array). See LogEvent
+# RRR: make variable naming consistent
+# RRR: improve orgainzation and make headers more visible
 # Exported Objects and Methods
 type RecvBuf
     recv_utime::Int64;
@@ -70,11 +79,12 @@ export RecvBuf;
 #     https://github.com/JuliaLang/julia/pull/5657
 
 type __zcm_handler
-    handler::Any; # Can be either a Function or a Functor, TODO add prototype
+    handler::Any;
     usr::Any;
-    function __zcm_handler(handler, usr)
-        new(handler, usr);
-    end
+
+    # handler must have the function or functor prototype :
+    #   (rbuf::RecvBuf, channel::String, msg::MsgType, usr)
+    __zcm_handler(handler, usr) = new(handler, usr);
 end
 
 function __zcm_handler_wrapper(rbuf::Ptr{RecvBuf}, channel::Cstring, usr_::Ptr{Void})
@@ -98,27 +108,30 @@ end
 type Zcm
     zcm::Ptr{Native.Zcm};
 
+    # RRR: make a good() call?
+    good        ::Function  # () ::Bool
     errno       ::Function; # () ::Int32
     strerror    ::Function; # () ::String
 
-    # TODO refine these comments
-    subscribeRaw::Function; #  (channel::String, handler::Handler, usr::Any) ::Ptr{Native.Sub}
-    subscribe   ::Function; #  (channel::String, handler::Handler, usr::Any) ::Ptr{Native.Sub}
-    unsubscribe ::Function; #  (sub::Ptr{Native.Sub}) ::Int32
-    publishRaw  ::Function; #  (channel::String, data::Array{Uint8}, datalen::Uint32) ::Int32
-    publish     ::Function; #  (channel::String, msg::Msg) ::Int32
-    flush       ::Function; #  () ::Void
+    # TODO refine these comments (handler and msg not well defined)
+    subscribeRaw::Function; # (channel::String, handler::Handler, usr::Any) ::Ptr{Native.Sub}
+    subscribe   ::Function; # (channel::String, handler::Handler, usr::Any) ::Ptr{Native.Sub}
+    unsubscribe ::Function; # (sub::Ptr{Native.Sub}) ::Int32
+    publishRaw  ::Function; # (channel::String, data::Array{Uint8}, datalen::Uint32) ::Int32
+    publish     ::Function; # (channel::String, msg::Msg) ::Int32
+    flush       ::Function; # () ::Void
 
-    run         ::Function; #  () ::Void
-    start       ::Function; #  () ::Void
-    stop        ::Function; #  () ::Void
-    handle      ::Function; #  () ::Void
+    run         ::Function; # () ::Void
+    start       ::Function; # () ::Void
+    stop        ::Function; # () ::Void
+    handle      ::Function; # () ::Void
 
 
     # http://docs.julialang.org/en/stable/manual/calling-c-and-fortran-code/
     # http://julialang.org/blog/2013/05/callback
 
 
+    # RRR: make prints throughout this file optional
     function Zcm(url::AbstractString)
         println("Creating zcm with url : ", url);
         instance = new();
@@ -133,6 +146,10 @@ type Zcm
                                     zcm.zcm = C_NULL;
                                 end
                             end);
+
+        instance.good = function()
+            return (instance.zcm != C_NULL) && (instance.errno() == 0);
+        end
 
         instance.errno = function()
             return ccall(("zcm_errno", "libzcm"), Cint, (Ptr{Native.Zcm},), instance.zcm);
@@ -220,13 +237,115 @@ type Zcm
 end
 export Zcm;
 
-#type Eventlog
-#end
-#export Eventlog;
-#
-#type EventlogEvent
-#end
-#export EventlogEvent;
+# RRR: go over the signedness of all these types from within zcm ... some of them are dumb
+type LogEvent
+    event     ::Ptr{Native.EventLogEvent};
+
+    eventnum  ::Int64;
+    timestamp ::Int64;
+    channel   ::String;
+    data      ::Array{UInt8};
+
+    function LogEvent(event::Ptr{Native.EventLogEvent})
+        instance  = new();
+        instance.event = event;
+
+        if (event != C_NULL)
+            loadedEvent = unsafe_load(event);
+
+            instance.eventnum  = loadedEvent.eventnum;
+            instance.timestamp = loadedEvent.timestamp;
+            if (loadedEvent.channel != C_NULL)
+                instance.channel = unsafe_string(loadedEvent.channel, loadedEvent.chanlen);
+            else
+                instance.channel = "Channel was NULL"
+            end
+            if (loadedEvent.data != C_NULL)
+                instance.data    = unsafe_wrap(Array, loadedEvent.data, loadedEvent.datalen);
+            else
+                instance.data    = [0x1, 0x2, 0x3, 0x4];
+            end
+        end
+
+        # user can force cleanup of their instance by calling `finalize(zcm)`
+        finalizer(instance, function(event::LogEvent)
+                                if (event.event != C_NULL)
+                                    println("Destroying zcm eventlog event instance");
+                                    ccall(("zcm_eventlog_free_event", "libzcm"), Void,
+                                          (Ptr{Native.EventLogEvent},), event.event);
+                                    event.event = C_NULL;
+                                end
+                            end);
+
+        return instance;
+    end
+end
+
+export LogEvent;
+type LogFile
+    eventLog::Ptr{Native.EventLog};
+
+    good           ::Function; # () ::Bool
+
+    seekToTimestamp   ::Function; # (timestamp::Int64) ::Int32
+
+    readNextEvent     ::Function; # () ::LogEvent
+    readPrevEvent     ::Function; # () ::LogEvent
+    readEventAtOffset ::Function; # (offset::Int64) ::LogEvent
+    writeEvent        ::Function; # (event::LogEvent) ::Int32
+
+    function LogFile(path::AbstractString, mode::AbstractString)
+        println("Creating zcm eventlog from path : ", path, " with mode ", mode);
+        instance = new();
+        instance.eventLog = ccall(("zcm_eventlog_create", "libzcm"), Ptr{Native.EventLog},
+                                  (Cstring, Cstring), path, mode);
+
+        # user can force cleanup of their instance by calling `finalize(zcm)`
+        finalizer(instance, function(log::LogFile)
+                                if (log.eventLog != C_NULL)
+                                    println("Destroying zcm eventlog instance");
+                                    ccall(("zcm_eventlog_destroy", "libzcm"), Void,
+                                          (Ptr{Native.EventLog},), log.eventLog);
+                                    log.eventLog = C_NULL;
+                                end
+                            end);
+
+        instance.good = function()
+            return instance.eventLog != C_NULL;
+        end
+
+        instance.readNextEvent = function()
+            event = ccall(("zcm_eventlog_read_next_event", "libzcm"), Ptr{Native.EventLogEvent},
+                          (Ptr{Native.EventLog},), instance.eventLog)
+            return LogEvent(event);
+        end
+
+        instance.readPrevEvent = function()
+            event = ccall(("zcm_eventlog_read_prev_event", "libzcm"), Ptr{Native.EventLogEvent},
+                          (Ptr{Native.EventLog},), instance.eventLog)
+            return LogEvent(event);
+        end
+
+        instance.readEventAtOffset = function(offset::Int64)
+            event = ccall(("zcm_eventlog_read_event_at_offset", "libzcm"), Ptr{Native.EventLogEvent},
+                          (Ptr{Native.EventLog}, Int64), instance.eventLog, offset)
+            return LogEvent(event);
+        end
+
+        # RRR: need to make a way to encode the event into a native object before we'll
+        #      be able to write different data out to the file
+        instance.writeEvent = function(event::LogEvent)
+            return ccall(("zcm_eventlog_write_event", "libzcm"), Int32,
+                         (Ptr{Native.EventLog}, Ptr{Native.EventLogEvent}),
+                         instance.eventLog, event.event);
+        end
+
+        return instance;
+    end
+
+
+end
+export LogFile;
 
 
 end
