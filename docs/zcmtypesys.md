@@ -108,7 +108,7 @@ Hashing primatives:
 
     int64 hashbyte(i64 hash, byte v)
     {
-        return ((hash<<8) ^ (hash>>53)) + v;
+        return ((((uint64_t)hash)<<8) ^ (((uint64_t)hash)>>53)) + v;
     }
 
     int64 hashstring(int64 hash, string s)
