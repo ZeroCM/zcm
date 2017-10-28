@@ -425,7 +425,7 @@ struct EmitStruct : public Emitter
         emit(3,";");
 
         emit(2, "classes.remove(classes.size() - 1);");
-        emit(2, "return (hash<<1) + ((hash>>63)&1);");
+        emit(2, "return (hash<<1) + ((hash>>>63)&1);");
 
         emit(1, "}");
         emit(0, " ");
