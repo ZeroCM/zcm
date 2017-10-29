@@ -7,9 +7,16 @@ from waflib.Errors import WafError
 def build(ctx):
     ctx.env.RPATH_zcm = [ctx.path.get_bld().abspath()]
 
+    DEPS = ['default', 'zmq']
+
     srcExcludes = ['transport/third-party/embedded']
     if not ctx.env.USING_THIRD_PARTY:
         srcExcludes.append('transport/third-party')
+
+    if not ctx.env.USING_LIBUV:
+        srcExcludes.append('util/uvCallback.cpp')
+    else:
+        DEPS.append('uv')
 
     ctx.shlib(target = 'zcm',
               # Note: Had to make the include path one level up so that includes
@@ -18,7 +25,7 @@ def build(ctx):
               #       #include "zcm/file.h".
               includes = '..',
               export_includes = '..',
-              use = ['default', 'zmq'],
+              use = DEPS,
               source = ctx.path.ant_glob(['*.cpp', '*.c',
                                           'util/*.c', 'util/*.cpp',
                                           'tools/*.c', 'tools/*.cpp',
