@@ -225,7 +225,6 @@ type Zcm
         end
 
         instance.run = function()
-            throw("Not yet implemented: Breaks Julia as there is no way to exit this function");
             ccall(("zcm_run", "libzcm"), Void, (Ptr{Native.Zcm},), instance.zcm);
         end
 
