@@ -1,8 +1,6 @@
 #include "uv_zcm_msg_handler.h"
 
-#include <iostream>
 #include <thread>
-
 #include <uv.h>
 
 using namespace std;
@@ -16,7 +14,7 @@ struct uv_zcm_msg_handler_t
 
 	uv_barrier_t blocker;
     uv_async_t handle;
-    std::thread* thr;
+    std::thread::id main_thread_id;
 };
 
 #ifdef __cplusplus
@@ -34,6 +32,8 @@ uv_zcm_msg_handler_t* uv_zcm_msg_handler_create(zcm_msg_handler_t cb, void* usr)
     // Set the usr pointer of the async handler to be the "this" pointer
 	ret->handle.data = ret;
 
+    ret->main_thread_id = std::this_thread::get_id();
+
     return ret;
 }
 
@@ -43,6 +43,11 @@ void uv_zcm_msg_handler_trigger(const zcm_recv_buf_t* rbuf, const char* channel,
 
     uvCb->rbuf = rbuf;
     uvCb->channel = channel;
+
+    if (std::this_thread::get_id() == uvCb->main_thread_id) {
+		uvCb->cb(uvCb->rbuf, uvCb->channel, uvCb->usr);
+        return;
+    }
 
     // Init the barrier to wait for 2 people to be waiting on it before continuing
 	uv_barrier_init(&uvCb->blocker, 2);
@@ -72,9 +77,7 @@ void uv_zcm_msg_handler_trigger(const zcm_recv_buf_t* rbuf, const char* channel,
 }
 
 void uv_zcm_msg_handler_destroy(uv_zcm_msg_handler_t* uvCb)
-{
-    delete uvCb;
-}
+{ delete uvCb; }
 
 #ifdef __cplusplus
 }
