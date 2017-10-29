@@ -128,7 +128,6 @@ type Zcm
     publish     ::Function; # (channel::String, msg::Msg) ::Int32
     flush       ::Function; # () ::Void
 
-    run         ::Function; # () ::Void
     start       ::Function; # () ::Void
     stop        ::Function; # () ::Void
     handle      ::Function; # () ::Void
@@ -222,10 +221,6 @@ type Zcm
 
         instance.flush = function()
             return ccall(("zcm_flush", "libzcm"), Void, (Ptr{Native.Zcm},), instance.zcm);
-        end
-
-        instance.run = function()
-            ccall(("zcm_run", "libzcm"), Void, (Ptr{Native.Zcm},), instance.zcm);
         end
 
         instance.start = function()
