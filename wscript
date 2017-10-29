@@ -42,6 +42,7 @@ def add_zcm_configure_options(ctx):
     add_use_option('java',        'Enable java features')
     add_use_option('nodejs',      'Enable nodejs features')
     add_use_option('python',      'Enable python features')
+    add_use_option('julia',       'Enable julia features')
     add_use_option('zmq',         'Enable ZeroMQ features')
     add_use_option('elf',         'Enable runtime loading of shared libs')
     add_use_option('third-party', 'Enable inclusion of 3rd party transports.')
@@ -127,6 +128,7 @@ def process_zcm_configure_options(ctx):
     env.USING_JAVA        = hasopt('use_java') and attempt_use_java(ctx)
     env.USING_NODEJS      = hasopt('use_nodejs') and attempt_use_nodejs(ctx)
     env.USING_PYTHON      = hasopt('use_python') and attempt_use_python(ctx)
+    env.USING_JULIA       = hasopt('use_julia') and attempt_use_julia(ctx)
     env.USING_ZMQ         = hasopt('use_zmq') and attempt_use_zmq(ctx)
     env.USING_ELF         = hasopt('use_elf') and attempt_use_elf(ctx)
     env.USING_THIRD_PARTY = getattr(opt, 'use_third_party') and attempt_use_third_party(ctx)
@@ -166,6 +168,7 @@ def process_zcm_configure_options(ctx):
     print_entry("Java",        env.USING_JAVA)
     print_entry("NodeJs",      env.USING_NODEJS)
     print_entry("Python",      env.USING_PYTHON)
+    print_entry("Julia",       env.USING_JULIA)
     print_entry("ZeroMQ",      env.USING_ZMQ)
     print_entry("Elf",         env.USING_ELF)
     print_entry("Third Party", env.USING_THIRD_PARTY)
@@ -205,6 +208,12 @@ def attempt_use_python(ctx):
     ctx.load('python')
     ctx.check_python_headers()
     ctx.find_program('cython', var='CYTHON', mandatory=True)
+    return True
+
+def attempt_use_julia(ctx):
+    ctx.find_program('julia', var='julia', mandatory=True)
+    ctx.check_cfg(package='libuv', args='--cflags --libs', uselib_store='uv')
+    ctx.env.USING_LIBUV = True
     return True
 
 def attempt_use_zmq(ctx):
