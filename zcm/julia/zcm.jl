@@ -93,8 +93,8 @@ end
 
 function __zcm_handler_wrapper(rbuf::Ptr{RecvBuf}, channel::Cstring, usr_::Ptr{Void})
     println("hello from wrapper");
-    usr = unsafe_pointer_to_objref(usr_)::__zcm_handler;
-    usr.handler(unsafe_load(rbuf), unsafe_string(channel), usr.usr);
+    # usr = unsafe_pointer_to_objref(usr_)::__zcm_handler;
+    # usr.handler(unsafe_load(rbuf), unsafe_string(channel), usr.usr);
     return nothing;
 end
 
@@ -133,10 +133,8 @@ type Zcm
     stop        ::Function; # () ::Void
     handle      ::Function; # () ::Void
 
-
     # http://docs.julialang.org/en/stable/manual/calling-c-and-fortran-code/
     # http://julialang.org/blog/2013/05/callback
-
 
     # RRR: make prints throughout this file optional. Note that printing in a finalizer is not
     #      ok because it can cause errors on exit if stdout has already been cleaned up
@@ -179,9 +177,9 @@ type Zcm
             handler_jl = __zcm_handler(handler, usr);
             handler_c  = cfunction(__zcm_handler_wrapper, Void,
                                    (Ptr{RecvBuf}, Cstring, Ptr{Void},));
-            uv_wrapper = ccall(("uv_zcm_msg_handler_create", "libzcm"), Ptr{Native.UvSub},
+            uv_wrapper = ccall(("uv_zcm_msg_handler_create", "libzcmuv"), Ptr{Native.UvSub},
                                (Ptr{Void}, Any,), handler_c, handler_jl);
-            uv_handler = cglobal(("uv_zcm_msg_handler_trigger", "libzcm"));
+            uv_handler = cglobal(("uv_zcm_msg_handler_trigger", "libzcmuv"));
 
             return Sub(ccall(("zcm_subscribe", "libzcm"), Ptr{Native.Sub},
                              (Ptr{Native.Zcm}, Cstring, Ptr{Void}, Ptr{Native.UvSub},),
@@ -204,8 +202,11 @@ type Zcm
         end
 
         instance.unsubscribe = function(sub::Sub)
-            return ccall(("zcm_unsubscribe", "libzcm"), Cint,
+            ret = ccall(("zcm_unsubscribe", "libzcm"), Cint,
                          (Ptr{Native.Zcm}, Ptr{Native.Sub}), instance.zcm, sub.sub);
+            ccall(("uv_zcm_msg_handler_destroy", "libzcmuv"), Void,
+                  (Ptr{Native.UvSub},), sub.uv_wrapper);
+            return ret;
         end
 
         instance.publishRaw = function(channel::AbstractString, data::Array{UInt8}, datalen::UInt32)
@@ -229,12 +230,10 @@ type Zcm
         end
 
         instance.start = function()
-            #throw("Not yet implemented: parallelization issues with Julia and C callbacks");
             ccall(("zcm_start", "libzcm"), Void, (Ptr{Native.Zcm},), instance.zcm);
         end
 
         instance.stop = function()
-            # throw("Not yet implemented: parallelization issues with Julia and C callbacks");
             ccall(("zcm_stop", "libzcm"), Void, (Ptr{Native.Zcm},), instance.zcm);
         end
 
