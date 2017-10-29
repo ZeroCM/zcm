@@ -24,6 +24,9 @@ type EventLogEvent
     data      ::Ptr{UInt8};
 end
 
+type UvSub
+end
+
 end
 
 
@@ -66,6 +69,7 @@ type RecvBuf
     zcm       ::Ptr{Native.Zcm};
     data      ::Ptr{UInt8};
     data_size ::UInt32;
+    RecvBuf() = new();
 end
 export RecvBuf;
 
@@ -100,9 +104,12 @@ type Sub
     # References to protect our callbacks from Julia's garbage collector
     handler_jl::__zcm_handler;
     handler_c ::Ptr{Void};
+    uv_handler::Ptr{Void};
+    uv_wrapper::Ptr{Native.UvSub};
 
-    Sub(sub::Ptr{Native.Sub}, handler_jl::__zcm_handler, handler_c::Ptr{Void}) =
-        new(sub, handler_jl, handler_c);
+    Sub(sub::Ptr{Native.Sub}, handler_jl::__zcm_handler, handler_c::Ptr{Void},
+        uv_handler::Ptr{Void}, uv_wrapper::Ptr{Native.UvSub}) =
+        new(sub, handler_jl, handler_c, uv_handler, uv_wrapper);
 end
 
 type Zcm
@@ -171,12 +178,15 @@ type Zcm
 
             handler_jl = __zcm_handler(handler, usr);
             handler_c  = cfunction(__zcm_handler_wrapper, Void,
-                                   (Ptr{RecvBuf}, Cstring, Ptr{Void}));
+                                   (Ptr{RecvBuf}, Cstring, Ptr{Void},));
+            uv_wrapper = ccall(("uv_zcm_msg_handler_create", "libzcm"), Ptr{Native.UvSub},
+                               (Ptr{Void}, Any,), handler_c, handler_jl);
+            uv_handler = cglobal(("uv_zcm_msg_handler_trigger", "libzcm"));
 
             return Sub(ccall(("zcm_subscribe", "libzcm"), Ptr{Native.Sub},
-                             (Ptr{Native.Zcm}, Cstring, Ptr{Void}, Any),
-                             instance.zcm, channel, handler_c, handler_jl),
-                       handler_jl, handler_c);
+                             (Ptr{Native.Zcm}, Cstring, Ptr{Void}, Ptr{Native.UvSub},),
+                             instance.zcm, channel, uv_handler, uv_wrapper),
+                       handler_jl, handler_c, uv_handler, uv_wrapper);
         end
 
         # TODO: get this into docs:
@@ -219,12 +229,12 @@ type Zcm
         end
 
         instance.start = function()
-            throw("Not yet implemented: parallelization issues with Julia and C callbacks");
+            #throw("Not yet implemented: parallelization issues with Julia and C callbacks");
             ccall(("zcm_start", "libzcm"), Void, (Ptr{Native.Zcm},), instance.zcm);
         end
 
         instance.stop = function()
-            throw("Not yet implemented: parallelization issues with Julia and C callbacks");
+            # throw("Not yet implemented: parallelization issues with Julia and C callbacks");
             ccall(("zcm_stop", "libzcm"), Void, (Ptr{Native.Zcm},), instance.zcm);
         end
 
