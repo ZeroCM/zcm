@@ -4,5 +4,10 @@
 def build(ctx):
     DEPS = ['default', 'zcm']
 
+    ctx.env.RPATH_zcmuv = [ctx.path.get_bld().abspath()]
+    ctx.shlib(target = 'zcmuv',
+              use = DEPS,
+              source = ctx.path.ant_glob(['uv_zcm_msg_handler.cpp']))
+
     if ctx.env.USING_CXXTEST:
         ctx.cxxtest(use = DEPS)
