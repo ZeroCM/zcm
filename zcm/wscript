@@ -7,8 +7,6 @@ from waflib.Errors import WafError
 def build(ctx):
     ctx.env.RPATH_zcm = [ctx.path.get_bld().abspath()]
 
-    DEPS = ['default', 'zmq']
-
     srcExcludes = ['transport/third-party/embedded']
     if not ctx.env.USING_THIRD_PARTY:
         srcExcludes.append('transport/third-party')
@@ -22,7 +20,7 @@ def build(ctx):
               #       #include "zcm/file.h".
               includes = '..',
               export_includes = '..',
-              use = DEPS,
+              use = ['default', 'zmq'],
               source = ctx.path.ant_glob(['*.cpp', '*.c',
                                           'util/*.c', 'util/*.cpp',
                                           'tools/*.c', 'tools/*.cpp',
