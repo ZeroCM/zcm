@@ -159,9 +159,9 @@ type Zcm
             handler_jl = __zcm_handler(handler, usr);
             handler_c  = cfunction(__zcm_handler_wrapper, Void,
                                    (Ptr{Native.RecvBuf}, Cstring, Ptr{Void},));
-            uv_wrapper = ccall(("uv_zcm_msg_handler_create", "libzcmuv"), Ptr{Native.UvSub},
+            uv_wrapper = ccall(("uv_zcm_msg_handler_create", "libzcmjulia"), Ptr{Native.UvSub},
                                (Ptr{Void}, Any,), handler_c, handler_jl);
-            uv_handler = cglobal(("uv_zcm_msg_handler_trigger", "libzcmuv"));
+            uv_handler = cglobal(("uv_zcm_msg_handler_trigger", "libzcmjulia"));
 
             return Sub(ccall(("zcm_subscribe", "libzcm"), Ptr{Native.Sub},
                              (Ptr{Native.Zcm}, Cstring, Ptr{Void}, Ptr{Native.UvSub},),
@@ -186,7 +186,7 @@ type Zcm
         instance.unsubscribe = function(sub::Sub)
             ret = ccall(("zcm_unsubscribe", "libzcm"), Cint,
                          (Ptr{Native.Zcm}, Ptr{Native.Sub}), instance.zcm, sub.sub);
-            ccall(("uv_zcm_msg_handler_destroy", "libzcmuv"), Void,
+            ccall(("uv_zcm_msg_handler_destroy", "libzcmjulia"), Void,
                   (Ptr{Native.UvSub},), sub.uv_wrapper);
             return ret;
         end

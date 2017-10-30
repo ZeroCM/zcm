@@ -1,7 +1,7 @@
 #include "uv_zcm_msg_handler.h"
 
 #include <thread>
-#include <uv.h>
+#include <julia/uv.h>
 
 using namespace std;
 
