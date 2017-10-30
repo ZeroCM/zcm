@@ -11,10 +11,15 @@ before_install:
   - sudo apt-get remove julia
   - sudo apt-get remove --purge julia
   - sudo apt-get autoremove
-  - tmpdir=$(mktemp -d) && pushd $tmpdir && sudo apt-get install wget && \
-    wget https://julialang-s3.julialang.org/bin/linux/x64/0.5/julia-0.5.2-linux-x86_64.tar.gz && \
-    tar -xaf julia-0.5.2-linux-x86_64.tar.gz && sudo cp -R ./julia-f4c6c9d4bb/* /usr && \
-    sudo updatedb
+  - tmpdir=$(mktemp -d)
+  - pushd $tmpdir
+  - sudo apt-get install wget
+  - sudo updatedb
+  - wget https://julialang-s3.julialang.org/bin/linux/x64/0.5/julia-0.5.2-linux-x86_64.tar.gz
+  - tar -xaf julia-0.5.2-linux-x86_64.tar.gz
+  - sudo cp -R ./julia-f4c6c9d4bb/* /usr
+  - sudo updatedb
+  - popd
   - git clone https://github.com/CxxTest/cxxtest.git
   - export PATH=$PATH:`pwd`/cxxtest/bin/; export LIBRARY_PATH=$LIBRARY_PATH:`pwd`/cxxtest/
   - sudo apt-get remove --purge clang
