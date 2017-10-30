@@ -212,7 +212,6 @@ def attempt_use_python(ctx):
 
 def attempt_use_julia(ctx):
     ctx.find_program('julia', var='julia', mandatory=True)
-    ctx.check_cfg(package='libuv', args='--cflags --libs', uselib_store='uv')
     return True
 
 def attempt_use_zmq(ctx):
