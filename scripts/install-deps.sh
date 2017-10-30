@@ -42,7 +42,7 @@ PKGS+='cxxtest '
 PKGS+='clang '
 
 ## Julia
-PKGS+='julia libuv1-dev '
+PKGS+='julia '
 
 echo "Updating apt repos"
 sudo apt-get update

@@ -19,7 +19,7 @@ int main(int argc, char* argv[])
     gopt.addString(0,    "package-prefix",     "",
                       "Add this package name as a prefix to the declared package");
     gopt.addBool(0,  "little-endian-encoding", 0, "Encode and decode network traffic in little endian format");
-    gopt.addBool(0,  "version",    0,    "Show version information and exit");
+    gopt.addBool(0,  "version",    0,     "Show version information and exit");
 
     gopt.addSpacer("**** C options ****");
     gopt.addBool('c', "c",         0,     "Emit C code");
@@ -40,6 +40,10 @@ int main(int argc, char* argv[])
     gopt.addSpacer("**** Node.js options ****");
     gopt.addBool('n', "node",      0,     "Emit Node.js code");
     setupOptionsNode(gopt);
+
+    gopt.addSpacer("**** Julia options ****");
+    gopt.addBool('j', "julia",     0,     "Emit Julia code");
+    setupOptionsJulia(gopt);
 
     bool parseSuccess = gopt.parse(argc, argv, 1);
     if (!parseSuccess || gopt.getBool("help")) {
