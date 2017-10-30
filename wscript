@@ -44,9 +44,9 @@ def add_zcm_configure_options(ctx):
     add_use_option('zmq',         'Enable ZeroMQ features')
     add_use_option('cxxtest',     'Enable build of cxxtests')
     add_use_option('elf',         'Enable runtime loading of shared libs')
+    add_use_option('clang',       'Enable build using clang sanitizers')
     gr.add_option('--use-third-party', dest='use_third_party', default=False, \
                   action='store_true', help='Enable inclusion of 3rd party transports.')
-    add_use_option('clang',   'Enable build using clang sanitizers')
 
     gr.add_option('--hash-member-names',  dest='hash_member_names', default='false',
                   type='choice', choices=['true', 'false'],
@@ -122,8 +122,6 @@ def process_zcm_configure_options(ctx):
     def hasopt(key):
         return opt.use_all or getattr(opt, key)
 
-    env.VERSION = version(ctx)
-
     env.USING_CPP         = True
     env.USING_JAVA        = hasopt('use_java') and attempt_use_java(ctx)
     env.USING_NODEJS      = hasopt('use_nodejs') and attempt_use_nodejs(ctx)
@@ -131,8 +129,8 @@ def process_zcm_configure_options(ctx):
     env.USING_ZMQ         = hasopt('use_zmq') and attempt_use_zmq(ctx)
     env.USING_CXXTEST     = hasopt('use_cxxtest') and attempt_use_cxxtest(ctx)
     env.USING_ELF         = hasopt('use_elf') and attempt_use_elf(ctx)
+    env.USING_CLANG       = hasopt('use_clang')  and attempt_use_clang(ctx)
     env.USING_THIRD_PARTY = getattr(opt, 'use_third_party') and attempt_use_third_party(ctx)
-    env.USING_CLANG   = hasopt('use_clang')  and attempt_use_clang(ctx)
 
     env.USING_TRANS_IPC    = hasopt('use_ipc')
     env.USING_TRANS_INPROC = hasopt('use_inproc')
@@ -145,6 +143,8 @@ def process_zcm_configure_options(ctx):
     ZMQ_REQUIRED = env.USING_TRANS_IPC or env.USING_TRANS_INPROC
     if ZMQ_REQUIRED and not env.USING_ZMQ:
         raise WafError("Using ZeroMQ is required for some of the selected transports (--use-zmq)")
+
+    env.VERSION = version(ctx)
 
     def print_entry(name, enabled, post="", invertColors=False):
         Logs.pprint("NORMAL", "    {:20}".format(name), sep='')
