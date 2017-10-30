@@ -7,7 +7,7 @@ before_install:
   - sudo apt-get update -qq
   - sudo apt-get install g++-5
   - sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-5 90
-  - ./scripts/install-deps.sh -i
+  - ./scripts/install-deps.sh -i -s
   - git clone https://github.com/CxxTest/cxxtest.git
   - export PATH=$PATH:`pwd`/cxxtest/bin/; export LIBRARY_PATH=$LIBRARY_PATH:`pwd`/cxxtest/
   - sudo apt-get remove --purge clang
