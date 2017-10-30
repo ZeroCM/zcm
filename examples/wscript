@@ -101,7 +101,7 @@ def process_zcm_configure_options(ctx):
 
     env.VERSION='1.0.0'
 
-    env.USING_CLANG   = hasopt('use_clang')  and attempt_use_clang(ctx)
+    env.USING_CLANG = hasopt('use_clang') and attempt_use_clang(ctx)
 
     def print_entry(name, enabled):
         Logs.pprint("NORMAL", "    {:20}".format(name), sep='')
@@ -168,6 +168,10 @@ def setup_environment(ctx):
     ctx.env.CFLAGS_default   = ['-std=gnu99', '-fPIC'] + WARNING_FLAGS
     ctx.env.CXXFLAGS_default = ['-std=c++11', '-fPIC'] + WARNING_FLAGS
     ctx.env.LINKFLAGS_default = ['-pthread']
+
+    opt = waflib.Options.options
+    ctx.env.USING_OPT = not opt.debug
+    ctx.env.USING_SYM = opt.debug or opt.symbols
 
     if ctx.env.USING_OPT:
         ctx.env.CFLAGS_default   += OPT_FLAGS
