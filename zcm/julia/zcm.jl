@@ -12,6 +12,16 @@ end
 type Sub
 end
 
+type UvSub
+end
+
+type RecvBuf
+    recv_utime ::Int64;
+    zcm        ::Ptr{Native.Zcm};
+    data       ::Ptr{UInt8};
+    data_size  ::UInt32;
+end
+
 type EventLog
 end
 
@@ -24,63 +34,38 @@ type EventLogEvent
     data      ::Ptr{UInt8};
 end
 
-type UvSub
 end
 
-end
-
-
-# TODO: Just testing an example, this is an example of how you can wrap the user's function ptr
-#       in a way that will be passable to cfunction()
-
-type CompareUsr
-    lessthan::Function;
-    usr::Any;
-    CompareUsr(lessthan::Function, usr) = new(lessthan, usr);
-end
-
-function qsort!_compare{T}(a_::Ptr{T}, b_::Ptr{T}, compareUsr_::Ptr{Void})
-    a = unsafe_load(a_)
-    b = unsafe_load(b_)
-    compareUsr = unsafe_pointer_to_objref(compareUsr_)::CompareUsr;
-    ret::Cint = compareUsr.lessthan(a, b, compareUsr.usr) ? -1 : +1;
-	return ret;
-end
-
-function qsort!{T}(A::Vector{T}, lessthan::Function, usr::Any = 0)
-    compareUsr = CompareUsr(lessthan, usr);
-    compare_c = cfunction(qsort!_compare, Cint, (Ptr{T}, Ptr{T}, Ptr{Void}))
-    ccall(("qsort_r", "libc"), Void, (Ptr{T}, Csize_t, Csize_t, Ptr{Void}, Any),
-          A, length(A), sizeof(T), compare_c, compareUsr)
-    return A
-end
-
-# do this: ZCM.qsort!(data, function (a, b, usr) usr <= 0 ? a < b : a > b; end, 0)
-
-
-
-# RRR: probably want to move the nativer version of this into the Native section and then
-#      make a julia-usable version (that casts the data Ptr to an array). See LogEvent
 # RRR: make variable naming consistent
-# RRR: improve orgainzation and make headers more visible
+# RRR: improve orgainzation and make header comments more visible
 # Exported Objects and Methods
 type RecvBuf
-    recv_utime::Int64;
-    zcm       ::Ptr{Native.Zcm};
-    data      ::Ptr{UInt8};
-    data_size ::UInt32;
-    RecvBuf() = new();
+    rbuf  ::Ptr{Native.RecvBuf};
+    utime ::Int64;
+    data  ::Array{UInt8};
+
+    function RecvBuf(rbuf::Ptr{Native.RecvBuf})
+        instance  = new();
+        instance.rbuf = rbuf;
+
+        if (rbuf != C_NULL)
+            loadedRbuf = unsafe_load(rbuf);
+
+            instance.utime = loadedRbuf.recv_utime;
+
+            if (loadedRbuf.data != C_NULL)
+                instance.data = unsafe_wrap(Array, loadedRbuf.data, loadedRbuf.data_size);
+            else
+                instance.data = [];
+            end
+        end
+
+        # destruction of the underlying Native.RecvBuf pointer is handled by the C lib internally
+
+        return instance;
+    end
 end
 export RecvBuf;
-
-# Possible leads on being able to do this with start() and stop()
-# examples:
-#     https://github.com/JuliaGPU/OpenCL.jl/blob/716add3c4315727ff611cc3ac1b6b086be909a95/src/event.jl#L97-L140
-#     https://github.com/JuliaInterop/ZMQ.jl/blob/57786eaac5641bd56ca52b3806e4dd766c892409/src/ZMQ.jl#L329-L358
-# discussions:
-#     https://github.com/JuliaLang/julia/issues/17573
-#     https://groups.google.com/forum/#!msg/julia-users/ztN-UgS9N8c/bcjLBZ8O5w4J
-#     https://github.com/JuliaLang/julia/pull/5657
 
 type __zcm_handler
     handler::Any;
@@ -91,10 +76,9 @@ type __zcm_handler
     __zcm_handler(handler, usr) = new(handler, usr);
 end
 
-function __zcm_handler_wrapper(rbuf::Ptr{RecvBuf}, channel::Cstring, usr_::Ptr{Void})
-    println("hello from wrapper");
-    # usr = unsafe_pointer_to_objref(usr_)::__zcm_handler;
-    # usr.handler(unsafe_load(rbuf), unsafe_string(channel), usr.usr);
+function __zcm_handler_wrapper(rbuf::Ptr{Native.RecvBuf}, channel::Cstring, usr_::Ptr{Void})
+    usr = unsafe_pointer_to_objref(usr_)::__zcm_handler;
+    usr.handler(RecvBuf(rbuf), unsafe_string(channel), usr.usr);
     return nothing;
 end
 
@@ -115,7 +99,6 @@ end
 type Zcm
     zcm::Ptr{Native.Zcm};
 
-    # RRR: make a good() call?
     good        ::Function  # () ::Bool
     errno       ::Function; # () ::Int32
     strerror    ::Function; # () ::String
@@ -175,7 +158,7 @@ type Zcm
 
             handler_jl = __zcm_handler(handler, usr);
             handler_c  = cfunction(__zcm_handler_wrapper, Void,
-                                   (Ptr{RecvBuf}, Cstring, Ptr{Void},));
+                                   (Ptr{Native.RecvBuf}, Cstring, Ptr{Void},));
             uv_wrapper = ccall(("uv_zcm_msg_handler_create", "libzcmuv"), Ptr{Native.UvSub},
                                (Ptr{Void}, Any,), handler_c, handler_jl);
             uv_handler = cglobal(("uv_zcm_msg_handler_trigger", "libzcmuv"));
@@ -223,6 +206,7 @@ type Zcm
             return ccall(("zcm_flush", "libzcm"), Void, (Ptr{Native.Zcm},), instance.zcm);
         end
 
+        # RRR: definitely seeing some issues if you start - stop - start while having subscriptions
         instance.start = function()
             ccall(("zcm_start", "libzcm"), Void, (Ptr{Native.Zcm},), instance.zcm);
         end
@@ -242,12 +226,11 @@ export Zcm;
 
 # RRR: go over the signedness of all these types from within zcm ... some of them are dumb
 type LogEvent
-    event     ::Ptr{Native.EventLogEvent};
-
-    eventnum  ::Int64;
-    timestamp ::Int64;
-    channel   ::String;
-    data      ::Array{UInt8};
+    event   ::Ptr{Native.EventLogEvent};
+    num     ::Int64;
+    utime   ::Int64;
+    channel ::String;
+    data    ::Array{UInt8};
 
     function LogEvent(event::Ptr{Native.EventLogEvent})
         instance  = new();
@@ -256,17 +239,17 @@ type LogEvent
         if (event != C_NULL)
             loadedEvent = unsafe_load(event);
 
-            instance.eventnum  = loadedEvent.eventnum;
-            instance.timestamp = loadedEvent.timestamp;
+            instance.num   = loadedEvent.eventnum;
+            instance.utime = loadedEvent.timestamp;
             if (loadedEvent.channel != C_NULL)
                 instance.channel = unsafe_string(loadedEvent.channel, loadedEvent.chanlen);
             else
-                instance.channel = "Channel was NULL"
+                instance.channel = ""
             end
             if (loadedEvent.data != C_NULL)
                 instance.data    = unsafe_wrap(Array, loadedEvent.data, loadedEvent.datalen);
             else
-                instance.data    = [0x1, 0x2, 0x3, 0x4];
+                instance.data    = [];
             end
         end
 
@@ -282,12 +265,12 @@ type LogEvent
         return instance;
     end
 end
-
 export LogEvent;
+
 type LogFile
     eventLog::Ptr{Native.EventLog};
 
-    good           ::Function; # () ::Bool
+    good              ::Function; # () ::Bool
 
     seekToTimestamp   ::Function; # (timestamp::Int64) ::Int32
 
