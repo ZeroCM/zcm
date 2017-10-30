@@ -14,3 +14,6 @@ int emitPython(ZCMGen& zcm);
 
 void setupOptionsNode(GetOpt& gopt);
 int emitNode(ZCMGen& zcm);
+
+void setupOptionsJulia(GetOpt& gopt);
+int emitJulia(ZCMGen& zcm);

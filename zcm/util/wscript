@@ -4,15 +4,5 @@
 def build(ctx):
     DEPS = ['default', 'zcm']
 
-    if ctx.env.USING_JULIA:
-        ctx.env.RPATH_zcmuv = [ctx.path.get_bld().abspath()]
-        ctx.shlib(target = 'zcmuv',
-                  # Note that we do not depend on libuv here since most runtimes
-                  # you'd use this library in will have their own libuv.
-                  # Technically you still need libuv on your system to be able
-                  # to compile this library because you need the header files
-                  use = DEPS,
-                  source = ctx.path.ant_glob(['uv_zcm_msg_handler.cpp']))
-
     if ctx.env.USING_CXXTEST:
         ctx.cxxtest(use = DEPS)
