@@ -99,21 +99,22 @@ end
 type Zcm
     zcm::Ptr{Native.Zcm};
 
-    good        ::Function  # () ::Bool
-    errno       ::Function; # () ::Int32
-    strerror    ::Function; # () ::String
+    good           ::Function  # () ::Bool
+    errno          ::Function; # () ::Int32
+    strerror       ::Function; # () ::String
 
     # TODO refine these comments (handler and msg not well defined)
-    subscribeRaw::Function; # (channel::String, handler::Handler, usr::Any) ::Ptr{Native.Sub}
-    subscribe   ::Function; # (channel::String, handler::Handler, usr::Any) ::Ptr{Native.Sub}
-    unsubscribe ::Function; # (sub::Ptr{Native.Sub}) ::Int32
-    publishRaw  ::Function; # (channel::String, data::Array{Uint8}, datalen::Uint32) ::Int32
-    publish     ::Function; # (channel::String, msg::Msg) ::Int32
-    flush       ::Function; # () ::Void
+    subscribeRaw   ::Function; # (channel::String, handler::Handler, usr::Any) ::Ptr{Native.Sub}
+    subscribe      ::Function; # (channel::String, handler::Handler, usr::Any) ::Ptr{Native.Sub}
+    unsubscribe    ::Function; # (sub::Ptr{Native.Sub}) ::Int32
+    publishRaw     ::Function; # (channel::String, data::Array{Uint8}, datalen::Uint32) ::Int32
+    publish        ::Function; # (channel::String, msg::Msg) ::Int32
+    flush          ::Function; # () ::Void
 
-    start       ::Function; # () ::Void
-    stop        ::Function; # () ::Void
-    handle      ::Function; # () ::Void
+    start          ::Function; # () ::Void
+    stop           ::Function; # () ::Void
+    handle         ::Function; # () ::Void
+    handleNonblock ::Function; # () ::Void
 
     # http://docs.julialang.org/en/stable/manual/calling-c-and-fortran-code/
     # http://julialang.org/blog/2013/05/callback
@@ -208,15 +209,20 @@ type Zcm
 
         # RRR: definitely seeing some issues if you start - stop - start while having subscriptions
         instance.start = function()
-            ccall(("zcm_start", "libzcm"), Void, (Ptr{Native.Zcm},), instance.zcm);
+            return ccall(("zcm_start", "libzcm"), Void, (Ptr{Native.Zcm},), instance.zcm);
         end
 
         instance.stop = function()
-            ccall(("zcm_stop", "libzcm"), Void, (Ptr{Native.Zcm},), instance.zcm);
+            return ccall(("zcm_stop", "libzcm"), Void, (Ptr{Native.Zcm},), instance.zcm);
         end
 
         instance.handle = function()
-            ccall(("zcm_handle", "libzcm"), Void, (Ptr{Native.Zcm},), instance.zcm);
+            return ccall(("zcm_handle", "libzcm"), Cint, (Ptr{Native.Zcm},), instance.zcm);
+        end
+
+        instance.handleNonblock = function()
+            return ccall(("zcm_handle_nonblock", "libzcm"), Cint,
+                         (Ptr{Native.Zcm},), instance.zcm);
         end
 
         return instance;

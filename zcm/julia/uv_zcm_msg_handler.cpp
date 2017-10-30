@@ -1,5 +1,7 @@
 #include "uv_zcm_msg_handler.h"
 
+#include <iostream>
+
 #include <thread>
 #include <julia/uv.h>
 
@@ -58,25 +60,24 @@ void uv_zcm_msg_handler_trigger(const zcm_recv_buf_t* rbuf, const char* channel,
 		uv_zcm_msg_handler_t* uvCb = (uv_zcm_msg_handler_t*) handle->data;
         // Call the callback
 		uvCb->cb(uvCb->rbuf, uvCb->channel, uvCb->usr);
-        // wait on the barrier (should instantly wake up)
-        if (uv_barrier_wait(&uvCb->blocker) > 0)
-            uv_barrier_destroy(&uvCb->blocker);
 
-        // RRR: is this true? Are we intended to call this once per async call or
-        //      once per handler variable? We could also force it during the handler
-        //      destruction if it's the later.
-        // close async handle (probably would do this on a zcm_destroy() instead
-        //                     of on each message)
-        uv_close((uv_handle_t*)&uvCb->handle, NULL);
+        // RRR: We should probably call "uv_async_init" and "uv_close" on create
+        //      and destroy of the uv zcm callback. The way we're doing it now
+        //      works but is probably far less efficient than it needs to be
+        // close async handle
+        uv_close((uv_handle_t*)&uvCb->handle, [](uv_handle_t* handle){
+            uv_zcm_msg_handler_t* uvCb = (uv_zcm_msg_handler_t*) handle->data;
+            // wait on the barrier (should instantly wake up)
+            uv_barrier_wait(&uvCb->blocker);
+        });
     });
 
     // Schedule the callback to be called
     uv_async_send(&uvCb->handle);
 
     // Wait for callback to complete
-    if (uv_barrier_wait(&uvCb->blocker) > 0)
-        uv_barrier_destroy(&uvCb->blocker);
-
+    uv_barrier_wait(&uvCb->blocker);
+    uv_barrier_destroy(&uvCb->blocker);
 }
 
 void uv_zcm_msg_handler_destroy(uv_zcm_msg_handler_t* uvCb)
