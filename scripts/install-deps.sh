@@ -39,9 +39,8 @@ PKGS+='cxxtest '
 ## Clang tools for code sanitizers, style checkers, etc.
 PKGS+='clang '
 
-# RRR is this correct?
-## LibUV
-PKGS+='libuv1-dev libuv1 '
+## Julia
+PKGS+='julia libuv1-dev '
 
 echo "Updating apt repos"
 sudo apt-get update
