@@ -62,6 +62,9 @@ void uv_zcm_msg_handler_trigger(const zcm_recv_buf_t* rbuf, const char* channel,
         if (uv_barrier_wait(&uvCb->blocker) > 0)
             uv_barrier_destroy(&uvCb->blocker);
 
+        // RRR: is this true? Are we intended to call this once per async call or
+        //      once per handler variable? We could also force it during the handler
+        //      destruction if it's the later.
         // close async handle (probably would do this on a zcm_destroy() instead
         //                     of on each message)
         uv_close((uv_handle_t*)&uvCb->handle, NULL);
