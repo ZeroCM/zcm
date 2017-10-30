@@ -29,7 +29,7 @@ using namespace std;
 // Define this the class name you want
 #define ZCM_TRANS_CLASSNAME TransportSerial
 #define MTU (1<<14)
-#define ESCAPE_CHAR 0xcc
+#define ESCAPE_CHAR (0xcc)
 
 #define SERIAL_TIMEOUT_US 1e5 // u-seconds
 
