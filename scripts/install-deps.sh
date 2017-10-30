@@ -41,6 +41,10 @@ PKGS+='cxxtest '
 ## Clang tools for code sanitizers, style checkers, etc.
 PKGS+='clang '
 
+# RRR is this correct?
+## LibUV
+PKGS+='libuv1-dev libuv1 '
+
 echo "Updating apt repos"
 sudo apt-get update
 ret=$?
