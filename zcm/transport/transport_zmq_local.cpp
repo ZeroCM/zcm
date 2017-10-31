@@ -40,7 +40,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     void *ctx;
     Type type;
 
-    string address;
+    string subnet;
 
     unordered_map<string, void*> pubsocks;
     // socket pair contains the socket + whether it was subscribed to explicitly or not
@@ -61,11 +61,11 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         trans_type = ZCM_BLOCKING;
         vtbl = &methods;
 
-        address = zcm_url_address(url);
+        subnet = zcm_url_address(url);
         // Make directory with all permissions
-        mkdir(string("/tmp/" + address).c_str(), S_IRWXO | S_IRWXG | S_IRWXU);
+        mkdir(string("/tmp/" + subnet).c_str(), S_IRWXO | S_IRWXG | S_IRWXU);
 
-        ZCM_DEBUG("IPC Address: %s\n", address.c_str());
+        ZCM_DEBUG("IPC Address: %s\n", subnet.c_str());
 
         recvmsgBuffer = new char[recvmsgBufferSize];
 
@@ -122,9 +122,9 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     {
         switch (type) {
             case IPC:
-                return "ipc:///tmp/" + address + "/" + IPC_NAME_PREFIX + channel;
+                return "ipc:///tmp/" + subnet + "/" + IPC_NAME_PREFIX + channel;
             case INPROC:
-                return "inproc://" + address + "/" + IPC_NAME_PREFIX + channel;
+                return "inproc://" + subnet + "/" + IPC_NAME_PREFIX + channel;
         }
         assert(0 && "unreachable");
     }
@@ -133,11 +133,11 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     {
         switch (type) {
             case IPC: {
-                string lockfileName = "ipc:///tmp/" + address + "/" + IPC_NAME_PREFIX + channel;
+                string lockfileName = "ipc:///tmp/" + subnet + "/" + IPC_NAME_PREFIX + channel;
                 return lockfile_trylock(lockfileName.c_str());
             } break;
             case INPROC: {
-                string lockfileName = "inproc://" + address + "/" + IPC_NAME_PREFIX + channel;
+                string lockfileName = "inproc://" + subnet + "/" + IPC_NAME_PREFIX + channel;
                 return lockfile_trylock(lockfileName.c_str());
                 return true;
             } break;
@@ -210,7 +210,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         DIR *d;
         dirent *ent;
 
-        if (!(d=opendir(string("/tmp/" + address).c_str())))
+        if (!(d=opendir(string("/tmp/" + subnet).c_str())))
             return;
 
         while ((ent=readdir(d)) != nullptr) {
@@ -218,7 +218,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
                 string channel(ent->d_name + prefixLen);
                 void *sock = subsockFindOrCreate(channel, false);
                 if (sock == nullptr) {
-                    ZCM_DEBUG("failed to open subsock in scanForNewChannels(%s)", channel.c_str());
+                    ZCM_DEBUG("failed to open subsock in scanForNewChannels(%s)",
+                              channel.c_str());
                 }
             }
         }
