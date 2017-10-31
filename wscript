@@ -6,6 +6,7 @@ import waflib
 from waflib import Logs
 from waflib.Errors import WafError
 import os.path
+import re
 
 # these variables are mandatory ('/' are converted automatically)
 top = '.'
@@ -30,12 +31,12 @@ def add_zcm_configure_options(ctx):
     gr = ctx.add_option_group('ZCM Configuration Options')
 
     def add_use_option(name, desc):
-        gr.add_option('--use-'+name, dest='use_'+name, default=False,
-                      action='store_true', help=desc)
+        gr.add_option('--use-' + name, dest = 'use_' + re.sub('-', '_', name),
+                      default = False, action = 'store_true', help = desc)
 
     def add_trans_option(name, desc):
-        gr.add_option('--use-'+name, dest='use_'+name, default=False,
-                      action='store_true', help=desc)
+        gr.add_option('--use-' + name, dest = 'use_' + re.sub('-', '_', name),
+                      default = False, action = 'store_true', help = desc)
 
     add_use_option('all',         'Attempt to enable every ZCM feature')
     add_use_option('java',        'Enable java features')
@@ -43,8 +44,7 @@ def add_zcm_configure_options(ctx):
     add_use_option('python',      'Enable python features')
     add_use_option('zmq',         'Enable ZeroMQ features')
     add_use_option('elf',         'Enable runtime loading of shared libs')
-    gr.add_option('--use-third-party', dest='use_third_party', default=False, \
-                  action='store_true', help='Enable inclusion of 3rd party transports.')
+    add_use_option('third-party', 'Enable inclusion of 3rd party transports.')
 
     gr.add_option('--hash-member-names',  dest='hash_member_names', default='false',
                   type='choice', choices=['true', 'false'],
@@ -139,8 +139,8 @@ def process_zcm_configure_options(ctx):
     env.HASH_TYPENAME      = getattr(opt, 'hash_typename')
     env.HASH_MEMBER_NAMES  = getattr(opt, 'hash_member_names')
 
-    env.USING_CLANG        = hasopt('use_clang')  and attempt_use_clang(ctx)
-    env.USING_CXXTEST      = hasopt('use_cxxtest') and attempt_use_cxxtest(ctx)
+    env.USING_CLANG        = getattr(opt, 'use_clang')  and attempt_use_clang(ctx)
+    env.USING_CXXTEST      = getattr(opt, 'use_cxxtest') and attempt_use_cxxtest(ctx)
 
     ZMQ_REQUIRED = env.USING_TRANS_IPC or env.USING_TRANS_INPROC
     if ZMQ_REQUIRED and not env.USING_ZMQ:
@@ -148,19 +148,18 @@ def process_zcm_configure_options(ctx):
 
     env.VERSION = version(ctx)
 
-    def print_entry(name, enabled, post="", invertColors=False):
+    def print_entry(name, enabled, invertColors=False):
         Logs.pprint("NORMAL", "    {:20}".format(name), sep='')
         if enabled:
             if invertColors:
-                Logs.pprint("RED", "Enabled", sep='')
+                Logs.pprint("RED", "Enabled")
             else:
-                Logs.pprint("GREEN", "Enabled", sep='')
+                Logs.pprint("GREEN", "Enabled")
         else:
             if invertColors:
-                Logs.pprint("GREEN", "Disabled", sep='')
+                Logs.pprint("GREEN", "Disabled")
             else:
-                Logs.pprint("RED", "Disabled", sep='')
-        Logs.pprint("BLUE", " " + post)
+                Logs.pprint("RED", "Disabled")
 
     Logs.pprint('BLUE',     '\nDependency Configuration:')
     print_entry("C/C++",       env.USING_CPP)
@@ -169,10 +168,7 @@ def process_zcm_configure_options(ctx):
     print_entry("Python",      env.USING_PYTHON)
     print_entry("ZeroMQ",      env.USING_ZMQ)
     print_entry("Elf",         env.USING_ELF)
-    if not env.USING_THIRD_PARTY and opt.use_all:
-        print_entry("Third Party", env.USING_THIRD_PARTY, "Not included in --use-all")
-    else:
-        print_entry("Third Party", env.USING_THIRD_PARTY)
+    print_entry("Third Party", env.USING_THIRD_PARTY)
 
     Logs.pprint('BLUE', '\nTransport Configuration:')
     print_entry("ipc",    env.USING_TRANS_IPC)
@@ -182,7 +178,7 @@ def process_zcm_configure_options(ctx):
 
     Logs.pprint('BLUE', '\nType Configuration:')
     print_entry("hash-typename", env.HASH_TYPENAME == 'true')
-    print_entry("hash-member-names",  env.HASH_MEMBER_NAMES == 'true', '', True)
+    print_entry("hash-member-names",  env.HASH_MEMBER_NAMES == 'true', True)
 
     Logs.pprint('BLUE', '\nDev Configuration:')
     print_entry("Clang",   env.USING_CLANG)
@@ -236,6 +232,7 @@ def attempt_use_third_party(ctx):
         raise WafError('Failed to find all required submodules. You should run: \n' + \
                        'git submodule update --init --recursive\n' + \
                        'and then reconfigure')
+    return True
 
 def attempt_use_clang(ctx):
     ctx.load('clang-custom')
