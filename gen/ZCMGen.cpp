@@ -357,7 +357,7 @@ static int parseConst(ZCMGen& zcmgen, ZCMStruct& lr, tokenize_t *t)
                     semantic_error(t, "Integer value out of bounds for " \
                                       #TYPE ": %lld", v); \
                 } \
-                STORE = (TYPE)v;
+                STORE = (TYPE) v;
 
         #define FLT_CASE(TYPE, STORE) \
             } else if (lctypename == #TYPE) { \
@@ -367,7 +367,7 @@ static int parseConst(ZCMGen& zcmgen, ZCMStruct& lr, tokenize_t *t)
                 if (fabs(v) > std::numeric_limits<TYPE>::max() || \
                         fabs(v) < std::numeric_limits<TYPE>::min()) \
                     semantic_error(t, "Cannot represent precision"); \
-                lc.val.f = (TYPE) v;
+                STORE = (TYPE) v;
 
         if (false) {
         INT_CASE(int8_t,  lc.val.i8)

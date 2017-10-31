@@ -481,8 +481,8 @@ struct EmitSource : public Emit
             emit(indent, "thislen = __%s_encode_%sarray(buf, offset + pos, maxlen - pos, %s, %s);",
                  dotsToUnderscores(lm.type.fullname).c_str(),
                  zcm.gopt->getBool("little-endian-encoding") ? "little_endian_" : "",
-                 makeAccessor(lm, "p", lm.dimensions.size()-1).c_str(),
-                 makeArraySize(lm, "p", lm.dimensions.size()-1).c_str());
+                 makeAccessor(lm, "p", (int)lm.dimensions.size() - 1).c_str(),
+                 makeArraySize(lm, "p", (int)lm.dimensions.size() - 1).c_str());
             emit(indent, "if (thislen < 0) return thislen; else pos += thislen;");
 
             emitCArrayLoopsEnd(lm, "p", FLAG_NONE);
@@ -534,8 +534,8 @@ struct EmitSource : public Emit
             emit(indent, "thislen = __%s_decode_%sarray(buf, offset + pos, maxlen - pos, %s, %s);",
                  dotsToUnderscores(lm.type.fullname).c_str(),
                  zcm.gopt->getBool("little-endian-encoding") ? "little_endian_" : "",
-                 makeAccessor(lm, "p", lm.dimensions.size() - 1).c_str(),
-                 makeArraySize(lm, "p", lm.dimensions.size() - 1).c_str());
+                 makeAccessor(lm, "p", (int)lm.dimensions.size() - 1).c_str(),
+                 makeArraySize(lm, "p", (int)lm.dimensions.size() - 1).c_str());
             emit(indent, "if (thislen < 0) return thislen; else pos += thislen;");
 
             emitCArrayLoopsEnd(lm, "p", FLAG_NONE);
@@ -563,8 +563,8 @@ struct EmitSource : public Emit
             int indent = 2+std::max(0, (int)lm.dimensions.size() - 1);
             emit(indent, "__%s_decode_array_cleanup(%s, %s);",
                  dotsToUnderscores(lm.type.fullname).c_str(),
-                 makeAccessor(lm, "p", lm.dimensions.size() - 1).c_str(),
-                 makeArraySize(lm, "p", lm.dimensions.size() - 1).c_str());
+                 makeAccessor(lm, "p", (int)lm.dimensions.size() - 1).c_str(),
+                 makeArraySize(lm, "p", (int)lm.dimensions.size() - 1).c_str());
 
             emitCArrayLoopsEnd(lm, "p", lm.isConstantSizeArray() ? FLAG_NONE : FLAG_EMIT_FREES);
             emit(0,"");
@@ -627,8 +627,8 @@ struct EmitSource : public Emit
             int indent = 2+std::max(0, (int)lm.dimensions.size() - 1);
             emit(indent, "size += __%s_encoded_array_size(%s, %s);",
                  dotsToUnderscores(lm.type.fullname).c_str(),
-                 makeAccessor(lm, "p", lm.dimensions.size() - 1).c_str(),
-                 makeArraySize(lm, "p", lm.dimensions.size() - 1).c_str());
+                 makeAccessor(lm, "p", (int)lm.dimensions.size() - 1).c_str(),
+                 makeArraySize(lm, "p", (int)lm.dimensions.size() - 1).c_str());
 
             emitCArrayLoopsEnd(lm, "p", FLAG_NONE);
             emit(0,"");
@@ -781,9 +781,9 @@ struct EmitSource : public Emit
             int indent = 2+std::max(0, (int)lm.dimensions.size() - 1);
             emit(indent, "__%s_clone_array(%s, %s, %s);",
                  dotsToUnderscores(lm.type.fullname).c_str(),
-                 makeAccessor(lm, "p", lm.dimensions.size()-1).c_str(),
-                 makeAccessor(lm, "q", lm.dimensions.size()-1).c_str(),
-                 makeArraySize(lm, "p", lm.dimensions.size()-1).c_str());
+                 makeAccessor(lm, "p", (int)lm.dimensions.size()-1).c_str(),
+                 makeAccessor(lm, "q", (int)lm.dimensions.size()-1).c_str(),
+                 makeArraySize(lm, "p", (int)lm.dimensions.size()-1).c_str());
 
             emitCArrayLoopsEnd(lm, "p", FLAG_NONE);
             emit(0,"");
