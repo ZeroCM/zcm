@@ -432,6 +432,7 @@ int main(int argc, char *argv[])
     // cleanup
     printThread.join();
     zcm_stop(zcm);
+    zcm_destroy(zcm);
 
     DEBUG(1, "Exiting...\n");
     return 0;

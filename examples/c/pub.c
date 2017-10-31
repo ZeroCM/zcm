@@ -34,7 +34,7 @@ int main(int argc, char *argv[])
     my_data.enabled = 1;
 
     while (1) {
-        example_t_publish(zcm, "EXAMPLE", &my_data);
+        example_t_publish(zcm, "EXAMPLE2", &my_data);
         usleep(1000000/HZ);
     }
 
