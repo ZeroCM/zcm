@@ -10,19 +10,21 @@ before_install:
   - ./scripts/install-deps.sh -i
   - git clone https://github.com/CxxTest/cxxtest.git
   - export PATH=$PATH:`pwd`/cxxtest/bin/; export LIBRARY_PATH=$LIBRARY_PATH:`pwd`/cxxtest/
+  - sudo apt-get remove --purge clang
+  - sudo apt-get install clang-3.8
+  - apt-cache search clang-3.8
 before_script: mkdir ../tmp
 script:
-  - cat /etc/apt/sources.list
-  - ./waf distclean configure build
-  - ./waf distclean configure --use-all --use-third-party --use-clang --use-cxxtest --prefix=../tmp/
-  - ./waf build build_asan
-  - ./waf install
-  - cd examples && source ./env /home/travis/build/ZeroCM/tmp &&
+  - ./waf distclean configure build &&
+    ./waf distclean configure --use-all --use-third-party --use-clang --use-cxxtest --prefix=../tmp/ &&
+    ./waf build build_asan &&
+    ./waf install &&
+    cd examples && source ./env /home/travis/build/ZeroCM/tmp &&
     export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/home/travis/build/ZeroCM/tmp/lib/pkgconfig &&
     export PATH=$PATH:/home/travis/build/ZeroCM/tmp/bin &&
-    ./waf distclean configure build && cd ..
-  - ./waf install_asan
-  - cd examples && source ./env /home/travis/build/ZeroCM/tmp &&
+    ./waf distclean configure build && cd .. &&
+    ./waf install_asan &&
+    cd examples && source ./env /home/travis/build/ZeroCM/tmp &&
     export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/home/travis/build/ZeroCM/tmp/lib/pkgconfig &&
     export PATH=$PATH:/home/travis/build/ZeroCM/tmp/bin &&
     ./waf distclean configure --use-clang build_asan && cd ..
