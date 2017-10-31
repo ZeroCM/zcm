@@ -3,6 +3,18 @@
 
 #include <limits>
 
+MsgInfo::MsgInfo(TypeDb& db, const char *channel) : db(db), channel(channel) {}
+
+MsgInfo::~MsgInfo()
+{
+    if (last_msg) {
+        if (metadata)
+            metadata->info->decode_cleanup(last_msg);
+        free(last_msg);
+        last_msg = NULL;
+    }
+}
+
 size_t MsgInfo::getViewDepth()
 {
     return disp_state.cur_depth;
