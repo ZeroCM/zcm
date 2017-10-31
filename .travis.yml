@@ -14,11 +14,18 @@ before_script: mkdir ../tmp
 script:
   - cat /etc/apt/sources.list
   - ./waf distclean configure build
-  - ./waf distclean configure --use-all --use-third-party build install --prefix=../tmp/
+  - ./waf distclean configure --use-all --use-third-party --use-clang --use-cxxtest
+  - ./waf build build_asan
+  - ./waf install --prefix=../tmp/
   - cd examples && source ./env /home/travis/build/ZeroCM/tmp &&
     export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/home/travis/build/ZeroCM/tmp/lib/pkgconfig &&
     export PATH=$PATH:/home/travis/build/ZeroCM/tmp/bin &&
-    ./waf distclean configure build
+    ./waf distclean configure build && cd ..
+  - ./waf install_asan --prefix=../tmp/
+  - cd examples && source ./env /home/travis/build/ZeroCM/tmp &&
+    export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/home/travis/build/ZeroCM/tmp/lib/pkgconfig &&
+    export PATH=$PATH:/home/travis/build/ZeroCM/tmp/bin &&
+    ./waf distclean configure build_asan && cd ..
 git:
     depth: 1
 notifications:
