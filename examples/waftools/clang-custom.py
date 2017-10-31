@@ -3,8 +3,8 @@ import re
 from waflib.Configure import conf
 
 def configure(ctx):
-    ctx.find_program('clang', var='CLANG',  mandatory=True)
-    ctx.find_program('clang++', var='CLANG++',  mandatory=True)
+    ctx.find_program('clang',   var='CLANG',   mandatory=True)
+    ctx.find_program('clang++', var='CLANG++', mandatory=True)
 
 @conf
 def assert_clang_version(ctx, minVer):
@@ -26,5 +26,8 @@ def assert_clang_version(ctx, minVer):
 
 @conf
 def set_clang_compiler(ctx):
-    ctx.env['LINK_CC'] = ctx.env['COMPILER_CC'] = ctx.env['CC'] = ctx.env['CLANG']
+    # This is because we link cpp against c. Sanitizers require clang++ for
+    # linking in that case
+    ctx.env['LINK_CC'] = ctx.env['CLANG++']
+    ctx.env['COMPILER_CC'] = ctx.env['CC'] = ctx.env['CLANG']
     ctx.env['LINK_CXX'] = ctx.env['COMPILER_CXX'] = ctx.env['CXX'] = ctx.env['CLANG++']

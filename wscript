@@ -365,8 +365,7 @@ def build(ctx):
     ctx.add_group()
 
     # RRR (Tom) can't do this ... tis a catch 22
-    # if not ctx.variant in ['asan']:
-    #     ctx.recurse('test')
+    # ctx.recurse('test')
 
 def distclean(ctx):
     ctx.exec_command('rm -f examples/waftools/*.pyc')
