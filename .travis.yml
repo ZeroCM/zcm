@@ -25,7 +25,7 @@ script:
   - cd examples && source ./env /home/travis/build/ZeroCM/tmp &&
     export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/home/travis/build/ZeroCM/tmp/lib/pkgconfig &&
     export PATH=$PATH:/home/travis/build/ZeroCM/tmp/bin &&
-    ./waf distclean configure build_asan && cd ..
+    ./waf distclean configure --use-clang build_asan && cd ..
 git:
     depth: 1
 notifications:
