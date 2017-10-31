@@ -42,9 +42,7 @@ def add_zcm_configure_options(ctx):
     add_use_option('nodejs',      'Enable nodejs features')
     add_use_option('python',      'Enable python features')
     add_use_option('zmq',         'Enable ZeroMQ features')
-    add_use_option('cxxtest',     'Enable build of cxxtests')
     add_use_option('elf',         'Enable runtime loading of shared libs')
-    add_use_option('clang',       'Enable build using clang sanitizers')
     gr.add_option('--use-third-party', dest='use_third_party', default=False, \
                   action='store_true', help='Enable inclusion of 3rd party transports.')
 
@@ -54,6 +52,9 @@ def add_zcm_configure_options(ctx):
     gr.add_option('--hash-typename', dest='hash_typename', default='true',
                   type='choice', choices=['true', 'false'],
                   action='store', help='Include the zcmtype name in the hash generation')
+
+    add_use_option('clang',       'Enable build using clang sanitizers')
+    add_use_option('cxxtest',     'Enable build of cxxtests')
 
     add_trans_option('inproc', 'Enable the In-Process transport (Requires ZeroMQ)')
     add_trans_option('ipc',    'Enable the IPC transport (Requires ZeroMQ)')
@@ -122,23 +123,24 @@ def process_zcm_configure_options(ctx):
     def hasopt(key):
         return opt.use_all or getattr(opt, key)
 
-    env.USING_CPP         = True
-    env.USING_JAVA        = hasopt('use_java') and attempt_use_java(ctx)
-    env.USING_NODEJS      = hasopt('use_nodejs') and attempt_use_nodejs(ctx)
-    env.USING_PYTHON      = hasopt('use_python') and attempt_use_python(ctx)
-    env.USING_ZMQ         = hasopt('use_zmq') and attempt_use_zmq(ctx)
-    env.USING_CXXTEST     = hasopt('use_cxxtest') and attempt_use_cxxtest(ctx)
-    env.USING_ELF         = hasopt('use_elf') and attempt_use_elf(ctx)
-    env.USING_CLANG       = hasopt('use_clang')  and attempt_use_clang(ctx)
-    env.USING_THIRD_PARTY = getattr(opt, 'use_third_party') and attempt_use_third_party(ctx)
+    env.USING_CPP          = True
+    env.USING_JAVA         = hasopt('use_java') and attempt_use_java(ctx)
+    env.USING_NODEJS       = hasopt('use_nodejs') and attempt_use_nodejs(ctx)
+    env.USING_PYTHON       = hasopt('use_python') and attempt_use_python(ctx)
+    env.USING_ZMQ          = hasopt('use_zmq') and attempt_use_zmq(ctx)
+    env.USING_ELF          = hasopt('use_elf') and attempt_use_elf(ctx)
+    env.USING_THIRD_PARTY  = getattr(opt, 'use_third_party') and attempt_use_third_party(ctx)
 
     env.USING_TRANS_IPC    = hasopt('use_ipc')
     env.USING_TRANS_INPROC = hasopt('use_inproc')
     env.USING_TRANS_UDPM   = hasopt('use_udpm')
     env.USING_TRANS_SERIAL = hasopt('use_serial')
 
-    env.HASH_TYPENAME = getattr(opt, 'hash_typename')
-    env.HASH_MEMBER_NAMES = getattr(opt, 'hash_member_names')
+    env.HASH_TYPENAME      = getattr(opt, 'hash_typename')
+    env.HASH_MEMBER_NAMES  = getattr(opt, 'hash_member_names')
+
+    env.USING_CLANG        = hasopt('use_clang')  and attempt_use_clang(ctx)
+    env.USING_CXXTEST      = hasopt('use_cxxtest') and attempt_use_cxxtest(ctx)
 
     ZMQ_REQUIRED = env.USING_TRANS_IPC or env.USING_TRANS_INPROC
     if ZMQ_REQUIRED and not env.USING_ZMQ:
@@ -166,7 +168,6 @@ def process_zcm_configure_options(ctx):
     print_entry("NodeJs",      env.USING_NODEJS)
     print_entry("Python",      env.USING_PYTHON)
     print_entry("ZeroMQ",      env.USING_ZMQ)
-    print_entry("CxxTest",     env.USING_CXXTEST)
     print_entry("Elf",         env.USING_ELF)
     if not env.USING_THIRD_PARTY and opt.use_all:
         print_entry("Third Party", env.USING_THIRD_PARTY, "Not included in --use-all")
@@ -185,6 +186,7 @@ def process_zcm_configure_options(ctx):
 
     Logs.pprint('BLUE', '\nDev Configuration:')
     print_entry("Clang",   env.USING_CLANG)
+    print_entry("CxxTest", env.USING_CXXTEST)
 
     Logs.pprint('NORMAL', '')
 
