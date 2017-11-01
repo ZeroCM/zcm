@@ -42,7 +42,7 @@ int main(int argc, char* argv[])
     setupOptionsNode(gopt);
 
     gopt.addSpacer("**** Julia options ****");
-    gopt.addBool('j', "julia",     0,     "Emit Julia code");
+    gopt.addBool('u', "julia",     0,     "Emit Julia code");
     setupOptionsJulia(gopt);
 
     bool parseSuccess = gopt.parse(argc, argv, 1);
@@ -129,6 +129,14 @@ int main(int argc, char* argv[])
         did_something = 1;
         if (emitNode(zcm)) {
             printf("An error occurred while emitting Node.js code.\n");
+            ret = 1;
+        }
+    }
+
+    if (gopt.getBool("julia")) {
+        did_something = 1;
+        if (emitJulia(zcm)) {
+            printf("An error occurred while emitting Julia code.\n");
             ret = 1;
         }
     }
