@@ -13,15 +13,47 @@ out = 'build'
 # Allow import of custom tools
 sys.path.append('waftools')
 
+variants = {'local' : 'local',
+             'asan' : 'local',  ## Core Sanitizers (Address, Undefined-Behavior)
+             'tsan' : 'local',  ## Thread Sanitizer
+}
+
 def options(ctx):
     ctx.load('compiler_c')
     ctx.load('compiler_cxx')
-    ctx.add_option('-s', '--symbols', dest='symbols', default=False, action='store_true',
+    add_zcm_configure_options(ctx)
+    add_zcm_build_options(ctx)
+
+def add_zcm_configure_options(ctx):
+    gr = ctx.add_option_group('ZCM Configuration Options')
+
+    def add_use_option(name, desc):
+        gr.add_option('--use-'+name, dest='use_'+name, default=False,
+                      action='store_true', help=desc)
+
+    def add_trans_option(name, desc):
+        gr.add_option('--use-'+name, dest='use_'+name, default=False,
+                      action='store_true', help=desc)
+
+    add_use_option('all',     'Attempt to enable every ZCM feature')
+    add_use_option('clang',   'Enable build using clang sanitizers')
+
+
+def add_zcm_build_options(ctx):
+    gr = ctx.add_option_group('ZCM Build Options')
+
+    gr.add_option('-s', '--symbols', dest='symbols', default=False, action='store_true',
                    help='Leave the debugging symbols in the resulting object files')
-    ctx.add_option('-d', '--debug', dest='debug', default=False, action='store_true',
+    gr.add_option('-d', '--debug', dest='debug', default=False, action='store_true',
                    help='Compile all C/C++ code in debug mode: no optimizations and full symbols')
 
+
 def configure(ctx):
+    for e in variants:
+        ctx.setenv(e) # start with a copy instead of a new env
+
+    ctx.setenv('')
+
     ctx.load('compiler_c')
     ctx.load('compiler_cxx')
     ctx.load('java')
@@ -53,12 +85,80 @@ def configure(ctx):
         Logs.pprint('RED', 'Examples rely on ZCM_DEFAULT_URL being defined. Try `source ./env`')
         Logs.pprint('RED', 'This is not an error and can be ignored if you know what you are doing')
 
+    ctx.env.configuredEnv = []
+
+    process_zcm_configure_options(ctx)
+
+    for e in ctx.env.configuredEnv:
+        ctx.setenv(e, env=ctx.env.derive()) # start with a copy instead of a new env
+
+
+def process_zcm_configure_options(ctx):
+    opt = waflib.Options.options
+    env = ctx.env
+    def hasopt(key):
+        return opt.use_all or getattr(opt, key)
+
+    env.VERSION='1.0.0'
+
+    env.USING_CLANG = hasopt('use_clang') and attempt_use_clang(ctx)
+
+    def print_entry(name, enabled):
+        Logs.pprint("NORMAL", "    {:20}".format(name), sep='')
+        if enabled:
+            Logs.pprint("GREEN", "Enabled")
+        else:
+            Logs.pprint("RED", "Disabled")
+
+    Logs.pprint('BLUE', '\nDev Configuration:')
+    print_entry("Clang",   env.USING_CLANG)
+
+    Logs.pprint('NORMAL', '')
+
+
+def attempt_use_clang(ctx):
+    ctx.load('clang-custom')
+    ctx.env.CLANG_VERSION = ctx.assert_clang_version(3.6)
+    ctx.env.configuredEnv.append('asan')
+    ctx.env.configuredEnv.append('tsan')
+    return True
+
+
+def setup_environment_gnu(ctx):
+    FLAGS = ['-Wno-unused-local-typedefs',
+            ]
+    ctx.env.CFLAGS_default   += FLAGS
+    ctx.env.CXXFLAGS_default += FLAGS
+
+def setup_environment_asan(ctx):
+    ctx.set_clang_compiler()
+
+    FLAGS = ['-fcolor-diagnostics',
+             '-fsanitize=address',    # AddressSanitizer, a memory error detector.
+             '-fsanitize=integer',    # Enables checks for undefined or suspicious integer behavior.
+             '-fsanitize=undefined',  # Fast and compatible undefined behavior checker.
+    ]
+
+    ctx.env.CFLAGS_default    += FLAGS
+    ctx.env.CXXFLAGS_default  += FLAGS
+    ctx.env.LINKFLAGS_default += FLAGS
+
+def setup_environment_tsan(ctx):
+    ctx.set_clang_compiler()
+
+    FLAGS = ['-fcolor-diagnostics',
+             '-fsanitize=thread',     # ThreadSanitizer, a data race detector.
+    ]
+
+    ctx.env.CFLAGS_default    += FLAGS
+    ctx.env.CXXFLAGS_default  += FLAGS
+    ctx.env.LINKFLAGS_default += FLAGS
+
+
 def setup_environment(ctx):
     ctx.post_mode = waflib.Build.POST_LAZY
     ctx.env.VERSION='1.0.0'
 
-    useOptimize = not waflib.Options.options.debug
-    useSymbols = waflib.Options.options.debug or waflib.Options.options.symbols
 
     WARNING_FLAGS = ['-Wall', '-Werror', '-Wno-unused-function', '-Wno-format-zero-length']
     SYM_FLAGS = ['-g']
@@ -67,16 +167,46 @@ def setup_environment(ctx):
     ctx.env.CXXFLAGS_default = ['-std=c++11', '-fPIC'] + WARNING_FLAGS
     ctx.env.LINKFLAGS_default = ['-pthread']
 
-    if useOptimize:
+    opt = waflib.Options.options
+    ctx.env.USING_OPT = not opt.debug
+    ctx.env.USING_SYM = opt.debug or opt.symbols
+
+    if ctx.env.USING_OPT:
         ctx.env.CFLAGS_default   += OPT_FLAGS
         ctx.env.CXXFLAGS_default += OPT_FLAGS
-    if useSymbols:
+    if ctx.env.USING_SYM:
         ctx.env.CFLAGS_default   += SYM_FLAGS
         ctx.env.CXXFLAGS_default += SYM_FLAGS
 
+    ## Run special compiler-specific configuration
+    if ctx.env.USING_CXXTEST:
+        ctx.setup_cxxtest()
+
+    ## Building for asan?
+    if ctx.variant == 'asan':
+        setup_environment_asan(ctx)
+    ## Building for tsan?
+    elif ctx.variant == 'tsan':
+        setup_environment_tsan(ctx)
+    else:
+        setup_environment_gnu(ctx)
+
+
     ctx.env.ENVIRONMENT_SETUP = True
 
+from waflib.Build import BuildContext, CleanContext, InstallContext, UninstallContext
+for x in variants:
+    for y in (BuildContext, CleanContext, InstallContext, UninstallContext):
+        name = y.__name__.replace('Context','').lower()
+        class tmp(y):
+            cmd = name + '_' + x
+            variant = x
+
 def build(ctx):
+    if ctx.variant:
+        if not ctx.variant in ctx.env.configuredEnv:
+            ctx.fatal('Please configure for %s build' % (ctx.variant))
+
     if not ctx.env.ENVIRONMENT_SETUP:
         setup_environment(ctx)
 

@@ -28,11 +28,14 @@ PKGS+='nodejs nodejs-legacy npm '
 ## Python
 PKGS+='cython '
 
+## LibElf
+PKGS+='libelf-dev libelf1 '
+
 ## CxxTest
 PKGS+='cxxtest '
 
-## LibElf
-PKGS+='libelf-dev libelf1 '
+## Clang tools for code sanitizers, style checkers, etc.
+PKGS+='clang '
 
 echo "Updating apt repos"
 sudo apt-get update

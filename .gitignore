@@ -3,4 +3,5 @@
 *.pyc
 node_modules/
 build/
-.*
+.lock*
+.waf-*

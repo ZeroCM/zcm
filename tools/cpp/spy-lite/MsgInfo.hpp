@@ -10,9 +10,8 @@ class MsgInfo
     static constexpr size_t QUEUE_PERIOD = 4*1000*1000;
 
 public:
-    MsgInfo(TypeDb& db, const char *channel)
-    : db(db), channel(channel)
-    {}
+    MsgInfo(TypeDb& db, const char *channel);
+    ~MsgInfo();
 
     void addMessage(u64 utime, const zcm_recv_buf_t *rbuf);
     float getHertz();

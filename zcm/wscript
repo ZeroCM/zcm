@@ -102,8 +102,8 @@ def package_embedded(tsk):
     if ret is not 0:
         raise WafError('Unable to prep files for zcm-embed tarball generation')
 
-    cmd = 'fldr=' + tsk.outputs[0].relpath() + \
-          ' && ../scripts/prepend-embed-guards.sh ${fldr%%.*}'
+    cmd = 'fldr=%s && %s/scripts/prepend-embed-guards.sh ${fldr%%.*}' % \
+          (tsk.outputs[0].relpath(), bld.path.abspath())
     ret = tsk.exec_command(cmd)
     if ret is not 0:
         raise WafError('Unable to prepend embed guard in zcm-embed tarball generation')
