@@ -472,7 +472,7 @@ class MessageTracker : public virtual Tracker<T>
     virtual uint64_t handle(const zcm::ReceiveBuffer* rbuf,
                             const std::string& chan,
                             const T* _msg)
-    { return Tracker<T>::newMsg(_msg, rbuf->recv_utime); }
+    { return this->newMsg(_msg, rbuf->recv_utime); }
 
   public:
     MessageTracker(zcm::ZCM* zcmLocal, const std::string& channel,

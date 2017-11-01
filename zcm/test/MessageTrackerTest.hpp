@@ -308,7 +308,7 @@ class MessageTrackerTest : public CxxTest::TestSuite
             }
         };
 
-        zcm::SynchronizedMessageDispatcher <zcm::MessageTracker<example_t>, tracker>::callback
+        zcm::SynchronizedMessageDispatcher <tracker, zcm::MessageTracker<example_t>>::callback
             cb = [&] (const example_t *a, example_t *b, void *usr) {
                      TS_ASSERT(a); TS_ASSERT(b);
                      TS_ASSERT_EQUALS(a->data, 1);
