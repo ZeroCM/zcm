@@ -70,11 +70,17 @@ static bool isLegalMemberName(const string& t)
     return isalpha(t[0]) || t[0] == '_';
 }
 
+static u64 signExtendedRightShift(u64 val, size_t nShift)
+{
+    return !(val >> 63) ?  val >> nShift :
+                          (val >> nShift) | ~((1 << (64 - nShift)) - 1);
+}
+
 // Make the hash dependent on the value of the given character. The
 // order that hash_update is called in IS important.
 static u64 hashUpdate(u64 v, char c)
 {
-    v = ((v<<8) ^ (v>>55)) + c;
+    v = ((v<<8) ^ signExtendedRightShift(v, 55)) + c;
     return v;
 }
 
