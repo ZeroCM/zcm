@@ -179,7 +179,7 @@ type Zcm
                                              msg = MsgType();
                                              # TODO: think we can use `unsafe_wrap` in zcmgen code
                                              #       to turn data ptr into an array
-                                             msg.decode(rbuf.data, rbuf.data_size);
+                                             msg.decode(rbuf.data)
                                              handler(rbuf, channel, msg, usr);
                                          end, usr);
         end
