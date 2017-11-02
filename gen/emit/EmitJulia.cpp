@@ -270,7 +270,7 @@ struct EmitJulia : public Emitter
 
     void emitDecode()
     {
-        emit(2, "instance.decode = function()");
+        emit(2, "instance.decode = function(data::Array{UInt8,1})");
         emit(2, "end");
         emit(1, "");
     }
