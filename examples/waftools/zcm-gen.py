@@ -41,7 +41,7 @@ def configure(ctx):
 #   build:        False if only zcmtype generation (no compiling or linking) is desired
 #                 Defaults to true.
 #   lang:         list of languages for which zcmtypes should be generated, options are:
-#                 ['c_stlib', 'c_shlib', 'cpp', 'java', 'python', 'nodejs'].
+#                 ['c_stlib', 'c_shlib', 'cpp', 'java', 'python', 'nodejs', 'julia'].
 #                 Can also be a space separated string.
 #   littleEndian: True or false based on desired endianess of output. Should almost always
 #                 be false. Don't use this option unless you really know what you're doing
@@ -58,32 +58,37 @@ def configure(ctx):
 #     ${dir}  = dir containing the zcmtypes (eg for ~/zcm/examples/types/*.zcm, ${dir} = "types")
 #     ${pkg}  = value entered for the "javapkg" keyword
 #
-#   C:            types will be compiled into a static library and linked into targets
-#     wscript:    add '${name}_c' to the list of "use" dependencies
-#     c files:    target include directives at "${dir}/type_name_t.h"
+#   C:             types will be compiled into a static library and linked into targets
+#     wscript:     add '${name}_c' to the list of "use" dependencies
+#     c files:     target include directives at "${dir}/type_name_t.h"
 #
-#   C++:          types are header only and will be included directly in source
-#     wscript:    add '${name}_cpp' to the list of "use" dependencies
-#     cpp files:  target include directives at "${dir}/type_name_t.hpp"
+#   C++:           types are header only and will be included directly in source
+#     wscript:     add '${name}_cpp' to the list of "use" dependencies
+#     cpp files:   target include directives at "${dir}/type_name_t.hpp"
 #
-#   Java:         types will be compiled into a .jar, see details below on execution
-#     wscript:    add '${name}_java' to the list of "use" dependencies
-#     java files: target import directives at "$pkg/type_name_t"
+#   Java:          types will be compiled into a .jar, see details below on execution
+#     wscript:     add '${name}_java' to the list of "use" dependencies
+#     java files:  target import directives at "$pkg/type_name_t"
 #
-#   Python:       types will be compiled into .py python files and are imported
-#                 into final python script.
-#     wscript:    add '${name}_python' to the list of "use" dependencies if you
-#                 have any build time dependencies (most python dependencies,
-#                 however, are runtime so this will often, if not always, go unused).
-#     py files:   add directory containing .py files to your sys path and target
-#                 import directives at "$pkg/type_name_t"
+#   Python:        types will be compiled into .py python files and are imported
+#                  into final python script.
+#     wscript:     add '${name}_python' to the list of "use" dependencies if you
+#                  have any build time dependencies (most python dependencies,
+#                  however, are runtime so this will often, if not always, go unused).
+#     py files:    add directory containing .py files to your sys path and target
+#                  import directives at "$pkg/type_name_t"
 #
-#   NodeJS:       types will be compiled into a zcmtypes.js file which is
-#                 'require'd in your nodejs main app.js file and passed into
-#                 nodes zcm constructor
-#     wscript:    add '${name}_nodejs to the list of "use" dependencies if you
-#                 have any build time dependencies (most nodejs dependencies,
-#                 however, are runtime so this will often, if not always, go unused).
+#   NodeJS:        types will be compiled into a zcmtypes.js file which is
+#                  'require'd in your nodejs main app.js file and passed into
+#                  nodes zcm constructor
+#     wscript:     add '${name}_nodejs to the list of "use" dependencies if you
+#                  have any build time dependencies (most nodejs dependencies,
+#                  however, are runtime so this will often, if not always, go unused).
+#
+#   Julia:         types will be compiled into .jl files. Simply `include()` them
+#                  into the final julia script
+#     wscript:     add '${name}_julia' to the list of "use" dependencies
+#     julia files: target import directives at "${dir}/type_name_t"
 #
 # Note on running the output java classes:
 #   Because of the way that java's CLASSPATH works, even though waf will link the appropriate jar
@@ -129,6 +134,8 @@ def outFileName(ctx, inp, lang, absPath=False):
         return defaultOutFileName(fileparts, absPath).replace('.zcm', '.hpp')
     if lang == 'python':
         return defaultOutFileName(fileparts, absPath).replace('.zcm', '.py')
+    if lang == 'julia':
+        return defaultOutFileName(fileparts, absPath).replace('.zcm', '.jl')
 
     raise WafError('This should not be possible')
 
@@ -250,6 +257,10 @@ def zcmgen(ctx, **kw):
         ctx(target = uselib_name + '_python',
             rule   = 'touch ${TGT}')
 
+    if 'julia' in lang:
+        ctx(target = uselib_name + '_julia',
+            rule   = 'touch ${TGT}')
+
 @extension('.zcm')
 def process_zcmtypes(self, node):
     tsk = self.create_task('zcmgen', node)
@@ -300,6 +311,10 @@ class zcmgen(Task.Task):
             filename = outFileName(gen.bld, inp.abspath(), 'python')
             node = gen.path.find_or_declare(filename)
             self.outputs.append(node)
+        if 'julia' in gen.lang:
+            filename = outFileName(gen.bld, inp.abspath(), 'julia')
+            node = gen.path.find_or_declare(filename)
+            self.outputs.append(node)
 
         if not self.outputs:
             raise WafError('No ZCMtypes generated, ensure a valid lang is specified')
@@ -326,6 +341,8 @@ class zcmgen(Task.Task):
             langs['java'] = '--java --jpath %s --jdefaultpkg %s' % (bld + '/java', gen.javapkg)
         if 'python' in gen.lang:
             langs['python'] = '--python --ppath %s' % (bld)
+        if 'julia' in gen.lang:
+            langs['julia'] = '--julia --julia-path %s' % (bld)
 
         if gen.littleEndian:
             langs['endian'] = ' --little-endian-encoding '

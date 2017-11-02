@@ -108,10 +108,14 @@ struct EmitJulia : public Emitter
 
         // define the class
         emitComment(0, ls.comment);
-        emit(0, "type %s\n", sn);
+        emit(0, "type %s", sn);
+        emit(0, "");
 
         // data members
         if (ls.members.size() > 0) {
+            emit(1, "# **********************");
+            emit(1, "# Members");
+            emit(1, "# **********************");
             for (auto& lm : ls.members) {
                 auto& mtn = lm.type.fullname;
                 emitComment(2, lm.comment);
@@ -126,17 +130,23 @@ struct EmitJulia : public Emitter
             }
         }
 
-        emit(0, "");
-
         // constants
         if (ls.constants.size() > 0) {
+            emit(0, "");
+            emit(1, "# **********************");
+            emit(1, "# Constants");
+            emit(1, "# **********************");
             for (auto& lc : ls.constants) {
                 assert(ZCMGen::isLegalConstType(lc.type));
                 string mt = mapTypeName(lc.type);
-                emit(1, "%-30s::%s = %s", lc.membername.c_str(), mt.c_str(), lc.valstr.c_str());
+                emit(1, "%-30s::%s", lc.membername.c_str(), mt.c_str(), lc.valstr.c_str());
             }
             emit(0, "");
         }
+
+        emit(1, "# **********************");
+        emit(1, "# Functions");
+        emit(1, "# **********************");
 
         emit(1, "%-30s::Function", "_get_hash_recursive");
         emit(1, "%-30s::Function", "getHash");
@@ -147,10 +157,26 @@ struct EmitJulia : public Emitter
         emit(0, "");
         emit(2, "instance = new();");
         emit(0, "");
+
+        // constants
+        if (ls.constants.size() > 0) {
+            emit(2, "# **********************");
+            emit(2, "# Constants");
+            emit(2, "# **********************");
+
+            for (auto& lc : ls.constants) {
+                assert(ZCMGen::isLegalConstType(lc.type));
+                string mt = mapTypeName(lc.type);
+                emit(2, "instance.%s::%s = %s", lc.membername.c_str(),
+                        mt.c_str(), lc.valstr.c_str());
+            }
+            emit(0, "");
+        }
     }
 
     void emitHeaderEnd()
     {
+        emit(2, "return instance");
         emit(1, "end");
         emit(0, "");
         emit(0, "end");
