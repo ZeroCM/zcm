@@ -546,7 +546,7 @@ struct PyEmitStruct : public Emitter
         emitEnd (") & 0xffffffffffffffff");
 
         emit(2, "tmphash  = (((tmphash<<1)&0xffffffffffffffff)  + "
-             "(tmphash>>63)) & 0xffffffffffffffff");
+             "((tmphash>>63)&0x1)) & 0xffffffffffffffff");
         emit (2,     "return tmphash");
         emit (1, "_get_hash_recursive = staticmethod(_get_hash_recursive)");
 
