@@ -222,7 +222,7 @@ struct EmitJulia : public Emitter
         auto& sn_ = ls.structname.shortname;
         auto *sn = sn_.c_str();
 
-        emit(2, "_hash::UInt64 = 0");
+        emit(2, "_hash::Int64 = 0");
 
         emit(2, "instance._get_hash_recursive = function(parents::Array{String})");
         emit(3,     "if _hash != 0; return _hash; end");
@@ -233,7 +233,7 @@ struct EmitJulia : public Emitter
                 break;
             }
         }
-        emitStart(3, "tmphash::UInt64 = 0x%" PRIx64 " ", ls.hash);
+        emitStart(3, "hash::UInt64 = 0x%" PRIx64 " ", ls.hash);
         for (auto &lm : ls.members) {
             auto& mn = lm.membername;
             if (!ZCMGen::isPrimitiveType(lm.type.fullname)) {
@@ -250,13 +250,13 @@ struct EmitJulia : public Emitter
         }
         emitEnd("");
 
-        emit(3,     "_hash = (tmphash << 1) + ((tmphash >>> 63) & 0x01)");
+        emit(3,     "hash = (hash << 1) + ((hash >>> 63) & 0x01)");
+        emit(3,     "_hash = ((hash & 0x8000000000000000) != 0) ? ~Int64(~hash) : Int64(hash)");
         emit(3,     "return _hash");
         emit(2, "end");
         emit(1, "");
         emit(2, "instance.getHash = function()", sn);
-        emit(3,     "hash = instance._get_hash_recursive(Array{String,1}([]))");
-        emit(3,     "return ((hash & 0x8000000000000000) != 0) ? ~Int64(~hash) : Int64(hash)");
+        emit(3,     "return instance._get_hash_recursive(Array{String,1}([]))");
         emit(2, "end");
         emit(1, "");
     }
