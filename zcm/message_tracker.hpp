@@ -466,13 +466,11 @@ class MessageTracker : public virtual Tracker<T>
     MessageTracker() {}
 
     void _handle(const zcm::ReceiveBuffer* rbuf, const std::string& chan, const T* _msg)
-    { this->handle(rbuf, chan, _msg); }
+    { this->handle(_msg, rbuf->recv_utime); }
 
   protected:
-    virtual uint64_t handle(const zcm::ReceiveBuffer* rbuf,
-                            const std::string& chan,
-                            const T* _msg)
-    { return this->newMsg(_msg, rbuf->recv_utime); }
+    virtual uint64_t handle(const T* _msg, uint64_t hostUtime = UINT64_MAX)
+    { return this->newMsg(_msg, hostUtime); }
 
   public:
     MessageTracker(zcm::ZCM* zcmLocal, const std::string& channel,
@@ -522,10 +520,10 @@ class SynchronizedMessageDispatcher
         SynchronizedMessageDispatcher* smt;
 
       public:
-        uint64_t handle(const zcm::ReceiveBuffer* rbuf, const std::string& chan,
-                        const typename Type1Tracker::ZcmType* _msg) override
+        uint64_t handle(const typename Type1Tracker::ZcmType* _msg,
+                        uint64_t hostUtime = UINT64_MAX) override
         {
-            uint64_t utime = Type1Tracker::handle(rbuf, chan, _msg);
+            uint64_t utime = Type1Tracker::handle(_msg, hostUtime);
             // the base tracker could modify the message at that utime
             auto* msg = Type1Tracker::get(utime);
             smt->process1(msg, utime);
@@ -547,10 +545,10 @@ class SynchronizedMessageDispatcher
         SynchronizedMessageDispatcher* smt;
 
       public:
-        uint64_t handle(const zcm::ReceiveBuffer* rbuf, const std::string& chan,
-                        const typename Type2Tracker::ZcmType* _msg) override
+        uint64_t handle(const typename Type2Tracker::ZcmType* _msg,
+                        uint64_t hostUtime = UINT64_MAX) override
         {
-            uint64_t utime = Type2Tracker::handle(rbuf, chan, _msg);
+            uint64_t utime = Type2Tracker::handle(_msg, hostUtime);
             smt->process2(utime);
             return utime;
         }
@@ -616,18 +614,12 @@ class SynchronizedMessageDispatcher
 
     void newType1Msg(const typename Type1Tracker::ZcmType* msg)
     {
-        // RRR: this isn't ok, rbuf can't just be garbage
-        zcm::ReceiveBuffer rbuf;
-        rbuf.recv_utime = UINT64_MAX;
-        t1.handle(&rbuf, "", msg);
+        t1.handle(msg);
     }
 
     void newType2Msg(const typename Type2Tracker::ZcmType* msg)
     {
-        // RRR: this isn't ok, rbuf can't just be garbage
-        zcm::ReceiveBuffer rbuf;
-        rbuf.recv_utime = UINT64_MAX;
-        t2.handle(&rbuf, "", msg);
+        t2.handle(msg);
     }
 
     Type1Tracker* getType1Ptr() { return &t1; }

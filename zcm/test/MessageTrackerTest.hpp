@@ -258,30 +258,27 @@ class MessageTrackerTest : public CxxTest::TestSuite
 
         std::stringstream ss;
 
-        // RRR: careful when using garbage rbufs
-        zcm::ReceiveBuffer rbuf;
-        rbuf.recv_utime = UINT64_MAX;
         // Message type 2
         ss << "New message b: " << e1.utime; TS_TRACE(ss.str()); ss.str("");
-        smt.t2.handle(&rbuf, "", &e1);
+        smt.t2.handle(&e1);
         ss << "New message b: " << e2.utime; TS_TRACE(ss.str()); ss.str("");
-        smt.t2.handle(&rbuf, "", &e2);
+        smt.t2.handle(&e2);
 
         // Message type 1
         ss << "New message a: " << e3.utime; TS_TRACE(ss.str()); ss.str("");
-        smt.t1.handle(&rbuf, "", &e3);
+        smt.t1.handle(&e3);
 
         // Message type 2
         ss << "New message b: " << e5.utime; TS_TRACE(ss.str()); ss.str("");
-        smt.t2.handle(&rbuf, "", &e5);
+        smt.t2.handle(&e5);
         ss << "New message b: " << e6.utime; TS_TRACE(ss.str()); ss.str("");
-        smt.t2.handle(&rbuf, "", &e6);
+        smt.t2.handle(&e6);
 
         // Message type 1
         ss << "New message a: " << e4.utime; TS_TRACE(ss.str()); ss.str("");
-        smt.t1.handle(&rbuf, "", &e4);
+        smt.t1.handle(&e4);
         ss << "New message b: " << e7.utime; TS_TRACE(ss.str()); ss.str("");
-        smt.t2.handle(&rbuf, "", &e7);
+        smt.t2.handle(&e7);
 
         TS_ASSERT_EQUALS(pairDetected, 2);
     }
