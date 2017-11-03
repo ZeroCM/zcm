@@ -200,7 +200,8 @@ type Zcm
 
         # TODO: force msg to be derived from our zcm msg basetype
         instance.publish = function(channel::AbstractString, msg)
-            return instance.publishRaw(channel, msg.encode(), msg.encodeLen());
+            data = msg.encode()
+            return instance.publishRaw(channel, data, UInt32(length(data)));
         end
 
         instance.flush = function()
