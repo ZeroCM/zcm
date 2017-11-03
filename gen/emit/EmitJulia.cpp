@@ -164,13 +164,15 @@ struct EmitJulia : public Emitter
 
         emit(1, "%-30s::Function", "_get_hash_recursive");
         emit(1, "%-30s::Function", "getHash");
-        emit(1, "%-30s::Function", "encode");
         emit(1, "%-30s::Function", "_encode_one");
+        emit(1, "%-30s::Function", "encode");
+        emit(1, "%-30s::Function", "__ntoh");
+        emit(1, "%-30s::Function", "_decode_one");
         emit(1, "%-30s::Function", "decode");
         emit(0, "");
         emit(1, "function %s()", sn);
         emit(0, "");
-        emit(2, "instance = new();");
+        emit(2, "self = new();");
         emit(0, "");
 
         // data members
@@ -180,7 +182,7 @@ struct EmitJulia : public Emitter
             emit(2, "# **********************");
             for (size_t i = 0; i < ls.members.size(); ++i) {
                 auto& lm = ls.members[i];
-                emitStart(2, "instance.%s = ", lm.membername.c_str());
+                emitStart(2, "self.%s = ", lm.membername.c_str());
                 emitMemberInitializer(lm, 0);
                 emitEnd("");
             }
@@ -196,7 +198,7 @@ struct EmitJulia : public Emitter
             for (auto& lc : ls.constants) {
                 assert(ZCMGen::isLegalConstType(lc.type));
                 string mt = mapTypeName(lc.type);
-                emitStart(2, "instance.%s::%s = ", lc.membername.c_str(), mt.c_str());
+                emitStart(2, "self.%s::%s = ", lc.membername.c_str(), mt.c_str());
                 if (lc.isFixedPoint()) {
                     size_t numBits = ZCMGen::getPrimitiveTypeSize(lc.type) * 8;
                     emitContinue("(((%s) & 0x%" PRIx64 ") != 0)",
@@ -213,7 +215,7 @@ struct EmitJulia : public Emitter
 
     void emitHeaderEnd()
     {
-        emit(2, "return instance");
+        emit(2, "return self");
         emit(1, "end");
         emit(0, "");
         emit(0, "end");
@@ -223,6 +225,9 @@ struct EmitJulia : public Emitter
 
     void emitMemberInitializer(ZCMMember& lm, int dimNum)
     {
+        auto& mtn = lm.type.fullname;
+        string mappedTypename = mapTypeName(mtn);
+
         if ((size_t)dimNum == lm.dimensions.size()) {
             auto& tn = lm.type.fullname;
             const char* initializer = nullptr;
@@ -245,7 +250,11 @@ struct EmitJulia : public Emitter
         }
         auto& dim = lm.dimensions[dimNum];
         if (dim.mode == ZCM_VAR) {
-            fprintfPass("[]");
+            size_t dimLeft = lm.dimensions.size() - dimNum;
+            fprintfPass("Array{%s,%lu}(", mappedTypename.c_str(), dimLeft);
+            for (size_t i = 0; i < dimLeft - 1; ++i)
+                fprintfPass("0,");
+            fprintfPass("0)");
         } else {
             fprintfPass("[ ");
             emitMemberInitializer(lm, dimNum+1);
@@ -260,7 +269,7 @@ struct EmitJulia : public Emitter
 
         emit(2, "_hash::Int64 = 0");
 
-        emit(2, "instance._get_hash_recursive = function(parents::Array{String})");
+        emit(2, "self._get_hash_recursive = function(parents::Array{String})");
         emit(3,     "if _hash != 0; return _hash; end");
         emit(3,     "if \"%s\"::String in parents; return 0; end", sn);
         for (auto& lm : ls.members) {
@@ -269,7 +278,7 @@ struct EmitJulia : public Emitter
                 break;
             }
         }
-        emitStart(3, "hash::UInt64 = 0x%" PRIx64 " ", ls.hash);
+        emitStart(3, "hash::UInt64 = 0x%" PRIx64, ls.hash);
         for (auto &lm : ls.members) {
             auto& mn = lm.membername;
             if (!ZCMGen::isPrimitiveType(lm.type.fullname)) {
@@ -290,11 +299,11 @@ struct EmitJulia : public Emitter
         emit(3,     "_hash = ((hash & 0x8000000000000000) != 0) ? ~Int64(~hash) : Int64(hash)");
         emit(3,     "return _hash");
         emit(2, "end");
-        emit(1, "");
-        emit(2, "instance.getHash = function()", sn);
-        emit(3,     "return instance._get_hash_recursive(Array{String,1}([]))");
+        emit(0, "");
+        emit(2, "self.getHash = function()", sn);
+        emit(3,     "return self._get_hash_recursive(Array{String,1}([]))");
         emit(2, "end");
-        emit(1, "");
+        emit(0, "");
     }
 
     void emitEncodeSingleMember(ZCMMember& lm, const string& accessor_, int indent)
@@ -329,9 +338,9 @@ struct EmitJulia : public Emitter
             tn == "float"  || tn == "double") {
             if (tn != "boolean")
                 emit(indent, "for i in range(1,%s%s) %s[i] = hton(%s[i]) end",
-                             (fixedLen ? "" : "instance."), len, accessor, accessor);
+                             (fixedLen ? "" : "self."), len, accessor, accessor);
             emit(indent, "write(buf, %s[1:%s%s])",
-                 accessor, (fixedLen ? "" : "instance."), len);
+                 accessor, (fixedLen ? "" : "self."), len);
             return;
         } else {
             assert(0);
@@ -340,7 +349,7 @@ struct EmitJulia : public Emitter
 
     void emitEncodeOne()
     {
-        emit(2, "instance._encode_one = function(buf)");
+        emit(2, "self._encode_one = function(buf)");
         if (ls.members.size() == 0) {
             emit(3, "return nothing");
             emit(2, "end");
@@ -349,9 +358,9 @@ struct EmitJulia : public Emitter
 
         for (auto& lm : ls.members) {
             if (lm.dimensions.size() == 0) {
-                emitEncodeSingleMember(lm, "instance." + lm.membername, 3);
+                emitEncodeSingleMember(lm, "self." + lm.membername, 3);
             } else {
-                string accessor = "instance." + lm.membername;
+                string accessor = "self." + lm.membername;
                 unsigned int n;
                 for (n = 0; n < lm.dimensions.size() - 1; ++n) {
                     auto& dim = lm.dimensions[n];
@@ -359,7 +368,7 @@ struct EmitJulia : public Emitter
                     if (dim.mode == ZCM_CONST) {
                         emit(n + 3, "for i%d in range(1,%s)", n, dim.size.c_str());
                     } else {
-                        emit(n + 3, "for i%d in range(1,instance.%s)", n, dim.size.c_str());
+                        emit(n + 3, "for i%d in range(1,self.%s)", n, dim.size.c_str());
                     }
                 }
 
@@ -374,7 +383,7 @@ struct EmitJulia : public Emitter
                     if (lastDimFixedLen) {
                         emit(n + 3, "for i%d in range(1,%s)", n, lastDim.size.c_str());
                     } else {
-                        emit(n + 3, "for i%d in range(1,instance.%s)", n, lastDim.size.c_str());
+                        emit(n + 3, "for i%d in range(1,self.%s)", n, lastDim.size.c_str());
                     }
                     accessor += "[i" + to_string(n) + "]";
                     emitEncodeSingleMember(lm, accessor, n + 5);
@@ -391,20 +400,174 @@ struct EmitJulia : public Emitter
 
     void emitEncode()
     {
-        emit(2, "instance.encode = function()");
+        emit(2, "self.encode = function()");
         emit(2, "    buf = IOBuffer()");
-        emit(2, "    write(buf, hton(instance.getHash()))");
-        emit(2, "    instance._encode_one(buf)");
+        emit(2, "    write(buf, hton(self.getHash()))");
+        emit(2, "    self._encode_one(buf)");
         emit(2, "    return takebuf_array(buf);");
         emit(2, "end");
-        emit(1, "");
+        emit(0, "");
+    }
+
+    void emitDecodeSingleMember(ZCMMember& lm, const string& accessor_,
+                                int indent, const string& sfx_)
+    {
+        auto& tn = lm.type.fullname;
+        string mappedTypename = mapTypeName(tn);
+        auto& mn = lm.membername;
+        auto& sn = lm.type.shortname;
+
+        auto *accessor = accessor_.c_str();
+        auto *sfx = sfx_.c_str();
+
+        if (tn == "string") {
+            emit(indent, "__%s_len = ntoh(reinterpret(UInt32, read(buf, 4))[1])", mn.c_str());
+            emit(indent, "%sString(read(buf, __%s_len))%s", accessor, mn.c_str(), sfx);
+        } else if (tn == "byte"    || tn == "boolean" || tn == "int8_t") {
+            auto typeSize = ZCMGen::getPrimitiveTypeSize(tn);
+            emit(indent, "%sreinterpret(%s, read(buf, %u))[1]%s",
+                         accessor, mappedTypename.c_str(), typeSize, sfx);
+        } else if (tn == "int16_t" || tn == "int32_t" || tn == "int64_t" ||
+                   tn == "float"   || tn == "double") {
+            auto typeSize = ZCMGen::getPrimitiveTypeSize(tn);
+            emit(indent, "%sntoh(reinterpret(%s, read(buf, %u))[1])%s",
+                         accessor, mappedTypename.c_str(), typeSize, sfx);
+        } else {
+            if (lm.type.fullname == ls.structname.fullname) {
+                emit(indent, "%sself.%s._decode_one(buf)%s", accessor, sn.c_str(), sfx);
+            } else {
+                emit(indent, "%sself.%s._decode_one(buf)%s", accessor, tn.c_str(), sfx);
+            }
+        }
+    }
+
+    void emitDecodeListMember(ZCMMember& lm, const string& accessor_, int indent,
+                              bool isFirst, const string& len_, bool fixedLen)
+    {
+        auto& tn = lm.type.fullname;
+        string mappedTypename = mapTypeName(tn);
+        const char *suffix = isFirst ? "" : ")";
+        auto *accessor = accessor_.c_str();
+        auto *len = len_.c_str();
+
+        if (tn == "byte" || tn == "boolean" || tn == "int8_t" ) {
+            if (fixedLen) {
+                emit(indent, "%sreinterpret(%s, read(buf, %d))%s",
+                     accessor, mappedTypename.c_str(),
+                     atoi(len) * ZCMGen::getPrimitiveTypeSize(tn),
+                     suffix);
+            } else {
+                emit(indent, "%sreinterpret(%s, read(buf, (self.%s) * %lu))%s",
+                     accessor, mappedTypename.c_str(),
+                     len, ZCMGen::getPrimitiveTypeSize(tn),
+                     suffix);
+            }
+        } else if (tn == "int16_t" || tn == "int32_t" || tn == "int64_t" ||
+                   tn == "float"   || tn == "double") {
+            if (fixedLen) {
+                emit(indent, "%sself.__ntoh(reinterpret(%s, read(buf, %d)))%s",
+                     accessor, mappedTypename.c_str(),
+                     atoi(len) * ZCMGen::getPrimitiveTypeSize(tn),
+                     suffix);
+            } else {
+                emit(indent, "%sself.__ntoh(reinterpret(%s, read(buf, (self.%s) * %lu)))%s",
+                     accessor, mappedTypename.c_str(),
+                     len, ZCMGen::getPrimitiveTypeSize(tn),
+                     suffix);
+            }
+        } else {
+            assert(0);
+        }
+    }
+
+    void emitDecodeOne()
+    {
+        emit(2, "self.__ntoh = function __ntoh{T}(arr::Array{T})");
+        emit(2, "    for i in range(1,length(arr)) arr[i] = ntoh(arr[i]) end");
+        emit(2, "    return arr");
+        emit(2, "end");
+        emit(2, "self._decode_one = function(buf)");
+
+        for (auto& lm : ls.members) {
+            if (lm.dimensions.size() == 0) {
+                string accessor = "self." + lm.membername + " = ";
+                emitDecodeSingleMember(lm, accessor.c_str(), 3, "");
+            } else {
+                string accessor = "self." + lm.membername;
+
+                // iterate through the dimensions of the member, building up
+                // an accessor string, and emitting for loops
+                uint n = 0;
+                for (n = 0; n < lm.dimensions.size()-1; n++) {
+                    auto& dim = lm.dimensions[n];
+
+                    if(n == 0) {
+                        emit(3, "%s = []", accessor.c_str());
+                    } else {
+                        emit(n + 3, "%s.append([])", accessor.c_str());
+                    }
+
+                    if (dim.mode == ZCM_CONST) {
+                        emit(n + 3, "for i%d in range(%s):", n, dim.size.c_str());
+                    } else {
+                        emit(n + 3, "for i%d in range(self.%s):", n, dim.size.c_str());
+                    }
+
+                    if(n > 0 && n < lm.dimensions.size()-1) {
+                        accessor += "[i" + to_string(n - 1) + "]";
+                    }
+                }
+
+                // last dimension.
+                auto& lastDim = lm.dimensions[lm.dimensions.size()-1];
+                bool lastDimFixedLen = (lastDim.mode == ZCM_CONST);
+
+                if (ZCMGen::isPrimitiveType(lm.type.fullname) &&
+                    lm.type.fullname != "string") {
+                    // member is a primitive non-string type.  Emit code to
+                    // decode a full array in one call to struct.unpack
+                    if(n == 0) {
+                        accessor += " = ";
+                    } else {
+                        accessor += ".append(";
+                    }
+
+                    emitDecodeListMember(lm, accessor, n + 3, n==0,
+                                         lastDim.size, lastDimFixedLen);
+                } else {
+                    // member is either a string type or an inner ZCM type.  Each
+                    // array element must be decoded individually
+                    if(n == 0) {
+                        emit(3, "%s = []", accessor.c_str());
+                    } else {
+                        emit(n + 3, "%s.append ([])", accessor.c_str());
+                        accessor += "[i" + to_string(n-1) + "]";
+                    }
+                    if (lastDimFixedLen) {
+                        emit(n + 3, "for i%d in range(%s):", n, lastDim.size.c_str());
+                    } else {
+                        emit(n + 3, "for i%d in range(self.%s):", n, lastDim.size.c_str());
+                    }
+                    accessor += ".append(";
+                    emitDecodeSingleMember(lm, accessor, n+3, ")");
+                }
+            }
+        }
+        emit(3, "return self");
+        emit(2, "end");
+        emit(0, "");
     }
 
     void emitDecode()
     {
-        emit(2, "instance.decode = function(data::Array{UInt8,1})");
+        emit(2, "self.decode = function(data::Array{UInt8,1})");
+        emit(2, "    buf = IOBuffer(data)");
+        emit(2, "    if ntoh(reinterpret(Int64, read(buf, 8))[1]) != self.getHash()");
+        emit(2, "        throw(\"Decode error\")");
+        emit(2, "    end");
+        emit(2, "    return self._decode_one(buf)");
         emit(2, "end");
-        emit(1, "");
+        emit(0, "");
     }
 
     void emitHeader()
@@ -413,6 +576,7 @@ struct EmitJulia : public Emitter
         emitGetHash();
         emitEncodeOne();
         emitEncode();
+        emitDecodeOne();
         emitDecode();
         emitHeaderEnd();
     }
