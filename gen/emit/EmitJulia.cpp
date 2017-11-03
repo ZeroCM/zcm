@@ -199,15 +199,10 @@ struct EmitJulia : public Emitter
                 assert(ZCMGen::isLegalConstType(lc.type));
                 string mt = mapTypeName(lc.type);
                 emitStart(2, "self.%s::%s = ", lc.membername.c_str(), mt.c_str());
-                if (lc.isFixedPoint()) {
-                    size_t numBits = ZCMGen::getPrimitiveTypeSize(lc.type) * 8;
-                    emitContinue("(((%s) & 0x%" PRIx64 ") != 0)",
-                                 lc.valstr.c_str(), (1L << (numBits - 1)));
-                    emitEnd(" ? ~%s(~%s) : %s", mt.c_str(),
-                            lc.valstr.c_str(), lc.valstr.c_str());
-                } else {
+                if (lc.isFixedPoint())
+                    emitEnd("reinterpret(%s,%s)", mt.c_str(), lc.valstr.c_str());
+                else
                     emitEnd("%s", lc.valstr.c_str());
-                }
             }
             emit(0, "");
         }
@@ -284,19 +279,19 @@ struct EmitJulia : public Emitter
             if (!ZCMGen::isPrimitiveType(lm.type.fullname)) {
                 const char *ghr = "_get_hash_recursive(newparents)";
                 if (lm.type.fullname == ls.structname.fullname) {
-                    emitContinue("+ %s.%s", mn.c_str(), ghr);
+                    emitContinue("+ reinterpret(UInt64, self.%s.%s)", mn.c_str(), ghr);
                 } else {
                     if (lm.type.package != "")
-                        emitContinue("+ %s.%s.%s", lm.type.package.c_str(), mn.c_str(), ghr);
+                        emitContinue("+ reinterpret(UInt64, self.%s.%s)", mn.c_str(), ghr);
                     else
-                        emitContinue("+ %s.%s", mn.c_str(), ghr);
+                        emitContinue("+ reinterpret(UInt64, self.%s.%s)", mn.c_str(), ghr);
                 }
             }
         }
         emitEnd("");
 
         emit(3,     "hash = (hash << 1) + ((hash >>> 63) & 0x01)");
-        emit(3,     "_hash = ((hash & 0x8000000000000000) != 0) ? ~Int64(~hash) : Int64(hash)");
+        emit(3,     "_hash = reinterpret(Int64, hash)");
         emit(3,     "return _hash");
         emit(2, "end");
         emit(0, "");
@@ -415,7 +410,6 @@ struct EmitJulia : public Emitter
         auto& tn = lm.type.fullname;
         string mappedTypename = mapTypeName(tn);
         auto& mn = lm.membername;
-        auto& sn = lm.type.shortname;
 
         auto *accessor = accessor_.c_str();
         auto *sfx = sfx_.c_str();
@@ -433,11 +427,7 @@ struct EmitJulia : public Emitter
             emit(indent, "%sntoh(reinterpret(%s, read(buf, %u))[1])%s",
                          accessor, mappedTypename.c_str(), typeSize, sfx);
         } else {
-            if (lm.type.fullname == ls.structname.fullname) {
-                emit(indent, "%sself.%s._decode_one(buf)%s", accessor, sn.c_str(), sfx);
-            } else {
-                emit(indent, "%sself.%s._decode_one(buf)%s", accessor, tn.c_str(), sfx);
-            }
+            emit(indent, "%sself.%s._decode_one(buf)%s", accessor, mn.c_str(), sfx);
         }
     }
 
