@@ -323,11 +323,9 @@ class MessageTrackerTest : public CxxTest::TestSuite
 
         std::stringstream ss;
 
-        zcm::ReceiveBuffer rbuf;
-        rbuf.recv_utime = UINT64_MAX;
         // Message type 2
-        smt.t2.handle(&rbuf, "", &e2);
-        smt.t1.handle(&rbuf, "", &e1);
+        smt.t2.handle(&e2);
+        smt.t1.handle(&e1);
 
         TS_ASSERT_EQUALS(pairDetected, 1);
     }
