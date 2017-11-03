@@ -1,6 +1,7 @@
 #include "zcm/util/lockfile.h"
 #include "zcm/util/debug.h"
 
+#include <stdlib.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <pwd.h>
@@ -12,7 +13,8 @@
 #include <string>
 using namespace std;
 
-#define LOCK_PATH_PREFIX "/var/lock/LCK.."
+#define DEFAULT_LOCK_DIR "/var/lock/zcm"
+#define LOCK_PREFIX "LCK.."
 
 static bool startsWith(const string& s, const string& pre)
 {
@@ -26,7 +28,23 @@ static bool startsWith(const string& s, const string& pre)
 
 static string makeLockfilePath(const string& name)
 {
-    string ret = LOCK_PATH_PREFIX;
+    string ret = DEFAULT_LOCK_DIR;
+
+    const char* dir = std::getenv("ZCM_LOCK_DIR");
+    if (dir) ret = dir;
+
+    int err = mkdir(ret.c_str(), S_IRWXO | S_IRWXG | S_IRWXU);
+    if (err < 0 && errno != EEXIST) {
+        ZCM_DEBUG("Unable to create lockfile directory");
+        return "";
+    }
+
+    if (ret == "") return ret;
+
+    if (ret[ret.size() - 1] != '/') ret += "/";
+
+    ret += LOCK_PREFIX;
+
     size_t idx = 0;
     if (startsWith(name, "/dev/"))
         idx = 5;
@@ -70,6 +88,7 @@ static bool isLocked(const string& path)
 bool lockfile_trylock(const char *name)
 {
     auto path = makeLockfilePath(name);
+    if (path == "") return false;
     if (isLocked(path)) {
         ZCM_DEBUG("Cannot lock '%s', it's already locked!", path.c_str());
         return false;
