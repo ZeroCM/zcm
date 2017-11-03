@@ -39,7 +39,7 @@ class MessageTrackerTest : public CxxTest::TestSuite
         for (size_t i = 0; i < numMsgs; ++i) {
             example_t tmp = {};
             tmp.utime = i * 1e4;
-            mt.newMsg(&tmp, tmp.utime + 1);
+            mt.newMsg(tmp, tmp.utime + 1);
             TS_ASSERT_EQUALS(mt.lastMsgHostUtime(), tmp.utime + 1);
         }
         TS_ASSERT_DELTA(mt.getHz(), 100, 1e-5);
@@ -53,7 +53,7 @@ class MessageTrackerTest : public CxxTest::TestSuite
         for (size_t i = 0; i < numMsgs; ++i) {
             example_t tmp = {};
             tmp.utime = i + 101;
-            mt.newMsg(&tmp);
+            mt.newMsg(tmp);
         }
 
         vector<example_t*> gotRange = mt.getRange(101, 105);
@@ -115,7 +115,7 @@ class MessageTrackerTest : public CxxTest::TestSuite
             d.utime = 123456780 + (uint64_t)i;
             d.offset = 100 + i;
             d.bufInd = i;
-            mt.newMsg(&d, 0);
+            mt.newMsg(d, 0);
         }
         data_t* out = mt.get((uint64_t)123456785);
         TS_ASSERT(out != nullptr);
@@ -140,7 +140,7 @@ class MessageTrackerTest : public CxxTest::TestSuite
             d.utime = 1234567810 + (uint64_t)i;
             d.offset = 100 + i;
             d.bufInd = i;
-            mt.newMsg(&d);
+            mt.newMsg(d);
         }
         data_t* out = mt.get((uint64_t)1234567815);
         TS_ASSERT(out != nullptr);
@@ -297,11 +297,11 @@ class MessageTrackerTest : public CxxTest::TestSuite
                 zcm::Tracker<example_t>(maxTimeErr, maxMsgs),
                 zcm::MessageTracker<example_t>(zcmLocal, channel, maxTimeErr, maxMsgs) {}
 
-            uint64_t newMsg(const example_t* msg, uint64_t hostUtime = UINT64_MAX) override
+            uint64_t newMsg(const example_t& msg, uint64_t hostUtime = UINT64_MAX) override
             {
-                example_t newMsg = *msg;
+                example_t newMsg = msg;
                 newMsg.data = 1;
-                return Tracker<example_t>::newMsg(&newMsg, hostUtime);
+                return Tracker<example_t>::newMsg(newMsg, hostUtime);
             }
         };
 

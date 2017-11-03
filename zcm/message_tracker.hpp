@@ -353,9 +353,9 @@ class Tracker
     // hostUtime is only used and required when _msg does not have an
     // internal utime field
     // Returns utime of message
-    virtual uint64_t newMsg(const T* _msg, uint64_t hostUtime = UINT64_MAX)
+    virtual uint64_t newMsg(const T& _msg, uint64_t hostUtime = UINT64_MAX)
     {
-        MsgType* tmp = new MsgType(*_msg, hostUtime);
+        MsgType* tmp = new MsgType(_msg, hostUtime);
         uint64_t tmpUtime = getMsgUtime(tmp);
 
         {
@@ -397,7 +397,7 @@ class Tracker
         if (thr) {
             if (callbackLock.try_lock()) {
                 if (callbackMsg) delete callbackMsg;
-                callbackMsg = new MsgType(*_msg, hostUtime);
+                callbackMsg = new MsgType(_msg, hostUtime);
                 callbackLock.unlock();
                 callbackCv.notify_all();
             }
@@ -470,7 +470,7 @@ class MessageTracker : public virtual Tracker<T>
 
   protected:
     virtual uint64_t handle(const T* _msg, uint64_t hostUtime = UINT64_MAX)
-    { return this->newMsg(_msg, hostUtime); }
+    { return this->newMsg(*_msg, hostUtime); }
 
   public:
     MessageTracker(zcm::ZCM* zcmLocal, const std::string& channel,
