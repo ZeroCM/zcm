@@ -11,15 +11,34 @@ if (!z) {
 }
 
 setInterval(function() {
-    z.publish("FOOBAR_SERVER", "example_t", {
-        timestamp: 0,
-        position: [2, 4, 6],
-        orientation: [0, 2, 4, 6],
-        num_ranges: 2,
-        ranges: [7, 6],
-        name: 'foobar string',
-        enabled: false,
-    });
+    var msg = new zcmtypes.example_t();
+    msg.timestamp   = 0;
+    msg.position    = [2, 4, 6];
+    msg.orientation = [0, 2, 4, 6];
+    msg.num_ranges  = 2;
+    msg.ranges      = [7, 6];
+    msg.name        = 'foobar string';
+    msg.enabled     = false;
+    var r = new zcmtypes.recursive_t();
+    r.e = msg;
+    z.publish("EXAMPLE", r);
+}, 1000);
+
+setInterval(function() {
+    var msg = new zcmtypes.multidim_t();
+    msg.rows = 2;
+    msg.jk = 2;
+    msg.mat = [
+               [
+                [1, 2],
+                [3, 4]
+               ],
+               [
+                [5, 6],
+                [7, 8]
+               ]
+              ];
+    z.publish("MULTIDIM_EXAMPLE", msg);
 }, 1000);
 
 var sub = null;

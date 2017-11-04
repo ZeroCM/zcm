@@ -111,10 +111,9 @@ function zcm(zcmtypes, zcmurl)
      *                        type from zcmtypes.js)
      * @param {Buffer} msg - the decoded message (must be a zcmtype)
      */
-    function publish(channel, type, msg)
+    function publish(channel, msg)
     {
-        var _type = zcmtypes[type];
-        publish_raw(channel, _type.encode(msg));
+        publish_raw(channel, msg.encode());
     }
 
     /**
