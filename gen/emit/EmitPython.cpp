@@ -357,7 +357,7 @@ struct PyEmitStruct : public Emitter
             return;
         } else if (tn == "boolean" || tn == "int8_t" || tn == "int16_t" || tn == "int32_t" ||
                    tn == "int64_t" || tn == "float"  || tn == "double") {
-            if(fixedLen) {
+            if (fixedLen) {
                 emit(indent, "buf.write(struct.pack('>%s%c', *%s[:%s]))",
                      len, getStructFormat(lm), accessor, len);
             } else {
