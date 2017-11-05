@@ -9,6 +9,10 @@ handler = function(rbuf::ZCM.RecvBuf, channel::String, usr)
 end
 
 zcm = ZCM.Zcm("nonblock-inproc")
+if (!zcm.good())
+    println("Unable to initialize zcm");
+    exit()
+end
 
 sub = zcm.subscribeRaw("EXAMPLE", handler, Void)
 
