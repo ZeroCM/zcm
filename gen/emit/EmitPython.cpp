@@ -31,20 +31,6 @@ static char getStructFormat(ZCMMember& lm)
     return 0;
 }
 
-static int getPrimitiveTypeSize(const string& tn)
-{
-    if (tn == "byte")    return 1;
-    if (tn == "boolean") return 1;
-    if (tn == "int8_t")  return 1;
-    if (tn == "int16_t") return 2;
-    if (tn == "int32_t") return 4;
-    if (tn == "int64_t") return 8;
-    if (tn == "float")   return 4;
-    if (tn == "double")  return 8;
-    assert(0);
-    return 0;
-}
-
 struct PyEmitStruct : public Emitter
 {
     ZCMGen& zcm;
@@ -165,7 +151,7 @@ struct PyEmitStruct : public Emitter
                       atoi(len) * getPrimitiveTypeSize(tn),
                       suffix);
             } else {
-                if(getPrimitiveTypeSize(tn) > 1) {
+                if (ZCMGen::getPrimitiveTypeSize(tn) > 1) {
                     emit(indent, "%sstruct.unpack('>%%d%c' %% self.%s, buf.read(self.%s * %d))%s",
                          accessor, getStructFormat(lm), len, len,
                          getPrimitiveTypeSize(tn), suffix);
