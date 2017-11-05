@@ -253,8 +253,7 @@ def setup_environment_gnu(ctx):
     ctx.env.CXXFLAGS_default += FLAGS
 
 def setup_environment_asan(ctx):
-    ctx.env['LINK_CC'] = ctx.env['COMPILER_CC'] = ctx.env['CC'] = ctx.env['CLANG']
-    ctx.env['LINK_CXX'] = ctx.env['COMPILER_CXX'] = ctx.env['CXX'] = ctx.env['CLANG++']
+    ctx.set_clang_compiler()
 
     FLAGS = ['-fcolor-diagnostics',
              '-fsanitize=address',    # AddressSanitizer, a memory error detector.
@@ -267,8 +266,7 @@ def setup_environment_asan(ctx):
     ctx.env.LINKFLAGS_default += FLAGS
 
 def setup_environment_tsan(ctx):
-    ctx.env['LINK_CC'] = ctx.env['COMPILER_CC'] = ctx.env['CC'] = ctx.env['CLANG']
-    ctx.env['LINK_CXX'] = ctx.env['COMPILER_CXX'] = ctx.env['CXX'] = ctx.env['CLANG++']
+    ctx.set_clang_compiler()
 
     FLAGS = ['-fcolor-diagnostics',
              '-fsanitize=thread',     # ThreadSanitizer, a data race detector.
