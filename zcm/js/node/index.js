@@ -91,11 +91,12 @@ function makeDispatcher(cb)
 
 function zcm(zcmtypes, zcmurl)
 {
-    var zcmtypes = zcmtypes;
-
     var zcmtypeHashMap = {};
-    for (var type in zcmtypes)
-        zcmtypeHashMap[zcmtypes[type].__hash] = zcmtypes[type];
+    for (var type in zcmtypes) {
+        if (type != 'getZcmtypes') {
+            zcmtypeHashMap[zcmtypes[type].__get_hash_recursive()] = zcmtypes[type];
+        }
+    }
 
     var z = libzcm.zcm_create(zcmurl);
     if (z.isNull()) {
@@ -113,7 +114,7 @@ function zcm(zcmtypes, zcmurl)
      */
     function publish(channel, msg)
     {
-        publish_raw(channel, msg.encode());
+        publish_raw(channel, zcmtypeHashMap[msg.__hash].encode(msg));
     }
 
     /**
@@ -134,10 +135,10 @@ function zcm(zcmtypes, zcmurl)
      * @param {dispatchDecodedCallback} cb - callback to handle received messages
      * @param {successCb} successCb - callback for successful subscription
      */
-    function subscribe(channel, type, cb, successCb)
+    function subscribe(channel, _type, cb, successCb)
     {
-        if (type) {
-            var type = zcmtypes[type];
+        if (_type) {
+            var type = zcmtypeHashMap[_type.__hash];
             var sub = subscribe_raw(channel, function (channel, data) {
                 cb(channel, type.decode(data));
             }, successCb);
@@ -189,7 +190,6 @@ function zcm(zcmtypes, zcmurl)
         publish:        publish,
         subscribe:      subscribe,
         unsubscribe:    unsubscribe,
-        zcmtypes:       zcmtypes,
     };
 }
 
@@ -204,7 +204,7 @@ function zcm_create(zcmtypes, zcmurl, http)
             var subscriptions = {};
             var nextSub = 0;
             socket.on('client-to-server', function (data) {
-                ret.publish(data.channel, data.type, data.msg);
+                ret.publish(data.channel, data.msg);
             });
             socket.on('subscribe', function (data, returnSubscription) {
                 var subId = nextSub++;
@@ -237,7 +237,7 @@ function zcm_create(zcmtypes, zcmurl, http)
                 }
                 nextSub = 0;
             });
-            socket.emit('zcmtypes', zcmtypes);
+            socket.emit('zcmtypes', zcmtypes.getZcmtypes());
         });
     }
 

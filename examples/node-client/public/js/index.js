@@ -8,7 +8,7 @@ var subscriptions = [];
 
 function subscribe(successCb) {
     console.log('Subscribing to FOOBAR_SERVER');
-    z.subscribe('FOOBAR_SERVER', 'example_t', handle,
+    z.subscribe('FOOBAR_SERVER', z.getZcmtypes()['example_t'], handle,
                 function _successCb (sub) {
                     console.log('Subscribed to FOOBAR_SERVER. Sub id:', sub);
                     subscriptions.push({channel      : 'FOOBAR_SERVER',
@@ -32,25 +32,25 @@ function unsubscribe(successCb) {
 
 function subscribe_all(successCb) {
     console.log('Subscribing to .*');
-    z.subscribe_all(handle,
-                    function _successCb (sub) {
-                        console.log('Subscribed to .*');
-                        subscriptions.push({channel      : '.*',
-                                            subscription : sub});
-                        if (successCb) successCb(true);
-                    });
+    z.subscribe(".*", null, handle,
+                function _successCb (sub) {
+                    console.log('Subscribed to .*');
+                    subscriptions.push({channel      : '.*',
+                                        subscription : sub});
+                    if (successCb) successCb(true);
+                });
 }
 
 function publish() {
-    z.publish('FOOBAR', 'example_t', {
-        timestamp: 0,
-        position: [2, 4, 6],
-        orientation: [0, 2, 4, 6],
-        num_ranges: 2,
-        ranges: [7, 6],
-        name: 'foobar string',
-        enabled: false,
-    });
+    var msg = z.getZcmtypes()['example_t'];
+    msg.timestamp = 0;
+    msg.position = [2, 4, 6];
+    msg.orientation = [0, 2, 4, 6];
+    msg.num_ranges = 2;
+    msg.ranges = [7, 6];
+    msg.name = 'foobar string';
+    msg.enabled = false;
+    z.publish('FOOBAR', msg);
 }
 
 onload = function(){

@@ -11,7 +11,7 @@ var zcm = (function(){
         var subscriptions = {};
 
         // key is zcmtype name
-        var zcmtypes = {};
+        var zcmtypes = null;
 
         socket.on('server-to-client', function (data) {
             var subId = data.subId;
@@ -32,9 +32,8 @@ var zcm = (function(){
          *                        type from zcmtypes.js)
          * @param {zcmtype} msg - a decoded zcmtype (from the generated types in zcmtypes.js)
          */
-        function publish(channel, type, msg) {
+        function publish(channel, msg) {
             socket.emit('client-to-server', { channel : channel,
-                                              type    : type,
                                               msg     : msg });
         }
 
@@ -43,6 +42,21 @@ var zcm = (function(){
          * @param {string} channel - the zcm channel to subscribe to
          * @param {string} type - the zcmtype of messages on the channel (must be a generated
          *                        type from zcmtypes.js)
+         * @param {dispatchDecodedCallback} handler - handler for received messages
+         */
+        function subscribe(channel, type, handler, successCb) {
+            socket.emit("subscribe", { channel : channel, type : type },
+                        function (subId) {
+                            subscriptions[subId] = { callback : handler,
+                                                     channel  : channel,
+                                                     type     : type };
+                            if (successCb) successCb(subId);
+                        });
+        }
+
+        /**
+         * Subscribes to zcm messages on the given channel of the specified zcmtype.
+         * @param {string} channel - the zcm channel to subscribe to
          * @param {dispatchDecodedCallback} handler - handler for received messages
          */
         function subscribe(channel, type, handler, successCb) {

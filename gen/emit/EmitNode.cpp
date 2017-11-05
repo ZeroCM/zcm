@@ -15,16 +15,6 @@ void setupOptionsNode(GetOpt& gopt)
     gopt.addString(0, "npath", ".", "Location for zcmtypes.js file");
 }
 
-static string dimSizeAccessor(const string& dimSize)
-{
-    assert(dimSize.size() > 0);
-    char c = dimSize[0];
-    if ('0' <= c && c <= '9')
-        return dimSize;
-    else
-        return "this." + dimSize;
-}
-
 static string getReaderFunc(const string& type)
 {
     if (type == "double") {
@@ -122,6 +112,11 @@ struct EmitModule : public Emitter
         emit(0, "        },");
         emit(0, "        read64: function() {");
         emit(0, "            var ret = bigint(ref.readInt64BE(buf, offset));");
+        emit(0, "            offset += 8;");
+        emit(0, "            return ret;");
+        emit(0, "        },");
+        emit(0, "        readU64: function() {");
+        emit(0, "            var ret = bigint(ref.readUInt64BE(buf, offset));");
         emit(0, "            offset += 8;");
         emit(0, "            return ret;");
         emit(0, "        },");
@@ -310,29 +305,34 @@ struct EmitModule : public Emitter
     void emitEncode(const ZCMStruct& ls)
     {
         auto* sn = ls.structname.shortname.c_str();
-        emit(0, "%s.prototype.encode = function()", sn);
+        emit(0, "%s.encode = function(msg)", sn);
         emit(0, "{");
-        emit(0, "    var size = this.encodedSize();");
+        emit(0, "    var size = %s.encodedSize(msg);", sn);
         emit(0, "    var W = createWriter(size);");
         emit(0, "    W.writeU64(%s.__get_hash_recursive());", sn);
-        emit(0, "    %s_encode_one(this, W);", sn);
+        emit(0, "    %s_encode_one(msg, W);", sn);
         emit(0, "    return W.getBuffer();");
+        emit(0, "};");
+        emit(0, "%s.prototype.encode = function()", sn);
+        emit(0, "{");
+        emit(0, "    return %s.encode(this);", sn);
         emit(0, "};");
     }
 
     void emitEncodedSize(const ZCMStruct& ls)
     {
         auto *sn = ls.structname.shortname.c_str();
-        emit(0, "%s.prototype.encodedSize = function()", sn);
+        emit(0, "%s.encodedSize = function(msg)", sn);
         emit(0, "{");
         emit(1, "var size = 8;");
         emit(1, "var tmp = 1;");
         for (auto& lm : ls.members) {
+            auto& msn = lm.type.shortname;
             auto& mtn = lm.type.fullname;
             auto& mn = lm.membername;
 
             if (!ZCMGen::isPrimitiveType(mtn)) {
-                emit(1, "size += this.%s.encodedSize();", mn.c_str());
+                emit(1, "size += %s.encodedSize(msg.%s);", msn.c_str(), mn.c_str());
             } else if (mtn != "string") {
                 int ndims = (int)lm.dimensions.size();
                 if (ndims == 0) {
@@ -341,8 +341,9 @@ struct EmitModule : public Emitter
                 } else {
                     emit(1, "tmp = 1;");
                     for (int i = 0; i < ndims; ++i) {
-                        auto sz = dimSizeAccessor(lm.dimensions[i].size);
-                        emit(1, "tmp *= %s;", sz.c_str());
+                        emit(1, "tmp *= %s%s;",
+                                (lm.dimensions[i].mode != ZCM_CONST) ? "msg." : "",
+                                lm.dimensions[i].size.c_str());
                     }
                     emit(1, "size += tmp * %d; \t//%s",
                                  ZCMGen::getPrimitiveTypeSize(mtn), mn.c_str());
@@ -352,10 +353,10 @@ struct EmitModule : public Emitter
                 if (ndims == 0) {
                     // The +1 and +4 below are to account for the null character
                     // and the writing of the length respectively
-                    emit(1, "size += this.%s.length + 1 + 4;", mn.c_str());
+                    emit(1, "size += msg.%s.length + 1 + 4;", mn.c_str());
                 } else {
-                    emit(1, "for (var i = 0; i < this.%s.length; ++i) {", mn.c_str());
-                    emit(1 + 1, "size += this.%s[i].length + 1 + 4;", mn.c_str());
+                    emit(1, "for (var i = 0; i < msg.%s.length; ++i) {", mn.c_str());
+                    emit(1 + 1, "size += msg.%s[i].length + 1 + 4;", mn.c_str());
                     emit(1, "}");
                 }
             }
@@ -407,7 +408,6 @@ struct EmitModule : public Emitter
         emit(0, "%s_decode_one = function(R)", sn);
         emit(0, "{");
         emit(1,     "var msg = new %s();", sn);
-
         for (auto& lm : ls.members) {
             if (lm.dimensions.size() == 0) {
                 string accessor = "msg." + lm.membername + " = ";
@@ -478,15 +478,16 @@ struct EmitModule : public Emitter
     void emitDecode(const ZCMStruct& ls)
     {
         auto *sn = ls.structname.shortname.c_str();
-        emit(0, "%s.prototype.decode = function(data)", sn);
+        emit(0, "%s.decode = function(data)", sn);
         emit(0, "{");
         emit(1,     "var R = createReader(data);");
-        emit(1,     "var hash = R.read64();");
+        emit(1,     "var hash = R.readU64();");
         emit(1,     "if (!hash.eq(%s.__get_hash_recursive())) {", sn);
-        emit(1,     "    console.error('Err: hash mismatch on %s');", sn);
+        emit(1,     "    console.error('Err: hash mismatch on %s. "
+                                       "Received: ', hash, '. Expected: ', expect);", sn);
         emit(1,     "    return null;");
         emit(1,     "}");
-        emit(1,     "return %s_decode_one(this, R);", sn);
+        emit(1,     "return %s_decode_one(R);", sn);
         emit(0, "};");
     }
 
@@ -499,6 +500,7 @@ struct EmitModule : public Emitter
         emit(0, "%s.__get_hash_recursive = function(parents)", sn);
         emit(0, "{");
         emit(1,     "if (%s._hash != null) return %s._hash", sn, sn);
+        emit(1,     "if (!parents) parents = [];");
         emit(1,     "if (parents.includes('%s')) return 0;", sn);
         for (auto& lm : ls.members) {
             if (!ZCMGen::isPrimitiveType(lm.type.fullname)) {
@@ -524,6 +526,7 @@ struct EmitModule : public Emitter
         }
         emitEnd (".and(UINT64_MAX);");
 
+        emit(0, "");
         emit(1, "%s._hash = rotateLeftOne(tmphash);", sn);
         emit(1, "return %s._hash;", sn);
         emit(0, "};");
@@ -537,7 +540,7 @@ struct EmitModule : public Emitter
         emit(0, "function %s()", sn);
         emit(0, "{");
         for (size_t i = 0; i < ls.members.size(); ++i)
-            emit(1, "this.%s = undefined;", ls.members[i].membername.c_str());
+            emit(1, "this.%s = null;", ls.members[i].membername.c_str());
         emit(0, "");
         for (size_t i = 0; i < ls.constants.size(); ++i) {
             static string hexPrefix = "0x";
@@ -555,9 +558,21 @@ struct EmitModule : public Emitter
                         ls.constants[i].membername.c_str(), ls.constants[i].valstr.c_str());
             }
         }
-        emit(1, "%s.__get_hash_recursive([]);", sn);
+        emit(1, "this.__hash = %s.__get_hash_recursive([]).toString();", sn);
         emit(0, "}");
+    }
 
+    void emitGetClientZcmTypes()
+    {
+        emit(0, "exports.getZcmtypes = function()");
+        emit(0, "{");
+        emit(1, "return {");
+        for (auto& ls : zcm.structs) {
+            auto *sn = ls.structname.shortname.c_str();
+            emit(2, "%s : new exports.%s(),", sn, sn);
+        }
+        emit(1, "};");
+        emit(0, "};");
     }
 
     void emitStruct(ZCMStruct& ls)
@@ -586,6 +601,7 @@ struct EmitModule : public Emitter
         for (auto& ls : zcm.structs) {
             emitStruct(ls);
         }
+        emitGetClientZcmTypes();
     }
 };
 

@@ -2,7 +2,8 @@
 # encoding: utf-8
 
 def configure(ctx):
-    ctx.env.ZCMGEN = ctx.path.get_bld().abspath() + '/zcm-gen'
+    #ctx.env.ZCMGEN = ctx.path.get_bld().abspath() + '/zcm-gen'
+    pass
 
 def build(ctx):
     ctx.program(target = 'zcm-gen',
