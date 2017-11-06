@@ -94,8 +94,6 @@ function zcm(zcmtypes, zcmurl)
     var zcmtypeHashMap = {};
     var types = zcmtypes.getZcmtypes();
     for (var type in types) {
-        console.log(type);
-        console.log(types[type]);
         zcmtypeHashMap[types[type].__get_hash_recursive()] = types[type];
     }
 

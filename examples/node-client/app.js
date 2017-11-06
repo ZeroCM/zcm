@@ -43,11 +43,24 @@ function multidimExample()
                     [7, 8]
                    ]
                   ];
-        z.publish("FOOBAR_SERVER", msg);
+        z.publish("MULTIDIM_EXAMPLE", msg);
+    }, 1000);
+}
+
+function packageExample()
+{
+    var state = false;
+    setInterval(function() {
+        var msg = new zcmtypes.test_package.packaged_t();
+        msg.packaged = state;
+        state = !state;
+        z.publish("PACKAGE_EXAMPLE", msg);
     }, 1000);
 }
 
 basicExample();
+multidimExample();
+packageExample();
 
 var sub = null;
 z.subscribe(".*", null, function(channel, msg) {
