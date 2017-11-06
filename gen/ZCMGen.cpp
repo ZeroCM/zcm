@@ -97,14 +97,11 @@ static u64 hashUpdate(u64 v, const string& s)
 ZCMGen::ZCMGen()
 {}
 
-// Parse a type into package and class name.  If no package is
-// specified, we will try to use the package from the last specified
-// "package" directive, like in Java.
+// Parse a type into package and class name.
 ZCMTypename::ZCMTypename(ZCMGen& zcmgen, const string& name)
 {
     ZCMTypename& t = *this;
 
-    const string& thisPackage = zcmgen.package;
     const string& packagePrefix = zcmgen.gopt->getString("package-prefix");
 
     t.fullname = name;
@@ -116,20 +113,11 @@ ZCMTypename::ZCMTypename(ZCMGen& zcmgen, const string& name)
     //
     size_t dot = name.rfind('.');
     if (dot == string::npos) {
+        t.package = "";
         t.shortname = name;
-        if (ZCMGen::isPrimitiveType(t.shortname)) {
-            t.package = "";
-        } else {
-            t.package = thisPackage;
-            if (t.package.size() > 0) {
-                t.fullname = t.package + "." + t.shortname;
-            } else {
-                t.fullname = t.shortname;
-            }
-        }
     } else {
         t.package = name.substr(0, dot);
-        t.shortname = name.substr(dot+1);
+        t.shortname = name.substr(dot + 1);
     }
 
     if (packagePrefix.size() > 0 && !ZCMGen::isPrimitiveType(t.shortname)) {
@@ -413,13 +401,12 @@ static int parseMember(ZCMGen& zcmgen, ZCMStruct& lr, tokenize_t *t)
         parse_error(t, "invalid type name");
 
     // A common mistake is use 'int' as a type instead of 'intN_t'
-    if(string(t->token) == "int")
+    if (string(t->token) == "int")
         semantic_warning(t, "int type should probably be int8_t, int16_t, int32_t, or int64_t");
 
     ZCMTypename lt {zcmgen, t->token};
 
     do {
-
         // get the zcm type name
         parseTryConsumeComment(t);
         tokenizeNextOrFail(t, "name identifier");
@@ -507,14 +494,15 @@ static int parseMember(ZCMGen& zcmgen, ZCMStruct& lr, tokenize_t *t)
 }
 
 /** assume the "struct" token is already consumed **/
-static ZCMStruct parseStruct(ZCMGen& zcmgen, const string& zcmfile, tokenize_t *t)
+static ZCMStruct parseStruct(ZCMGen& zcmgen, const string& zcmfile,
+                             const string& package, tokenize_t *t)
 {
     parseTryConsumeComment(t);
     tokenizeNextOrFail(t, "struct name");
 
     string name = t->token;
 
-    ZCMStruct lr {zcmgen, zcmfile, name};
+    ZCMStruct lr {zcmgen, zcmfile, (package == "") ? name : package + "." + name};
     if (zcmgen.comment != "")
         std::swap(lr.comment, zcmgen.comment);
 
@@ -562,7 +550,7 @@ static int parseEntity(ZCMGen& zcmgen, const string& zcmfile, tokenize_t *t)
     }
 
     if (string(t->token) ==  "struct") {
-        ZCMStruct lr = parseStruct(zcmgen, zcmfile, t);
+        ZCMStruct lr = parseStruct(zcmgen, zcmfile, zcmgen.package, t);
 
         // check for duplicate types
         auto* prior = findStruct(zcmgen,
@@ -576,6 +564,7 @@ static int parseEntity(ZCMGen& zcmgen, const string& zcmfile, tokenize_t *t)
             return 1;
         } else {
             zcmgen.structs.push_back(std::move(lr));
+            zcmgen.package = "";
         }
         return 0;
     }
@@ -701,7 +690,6 @@ bool ZCMGen::needsGeneration(const string& declaringfile, const string& outfile)
 /** Is the member an array of constant size? If it is not an array, it returns zero. **/
 bool ZCMMember::isConstantSizeArray()
 {
-
     if (dimensions.size() == 0)
         return true;
 

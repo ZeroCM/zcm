@@ -70,7 +70,14 @@ int main(int argc, char *argv[])
 
     // If "-p" or "--package" was specified, then print out package and exit
     if (gopt.getBool("package")) {
-        printf("%s\n", zcm.package.c_str());
+        string package = "";
+        for (auto& s : zcm.structs) {
+            if (package != "" && s.structname.package != package) {
+                fprintf(stderr, "Multiple types with different packages specified.\n");
+                return 1;
+            }
+        }
+        printf("%s\n", package.c_str());
         return 0;
     }
 
