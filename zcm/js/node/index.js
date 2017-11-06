@@ -92,10 +92,17 @@ function makeDispatcher(cb)
 function zcm(zcmtypes, zcmurl)
 {
     var zcmtypeHashMap = {};
-    var types = zcmtypes.getZcmtypes();
-    for (var type in types) {
-        zcmtypeHashMap[types[type].__get_hash_recursive()] = types[type];
+    function rehashTypes(zcmtypes) {
+        for (var type in zcmtypes) {
+            if (type == 'getZcmtypes') continue;
+            if (typeof(zcmtypes[type]) == 'object') {
+                rehashTypes(zcmtypes[type]);
+                continue;
+            }
+            zcmtypeHashMap[zcmtypes[type].__get_hash_recursive()] = zcmtypes[type];
+        }
     }
+    rehashTypes(zcmtypes);
 
     var z = libzcm.zcm_create(zcmurl);
     if (z.isNull()) {

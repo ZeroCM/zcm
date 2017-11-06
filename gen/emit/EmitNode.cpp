@@ -585,7 +585,7 @@ struct EmitModule : public Emitter
         emit(1, "return {");
         for (auto& ls : zcm.structs) {
             auto *sn = ls.structname.fullname.c_str();
-            emit(2, "'%s' : exports.%s,", sn, sn);
+            emit(2, "'%s' : new exports.%s(),", sn, sn);
         }
         emit(1, "};");
         emit(0, "};");
