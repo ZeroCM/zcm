@@ -509,9 +509,9 @@ template <typename Type1Tracker, typename Type2Tracker>
 class SynchronizedMessageDispatcher
 {
   public:
-    typedef std::function<void(const typename Type1Tracker::ZcmType*,
-                                     typename Type2Tracker::ZcmType*,
-                                     void*)> callback;
+    typedef std::function<void(typename Type1Tracker::ZcmType*,
+                               typename Type2Tracker::ZcmType*,
+                               void*)> callback;
 
   private:
     class TrackerOverride1 : public Type1Tracker
@@ -524,10 +524,9 @@ class SynchronizedMessageDispatcher
                         uint64_t hostUtime = UINT64_MAX) override
         {
             uint64_t utime = Type1Tracker::handle(_msg, hostUtime);
-            // the base tracker could modify the message at that utime
-            auto* msg = Type1Tracker::get(utime);
-            smt->process1(msg, utime);
-            delete msg;
+            if (this->begin() == this->end()) return utime;
+            auto last = std::prev(this->end());
+            smt->process(last, this->end());
             return utime;
         }
 
@@ -549,7 +548,7 @@ class SynchronizedMessageDispatcher
                         uint64_t hostUtime = UINT64_MAX) override
         {
             uint64_t utime = Type2Tracker::handle(_msg, hostUtime);
-            smt->process2(utime);
+            smt->process(smt->t1.begin(), smt->t1.end());
             return utime;
         }
 
@@ -560,28 +559,23 @@ class SynchronizedMessageDispatcher
             Type2Tracker(zcmLocal, channel, maxTimeErr, maxMsgs), smt(smt) {}
     };
 
-    void process1(const typename Type1Tracker::ZcmType* msg, uint64_t utime)
+    void process(typename Type1Tracker::iterator t1Begin,
+                 typename Type1Tracker::iterator t1End)
     {
         auto it = t2.crbegin();
         if (it == t2.crend()) return;
-        if (t2.getMsgUtime(*it) >= utime) {
-            auto msg2 = t2.get(utime);
-            if (msg2) {
-                onSynchronizedMsg(msg, msg2, usr);
-                delete *t1.rbegin();
-                t1.erase(t1.rbegin().base());
-            }
-        }
-    }
 
-    void process2(uint64_t utime)
-    {
-        for (auto it = t1.begin(); it != t1.end();) {
-            if (t1.getMsgUtime(*it) < utime) {
-                auto msg2 = t2.get(t1.getMsgUtime(*it));
+        uint64_t t2Utime = t2.getMsgUtime(*it);
+
+        for (auto it = t1Begin; it != t1End;) {
+            uint64_t t1Utime = t1.getMsgUtime(*it);
+            if (t1Utime <= t2Utime) {
+                auto msg2 = t2.get(t1Utime);
                 if (msg2) {
                     onSynchronizedMsg(*it, msg2, usr);
-                    delete *it;
+                    // Note that we intentionally DO NOT delete *it since we
+                    // forfeit this memory to the callback
+                    // delete *it;
                     it = t1.erase(it);
                     continue;
                 }
