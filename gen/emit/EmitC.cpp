@@ -13,15 +13,6 @@
 // flags for emit_c_array_loops_end
 #define FLAG_EMIT_FREES   2
 
-static string dotsToUnderscores(const string& s)
-{
-    string ret = s;
-    for (uint i = 0; i < ret.size(); i++)
-        if (ret[i] == '.')
-             ret[i] = '_';
-    return ret;
-}
-
 static string dotsToSlashes(const string& s)
 {
     return StringUtil::replace(s, '.', '/');
@@ -63,7 +54,7 @@ static string mapTypeName(const string& t)
     if (t == "string")  return "char*";
     if (t == "byte")    return "uint8_t";
 
-    return dotsToUnderscores(t);
+    return StringUtil::dotsToUnderscores(t);
 }
 
 struct Emit : public Emitter
@@ -112,8 +103,7 @@ struct EmitHeader : public Emit
     /** Emit output that is common to every header file **/
     void emitHeaderTop()
     {
-        string tmp_ = dotsToUnderscores(lr.structname.fullname);
-        char *tn_ = (char *)tmp_.c_str();
+        const char *tn_ = lr.structname.nameUnderscoreCStr();
 
         emit(0, "#include <stdint.h>");
         emit(0, "#include <stdlib.h>");
@@ -148,14 +138,14 @@ struct EmitHeader : public Emit
     /** Emit header file output specific to a particular type of struct. **/
     void emitHeaderStruct()
     {
-        string tn = dotsToUnderscores(lr.structname.fullname);
+        string tn = lr.structname.nameUnderscore();
         string tnUpper = StringUtil::toUpper(tn);
 
         // include header files required by members
         for (auto& lm : lr.members) {
             if (!ZCMGen::isPrimitiveType(lm.type.fullname) &&
                 lm.type.fullname != lr.structname.fullname) {
-                string otherTn = dotsToUnderscores(lm.type.fullname);
+                string otherTn = lm.type.nameUnderscore();
                 string package = dotsToSlashes(lm.type.package);
                 emit(0, "#include \"%s%s%s%s%s.h\"",
                      zcm.gopt->getString("c-include").c_str(),
@@ -210,8 +200,7 @@ struct EmitHeader : public Emit
 
     void emitHeaderPrototypes()
     {
-        string tmp_ = dotsToUnderscores(lr.structname.fullname);
-        char *tn_ = (char *)tmp_.c_str();
+        const char *tn_ = lr.structname.nameUnderscoreCStr();
 
         emit(0, "/**");
         emit(0, " * Create a deep copy of a %s.", tn_);
@@ -350,7 +339,7 @@ struct EmitSource : public Emit
 
     void emitIncludes()
     {
-        string tmp_ = dotsToUnderscores(lr.structname.fullname);
+        const char* tn_ = lr.structname.nameUnderscoreCStr();
         string package = dotsToSlashes(lr.structname.package);
         emit(0, "#include <string.h>");
         emit(0, "#include \"%s%s%s%s%s.h\"",
@@ -358,14 +347,13 @@ struct EmitSource : public Emit
                 zcm.gopt->getString("c-include").size()>0 ? "/" : "",
                 package.c_str(),
                 package.size()>0 ? "/" : "",
-                tmp_.c_str());
+                tn_);
         emit(0, "");
     }
 
     void emitCStructGetHash()
     {
-        string tmp_ = dotsToUnderscores(lr.structname.fullname);
-        char *tn_ = (char *)tmp_.c_str();
+        const char* tn_ = lr.structname.nameUnderscoreCStr();
 
         emit(0, "static int __%s_hash_computed;", tn_);
         emit(0, "static uint64_t __%s_hash;", tn_);
@@ -386,7 +374,7 @@ struct EmitSource : public Emit
         emit(1, "uint64_t hash = (uint64_t)0x%016" PRIx64 "LL", lr.hash);
 
         for (auto& lm : lr.members)
-            emit(2, " + __%s_hash_recursive(&cp)", dotsToUnderscores(lm.type.fullname).c_str());
+            emit(2, " + __%s_hash_recursive(&cp)", lm.type.nameUnderscoreCStr());
 
         emit(2,";");
         emit(0, "");
@@ -462,8 +450,7 @@ struct EmitSource : public Emit
 
     void emitCEncodeArray()
     {
-        string tmp_ = dotsToUnderscores(lr.structname.fullname);
-        char *tn_ = (char *)tmp_.c_str();
+        const char* tn_ = lr.structname.nameUnderscoreCStr();
 
         emit(0,"int __%s_encode_array(void *buf, int offset, int maxlen, const %s *p, int elements)", tn_, tn_);
         emit(0,"{");
@@ -479,7 +466,7 @@ struct EmitSource : public Emit
 
             int indent = 2+std::max(0, (int)lm.dimensions.size() - 1);
             emit(indent, "thislen = __%s_encode_%sarray(buf, offset + pos, maxlen - pos, %s, %s);",
-                 dotsToUnderscores(lm.type.fullname).c_str(),
+                 lm.type.nameUnderscoreCStr(),
                  zcm.gopt->getBool("little-endian-encoding") ? "little_endian_" : "",
                  makeAccessor(lm, "p", (int)lm.dimensions.size() - 1).c_str(),
                  makeArraySize(lm, "p", (int)lm.dimensions.size() - 1).c_str());
@@ -496,8 +483,7 @@ struct EmitSource : public Emit
 
     void emitCEncode()
     {
-        string tmp_ = dotsToUnderscores(lr.structname.fullname);
-        char *tn_ = (char *)tmp_.c_str();
+        const char *tn_ = lr.structname.nameUnderscoreCStr();
 
         emit(0,"int %s_encode(void *buf, int offset, int maxlen, const %s *p)", tn_, tn_);
         emit(0,"{");
@@ -518,8 +504,7 @@ struct EmitSource : public Emit
 
     void emitCDecodeArray()
     {
-        string tmp_ = dotsToUnderscores(lr.structname.fullname);
-        char *tn_ = (char *)tmp_.c_str();
+        const char *tn_ = lr.structname.nameUnderscoreCStr();
 
         emit(0,"int __%s_decode_array(const void *buf, int offset, int maxlen, %s *p, int elements)", tn_, tn_);
         emit(0,"{");
@@ -532,7 +517,7 @@ struct EmitSource : public Emit
 
             int indent = 2+std::max(0, (int)lm.dimensions.size() - 1);
             emit(indent, "thislen = __%s_decode_%sarray(buf, offset + pos, maxlen - pos, %s, %s);",
-                 dotsToUnderscores(lm.type.fullname).c_str(),
+                 lm.type.nameUnderscoreCStr(),
                  zcm.gopt->getBool("little-endian-encoding") ? "little_endian_" : "",
                  makeAccessor(lm, "p", (int)lm.dimensions.size() - 1).c_str(),
                  makeArraySize(lm, "p", (int)lm.dimensions.size() - 1).c_str());
@@ -549,8 +534,7 @@ struct EmitSource : public Emit
 
     void emitCDecodeArrayCleanup()
     {
-        string tmp_ = dotsToUnderscores(lr.structname.fullname);
-        char *tn_ = (char *)tmp_.c_str();
+        const char *tn_ = lr.structname.nameUnderscoreCStr();
 
         emit(0,"int __%s_decode_array_cleanup(%s *p, int elements)", tn_, tn_);
         emit(0,"{");
@@ -562,7 +546,7 @@ struct EmitSource : public Emit
 
             int indent = 2+std::max(0, (int)lm.dimensions.size() - 1);
             emit(indent, "__%s_decode_array_cleanup(%s, %s);",
-                 dotsToUnderscores(lm.type.fullname).c_str(),
+                 lm.type.nameUnderscoreCStr(),
                  makeAccessor(lm, "p", (int)lm.dimensions.size() - 1).c_str(),
                  makeArraySize(lm, "p", (int)lm.dimensions.size() - 1).c_str());
 
@@ -577,8 +561,7 @@ struct EmitSource : public Emit
 
     void emitCDecode()
     {
-        string tmp_ = dotsToUnderscores(lr.structname.fullname);
-        char *tn_ = (char *)tmp_.c_str();
+        const char *tn_ = lr.structname.nameUnderscoreCStr();
 
         emit(0,"int %s_decode(const void *buf, int offset, int maxlen, %s *p)", tn_, tn_);
         emit(0,"{");
@@ -601,8 +584,7 @@ struct EmitSource : public Emit
 
     void emitCDecodeCleanup()
     {
-        string tmp_ = dotsToUnderscores(lr.structname.fullname);
-        char *tn_ = (char *)tmp_.c_str();
+        const char *tn_ = lr.structname.nameUnderscoreCStr();
 
         emit(0,"int %s_decode_cleanup(%s *p)", tn_, tn_);
         emit(0,"{");
@@ -613,8 +595,7 @@ struct EmitSource : public Emit
 
     void emitCEncodedArraySize()
     {
-        string tmp_ = dotsToUnderscores(lr.structname.fullname);
-        char *tn_ = (char *)tmp_.c_str();
+        const char *tn_ = lr.structname.nameUnderscoreCStr();
 
         emit(0,"int __%s_encoded_array_size(const %s *p, int elements)", tn_, tn_);
         emit(0,"{");
@@ -626,7 +607,7 @@ struct EmitSource : public Emit
 
             int indent = 2+std::max(0, (int)lm.dimensions.size() - 1);
             emit(indent, "size += __%s_encoded_array_size(%s, %s);",
-                 dotsToUnderscores(lm.type.fullname).c_str(),
+                 lm.type.nameUnderscoreCStr(),
                  makeAccessor(lm, "p", (int)lm.dimensions.size() - 1).c_str(),
                  makeArraySize(lm, "p", (int)lm.dimensions.size() - 1).c_str());
 
@@ -641,8 +622,7 @@ struct EmitSource : public Emit
 
     void emitCEncodedSize()
     {
-        string tmp_ = dotsToUnderscores(lr.structname.fullname);
-        char *tn_ = (char *)tmp_.c_str();
+        const char *tn_ = lr.structname.nameUnderscoreCStr();
 
         emit(0,"int %s_encoded_size(const %s *p)", tn_, tn_);
         emit(0,"{");
@@ -653,8 +633,7 @@ struct EmitSource : public Emit
 
     void emitCNumFields()
     {
-        string tmp_ = dotsToUnderscores(lr.structname.fullname);
-        char *tn_ = (char *)tmp_.c_str();
+        const char *tn_ = lr.structname.nameUnderscoreCStr();
 
         emit(0,"int %s_num_fields(void)", tn_);
         emit(0,"{");
@@ -665,8 +644,7 @@ struct EmitSource : public Emit
 
     void emitCStructSize()
     {
-        string tmp_ = dotsToUnderscores(lr.structname.fullname);
-        char *tn_ = (char *)tmp_.c_str();
+        const char *tn_ = lr.structname.nameUnderscoreCStr();
 
         emit(0,"size_t %s_struct_size(void)", tn_);
         emit(0,"{");
@@ -677,8 +655,7 @@ struct EmitSource : public Emit
 
     void emitCGetField()
     {
-        string tmp_ = dotsToUnderscores(lr.structname.fullname);
-        char *tn_ = (char *)tmp_.c_str();
+        const char *tn_ = lr.structname.nameUnderscoreCStr();
 
         emit(0,"int %s_get_field(const %s *p, int i, zcm_field_t *f)", tn_, tn_);
         emit(0,"{");
@@ -742,8 +719,7 @@ struct EmitSource : public Emit
 
     void emitCGetTypeInfo()
     {
-        string tmp_ = dotsToUnderscores(lr.structname.fullname);
-        char *tn_ = (char *)tmp_.c_str();
+        const char *tn_ = lr.structname.nameUnderscoreCStr();
 
         emit(0,"const zcm_type_info_t *%s_get_type_info(void)", tn_);
         emit(0,"{");
@@ -766,8 +742,7 @@ struct EmitSource : public Emit
 
     void emitCCloneArray()
     {
-        string tmp_ = dotsToUnderscores(lr.structname.fullname);
-        char *tn_ = (char *)tmp_.c_str();
+        const char *tn_ = lr.structname.nameUnderscoreCStr();
 
         emit(0,"int __%s_clone_array(const %s *p, %s *q, int elements)", tn_, tn_, tn_);
         emit(0,"{");
@@ -780,7 +755,7 @@ struct EmitSource : public Emit
 
             int indent = 2+std::max(0, (int)lm.dimensions.size() - 1);
             emit(indent, "__%s_clone_array(%s, %s, %s);",
-                 dotsToUnderscores(lm.type.fullname).c_str(),
+                 lm.type.nameUnderscoreCStr(),
                  makeAccessor(lm, "p", (int)lm.dimensions.size()-1).c_str(),
                  makeAccessor(lm, "q", (int)lm.dimensions.size()-1).c_str(),
                  makeArraySize(lm, "p", (int)lm.dimensions.size()-1).c_str());
@@ -796,8 +771,7 @@ struct EmitSource : public Emit
 
     void emitCCopy()
     {
-        string tmp_ = dotsToUnderscores(lr.structname.fullname);
-        char *tn_ = (char *)tmp_.c_str();
+        const char *tn_ = lr.structname.nameUnderscoreCStr();
 
         emit(0,"%s *%s_copy(const %s *p)", tn_, tn_, tn_);
         emit(0,"{");
@@ -810,8 +784,7 @@ struct EmitSource : public Emit
 
     void emitCDestroy()
     {
-        string tmp_ = dotsToUnderscores(lr.structname.fullname);
-        char *tn_ = (char *)tmp_.c_str();
+        const char *tn_ = lr.structname.nameUnderscoreCStr();
 
         emit(0,"void %s_destroy(%s *p)", tn_, tn_);
         emit(0,"{");
@@ -823,8 +796,8 @@ struct EmitSource : public Emit
 
     void emitCStructPublish()
     {
-        string tmp_ = dotsToUnderscores(lr.structname.fullname);
-        char *tn_ = (char *)tmp_.c_str();
+        const char *tn_ = lr.structname.nameUnderscoreCStr();
+
         emit(0, "int %s_publish(zcm_t *lc, const char *channel, const %s *p)", tn_, tn_);
         emit(0, "{");
         emit(0, "      int max_data_size = %s_encoded_size (p);", tn_);
@@ -844,8 +817,7 @@ struct EmitSource : public Emit
 
     void emitCStructSubscribe()
     {
-        string tmp_ = dotsToUnderscores(lr.structname.fullname);
-        char *tn_ = (char *)tmp_.c_str();
+        const char *tn_ = lr.structname.nameUnderscoreCStr();
 
         emit(0, "struct _%s_subscription_t {", tn_);
         emit(0, "    %s_handler_t user_handler;", tn_);
@@ -990,8 +962,8 @@ int emitC(ZCMGen& zcm)
         string hpath = zcm.gopt->getString("c-hpath") + package;
         string cpath = zcm.gopt->getString("c-cpath") + package;
 
-        string hName = hpath + "/" + lr.nameUnderscore() + ".h";
-        string cName = hpath + "/" + lr.nameUnderscore() + ".c";
+        string hName = hpath + "/" + lr.structname.nameUnderscore() + ".h";
+        string cName = hpath + "/" + lr.structname.nameUnderscore() + ".c";
 
         // STRUCT H file
         if (zcm.needsGeneration(lr.zcmfile, hName)) {

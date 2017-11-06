@@ -181,23 +181,28 @@ def zcmgen(ctx, **kw):
     if not kw['source']:
         return
 
-    # Add .zcm files to build so the process_zcmtypes rule picks them up
-    genfiles_name = uselib_name + '_genfiles'
-    tg = ctx(name         = genfiles_name,
-             source       = kw['source'],
-             lang         = lang,
-             littleEndian = littleEndian,
-             javapkg      = javapkg_name)
+    zcmgen = ctx.root.find_or_declare(ctx.env.ZCMGEN)
 
     bld = ctx.path.get_bld().abspath()
     inc = os.path.dirname(bld)
 
     if 'nodejs' in lang:
         bldcmd = '%s --node --npath %s ' % (ctx.env['ZCMGEN'], bld)
-        nodejstg = ctx(name   = uselib_name + '_nodejs',
-                       target = 'zcmtypes.js',
-                       source = tg.source,
-                       rule   = bldcmd + '${SRC}')
+        ctx(name   = uselib_name + '_nodejs',
+            target = 'zcmtypes.js',
+            source = kw['source'],
+            rule   = bldcmd + '${SRC}')
+
+    # Add .zcm files to build so the process_zcmtypes rule picks them up
+    if len(lang) == 0 or ('nodejs' in lang and len(lang) == 1):
+        return
+
+    genfiles_name = uselib_name + '_genfiles'
+    tg = ctx(name         = genfiles_name,
+             source       = kw['source'],
+             lang         = lang,
+             littleEndian = littleEndian,
+             javapkg      = javapkg_name)
 
     if not building:
         return

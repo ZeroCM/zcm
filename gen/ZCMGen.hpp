@@ -2,6 +2,8 @@
 #include "Common.hpp"
 #include "GetOpt.hpp"
 
+#include "util/StringUtil.hpp"
+
 extern "C" {
 #include "getopt.h"
 }
@@ -20,6 +22,24 @@ struct ZCMTypename
 
     static bool isSame(const ZCMTypename& a, const ZCMTypename& b)
     { return a.fullname == b.fullname; }
+
+    //////////////////////////////////////////////////////////////////////////////
+    mutable string underscore;
+    mutable bool hasUnderscore = false;
+    const string& nameUnderscore() const
+    {
+        if (!hasUnderscore) {
+            hasUnderscore = true;
+            underscore = StringUtil::dotsToUnderscores(fullname);
+        }
+        return underscore;
+    }
+    const char *nameUnderscoreCStr() const
+    {
+        return nameUnderscore().c_str();
+    }
+    //////////////////////////////////////////////////////////////////////////////
+
 };
 
 enum ZCMDimensionMode {
@@ -91,32 +111,6 @@ struct ZCMStruct
     // are attached to that struct.
     string               comment;
 
-
-    //////////////////////////////////////////////////////////////////////////////
-    static inline string dotsToUnderscores(const string& s)
-    {
-        string ret = s;
-        for (uint i = 0; i < ret.size(); i++)
-            if (ret[i] == '.')
-                ret[i] = '_';
-        return ret;
-    }
-    string underscore;
-    bool hasUnderscore = false;
-    const string& nameUnderscore()
-    {
-        if (!hasUnderscore) {
-            hasUnderscore = true;
-            underscore = dotsToUnderscores(structname.fullname);
-        }
-        return underscore;
-    }
-    const char *nameUnderscoreCStr()
-    {
-        return nameUnderscore().c_str();
-    }
-    //////////////////////////////////////////////////////////////////////////////
-
     // Returns the member of a struct by name. Returns NULL on error.
     ZCMMember *findMember(const string& name);
 
@@ -131,7 +125,9 @@ struct ZCMStruct
 
 struct ZCMGen
 {
-    string             package; // remembers the last-specified package name, which is prepended to other types.
+    // remembers the last-specified package name, which is prepended to other types.
+    string             package;
+
     GetOpt             *gopt = nullptr;
     vector<ZCMStruct>  structs;
 
