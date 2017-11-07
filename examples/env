@@ -21,3 +21,4 @@ export CLASSPATH=$CLASSPATH:$DIR/build/types/examplezcmtypes.jar
 export CLASSPATH=$CLASSPATH:$DIR/build/java/example.jar
 export ZCM_SPY_LITE_PATH=$DIR/build/types/libexamplezcmtypes.so
 export ZCM_DEFAULT_URL=ipc
+export JULIA_LOAD_PATH="$JULIA_LOAD_PATH:$prefix/share/julia"
