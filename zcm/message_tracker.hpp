@@ -247,11 +247,11 @@ class Tracker
                       std::iterator_traits<InputIter>::value_type>::type>::present,
                       "Cannot call get with iterators that contain types without a utime field");
 
-        MsgType *m0 = nullptr, *m1 = nullptr; // two poses bracketing the desired utime
+        T *m0 = nullptr, *m1 = nullptr; // two poses bracketing the desired utime
         uint64_t m0Utime = 0, m1Utime = UINT64_MAX;
 
-        const MsgType* _m0 = nullptr;
-        const MsgType* _m1 = nullptr;
+        const T* _m0 = nullptr;
+        const T* _m1 = nullptr;
 
         // The reason why we do a linear search is to support the ability
         // to skip around in logs. We want to support messages with
@@ -260,8 +260,9 @@ class Tracker
         for (auto iter = first; iter != last; ++iter) {
             // Note: This is unsafe unless we rely on the static assert at the beginning of
             //       the function
-            const MsgType* m = (const MsgType*) *iter;
+            const T* m = *iter;
             uint64_t mUtime = getMsgUtime(m);
+            if (mUtime == UINT64_MAX) mUtime = m->utime;
 
             if (mUtime <= utime && (_m0 == nullptr || mUtime > m0Utime)) {
                 _m0 = m;
@@ -274,8 +275,8 @@ class Tracker
             }
         }
 
-        if (_m0 != nullptr) m0 = new MsgType(*_m0);
-        if (_m1 != nullptr) m1 = new MsgType(*_m1);
+        if (_m0 != nullptr) m0 = new T(*_m0);
+        if (_m1 != nullptr) m1 = new T(*_m1);
 
         if (lk && lk->owns_lock()) lk->unlock();
 
@@ -526,7 +527,7 @@ class SynchronizedMessageDispatcher
             uint64_t utime = Type1Tracker::handle(_msg, hostUtime);
             if (this->begin() == this->end()) return utime;
             auto last = std::prev(this->end());
-            smt->process(last, this->end());
+            smt->process(last);
             return utime;
         }
 
@@ -548,7 +549,7 @@ class SynchronizedMessageDispatcher
                         uint64_t hostUtime = UINT64_MAX) override
         {
             uint64_t utime = Type2Tracker::handle(_msg, hostUtime);
-            smt->process(smt->t1.begin(), smt->t1.end());
+            smt->process(smt->t1.begin());
             return utime;
         }
 
@@ -559,15 +560,14 @@ class SynchronizedMessageDispatcher
             Type2Tracker(zcmLocal, channel, maxTimeErr, maxMsgs), smt(smt) {}
     };
 
-    void process(typename Type1Tracker::iterator t1Begin,
-                 typename Type1Tracker::iterator t1End)
+    void process(typename Type1Tracker::iterator t1Begin)
     {
         auto it = t2.crbegin();
         if (it == t2.crend()) return;
 
         uint64_t t2Utime = t2.getMsgUtime(*it);
 
-        for (auto it = t1Begin; it != t1End;) {
+        for (auto it = t1Begin; it != t1.end();) {
             uint64_t t1Utime = t1.getMsgUtime(*it);
             if (t1Utime <= t2Utime) {
                 auto msg2 = t2.get(t1Utime);

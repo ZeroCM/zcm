@@ -194,15 +194,15 @@ class MessageTrackerTest : public CxxTest::TestSuite
          }
     }
 
-    void testNoUtime()
-    {
-        struct test_t {
-            int test;
-            virtual ~test_t() {}
-        };
-        // This would not compile if it were broken
-        zcm::Tracker<test_t> mt(0.25, 1);
-    }
+    //void testNoUtime()
+    //{
+        //struct test_t {
+            //int test;
+            //virtual ~test_t() {}
+        //};
+        //// This should not compile
+        //zcm::Tracker<test_t> mt(0.25, 1);
+    //}
 
     void testSynchronizedMessageDispatcher()
     {
@@ -236,7 +236,7 @@ class MessageTrackerTest : public CxxTest::TestSuite
         };
 
         zcm::SynchronizedMessageDispatcher <zcm::MessageTracker<example_t>, tracker>::callback cb =
-        [&] (const example_t *a, example_t *b, void *usr) {
+        [&] (example_t *a, example_t *b, void *usr) {
             TS_ASSERT(a); TS_ASSERT(b);
             if (pairDetected == 0) {
                 TS_ASSERT_EQUALS(a->utime, 3);
@@ -245,7 +245,7 @@ class MessageTrackerTest : public CxxTest::TestSuite
             }
             TS_ASSERT_EQUALS(b->utime, 10);
             ++pairDetected;
-            delete b;
+            delete a; delete b;
         };
 
         zcm::ZCM zcmL;
@@ -306,11 +306,11 @@ class MessageTrackerTest : public CxxTest::TestSuite
         };
 
         zcm::SynchronizedMessageDispatcher <tracker, zcm::MessageTracker<example_t>>::callback
-            cb = [&] (const example_t *a, example_t *b, void *usr) {
+            cb = [&] (example_t *a, example_t *b, void *usr) {
                      TS_ASSERT(a); TS_ASSERT(b);
                      TS_ASSERT_EQUALS(a->data, 1);
                      ++pairDetected;
-                     delete b;
+                     delete a; delete b;
                  };
 
         zcm::ZCM zcmL;
