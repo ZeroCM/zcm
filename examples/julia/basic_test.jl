@@ -2,6 +2,7 @@ include("/usr/local/share/julia/zcm.jl");
 include("../build/types/example_t.jl");
 
 import ZCM;
+using ZCM;
 
 numReceived = 0
 handler = function(rbuf::ZCM.RecvBuf, channel::String, msg::example_t, usr)
@@ -11,41 +12,41 @@ handler = function(rbuf::ZCM.RecvBuf, channel::String, msg::example_t, usr)
     numReceived = numReceived + 1
 end
 
-zcm = ZCM.Zcm("inproc")
-if (!zcm.good())
+zcm = Zcm("inproc")
+if (!zcm_good(zcm))
     println("Unable to initialize zcm");
     exit()
 end
 
-sub = zcm.subscribe("EXAMPLE", example_t, handler, Void)
+sub = zcm_subscribe(zcm, "EXAMPLE", example_t, handler, Void)
 
 msg = example_t()
 
-zcm.start()
+zcm_start(zcm)
 
 msg.timestamp = 0;
-zcm.publish("EXAMPLE", msg)
+zcm_publish(zcm, "EXAMPLE", msg)
 msg.timestamp = 1;
-zcm.publish("EXAMPLE", msg)
+zcm_publish(zcm, "EXAMPLE", msg)
 msg.timestamp = 2;
-zcm.publish("EXAMPLE", msg)
+zcm_publish(zcm, "EXAMPLE", msg)
 
 sleep(0.5)
-zcm.stop()
+zcm_stop(zcm)
 
-zcm.start()
+zcm_start(zcm)
 
 msg.timestamp = 3;
-zcm.publish("EXAMPLE", msg)
+zcm_publish(zcm, "EXAMPLE", msg)
 msg.timestamp = 4;
-zcm.publish("EXAMPLE", msg)
+zcm_publish(zcm, "EXAMPLE", msg)
 msg.timestamp = 5;
-zcm.publish("EXAMPLE", msg)
+zcm_publish(zcm, "EXAMPLE", msg)
 
 sleep(0.5)
-zcm.stop()
+zcm_stop(zcm)
 
-zcm.unsubscribe(sub)
+zcm_unsubscribe(zcm, sub)
 
 @assert (numReceived == 6) "Didn't receive proper number of messages"
 println("Success!")
