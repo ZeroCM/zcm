@@ -166,10 +166,8 @@ end
 function zcm_subscribe(zcm::Zcm, channel::AbstractString, MsgType::DataType, handler, usr)
     return zcm_subscribe_raw(zcm, channel,
                         function (rbuf::RecvBuf, channel::AbstractString, usr)
-                            msg = MsgType();
-                            # TODO: think we can use `unsafe_wrap` in zcmgen code
-                            #       to turn data ptr into an array
-                            msg.decode(rbuf.data)
+                            # RRR (Bendes): This doesnt work. How can we make it?
+                            msg = MsgType.decode(rbuf.data)
                             handler(rbuf, channel, msg, usr);
                         end, usr);
 end
@@ -192,7 +190,8 @@ end
 
 # TODO: force msg to be derived from our zcm msg basetype
 function zcm_publish(zcm::Zcm, channel::AbstractString, msg)
-    data = msg.encode()
+    # RRR (Bendes): This doesnt work. How can we make it?
+    data = encode(msg)
     return zcm_publish_raw(zcm, channel, data, UInt32(length(data)));
 end
 export zcm_publish;
