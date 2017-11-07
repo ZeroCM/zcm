@@ -76,6 +76,7 @@ int main(int argc, char *argv[])
                 fprintf(stderr, "Multiple types with different packages specified.\n");
                 return 1;
             }
+            package = s.structname.package;
         }
         printf("%s\n", package.c_str());
         return 0;

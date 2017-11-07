@@ -298,7 +298,7 @@ struct EmitModule : public Emitter
                     emitEncodeSingleMember(lm, accessor, n + 2);
                     emit(n + 1, "}");
                 }
-                for (int i = n - 1; i >= 0; --i) {
+                for (int i = (int) n - 1; i >= 0; --i) {
                     emit(i + 1, "}");
                 }
             }
@@ -472,7 +472,7 @@ struct EmitModule : public Emitter
                     emitDecodeSingleMember(lm, accessor, n + 2, ")");
                     emit(n + 1, "}");
                 }
-                for (int i = n - 1; i >= 0; --i)
+                for (int i = (int) n - 1; i >= 0; --i)
                     emit(i + 1, "}");
             }
         }
