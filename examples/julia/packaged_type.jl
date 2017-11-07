@@ -1,7 +1,6 @@
 include("/usr/local/share/julia/zcm.jl");
 include("../build/types/test_package/test_package_packaged_t.jl");
 
-import ZCM;
 using ZCM;
 
 numReceived = 0
@@ -13,28 +12,28 @@ handler = function(rbuf::ZCM.RecvBuf, channel::String, msg::test_package_package
 end
 
 zcm = Zcm("inproc")
-if (!zcm_good(zcm))
+if (!good(zcm))
     println("Unable to initialize zcm");
     exit()
 end
 
-sub = zcm_subscribe(zcm, "EXAMPLE", test_package_packaged_t, handler, Void)
+sub = subscribe(zcm, "EXAMPLE", test_package_packaged_t, handler, Void)
 
 msg = test_package_packaged_t()
 
-zcm_start(zcm)
+start(zcm)
 
 msg.packaged = true;
-zcm_publish(zcm, "EXAMPLE", msg)
+publish(zcm, "EXAMPLE", msg)
 msg.packaged = false;
-zcm_publish(zcm, "EXAMPLE", msg)
+publish(zcm, "EXAMPLE", msg)
 msg.packaged = true;
-zcm_publish(zcm, "EXAMPLE", msg)
+publish(zcm, "EXAMPLE", msg)
 
 sleep(0.5)
-zcm_stop(zcm)
+stop(zcm)
 
-zcm_unsubscribe(zcm, sub)
+unsubscribe(zcm, sub)
 
 @assert (numReceived == 3) "Didn't receive proper number of messages"
 println("Success!")
