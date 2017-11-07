@@ -381,12 +381,11 @@ struct EmitJulia : public Emitter
                         emit(n + 3, "for i%d in range(1,self.%s)", n, lastDim.size.c_str());
                     }
                     accessor += "[i" + to_string(n) + "]";
-                    emitEncodeSingleMember(lm, accessor, n + 5);
-                    for (n = 0; n < lm.dimensions.size(); ++n)
-                        emit(n + 3, "end");
-                }
-                for (n = 0; n < lm.dimensions.size() - 1; ++n)
+                    emitEncodeSingleMember(lm, accessor, n + 4);
                     emit(n + 3, "end");
+                }
+                for (int i = n - 1; i >= 0; --i)
+                    emit(i + 3, "end");
             }
         }
 
@@ -415,8 +414,8 @@ struct EmitJulia : public Emitter
         auto *sfx = sfx_.c_str();
 
         if (tn == "string") {
-            emit(indent, "__%s_len = ntoh(reinterpret(UInt32, read(buf, 4))[1])", mn.c_str());
-            emit(indent, "%sString(read(buf, __%s_len))%s", accessor, mn.c_str(), sfx);
+            emit(indent, "%sString(read(buf, ntoh(reinterpret(UInt32, read(buf, 4))[1])))%s",
+                         accessor, sfx);
         } else if (tn == "byte"    || tn == "boolean" || tn == "int8_t") {
             auto typeSize = ZCMGen::getPrimitiveTypeSize(tn);
             emit(indent, "%sreinterpret(%s, read(buf, %u))[1]%s",
@@ -498,9 +497,9 @@ struct EmitJulia : public Emitter
                     }
 
                     if (dim.mode == ZCM_CONST) {
-                        emit(n + 3, "for i%d in range(%s):", n, dim.size.c_str());
+                        emit(n + 3, "for i%d in range(1,%s)", n, dim.size.c_str());
                     } else {
-                        emit(n + 3, "for i%d in range(self.%s):", n, dim.size.c_str());
+                        emit(n + 3, "for i%d in range(1,self.%s)", n, dim.size.c_str());
                     }
 
                     if(n > 0 && n < lm.dimensions.size()-1) {
@@ -530,17 +529,20 @@ struct EmitJulia : public Emitter
                     if(n == 0) {
                         emit(3, "%s = []", accessor.c_str());
                     } else {
-                        emit(n + 3, "%s.append ([])", accessor.c_str());
+                        emit(n + 3, "%s.append([])", accessor.c_str());
                         accessor += "[i" + to_string(n-1) + "]";
                     }
                     if (lastDimFixedLen) {
-                        emit(n + 3, "for i%d in range(%s):", n, lastDim.size.c_str());
+                        emit(n + 3, "for i%d in range(1,%s)", n, lastDim.size.c_str());
                     } else {
-                        emit(n + 3, "for i%d in range(self.%s):", n, lastDim.size.c_str());
+                        emit(n + 3, "for i%d in range(1,self.%s)", n, lastDim.size.c_str());
                     }
                     accessor += ".append(";
-                    emitDecodeSingleMember(lm, accessor, n+3, ")");
+                    emitDecodeSingleMember(lm, accessor, n + 4, ")");
+                    emit(n + 3, "end");
                 }
+                for (int i = n - 1; i >= 0; --i)
+                    emit(i + 3, "end");
             }
         }
         emit(3, "return self");
