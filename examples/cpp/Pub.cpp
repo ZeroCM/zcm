@@ -1,7 +1,6 @@
 #include <unistd.h>
 #include <zcm/zcm-cpp.hpp>
 #include "types/example_t.hpp"
-#include "types/recursive_t.hpp"
 
 int main(int argc, char *argv[])
 {
@@ -31,10 +30,7 @@ int main(int argc, char *argv[])
     my_data.enabled = true;
 
     while (1) {
-        recursive_t r;
-        r.e = my_data;
-        //zcm.publish("EXAMPLE", &my_data);
-        zcm.publish("EXAMPLE", &r);
+        zcm.publish("EXAMPLE", &my_data);
         for (auto& val : my_data.position) val++;
         usleep(1000*1000);
     }
