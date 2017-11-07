@@ -119,6 +119,8 @@ type Zcm
 
         return instance;
     end
+
+    function Zcm() return Zcm(""); end
 end
 export Zcm;
 
@@ -145,7 +147,7 @@ export strerror;
 # TODO: get this into docs:
 # Note to self: handler could be either a function or a functor, so long as it has
 #               handler(rbuf::RecvBuf, channel::String, usr) defined
-function subscribe_raw(zcm::Zcm, channel::AbstractString, handler, usr)
+function subscribe(zcm::Zcm, channel::AbstractString, handler, usr)
 
     handler_jl = __zcm_handler(handler, usr);
     handler_c  = cfunction(__zcm_handler_wrapper, Void,
@@ -159,17 +161,19 @@ function subscribe_raw(zcm::Zcm, channel::AbstractString, handler, usr)
                      zcm.zcm, channel, uv_handler, uv_wrapper),
                handler_jl, handler_c, uv_handler, uv_wrapper);
 end
+export subscribe;
 
+# RRR: might be a way to make this template a bit prettier
 # TODO: get this into docs:
 # Note to self: handler could be either a function or a functor, so long as it has
 #               handler(rbuf::RecvBuf, channel::String, msg::MsgType, usr) defined
 function subscribe(zcm::Zcm, channel::AbstractString, MsgType::DataType, handler, usr)
-    return subscribe_raw(zcm, channel,
-                        function (rbuf::RecvBuf, channel::AbstractString, usr)
-                            # RRR (Bendes): This doesnt work. How can we make it?
-                            msg = MsgType.decode(rbuf.data)
-                            handler(rbuf, channel, msg, usr);
-                        end, usr);
+    return subscribe(zcm, channel,
+                     function (rbuf::RecvBuf, channel::AbstractString, usr)
+                         # RRR (Bendes): This doesnt work. How can we make it?
+                         msg = MsgType.decode(rbuf.data)
+                         handler(rbuf, channel, msg, usr);
+                     end, usr);
 end
 export subscribe;
 
@@ -182,11 +186,12 @@ function unsubscribe(zcm::Zcm, sub::Sub)
 end
 export unsubscribe;
 
-function publish_raw(zcm::Zcm, channel::AbstractString, data::Array{UInt8}, datalen::UInt32)
+function publish(zcm::Zcm, channel::AbstractString, data::Array{UInt8}, datalen::UInt32)
     return ccall(("zcm_publish", "libzcm"), Cint,
                  (Ptr{Native.Zcm}, Cstring, Ptr{Void}, UInt32),
                  zcm.zcm, channel, data, datalen);
 end
+export publish;
 
 # TODO: force msg to be derived from our zcm msg basetype
 function publish(zcm::Zcm, channel::AbstractString, msg)
@@ -194,7 +199,7 @@ function publish(zcm::Zcm, channel::AbstractString, msg)
     methods(encode)
     return nothing
     data = encode(msg)
-    return publish_raw(zcm, channel, data, UInt32(length(data)));
+    return publish(zcm, channel, data, UInt32(length(data)));
 end
 export publish;
 
