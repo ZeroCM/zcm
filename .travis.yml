@@ -17,6 +17,8 @@ before_script: mkdir ../tmp
 script:
   - ./waf distclean configure build &&
     ./waf distclean configure --use-all --use-third-party --use-clang --use-cxxtest --prefix=../tmp/ &&
+    ./waf build_asan &&
+    ./waf distclean configure --use-all --use-third-party --use-clang --use-cxxtest --prefix=../tmp/ &&
     ./waf build build_asan &&
     ./waf install &&
     cd examples && source ./env /home/travis/build/ZeroCM/tmp &&
