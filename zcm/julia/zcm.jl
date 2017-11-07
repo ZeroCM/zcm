@@ -122,17 +122,17 @@ type Zcm
 end
 export Zcm;
 
-function zcm_good(zcm::Zcm)
-    return (zcm.zcm != C_NULL) && (zcm_errno(zcm) == 0);
+function good(zcm::Zcm)
+    return (zcm.zcm != C_NULL) && (errno(zcm) == 0);
 end
-export zcm_good;
+export good;
 
-function zcm_errno(zcm::Zcm)
+function errno(zcm::Zcm)
     return ccall(("zcm_errno", "libzcm"), Cint, (Ptr{Native.Zcm},), zcm.zcm);
 end
-export zcm_errno;
+export errno;
 
-function zcm_strerror(zcm::Zcm)
+function strerror(zcm::Zcm)
     val =  ccall(("zcm_strerror", "libzcm"), Cstring, (Ptr{Native.Zcm},), zcm.zcm);
     if (val == C_NULL)
         return "unable to get strerror";
@@ -140,12 +140,12 @@ function zcm_strerror(zcm::Zcm)
         return unsafe_string(val);
     end
 end
-export zcm_strerror;
+export strerror;
 
 # TODO: get this into docs:
 # Note to self: handler could be either a function or a functor, so long as it has
 #               handler(rbuf::RecvBuf, channel::String, usr) defined
-function zcm_subscribe_raw(zcm::Zcm, channel::AbstractString, handler, usr)
+function subscribe_raw(zcm::Zcm, channel::AbstractString, handler, usr)
 
     handler_jl = __zcm_handler(handler, usr);
     handler_c  = cfunction(__zcm_handler_wrapper, Void,
@@ -163,64 +163,67 @@ end
 # TODO: get this into docs:
 # Note to self: handler could be either a function or a functor, so long as it has
 #               handler(rbuf::RecvBuf, channel::String, msg::MsgType, usr) defined
-function zcm_subscribe(zcm::Zcm, channel::AbstractString, MsgType::DataType, handler, usr)
-    return zcm_subscribe_raw(zcm, channel,
+function subscribe(zcm::Zcm, channel::AbstractString, MsgType::DataType, handler, usr)
+    return subscribe_raw(zcm, channel,
                         function (rbuf::RecvBuf, channel::AbstractString, usr)
                             # RRR (Bendes): This doesnt work. How can we make it?
                             msg = MsgType.decode(rbuf.data)
                             handler(rbuf, channel, msg, usr);
                         end, usr);
 end
-export zcm_subscribe;
+export subscribe;
 
-function zcm_unsubscribe(zcm::Zcm, sub::Sub)
+function unsubscribe(zcm::Zcm, sub::Sub)
     ret = ccall(("zcm_unsubscribe", "libzcm"), Cint,
                  (Ptr{Native.Zcm}, Ptr{Native.Sub}), zcm.zcm, sub.sub);
     ccall(("uv_zcm_msg_handler_destroy", "libzcmjulia"), Void,
           (Ptr{Native.UvSub},), sub.uv_wrapper);
     return ret;
 end
-export zcm_unsubscribe;
+export unsubscribe;
 
-function zcm_publish_raw(zcm::Zcm, channel::AbstractString, data::Array{UInt8}, datalen::UInt32)
+function publish_raw(zcm::Zcm, channel::AbstractString, data::Array{UInt8}, datalen::UInt32)
     return ccall(("zcm_publish", "libzcm"), Cint,
                  (Ptr{Native.Zcm}, Cstring, Ptr{Void}, UInt32),
                  zcm.zcm, channel, data, datalen);
 end
 
 # TODO: force msg to be derived from our zcm msg basetype
-function zcm_publish(zcm::Zcm, channel::AbstractString, msg)
+function publish(zcm::Zcm, channel::AbstractString, msg)
     # RRR (Bendes): This doesnt work. How can we make it?
+    methods(encode)
+    return nothing
     data = encode(msg)
-    return zcm_publish_raw(zcm, channel, data, UInt32(length(data)));
+    return publish_raw(zcm, channel, data, UInt32(length(data)));
 end
-export zcm_publish;
+export publish;
 
-function zcm_flush(zcm::Zcm)
+function flush(zcm::Zcm)
     return ccall(("zcm_flush", "libzcm"), Void, (Ptr{Native.Zcm},), zcm.zcm);
 end
-export zcm_flush;
+export flush;
 
-function zcm_start(zcm::Zcm)
+import Base.start;
+function start(zcm::Zcm)
     return ccall(("zcm_start", "libzcm"), Void, (Ptr{Native.Zcm},), zcm.zcm);
 end
-export zcm_start;
+export start;
 
-function zcm_stop(zcm::Zcm)
+function stop(zcm::Zcm)
     return ccall(("zcm_stop", "libzcm"), Void, (Ptr{Native.Zcm},), zcm.zcm);
 end
-export zcm_stop;
+export stop;
 
-function zcm_handle(zcm::Zcm)
+function handle(zcm::Zcm)
     return ccall(("zcm_handle", "libzcm"), Cint, (Ptr{Native.Zcm},), zcm.zcm);
 end
-export zcm_handle;
+export handle;
 
-function zcm_handle_nonblock(zcm::Zcm)
+function handle_nonblock(zcm::Zcm)
     return ccall(("zcm_handle_nonblock", "libzcm"), Cint,
                  (Ptr{Native.Zcm},), zcm.zcm);
 end
-export zcm_handle_nonblock;
+export handle_nonblock;
 
 # RRR: go over the signedness of all these types from within zcm ... some of them are dumb
 type LogEvent
@@ -291,33 +294,37 @@ export LogFile;
 function good(lf::LogFile)
     return lf.eventLog != C_NULL;
 end
+export good;
 
 function readNextEvent(lf::LogFile)
     event = ccall(("zcm_eventlog_read_next_event", "libzcm"), Ptr{Native.EventLogEvent},
                   (Ptr{Native.EventLog},), lf.eventLog)
     return LogEvent(event);
 end
+export readNextEvent;
 
 function readPrevEvent(lf::LogFile)
     event = ccall(("zcm_eventlog_read_prev_event", "libzcm"), Ptr{Native.EventLogEvent},
                   (Ptr{Native.EventLog},), lf.eventLog)
     return LogEvent(event);
 end
+export readPrevEvent;
 
 function readEventAtOffset(lf::LogFile, offset::Int64)
     event = ccall(("zcm_eventlog_read_event_at_offset", "libzcm"), Ptr{Native.EventLogEvent},
                   (Ptr{Native.EventLog}, Int64), lf.eventLog, offset)
     return LogEvent(event);
 end
+export readEventAtOffset;
 
 # RRR: need to make a way to encode the event into a native object before we'll
 #      be able to write different data out to the file
-# RRR (bendes): What does the above mean?
 function writeEvent(lf::LogFile, event::LogEvent)
     return ccall(("zcm_eventlog_write_event", "libzcm"), Cint,
                  (Ptr{Native.EventLog}, Ptr{Native.EventLogEvent}),
                  lf.eventLog, event.event);
 end
+export writeEvent;
 
 end # module ZCM
 
