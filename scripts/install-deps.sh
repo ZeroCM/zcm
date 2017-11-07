@@ -1,9 +1,11 @@
 #!/bin/bash
 
 STRICT=true
-while getopts "i" opt; do
+SINGLE_MODE=false
+while getopts "is" opt; do
     case $opt in
         i) STRICT=false ;;
+        s) SINGLE_MODE=true ;;
         \?) exit 1 ;;
     esac
 done
@@ -44,16 +46,22 @@ if [[ $ret -ne 0 && "$STRICT" == "true" ]]; then
     echo "Failed to update"
     exit $ret
 fi
+
 echo "Installing from apt"
-for pkg in $PKGS; do
-    echo "Installing $pkg"
-    sudo apt-get install -yq $pkg
-    ret=$?
-    if [[ $ret -ne 0 && "$STRICT" == "true" ]]; then
-        echo "Failed to install packages"
-        exit $ret
-    fi
-done
+if $SINGLE_MODE; then
+    for pkg in $PKGS; do
+        echo "Installing $pkg"
+        sudo apt-get install -yq $pkg
+        ret=$?
+        if [[ $ret -ne 0 && "$STRICT" == "true" ]]; then
+            echo "Failed to install packages"
+            exit $ret
+        fi
+    done
+else
+    sudo apt-get install -yq $PKGS
+fi
+
 echo "Updating db"
 sudo updatedb
 ret=$?

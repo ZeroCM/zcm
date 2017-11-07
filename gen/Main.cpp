@@ -26,16 +26,16 @@ int main(int argc, char *argv[])
     setupOptionsC(gopt);
 
     gopt.addSpacer("**** C++ options ****");
-    gopt.addBool('x', "cpp",         0,     "Emit C++ code");
+    gopt.addBool('x', "cpp",       0,     "Emit C++ code");
     setupOptionsCpp(gopt);
 
     gopt.addSpacer("**** Java options ****");
     gopt.addBool('j', "java",      0,     "Emit Java code");
     setupOptionsJava(gopt);
 
-     gopt.addSpacer("**** Python options ****");
-     gopt.addBool('p', "python",      0,     "Emit Python code");
-     setupOptionsPython(gopt);
+    gopt.addSpacer("**** Python options ****");
+    gopt.addBool('p', "python",    0,     "Emit Python code");
+    setupOptionsPython(gopt);
 
     gopt.addSpacer("**** Node.js options ****");
     gopt.addBool('n', "node",      0,     "Emit Node.js code");

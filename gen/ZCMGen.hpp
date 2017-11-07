@@ -92,6 +92,8 @@ struct ZCMConstant
     // attached to the constant.
     string comment;
 
+    bool isFixedPoint();
+
     ZCMConstant(const string& type, const string& name, const string& valstr);
 };
 
@@ -148,6 +150,8 @@ struct ZCMGen
 
     // Returns true if the argument is a built-in type (e.g., "int64_t", "float").
     static bool isPrimitiveType(const string& t);
+
+    static size_t getPrimitiveTypeSize(const string& tn);
 
     // Returns true if the argument is a built-in type usable as and array dim
     static bool isArrayDimType(const string& t);

@@ -123,13 +123,15 @@ def process_zcm_configure_options(ctx):
     def hasopt(key):
         return opt.use_all or getattr(opt, key)
 
-    env.USING_CPP          = True
-    env.USING_JAVA         = hasopt('use_java') and attempt_use_java(ctx)
-    env.USING_NODEJS       = hasopt('use_nodejs') and attempt_use_nodejs(ctx)
-    env.USING_PYTHON       = hasopt('use_python') and attempt_use_python(ctx)
-    env.USING_ZMQ          = hasopt('use_zmq') and attempt_use_zmq(ctx)
-    env.USING_ELF          = hasopt('use_elf') and attempt_use_elf(ctx)
-    env.USING_THIRD_PARTY  = getattr(opt, 'use_third_party') and attempt_use_third_party(ctx)
+
+    env.USING_CPP         = True
+    env.USING_JAVA        = hasopt('use_java') and attempt_use_java(ctx)
+    env.USING_NODEJS      = hasopt('use_nodejs') and attempt_use_nodejs(ctx)
+    env.USING_PYTHON      = hasopt('use_python') and attempt_use_python(ctx)
+    env.USING_ZMQ         = hasopt('use_zmq') and attempt_use_zmq(ctx)
+    env.USING_CXXTEST     = hasopt('use_cxxtest') and attempt_use_cxxtest(ctx)
+    env.USING_ELF         = hasopt('use_elf') and attempt_use_elf(ctx)
+    env.USING_THIRD_PARTY = getattr(opt, 'use_third_party') and attempt_use_third_party(ctx)
 
     env.USING_TRANS_IPC    = hasopt('use_ipc')
     env.USING_TRANS_INPROC = hasopt('use_inproc')

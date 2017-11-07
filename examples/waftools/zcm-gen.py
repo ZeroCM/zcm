@@ -203,6 +203,8 @@ def zcmgen(ctx, **kw):
              lang         = lang,
              littleEndian = littleEndian,
              javapkg      = javapkg_name)
+    for s in tg.source:
+        ctx.add_manual_dependency(s, zcmgen)
 
     if not building:
         return
@@ -215,35 +217,35 @@ def zcmgen(ctx, **kw):
             csrc.append(outnode)
 
     if 'c_stlib' in lang:
-        cstlibtg = ctx.stlib(name            = uselib_name + '_c_stlib',
-                             target          = uselib_name,
-                             use             = ['default', 'zcm'],
-                             includes        = inc,
-                             export_includes = inc,
-                             source          = csrc)
+        ctx.stlib(name            = uselib_name + '_c_stlib',
+                  target          = uselib_name,
+                  use             = ['default', 'zcm'],
+                  includes        = inc,
+                  export_includes = inc,
+                  source          = csrc)
 
     if 'c_shlib' in lang:
-        cshlibtg = ctx.shlib(name            = uselib_name + '_c_shlib',
-                             target          = uselib_name,
-                             use             = ['default', 'zcm'],
-                             includes        = inc,
-                             export_includes = inc,
-                             source          = csrc)
+        ctx.shlib(name            = uselib_name + '_c_shlib',
+                  target          = uselib_name,
+                  use             = ['default', 'zcm'],
+                  includes        = inc,
+                  export_includes = inc,
+                  source          = csrc)
 
     if 'cpp' in lang:
-        cpptg = ctx(target          = uselib_name + '_cpp',
-                    rule            = 'touch ${TGT}',
-                    export_includes = inc)
+        ctx(target          = uselib_name + '_cpp',
+            rule            = 'touch ${TGT}',
+            export_includes = inc)
 
     if 'java' in lang:
-        javatg = ctx(name       = uselib_name + '_java',
-                     features   = 'javac jar',
-                     use        = ['zcmjar', genfiles_name],
-                     srcdir     = ctx.path.find_or_declare('java/' +
-                                                           javapkg_name.split('.')[0]),
-                     outdir     = 'java/classes',  # path to output (for .class)
-                     basedir    = 'java/classes',  # basedir for jar
-                     destfile   = uselib_name + '.jar')
+        ctx(name       = uselib_name + '_java',
+            features   = 'javac jar',
+            use        = ['zcmjar', genfiles_name],
+            srcdir     = ctx.path.find_or_declare('java/' +
+                                                  javapkg_name.split('.')[0]),
+            outdir     = 'java/classes',  # path to output (for .class)
+            basedir    = 'java/classes',  # basedir for jar
+            destfile   = uselib_name + '.jar')
 
     if 'python' in lang:
         pythontg = ctx(target = uselib_name + '_python',

@@ -29,6 +29,10 @@ modern linux systems.
    users should install the `nodejs-legacy` package in addition to the `nodejs`
    package because of the debian renaming of the "node" executable to "nodejs"
    will cause build problems.
+ - Python: used for python language bindings
+ - elf: used by some tools for runtime loading of shared libraries of zcmtypes
+ - clang: development tool used for testing zcm with clang's addresss and thread sanitizers
+ - cxxtest: development tool used for verifying zcm core code
 
 All of the optional dependencies must be enabled at build-time by using
 `./waf configure`. By default, *configure* will not attempt to enable any

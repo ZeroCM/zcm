@@ -1,5 +1,6 @@
 #include "ZCMGen.hpp"
 #include <cmath>
+#include <unordered_map>
 
 extern "C" {
 #include "tokenize.h"
@@ -55,15 +56,42 @@ static vector<string> constTypes {
     "double"
 };
 
+static vector<string> fixedPointTypes {
+    "int8_t",
+    "int16_t",
+    "int32_t",
+    "int64_t"
+};
+
+static unordered_map<string, size_t> primitiveTypeSize {
+    {"int8_t",  1},
+    {"int16_t", 2},
+    {"int32_t", 4},
+    {"int64_t", 8},
+    {"byte",    1},
+    {"float",   4},
+    {"double",  8},
+    {"boolean", 1}
+};
+
 // Given NULL-terminated array of strings "ts", does "t" appear in it?
 static bool inArray(const vector<string>& ts, const string& t)
 {
     return std::find(begin(ts), end(ts), t) != end(ts);
 }
 
-bool ZCMGen::isPrimitiveType(const string& t)  { return inArray(primitiveTypes, t); }
-bool ZCMGen::isArrayDimType(const string& t)   { return inArray(arrayDimTypes, t);  }
-bool ZCMGen::isLegalConstType(const string& t) { return inArray(constTypes, t);     }
+bool   ZCMGen::isPrimitiveType(const string& t)       { return inArray(primitiveTypes, t); }
+bool   ZCMGen::isArrayDimType(const string& t)        { return inArray(arrayDimTypes, t);  }
+bool   ZCMGen::isLegalConstType(const string& t)      { return inArray(constTypes, t);     }
+size_t ZCMGen::getPrimitiveTypeSize(const string& tn)
+{
+    auto iter = primitiveTypeSize.find(tn);
+    if (iter == primitiveTypeSize.end()) {
+        fprintf(stderr, "Unable to find size of primitive type: %s\n", tn.c_str());
+        exit(1);
+    }
+    return iter->second;
+}
 
 static bool isLegalMemberName(const string& t)
 {
@@ -138,6 +166,8 @@ ZCMStruct::ZCMStruct(ZCMGen& zcmgen, const string& zcmfile, const string& struct
 ZCMConstant::ZCMConstant(const string& type, const string& name, const string& valstr) :
     type(type), membername(name), valstr(valstr)
 {}
+
+bool ZCMConstant::isFixedPoint() { return inArray(fixedPointTypes, type); }
 
 u64 ZCMStruct::computeHash()
 {

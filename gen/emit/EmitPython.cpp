@@ -136,7 +136,7 @@ struct PyEmitStruct : public Emitter
             if(fixedLen) {
                 emit(indent, "%smap(bool, struct.unpack('>%s%c', buf.read(%d)))%s",
                      accessor, len, getStructFormat(lm),
-                     atoi(len) * getPrimitiveTypeSize(tn),
+                     atoi(len) * ZCMGen::getPrimitiveTypeSize(tn),
                      suffix);
             } else {
                 emit(indent,
@@ -148,13 +148,13 @@ struct PyEmitStruct : public Emitter
             if(fixedLen) {
                 emit (indent, "%sstruct.unpack('>%s%c', buf.read(%d))%s",
                       accessor, len, getStructFormat(lm),
-                      atoi(len) * getPrimitiveTypeSize(tn),
+                      atoi(len) * ZCMGen::getPrimitiveTypeSize(tn),
                       suffix);
             } else {
                 if (ZCMGen::getPrimitiveTypeSize(tn) > 1) {
                     emit(indent, "%sstruct.unpack('>%%d%c' %% self.%s, buf.read(self.%s * %d))%s",
                          accessor, getStructFormat(lm), len, len,
-                         getPrimitiveTypeSize(tn), suffix);
+                         ZCMGen::getPrimitiveTypeSize(tn), suffix);
                 } else {
                     emit(indent, "%sstruct.unpack('>%%d%c' %% self.%s, buf.read(self.%s))%s",
                          accessor, getStructFormat(lm), len, len, suffix);
@@ -179,7 +179,7 @@ struct PyEmitStruct : public Emitter
             emitContinue("self.%s", lm->membername.c_str());
             if (members.size() > 0)
                 emitContinue (", ");
-            fmtsize += getPrimitiveTypeSize(lm->type.fullname);
+            fmtsize += ZCMGen::getPrimitiveTypeSize(lm->type.fullname);
         }
         emitContinue (" = struct.unpack(\">");
         while (formats.size() > 0) {
