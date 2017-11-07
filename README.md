@@ -76,6 +76,7 @@ To learn how you can contribute to this project, check out [Contributing](docs/c
   - MATLAB (using Java)
   - NodeJS and Client-side Javascript
   - Python
+  - Julia
 
 ## Roadmap
  - Platform Support
