@@ -47,7 +47,4 @@ unsubscribe(zcm, sub)
 
 @assert (numReceived == 6) "Didn't receive proper number of messages"
 
-
-
-
 println("Success!")
