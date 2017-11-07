@@ -139,7 +139,6 @@ function subscribe(zcm::Zcm, channel::AbstractString, options::T) where T <: Sub
                 (Ptr{Native.Zcm}, Cstring, Ptr{Void}, Ptr{Native.UvSub}),
                 zcm, channel, uv_handler, uv_wrapper)
     sub = Subscription(options, c_handler, uv_wrapper, uv_handler, csub)
-    @show sub
     push!(zcm.subscriptions, sub)
     return sub
 end
