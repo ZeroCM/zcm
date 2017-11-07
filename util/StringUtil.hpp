@@ -113,4 +113,7 @@ namespace StringUtil
 
     static inline string dotsToUnderscores(const string& s)
     { return replace(s, '.', '_'); }
+
+    static inline string dotsToSlashes(const string& s)
+    { return replace(s, '.', '/'); }
 }
