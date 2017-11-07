@@ -2,7 +2,7 @@
 # encoding: utf-8
 
 def build(ctx):
-    DEPS = ['default', 'zcm']
+    DEPS = ['default', 'zcm', 'julia']
 
     ctx.shlib(target = 'zcmjulia',
               # Note that we DO NOT depend on libuv here since most runtimes
