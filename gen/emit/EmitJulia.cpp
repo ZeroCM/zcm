@@ -366,6 +366,7 @@ struct EmitJulia : public Emitter
     {
         auto* sn = ls.structname.nameUnderscoreCStr();
 
+        emit(0, "import ZCM.encode");
         emit(0, "function encode(msg::%s)", sn);
         emit(0, "    buf = IOBuffer()");
         emit(0, "    write(buf, hton(getHash()))");
@@ -445,6 +446,7 @@ struct EmitJulia : public Emitter
     {
         auto* sn = ls.structname.nameUnderscoreCStr();
 
+        emit(0, "import Base.ntoh");
         emit(0, "function ntoh{T}(arr::Array{T})");
         emit(0, "    for i in range(1,length(arr)) arr[i] = ntoh(arr[i]) end");
         emit(0, "    return arr");
@@ -528,9 +530,12 @@ struct EmitJulia : public Emitter
 
     void emitDecode()
     {
-        emit(0, "function decode(data::Array{UInt8,1})");
+        auto* sn = ls.structname.nameUnderscoreCStr();
+
+        emit(0, "import ZCM.decode");
+        emit(0, "function decode(::Type{%s}, data::Vector{UInt8})", sn);
         emit(0, "    buf = IOBuffer(data)");
-        emit(0, "    if ntoh(reinterpret(Int64, read(buf, 8))[1]) != self.getHash()");
+        emit(0, "    if ntoh(reinterpret(Int64, read(buf, 8))[1]) != getHash()");
         emit(0, "        throw(\"Decode error\")");
         emit(0, "    end");
         emit(0, "    return decode_one(buf)");

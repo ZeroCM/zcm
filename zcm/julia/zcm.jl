@@ -124,6 +124,9 @@ type Zcm
 end
 export Zcm;
 
+function encode end
+function decode end
+
 function good(zcm::Zcm)
     return (zcm.zcm != C_NULL) && (errno(zcm) == 0);
 end
@@ -170,8 +173,7 @@ export subscribe;
 function subscribe(zcm::Zcm, channel::AbstractString, MsgType::DataType, handler, usr)
     return subscribe(zcm, channel,
                      function (rbuf::RecvBuf, channel::AbstractString, usr)
-                         # RRR (Bendes): This doesnt work. How can we make it?
-                         msg = MsgType.decode(rbuf.data)
+                         msg = decode(MsgType, rbuf.data)
                          handler(rbuf, channel, msg, usr);
                      end, usr);
 end
@@ -195,9 +197,6 @@ export publish;
 
 # TODO: force msg to be derived from our zcm msg basetype
 function publish(zcm::Zcm, channel::AbstractString, msg)
-    # RRR (Bendes): This doesnt work. How can we make it?
-    methods(encode)
-    return nothing
     data = encode(msg)
     return publish(zcm, channel, data, UInt32(length(data)));
 end
