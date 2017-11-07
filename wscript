@@ -5,7 +5,9 @@ import sys,optparse
 import waflib
 from waflib import Logs
 from waflib.Errors import WafError
+import os
 import os.path
+import subprocess
 import re
 
 # these variables are mandatory ('/' are converted automatically)
@@ -135,6 +137,7 @@ def process_zcm_configure_options(ctx):
     env.USING_ZMQ         = hasopt('use_zmq') and attempt_use_zmq(ctx)
     env.USING_ELF         = hasopt('use_elf') and attempt_use_elf(ctx)
     env.USING_THIRD_PARTY = getattr(opt, 'use_third_party') and attempt_use_third_party(ctx)
+    # RRR: need to add waf errors if these things fail
 
     env.USING_TRANS_IPC    = hasopt('use_ipc')
     env.USING_TRANS_INPROC = hasopt('use_inproc')
@@ -215,6 +218,15 @@ def attempt_use_python(ctx):
 
 def attempt_use_julia(ctx):
     ctx.find_program('julia', var='julia', mandatory=True)
+    ctx.env.julia = ctx.env.julia[0]
+
+    try:
+        res = subprocess.check_output('%s -E "abspath(JULIA_HOME, Base.INCLUDEDIR)"' %
+                                      ctx.env.julia, shell=True, stderr=open(os.devnull,'wb'))
+        ctx.env.INCLUDES_julia = res.strip()
+    except subprocess.CalledProcessError as e:
+        raise WafError('Failed to find julia include path\n%s' % e)
+
     return True
 
 def attempt_use_zmq(ctx):
