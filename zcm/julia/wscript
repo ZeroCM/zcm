@@ -12,4 +12,4 @@ def build(ctx):
               use = DEPS,
               source = ctx.path.ant_glob(['uv_zcm_msg_handler.cpp']))
 
-    ctx.install_as('${PREFIX}/share/julia/zcm.jl', 'zcm.jl')
+    ctx.install_as('${PREFIX}/share/julia/ZCM.jl', 'ZCM.jl')
