@@ -238,6 +238,7 @@ struct EmitJulia : public Emitter
         emit(0, "global __%s_hash = Int64(0)", sn);
 
         emit(0, "function _get_hash_recursive(parents::Array{String})");
+        emit(1,     "global __%s_hash", sn);
         emit(1,     "if __%s_hash != 0; return __%s_hash; end", sn, sn);
         emit(1,     "if \"%s\"::String in parents; return 0; end", sn);
         for (auto& lm : ls.members) {
@@ -264,7 +265,6 @@ struct EmitJulia : public Emitter
         emit(0, "function getHash()", sn);
         emit(1,     "return _get_hash_recursive(Array{String,1}([]))");
         emit(0, "end");
-        emit(0, "export getHash;");
         emit(0, "");
     }
 
@@ -372,7 +372,6 @@ struct EmitJulia : public Emitter
         emit(0, "    encode_one(msg, buf)");
         emit(0, "    return takebuf_array(buf);");
         emit(0, "end");
-        emit(0, "export encode;");
         emit(0, "");
     }
 
@@ -536,7 +535,6 @@ struct EmitJulia : public Emitter
         emit(0, "    end");
         emit(0, "    return decode_one(buf)");
         emit(0, "end");
-        emit(0, "export decode;");
         emit(0, "");
     }
 
