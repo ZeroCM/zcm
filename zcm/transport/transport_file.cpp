@@ -92,7 +92,6 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         return MTU;
     }
 
-    // TODO: Test the sendmsg function
     int sendmsg(zcm_msg_t msg)
     {
         assert(good());
