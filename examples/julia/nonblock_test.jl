@@ -1,4 +1,3 @@
-include("/usr/local/share/julia/zcm.jl");
 include("../build/types/example_t.jl");
 
 using ZCM;
