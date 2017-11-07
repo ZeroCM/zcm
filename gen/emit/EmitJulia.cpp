@@ -371,7 +371,7 @@ struct EmitJulia : public Emitter
         emit(0, "    buf = IOBuffer()");
         emit(0, "    write(buf, hton(getHash()))");
         emit(0, "    encode_one(msg, buf)");
-        emit(0, "    return take!(buf);");
+        emit(0, "    return takebuf_array(buf);");
         emit(0, "end");
         emit(0, "");
     }
