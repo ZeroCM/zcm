@@ -3,7 +3,7 @@ include("../build/types/test_package/test_package_packaged_t.jl");
 using ZCM;
 
 numReceived = 0
-handler = function(rbuf::ZCM.RecvBuf, channel::String, msg::test_package_packaged_t, usr)
+handler = function(channel::String, msg::test_package_packaged_t)
     println("Received message on channel: ", channel)
     global numReceived
     @assert (((numReceived % 2) == 0) == msg.packaged) "Received message with incorrect packaged flag"
@@ -16,7 +16,7 @@ if (!good(zcm))
     exit()
 end
 
-sub = subscribe(zcm, "EXAMPLE", test_package_packaged_t, handler, Void)
+sub = subscribe(zcm, "EXAMPLE", test_package_packaged_t, handler)
 
 msg = test_package_packaged_t()
 
