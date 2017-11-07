@@ -243,10 +243,6 @@ class Tracker
     T* get(uint64_t utime, InputIter first, InputIter last,
            std::unique_lock<lockType>* lk = nullptr) const
     {
-        static_assert(hasUtime<typename std::remove_pointer<typename
-                      std::iterator_traits<InputIter>::value_type>::type>::present,
-                      "Cannot call get with iterators that contain types without a utime field");
-
         T *m0 = nullptr, *m1 = nullptr; // two poses bracketing the desired utime
         uint64_t m0Utime = 0, m1Utime = UINT64_MAX;
 
