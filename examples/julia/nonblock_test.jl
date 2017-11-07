@@ -2,6 +2,7 @@ include("/usr/local/share/julia/zcm.jl");
 include("../build/types/example_t.jl");
 
 import ZCM;
+using ZCM;
 
 numReceived = 0
 handler = function(rbuf::ZCM.RecvBuf, channel::String, msg::example_t, usr)
@@ -11,27 +12,27 @@ handler = function(rbuf::ZCM.RecvBuf, channel::String, msg::example_t, usr)
     numReceived = numReceived + 1
 end
 
-zcm = ZCM.Zcm("nonblock-inproc")
-if (!zcm.good())
+zcm = Zcm("nonblock-inproc")
+if (!zcm_good(zcm))
     println("Unable to initialize zcm");
     exit()
 end
 
-sub = zcm.subscribe("EXAMPLE", example_t, handler, Void)
+sub = zcm_subscribe(zcm, "EXAMPLE", example_t, handler, Void)
 
 msg = example_t()
 
 msg.timestamp = 0;
-zcm.publish("EXAMPLE", msg)
-zcm.handleNonblock()
+zcm_publish(zcm, "EXAMPLE", msg)
+zcm_handle_nonblock(zcm)
 msg.timestamp = 1;
-zcm.publish("EXAMPLE", msg)
-zcm.handleNonblock()
+zcm_publish(zcm, "EXAMPLE", msg)
+zcm_handle_nonblock(zcm)
 msg.timestamp = 2;
-zcm.publish("EXAMPLE", msg)
-zcm.handleNonblock()
+zcm_publish(zcm, "EXAMPLE", msg)
+zcm_handle_nonblock(zcm)
 
-zcm.unsubscribe(sub)
+zcm_unsubscribe(zcm, sub)
 
 @assert (numReceived == 3) "Didn't receive proper number of messages"
 println("Success!")
