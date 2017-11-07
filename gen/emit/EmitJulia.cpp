@@ -549,16 +549,16 @@ int emitJulia(ZCMGen& zcm)
         return -1;
     }
 
-    // iterate through all defined message types
     for (auto& ls : zcm.structs) {
-        string tn = ls.structname.nameUnderscore();
+        string package = StringUtil::dotsToSlashes(ls.structname.package);
+        if (package != "") package = "/" + package;
 
-        // compute the target filename
-        string path = zcm.gopt->getString("julia-path");
-        string fileName = path + (path.size() > 0 ? "/" : ":") + tn +".jl";
+        string path = zcm.gopt->getString("julia-path") + package;
 
-        // generate code if needed
+        string fileName = path + "/" + ls.structname.nameUnderscore() + ".jl";
+
         if (zcm.needsGeneration(ls.zcmfile, fileName)) {
+            FileUtil::makeDirsForFile(fileName);
             EmitJulia E{zcm, ls, fileName};
             if (!E.good()) return -1;
             E.emitType();
