@@ -260,7 +260,7 @@ class Tracker
         for (auto iter = first; iter != last; ++iter) {
             // Note: This is unsafe unless we rely on the static assert at the beginning of
             //       the function
-            const T* m = *iter;
+            auto* m = *iter;
             uint64_t mUtime = getMsgUtime(m);
             if (mUtime == UINT64_MAX) mUtime = m->utime;
 
