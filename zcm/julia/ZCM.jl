@@ -47,12 +47,12 @@ type EventLog
 end
 
 type EventLogEvent
-    eventnum  ::Int64;
-    timestamp ::Int64;
-    chanlen   ::Int32;
-    datalen   ::Int32;
-    channel   ::Ptr{UInt8};
-    data      ::Ptr{UInt8};
+    eventnum  ::Int64
+    timestamp ::Int64
+    chanlen   ::Int32
+    datalen   ::Int32
+    channel   ::Ptr{UInt8}
+    data      ::Ptr{UInt8}
 end
 
 end
@@ -91,14 +91,14 @@ type Zcm
         pointer = ccall(("zcm_create", "libzcm"), Ptr{Native.Zcm}, (Cstring,), provider);
         instance = new(pointer, provider, Subscription[])
         finalizer(instance, close)
-        return instance;
+        return instance
     end
 end
 
 function close(zcm::Zcm)
     if zcm.zcm != C_NULL
         ccall(("zcm_destroy", "libzcm"), Void,
-              (Ptr{Native.Zcm},), zcm);
+              (Ptr{Native.Zcm},), zcm)
         zcm.zcm = C_NULL
     end
 end
@@ -106,15 +106,16 @@ end
 # Defines the conversion when we pass this to a C function expecting a pointer
 Base.unsafe_convert(::Type{Ptr{Native.Zcm}}, zcm::Zcm) = zcm.zcm
 
-good(zcm::Zcm) = return (zcm.zcm != C_NULL) && (errno(zcm) == 0);
-errno(zcm::Zcm) = return ccall(("zcm_errno", "libzcm"), Cint, (Ptr{Native.Zcm},), zcm);
+good(zcm::Zcm) = (zcm.zcm != C_NULL) && (errno(zcm) == 0)
+
+errno(zcm::Zcm) = ccall(("zcm_errno", "libzcm"), Cint, (Ptr{Native.Zcm},), zcm)
 
 function strerror(zcm::Zcm)
-    val =  ccall(("zcm_strerror", "libzcm"), Cstring, (Ptr{Native.Zcm},), zcm);
+    val =  ccall(("zcm_strerror", "libzcm"), Cstring, (Ptr{Native.Zcm},), zcm)
     if (val == C_NULL)
-        return "unable to get strerror";
+        return "unable to get strerror"
     else
-        return unsafe_string(val);
+        return unsafe_string(val)
     end
 end
 
@@ -152,69 +153,61 @@ end
 
 function unsubscribe(zcm::Zcm, sub::Subscription)
     ret = ccall(("zcm_unsubscribe", "libzcm"), Cint,
-                 (Ptr{Native.Zcm}, Ptr{Native.Sub}), zcm, sub.native_sub);
+                 (Ptr{Native.Zcm}, Ptr{Native.Sub}), zcm, sub.native_sub)
     ccall(("uv_zcm_msg_handler_destroy", "libzcmjulia"), Void,
-          (Ptr{Native.UvSub},), sub.uv_wrapper);
+          (Ptr{Native.UvSub},), sub.uv_wrapper)
     deleteat!(zcm.subscriptions, findin(zcm.subscriptions, [sub]))
-    return ret;
+    return ret
 end
 
 function publish(zcm::Zcm, channel::AbstractString, data::Vector{UInt8})
     return ccall(("zcm_publish", "libzcm"), Cint,
                  (Ptr{Native.Zcm}, Cstring, Ptr{Void}, UInt32),
-                 zcm, convert(String, channel), data, length(data));
+                 zcm, convert(String, channel), data, length(data))
 end
 
 # TODO: force msg to be derived from our zcm msg basetype
 publish(zcm::Zcm, channel::AbstractString, msg) = publish(zcm, channel, encode(msg))
 
-function Base.flush(zcm::Zcm)
-    return ccall(("zcm_flush", "libzcm"), Void, (Ptr{Native.Zcm},), zcm);
-end
+Base.flush(zcm::Zcm) = ccall(("zcm_flush", "libzcm"), Void, (Ptr{Native.Zcm},), zcm)
 
-function Base.start(zcm::Zcm)
-    return ccall(("zcm_start", "libzcm"), Void, (Ptr{Native.Zcm},), zcm);
-end
+Base.start(zcm::Zcm) = ccall(("zcm_start", "libzcm"), Void, (Ptr{Native.Zcm},), zcm)
 
-function stop(zcm::Zcm)
-    return ccall(("zcm_stop", "libzcm"), Void, (Ptr{Native.Zcm},), zcm);
-end
+stop(zcm::Zcm) = ccall(("zcm_stop", "libzcm"), Void, (Ptr{Native.Zcm},), zcm)
 
-function handle(zcm::Zcm)
-    return ccall(("zcm_handle", "libzcm"), Cint, (Ptr{Native.Zcm},), zcm);
-end
+handle(zcm::Zcm) = ccall(("zcm_handle", "libzcm"), Cint, (Ptr{Native.Zcm},), zcm)
 
 function handle_nonblock(zcm::Zcm)
-    return ccall(("zcm_handle_nonblock", "libzcm"), Cint,
-                 (Ptr{Native.Zcm},), zcm.zcm);
+    ccall(("zcm_handle_nonblock", "libzcm"), Cint,
+          (Ptr{Native.Zcm},), zcm.zcm)
 end
 
 # RRR: go over the signedness of all these types from within zcm ... some of them are dumb
 type LogEvent
-    event   ::Ptr{Native.EventLogEvent};
-    num     ::Int64;
-    utime   ::Int64;
-    channel ::String;
-    data    ::Array{UInt8};
+    event   ::Ptr{Native.EventLogEvent}
+    num     ::Int64
+    utime   ::Int64
+    channel ::String
+    data    ::Array{UInt8}
 
     function LogEvent(event::Ptr{Native.EventLogEvent})
-        instance  = new();
-        instance.event = event;
+        instance  = new()
+        instance.event = event
 
         if (event != C_NULL)
-            loadedEvent = unsafe_load(event);
+            loadedEvent = unsafe_load(event)
 
-            instance.num   = loadedEvent.eventnum;
-            instance.utime = loadedEvent.timestamp;
+            instance.num   = loadedEvent.eventnum
+            instance.utime = loadedEvent.timestamp
             if (loadedEvent.channel != C_NULL)
-                instance.channel = unsafe_string(loadedEvent.channel, loadedEvent.chanlen);
+                instance.channel = unsafe_string(loadedEvent.channel, loadedEvent.chanlen)
             else
                 instance.channel = ""
             end
             if (loadedEvent.data != C_NULL)
-                instance.data    = unsafe_wrap(Array, loadedEvent.data, loadedEvent.datalen);
+                instance.data    = unsafe_wrap(Array, loadedEvent.data, loadedEvent.datalen)
             else
-                instance.data    = [];
+                instance.data    = []
             end
         end
 
@@ -222,73 +215,73 @@ type LogEvent
         finalizer(instance, function(event::LogEvent)
                                 if (event.event != C_NULL)
                                     ccall(("zcm_eventlog_free_event", "libzcm"), Void,
-                                          (Ptr{Native.EventLogEvent},), event.event);
-                                    event.event = C_NULL;
+                                          (Ptr{Native.EventLogEvent},), event.event)
+                                    event.event = C_NULL
                                 end
-                            end);
+                            end)
 
-        return instance;
+        return instance
     end
 end
-export LogEvent;
+export LogEvent
 
 type LogFile
-    eventLog::Ptr{Native.EventLog};
+    eventLog::Ptr{Native.EventLog}
 
     function LogFile(path::AbstractString, mode::AbstractString)
-        println("Creating zcm eventlog from path : ", path, " with mode ", mode);
-        instance = new();
+        println("Creating zcm eventlog from path : ", path, " with mode ", mode)
+        instance = new()
         instance.eventLog = ccall(("zcm_eventlog_create", "libzcm"), Ptr{Native.EventLog},
-                                  (Cstring, Cstring), path, mode);
+                                  (Cstring, Cstring), path, mode)
 
         # user can force cleanup of their instance by calling `finalize(zcm)`
         finalizer(instance, function(log::LogFile)
                                 if (log.eventLog != C_NULL)
                                     ccall(("zcm_eventlog_destroy", "libzcm"), Void,
-                                          (Ptr{Native.EventLog},), log.eventLog);
-                                    log.eventLog = C_NULL;
+                                          (Ptr{Native.EventLog},), log.eventLog)
+                                    log.eventLog = C_NULL
                                 end
-                            end);
+                            end)
 
-        return instance;
+        return instance
     end
 end
-export LogFile;
+export LogFile
 
 function good(lf::LogFile)
-    return lf.eventLog != C_NULL;
+    return lf.eventLog != C_NULL
 end
-export good;
+export good
 
 function readNextEvent(lf::LogFile)
     event = ccall(("zcm_eventlog_read_next_event", "libzcm"), Ptr{Native.EventLogEvent},
                   (Ptr{Native.EventLog},), lf.eventLog)
-    return LogEvent(event);
+    return LogEvent(event)
 end
-export readNextEvent;
+export readNextEvent
 
 function readPrevEvent(lf::LogFile)
     event = ccall(("zcm_eventlog_read_prev_event", "libzcm"), Ptr{Native.EventLogEvent},
                   (Ptr{Native.EventLog},), lf.eventLog)
-    return LogEvent(event);
+    return LogEvent(event)
 end
-export readPrevEvent;
+export readPrevEvent
 
 function readEventAtOffset(lf::LogFile, offset::Int64)
     event = ccall(("zcm_eventlog_read_event_at_offset", "libzcm"), Ptr{Native.EventLogEvent},
                   (Ptr{Native.EventLog}, Int64), lf.eventLog, offset)
-    return LogEvent(event);
+    return LogEvent(event)
 end
-export readEventAtOffset;
+export readEventAtOffset
 
 # RRR: need to make a way to encode the event into a native object before we'll
 #      be able to write different data out to the file
 function writeEvent(lf::LogFile, event::LogEvent)
     return ccall(("zcm_eventlog_write_event", "libzcm"), Cint,
                  (Ptr{Native.EventLog}, Ptr{Native.EventLogEvent}),
-                 lf.eventLog, event.event);
+                 lf.eventLog, event.event)
 end
-export writeEvent;
+export writeEvent
 
 end # module ZCM
 

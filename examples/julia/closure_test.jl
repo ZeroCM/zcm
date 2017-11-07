@@ -49,3 +49,5 @@ stop(zcm)
 unsubscribe(zcm, sub)
 
 @assert received_timestamps == collect(0:5) "Didn't receive proper number of messages"
+
+println("Success!")
