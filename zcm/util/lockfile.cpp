@@ -1,6 +1,7 @@
 #include "zcm/util/lockfile.h"
 #include "zcm/util/debug.h"
 
+#include <stdlib.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <pwd.h>
@@ -12,7 +13,8 @@
 #include <string>
 using namespace std;
 
-#define LOCK_PATH_PREFIX "/var/lock/LCK.."
+#define DEFAULT_LOCK_DIR "/var/lock/zcm"
+#define LOCK_PREFIX "LCK.."
 
 static bool startsWith(const string& s, const string& pre)
 {
@@ -26,7 +28,23 @@ static bool startsWith(const string& s, const string& pre)
 
 static string makeLockfilePath(const string& name)
 {
-    string ret = LOCK_PATH_PREFIX;
+    string ret = DEFAULT_LOCK_DIR;
+
+    const char* dir = std::getenv("ZCM_LOCK_DIR");
+    if (dir) ret = dir;
+
+    int err = mkdir(ret.c_str(), S_IRWXO | S_IRWXG | S_IRWXU);
+    if (err < 0 && errno != EEXIST) {
+        ZCM_DEBUG("Unable to create lockfile directory");
+        return "";
+    }
+
+    if (ret == "") return ret;
+
+    if (ret[ret.size() - 1] != '/') ret += "/";
+
+    ret += LOCK_PREFIX;
+
     size_t idx = 0;
     if (startsWith(name, "/dev/"))
         idx = 5;
@@ -43,7 +61,7 @@ static string makeLockfilePath(const string& name)
 static bool isLocked(const string& path)
 {
     int fd = open(path.c_str(), O_RDONLY);
-    if(fd < 0)
+    if (fd < 0)
         return false;
 
     char buf[128];
@@ -58,7 +76,7 @@ static bool isLocked(const string& path)
         return false;
 
     // Check to see if the process that created the file is still alive
-    if(kill((pid_t)pid, 0) < 0 && errno == ESRCH) {
+    if (kill((pid_t)pid, 0) < 0 && errno == ESRCH) {
         unlink(path.c_str());
         return false;
     }
@@ -70,6 +88,7 @@ static bool isLocked(const string& path)
 bool lockfile_trylock(const char *name)
 {
     auto path = makeLockfilePath(name);
+    if (path == "") return false;
     if (isLocked(path)) {
         ZCM_DEBUG("Cannot lock '%s', it's already locked!", path.c_str());
         return false;
@@ -78,8 +97,10 @@ bool lockfile_trylock(const char *name)
     // Create lockfile compatible with UUCP-1.2
     int mask = umask(022);
     int fd = open(path.c_str(), O_WRONLY | O_CREAT | O_EXCL, 0666);
-    if(fd < 0)
+    if (fd < 0) {
+        ZCM_DEBUG("Unable to create lockfile: '%s'", path.c_str());
         return false; // Cannot create lock file (possibly a race)
+    }
     umask(mask);
     uid_t uid = getuid();
     gid_t gid = getgid();
@@ -97,5 +118,7 @@ bool lockfile_trylock(const char *name)
 void lockfile_unlock(const char *name)
 {
     auto path = makeLockfilePath(name);
-    unlink(path.c_str());
+    int err = unlink(path.c_str());
+    if (err < 0)
+        ZCM_DEBUG("Failed to unlink lockfile '%s'. Error: %s", name, strerror(errno));
 }
