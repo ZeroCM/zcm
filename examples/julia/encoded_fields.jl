@@ -1,17 +1,7 @@
 #!/usr/bin/python
 
-include("/usr/local/share/julia/zcm.jl");
 include("../build/types/encoded_t.jl");
 include("../build/types/example_t.jl");
-
-import ZCM;
-
-# make a new zcm object and launch the handle thread
-zcm = ZCM.Zcm("inproc")
-if (!zcm.good())
-    println("Unable to initialize zcm");
-    exit()
-end
 
 # declare a new msg and populate it
 msg = example_t()
