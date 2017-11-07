@@ -1,4 +1,3 @@
-include("/usr/local/share/julia/zcm.jl");
 include("../build/types/test_package/test_package_packaged_t.jl");
 
 using ZCM;
