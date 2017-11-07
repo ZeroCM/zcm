@@ -1,13 +1,16 @@
-include("../build/types/example_t.jl");
+include("../build/types/example_t.jl")
 
-using ZCM;
+using ZCM
 
-numReceived = 0
-function handler(channel::String, msg::example_t)
+# Demonstration of using a closure as the message handler. The `handler()` function
+# closes over the received_timestamps variable, so it can append to that list
+# any time a message is received. 
+received_timestamps = Int[]
+
+handler = function(channel::String, msg::example_t)
     println("Received message on channel: ", channel)
-    global numReceived
-    @assert (numReceived == msg.timestamp) "Received message with incorrect timestamp"
-    numReceived = numReceived + 1
+    @assert msg.timestamp == length(received_timestamps) "Received message with incorrect timestamp"
+    push!(received_timestamps, msg.timestamp)
 end
 
 zcm = Zcm("inproc")
@@ -45,9 +48,4 @@ stop(zcm)
 
 unsubscribe(zcm, sub)
 
-@assert (numReceived == 6) "Didn't receive proper number of messages"
-
-
-
-
-println("Success!")
+@assert received_timestamps == collect(0:5) "Didn't receive proper number of messages"
