@@ -10,12 +10,19 @@ function handler(rbuf, channel::String, msg::example_t)
     numReceived = numReceived + 1
 end
 
+# a handler that receives the raw message bytes
+function untyped_handler(rbuf, channel::String, msgdata::Vector{UInt8})
+    println("Recieved raw message data on channel: ", channel)
+    decode(example_t, msgdata)
+end
+
 zcm = Zcm("inproc")
 if (!good(zcm))
     error("Unable to initialize zcm");
 end
 
-sub = subscribe(zcm, "EXAMPLE", typed_handler(handler, example_t))
+sub = subscribe(zcm, "EXAMPLE", handler, example_t)
+sub2 = subscribe(zcm, "EXAMPLE", untyped_handler)
 
 msg = example_t()
 

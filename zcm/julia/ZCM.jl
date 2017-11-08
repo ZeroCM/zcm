@@ -4,8 +4,9 @@ export Zcm,
        subscribe,
        unsubscribe,
        publish,
+       encode,
+       decode,
        good,
-       typed_handler,
        flush,
        start,
        stop,
@@ -143,6 +144,14 @@ function handler_wrapper(rbuf::Native.RecvBuf, channelbytes::Cstring, handler)
     return nothing
 end
 
+function typed_handler{T <: AbstractZCMType}(handler, msgtype::Type{T}, args...)
+    (rbuf, channel, msgdata) -> handler(rbuf, channel, decode(msgtype, msgdata), args...)
+end
+
+function typed_handler(handler, msgtype::Type{Void}, args...)
+    (rbuf, channel, msgdata) -> handler(rbuf, channel, msgdata, args...)
+end
+
 """
     subscribe(zcm::Zcm, channel::AbstractString, handler, additional_args...)
 
@@ -160,9 +169,11 @@ will cause `handler()` to be invoked with:
 
     handler(rbuf, channel, msgdata, X, Y, Z)
 """
-function subscribe(zcm::Zcm, channel::AbstractString, handler,
+function subscribe(zcm::Zcm, channel::AbstractString,
+                   handler,
+                   msgtype=Void,
                    additional_args...)
-    callback = (rbuf, channel, msgdata) -> handler(rbuf, channel, msgdata, additional_args...)
+    callback = typed_handler(handler, msgtype, additional_args...)
     c_handler = cfunction(handler_wrapper, Void, (Ref{Native.RecvBuf}, Cstring, Ref{typeof(callback)}))
     uv_wrapper = ccall(("uv_zcm_msg_handler_create", "libzcmjulia"),
                        Ptr{Native.UvSub},
@@ -175,16 +186,6 @@ function subscribe(zcm::Zcm, channel::AbstractString, handler,
     sub = Subscription(callback, c_handler, uv_wrapper, uv_handler, csub)
     push!(zcm.subscriptions, sub)
     return sub
-end
-
-"""
-    typed_handler(handler, msgtype)
-
-Returns a new handler function that automatically decodes the message
-data as the given msgtype before calling the original handler function
-"""
-function typed_handler{T <: AbstractZCMType}(handler, msgtype::Type{T})
-    (rbuf, channel, msgdata, args...) -> handler(rbuf, channel, decode(msgtype, msgdata), args...)
 end
 
 function unsubscribe(zcm::Zcm, sub::Subscription)
