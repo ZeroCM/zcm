@@ -222,7 +222,9 @@ def attempt_use_julia(ctx):
     try:
         res = subprocess.check_output('%s -E "abspath(JULIA_HOME, Base.INCLUDEDIR)"' %
                                       ctx.env.julia, shell=True, stderr=open(os.devnull,'wb'))
-        ctx.env.INCLUDES_julia = res.strip()
+        ctx.env.INCLUDES_julia = res.strip().strip('"')
+        Logs.pprint('NORMAL', '{:41}:'.format('JULIA_HOME identified as'), sep='')
+        Logs.pprint('GREEN', '%s' % ctx.env.INCLUDES_julia)
     except subprocess.CalledProcessError as e:
         raise WafError('Failed to find julia include path\n%s' % e)
 
