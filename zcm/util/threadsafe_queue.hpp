@@ -16,7 +16,7 @@ class ThreadsafeQueue
 
     std::mutex mut;
     std::condition_variable cond;
-    volatile int wakeupNum = 0;
+    bool disabled = false;
 
   public:
     ThreadsafeQueue(size_t size) : queue(size) {}
@@ -53,13 +53,9 @@ class ThreadsafeQueue
     bool push(Args&&... args)
     {
         std::unique_lock<std::mutex> lk(mut);
-        int localWakeupNum = wakeupNum;
-        cond.wait(lk, [&](){
-            return localWakeupNum < wakeupNum ||
-                   queue.hasFreeSpace();
-        });
-        if (localWakeupNum < wakeupNum)
-            return false;
+        cond.wait(lk, [&](){ return disabled || queue.hasFreeSpace(); });
+        if (disabled) return false;
+
         queue.push(std::forward<Args>(args)...);
         cond.notify_all();
         return true;
@@ -85,17 +81,11 @@ class ThreadsafeQueue
     Element* top()
     {
         std::unique_lock<std::mutex> lk(mut);
-        int localWakeupNum = wakeupNum;
-        cond.wait(lk, [&](){
-            return localWakeupNum < wakeupNum ||
-                   queue.hasMessage();
-        });
-        if (localWakeupNum < wakeupNum) {
-            return nullptr;
-        } else {
-            Element& elt = queue.top();
-            return &elt;
-        }
+        cond.wait(lk, [&](){ return disabled || queue.hasMessage(); });
+        if (disabled) return nullptr;
+
+        Element& elt = queue.top();
+        return &elt;
     }
 
     // Requires that hasMessage() == true
@@ -106,22 +96,23 @@ class ThreadsafeQueue
         cond.notify_all();
     }
 
-    // Force all blocked threads to wakeup and return from
-    // whichever methods are blocking them
-    void forceWakeups()
-    {
-        std::unique_lock<std::mutex> lk(mut);
-        ++wakeupNum;
-        cond.notify_all();
-    }
-
     void waitForEmpty()
     {
         std::unique_lock<std::mutex> lk(mut);
-        int localWakeupNum = wakeupNum;
-        cond.wait(lk, [&](){
-            return localWakeupNum < wakeupNum ||
-                   !queue.hasMessage();
-        });
+        cond.wait(lk, [&](){ return disabled || !queue.hasMessage(); });
+    }
+
+    void disable()
+    {
+        std::unique_lock<std::mutex> lk(mut);
+        disabled = true;
+        cond.notify_all();
+    }
+
+    void enable()
+    {
+        std::unique_lock<std::mutex> lk(mut);
+        disabled = false;
+        cond.notify_all();
     }
 };

@@ -6,7 +6,7 @@
 #include <zcm/transport_registrar.h>
 #include "types/example_t.h"
 
-#define HZ 10
+#define HZ 1000
 #define NRANGES 100
 #define CHANNEL "EXAMPLE"
 
@@ -48,7 +48,7 @@ static void send_msgs(zcm_t *zcm)
 
     while (1) {
         example_t_publish(zcm, CHANNEL, &msg);
-        usleep(1000/HZ);
+        usleep(1e6/HZ);
     }
 }
 

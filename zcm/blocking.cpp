@@ -15,7 +15,6 @@
 #include <vector>
 #include <string>
 #include <iostream>
-#include <atomic>
 #include <thread>
 #include <mutex>
 #include <condition_variable>
@@ -114,12 +113,6 @@ struct zcm_blocking
     bool deleteFromSubList(SubList& slist, zcm_sub_t* sub);
 
   private:
-    typedef enum {
-        MODE_NONE = 0,
-        MODE_RUN,
-        MODE_SPAWN,
-        MODE_HANDLE
-    } Mode_t;
 
     zcm_t* z;
     zcm_trans_t* zt;
@@ -127,46 +120,52 @@ struct zcm_blocking
     SubList subRegex;
     size_t mtu;
 
-    Mode_t mode = MODE_NONE;
-
-    thread sendThread;
-    thread recvThread;
-    thread handleThread;
-
-    // RRR: might not need atomics here
-    // Note: in order for their respective threads to shut down properly, the following MUST
-    //       be set to false PRIOR to calling the forceWakeups() function on the queue the
-    //       thread operates on. Else forceWakeups() may have to be called again to successfully
-    //       wake the thread.
-    atomic<bool> sendRunning   {false}; // operates on the sendQueue
-    atomic<bool> recvRunning   {false}; // operates on the recvQueue
-    atomic<bool> handleRunning {false}; // operates on the recvQueue
-
-    static constexpr size_t QUEUE_SIZE = 16;
-    ThreadsafeQueue<Msg> sendQueue {QUEUE_SIZE};
-    ThreadsafeQueue<Msg> recvQueue {QUEUE_SIZE};
-
-    // This mutex protects read and write access to the mode flag
-    mutex              modeMutex;
-
-    // These 3 mutexes are used around blocks of code in which you change the value of
-    // any of the ...Running flags
-    mutex              sendMutex;
-    mutex              recvMutex;
-    mutex              handleMutex;
-
     // These 2 mutexes used to implement a read-write style infrastructure on the subscription
     // lists. Both the recvThread and the message dispatch may read the subscriptions
     // concurrently, but subscribe() and unsubscribe() need both locks in order to write to it.
     mutex              subDispatchMutex;
     mutex              subRecvMutex;
 
+    static constexpr size_t QUEUE_SIZE = 16;
+    ThreadsafeQueue<Msg> sendQueue {QUEUE_SIZE};
+    ThreadsafeQueue<Msg> recvQueue {QUEUE_SIZE};
+
+    thread sendThread;
+    thread recvThread;
+    thread handleThread;
+
+    typedef enum {
+        RECV_MODE_NONE = 0,
+        RECV_MODE_RUN,
+        RECV_MODE_SPAWN,
+        RECV_MODE_HANDLE
+    } RecvMode_t;
+    RecvMode_t recvMode {RECV_MODE_NONE};
+
+    typedef enum {
+        SEND_MODE_STOPPED = 0,
+        SEND_MODE_RUNNING,
+        SEND_MODE_HALT,
+    } SendMode_t;
+    SendMode_t sendMode {SEND_MODE_STOPPED}; // operates on the sendQueue
+
+    // These mutexes protects read and write access to the mode flags
+    mutex              recvModeMutex;
+    mutex              sendModeMutex;
+
+    bool recvRunning   {false}; // operates on the recvQueue
+    bool handleRunning {false}; // operates on the recvQueue
+
+    // These mutexes are used around blocks of code in which you change the value of
+    // any of the ...Running flags
+    mutex              recvMutex;
+    mutex              handleMutex;
+    // Flag and condition variable used to pause the handleThread (use handleMutex)
+    bool               paused {false};
+    condition_variable pauseCond;
+
     // Mutex protecting message dispatch (through the handleOne() func)
     mutex              dispatchMutex;
-
-    bool               paused {false};
-    mutex              pauseMutex;
-    condition_variable pauseCond;
 };
 
 zcm_blocking_t::zcm_blocking(zcm_t* z, zcm_trans_t* zt_)
@@ -197,95 +196,107 @@ zcm_blocking_t::~zcm_blocking()
 
 void zcm_blocking_t::run()
 {
-    unique_lock<mutex> lk1(modeMutex);
-    if (mode != MODE_NONE) {
-        ZCM_DEBUG("Err: call to run() when 'mode != MODE_NONE'");
+    unique_lock<mutex> lk1(recvModeMutex);
+    if (recvMode != RECV_MODE_NONE) {
+        ZCM_DEBUG("Err: call to run() when 'recvMode != RECV_MODE_NONE'");
         return;
     }
-    mode = MODE_RUN;
+    recvMode = RECV_MODE_RUN;
     lk1.unlock();
 
     // Run it!
     {
         unique_lock<mutex> lk2(handleMutex);
         handleRunning = true;
+        recvQueue.enable();
     }
     handleThreadFunc();
 
     // Restore the "non-running" state
     lk1.lock();
-    mode = MODE_NONE;
+    recvMode = RECV_MODE_NONE;
 }
 
 // TODO: should this call be thread safe?
 void zcm_blocking_t::start()
 {
-    unique_lock<mutex> lk1(modeMutex);
-    if (mode != MODE_NONE) {
-        ZCM_DEBUG("Err: call to start() when 'mode != MODE_NONE'");
+    unique_lock<mutex> lk1(recvModeMutex);
+    if (recvMode != RECV_MODE_NONE) {
+        ZCM_DEBUG("Err: call to start() when 'recvMode != RECV_MODE_NONE'");
         return;
     }
-    mode = MODE_SPAWN;
+    recvMode = RECV_MODE_SPAWN;
+    lk1.unlock();
 
     unique_lock<mutex> lk2(handleMutex);
     // Start the handle thread
     handleRunning = true;
+    recvQueue.enable();
     handleThread = thread{&zcm_blocking::handleThreadFunc, this};
 }
 
 void zcm_blocking_t::stop()
 {
-    unique_lock<mutex> lk1(modeMutex);
+    unique_lock<mutex> lk1(recvModeMutex);
 
     // Shutdown recv and handle threads
-    if (mode == MODE_RUN || mode == MODE_SPAWN) {
+    if (recvMode == RECV_MODE_RUN || recvMode == RECV_MODE_SPAWN) {
         unique_lock<mutex> lk2(handleMutex);
         if (handleRunning) {
             handleRunning = false;
+            recvQueue.disable();
             pauseCond.notify_all();
-            recvQueue.forceWakeups();
-            if (mode == MODE_SPAWN) handleThread.join();
+            lk2.unlock();
+            if (recvMode == RECV_MODE_SPAWN) handleThread.join();
         }
 
     // Shutdown recv thread
-    } else if (mode == MODE_HANDLE) {
+    } else if (recvMode == RECV_MODE_HANDLE) {
         unique_lock<mutex> lk2(recvMutex);
         if (recvRunning) {
             recvRunning = false;
-            recvQueue.forceWakeups();
+            recvQueue.disable();
+            lk2.unlock();
             recvThread.join();
         }
     }
 
     // Shutdown send thread
     {
-        unique_lock<mutex> lk(sendMutex);
-        if (sendRunning) {
-            sendRunning = false;
-            sendQueue.forceWakeups();
+        unique_lock<mutex> lk2(sendModeMutex);
+        if (sendMode == SEND_MODE_RUNNING) {
+            sendMode = SEND_MODE_HALT;
+            sendQueue.disable();
+            lk2.unlock();
             sendThread.join();
+            lk2.lock();
+            sendMode = SEND_MODE_STOPPED;
         }
     }
 
     // Restore the "non-running" state
-    mode = MODE_NONE;
+    recvMode = RECV_MODE_NONE;
 }
 
 int zcm_blocking_t::handle()
 {
     {
-        unique_lock<mutex> lk(modeMutex);
-        if (mode != MODE_NONE && mode != MODE_HANDLE) {
-            ZCM_DEBUG("Err: call to handle() when 'mode != MODE_NONE && mode != MODE_HANDLE'");
+        unique_lock<mutex> lk1(recvModeMutex);
+        if (recvMode != RECV_MODE_NONE && recvMode != RECV_MODE_HANDLE) {
+            ZCM_DEBUG("Err: call to handle() when 'recvMode != RECV_MODE_NONE && recvMode != RECV_MODE_HANDLE'");
             return -1;
         }
 
         // If this is the first time handle() is called, we need to start the recv thread
-        if (mode == MODE_NONE) {
+        if (recvMode == RECV_MODE_NONE) {
+            recvMode = RECV_MODE_HANDLE;
+            lk1.unlock();
+
+            unique_lock<mutex> lk2(recvMutex);
             // Spawn the recv thread
             recvRunning = true;
+            recvQueue.enable();
             recvThread = thread{&zcm_blocking::recvThreadFunc, this};
-            mode = MODE_HANDLE;
         }
     }
 
@@ -295,14 +306,14 @@ int zcm_blocking_t::handle()
 
 void zcm_blocking_t::pause()
 {
-    unique_lock<mutex> lk(pauseMutex);
+    unique_lock<mutex> lk(handleMutex);
     paused = true;
     pauseCond.notify_all();
 }
 
 void zcm_blocking_t::resume()
 {
-    unique_lock<mutex> lk(pauseMutex);
+    unique_lock<mutex> lk(handleMutex);
     paused = false;
     pauseCond.notify_all();
 }
@@ -316,12 +327,11 @@ int zcm_blocking_t::publish(const string& channel, const uint8_t* data, uint32_t
     if (len > mtu) return ZCM_EINVALID;
     if (channel.size() > ZCM_CHANNEL_MAXLEN) return ZCM_EINVALID;
 
-
     // If needed: spawn the send thread
-    if (!sendRunning) {
-        unique_lock<mutex> lk(sendMutex);
-        if (!sendRunning) {
-            sendRunning = true;
+    {
+        unique_lock<mutex> lk(sendModeMutex);
+        if (sendMode == SEND_MODE_STOPPED) {
+            sendMode = SEND_MODE_RUNNING;
             sendThread = thread{&zcm_blocking::sendThreadFunc, this};
         }
     }
@@ -440,7 +450,11 @@ void zcm_blocking_t::setRecvQueueSize(uint32_t numMsgs)
 
 void zcm_blocking_t::sendThreadFunc()
 {
-    while (sendRunning) {
+    while (true) {
+        {
+            unique_lock<mutex> lk(sendModeMutex);
+            if (sendMode == SEND_MODE_HALT) break;
+        }
         Msg* m = sendQueue.top();
         // If the Queue was forcibly woken-up, recheck the
         // running condition, and then retry.
@@ -455,41 +469,38 @@ void zcm_blocking_t::sendThreadFunc()
 
 void zcm_blocking_t::recvThreadFunc()
 {
-    while (recvRunning) {
+    while (true) {
+        {
+            unique_lock<mutex> lk(recvMutex);
+            if (!recvRunning) break;
+        }
         zcm_msg_t msg;
         int rc = zcm_trans_recvmsg(zt, &msg, RECV_TIMEOUT);
         if (rc == ZCM_EOK) {
-            bool success;
-            do {
-                {
-                    unique_lock<mutex> lk(subRecvMutex);
+            {
+                unique_lock<mutex> lk(subRecvMutex);
 
-                    // Check if message matches a non regex channel
-                    auto it = subs.find(msg.channel);
-                    if (it == subs.end()) {
-                        // Check if message matches a regex channel
-                        bool foundRegex = false;
-                        for (zcm_sub_t* sub : subRegex) {
-                            regex* r = (regex*)sub->regexobj;
-                            if (regex_match(msg.channel, *r)) {
-                                foundRegex = true;
-                                break;
-                            }
-                        }
-                        // No subscription actually wants the message
-                        if (!foundRegex) {
-                            success = true;
-                            continue;
+                // Check if message matches a non regex channel
+                auto it = subs.find(msg.channel);
+                if (it == subs.end()) {
+                    // Check if message matches a regex channel
+                    bool foundRegex = false;
+                    for (zcm_sub_t* sub : subRegex) {
+                        regex* r = (regex*)sub->regexobj;
+                        if (regex_match(msg.channel, *r)) {
+                            foundRegex = true;
+                            break;
                         }
                     }
+                    // No subscription actually wants the message
+                    if (!foundRegex) continue;
                 }
+            }
 
-                // Note: push only fails if it was forcefully woken up. In such a case, we
-                //       need to re-check the running condition; however, if we are still
-                //       running, we want to still push the same message, necessitating the
-                //       addition conditional on running.
-                success = recvQueue.push(&msg);
-            } while(!success && recvRunning);
+            // Note: After this returns, you have either successfully pushed a message
+            //       into the queue, or the queue was disabled and you will quit out of
+            //       this loop when you re-check the running condition
+            recvQueue.push(&msg);
         }
     }
 }
@@ -504,9 +515,9 @@ void zcm_blocking_t::handleThreadFunc()
     }
 
     // Become the handle thread
-    while (handleRunning) {
+    while (true) {
         {
-            unique_lock<mutex> lk(pauseMutex);
+            unique_lock<mutex> lk(handleMutex);
             pauseCond.wait(lk, [&]{ return !paused || !handleRunning; });
             if (!handleRunning) break;
         }
@@ -518,7 +529,7 @@ void zcm_blocking_t::handleThreadFunc()
         // Shutdown recv thread
         unique_lock<mutex> lk(recvMutex);
         recvRunning = false;
-        recvQueue.forceWakeups();
+        recvQueue.disable();
         recvThread.join();
     }
 }
@@ -561,8 +572,7 @@ int zcm_blocking_t::handleOneMessage()
     Msg* m = recvQueue.top();
     // If the Queue was forcibly woken-up, recheck the
     // running condition, and then retry.
-    if (m == nullptr)
-        return -1;
+    if (m == nullptr) return -1;
 
     dispatchMsg(m->get());
     recvQueue.pop();
