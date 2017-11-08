@@ -61,7 +61,20 @@ class ThreadsafeQueue
         if (localWakeupNum < wakeupNum)
             return false;
         queue.push(std::forward<Args>(args)...);
-        cond.notify_one();
+        cond.notify_all();
+        return true;
+    }
+
+    // Check for hasFreeSpace() and if so, push the new element
+    // Returns true if the value was pushed, returns false if no room
+    template<class... Args>
+    bool pushIfRoom(Args&&... args)
+    {
+        std::unique_lock<std::mutex> lk(mut);
+        if (!queue.hasFreeSpace()) return ZCM_EAGAIN;
+
+        queue.push(std::forward<Args>(args)...);
+        cond.notify_all();
         return true;
     }
 
@@ -90,7 +103,7 @@ class ThreadsafeQueue
     {
         std::unique_lock<std::mutex> lk(mut);
         queue.pop();
-        cond.notify_one();
+        cond.notify_all();
     }
 
     // Force all blocked threads to wakeup and return from
@@ -98,7 +111,7 @@ class ThreadsafeQueue
     void forceWakeups()
     {
         std::unique_lock<std::mutex> lk(mut);
-        wakeupNum++;
+        ++wakeupNum;
         cond.notify_all();
     }
 

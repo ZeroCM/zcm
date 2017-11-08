@@ -90,6 +90,7 @@ struct zcm_blocking
     void run();
     void start();
     void stop();
+    int handle();
 
     void pause();
     void resume();
@@ -97,7 +98,6 @@ struct zcm_blocking
     int publish(const string& channel, const uint8_t* data, uint32_t len);
     zcm_sub_t* subscribe(const string& channel, zcm_msg_handler_t cb, void* usr, bool block);
     int unsubscribe(zcm_sub_t* sub, bool block);
-    int handle();
     void flush();
 
     void setRecvQueueSize(uint32_t numMsgs);
@@ -145,8 +145,10 @@ struct zcm_blocking
     ThreadsafeQueue<Msg> sendQueue {QUEUE_SIZE};
     ThreadsafeQueue<Msg> recvQueue {QUEUE_SIZE};
 
+    mutex              modeMutex;
     mutex              pubMutex;
-    mutex              subMutex;
+    mutex              subDispatchMutex;
+    mutex              subRecvMutex;
     mutex              handleMutex;
 
     bool               paused {false};
@@ -182,23 +184,27 @@ zcm_blocking_t::~zcm_blocking()
 
 void zcm_blocking_t::run()
 {
+    unique_lock<mutex> lk(modeMutex);
     if (mode != MODE_NONE) {
         ZCM_DEBUG("Err: call to run() when 'mode != MODE_NONE'");
         return;
     }
     mode = MODE_RUN;
+    lk.unlock();
 
     // Run it!
     handleRunning = true;
     handleThreadFunc();
 
     // Restore the "non-running" state
+    lk.lock();
     mode = MODE_NONE;
 }
 
 // TODO: should this call be thread safe?
 void zcm_blocking_t::start()
 {
+    unique_lock<mutex> lk(modeMutex);
     if (mode != MODE_NONE) {
         ZCM_DEBUG("Err: call to start() when 'mode != MODE_NONE'");
         return;
@@ -212,19 +218,15 @@ void zcm_blocking_t::start()
 
 void zcm_blocking_t::stop()
 {
-    // Shutdown recv and handle threads
-    if (mode == MODE_RUN || mode == MODE_SPAWN) {
+    unique_lock<mutex> lk(modeMutex);
+    if (mode == MODE_RUN || mode == MODE_SPAWN) { // Shutdown recv and handle threads
         if (handleRunning) {
             handleRunning = false;
             pauseCond.notify_all();
             recvQueue.forceWakeups();
-            if (mode == MODE_SPAWN)
-                handleThread.join();
+            if (mode == MODE_SPAWN) handleThread.join();
         }
-    }
-
-    // Shutdown recv thread
-    else if (mode == MODE_HANDLE) {
+    } else if (mode == MODE_HANDLE) {             // Shutdown recv thread
         if (recvRunning) {
             recvRunning = false;
             recvQueue.forceWakeups();
@@ -234,13 +236,38 @@ void zcm_blocking_t::stop()
 
     // Shutdown send thread
     if (sendRunning) {
-        sendRunning = false;
-        sendQueue.forceWakeups();
-        sendThread.join();
+        unique_lock<mutex> lk(pubMutex);
+        if (sendRunning) {
+            sendRunning = false;
+            sendQueue.forceWakeups();
+            sendThread.join();
+        }
     }
 
     // Restore the "non-running" state
     mode = MODE_NONE;
+}
+
+int zcm_blocking_t::handle()
+{
+    {
+        unique_lock<mutex> lk(modeMutex);
+        if (mode != MODE_NONE && mode != MODE_HANDLE) {
+            ZCM_DEBUG("Err: call to handle() when 'mode != MODE_NONE && mode != MODE_HANDLE'");
+            return -1;
+        }
+
+        // If this is the first time handle() is called, we need to start the recv thread
+        if (mode == MODE_NONE) {
+            // Spawn the recv thread
+            recvRunning = true;
+            recvThread = thread{&zcm_blocking::recvThreadFunc, this};
+            mode = MODE_HANDLE;
+        }
+    }
+
+    unique_lock<mutex> lk(handleMutex);
+    return handleOneMessage();
 }
 
 void zcm_blocking_t::pause()
@@ -266,23 +293,19 @@ int zcm_blocking_t::publish(const string& channel, const uint8_t* data, uint32_t
     if (len > mtu) return ZCM_EINVALID;
     if (channel.size() > ZCM_CHANNEL_MAXLEN) return ZCM_EINVALID;
 
-    unique_lock<mutex> lk(pubMutex);
 
     // If needed: spawn the send thread
     if (!sendRunning) {
-        sendRunning = true;
-        sendThread = thread{&zcm_blocking::sendThreadFunc, this};
+        unique_lock<mutex> lk(pubMutex);
+        if (!sendRunning) {
+            sendRunning = true;
+            sendThread = thread{&zcm_blocking::sendThreadFunc, this};
+        }
     }
 
-    // TODO: publish should allow dropping of old messages
-    if (!sendQueue.hasFreeSpace()) {
-        ZCM_DEBUG("sendQueue has no free space");
-        return ZCM_EAGAIN;
-    }
-
-    // Note: push only fails if it was forcefully woken up, which means zcm is shutting down
-    bool success = sendQueue.push(TimeUtil::utime(), channel.c_str(), len, data);
-    return success ? ZCM_EOK : ZCM_EINTR;
+    bool success = sendQueue.pushIfRoom(TimeUtil::utime(), channel.c_str(), len, data);
+    if (!success) ZCM_DEBUG("sendQueue has no free space");
+    return success ? ZCM_EOK : ZCM_EAGAIN;
 }
 
 // Note: We use a lock on subscribe() to make sure it can be
@@ -292,9 +315,14 @@ zcm_sub_t* zcm_blocking_t::subscribe(const string& channel,
                                      zcm_msg_handler_t cb, void* usr,
                                      bool block)
 {
-    unique_lock<mutex> lk(subMutex, std::defer_lock);
-    if (block) lk.lock();
-    else if (!lk.try_lock()) return nullptr;
+    unique_lock<mutex> lk1(subDispatchMutex, std::defer_lock);
+    unique_lock<mutex> lk2(subRecvMutex,     std::defer_lock);
+    if (block) {
+        lk1.lock();
+        lk2.lock();
+    } else if (!lk1.try_lock() || !lk2.try_lock()) {
+        return nullptr;
+    }
     int rc;
 
     bool regex = isRegexChannel(channel);
@@ -336,9 +364,14 @@ zcm_sub_t* zcm_blocking_t::subscribe(const string& channel,
 // on modifying and reading the 'subs' and 'subRegex' containers
 int zcm_blocking_t::unsubscribe(zcm_sub_t* sub, bool block)
 {
-    unique_lock<mutex> lk(subMutex, std::defer_lock);
-    if (block) lk.lock();
-    else if (!lk.try_lock()) return -2;
+    unique_lock<mutex> lk1(subDispatchMutex, std::defer_lock);
+    unique_lock<mutex> lk2(subRecvMutex,     std::defer_lock);
+    if (block) {
+        lk1.lock();
+        lk2.lock();
+    } else if (!lk1.try_lock() || !lk2.try_lock()) {
+        return -2;
+    }
 
     bool success = true;
     if (sub->regex) {
@@ -362,25 +395,6 @@ int zcm_blocking_t::unsubscribe(zcm_sub_t* sub, bool block)
     return 0;
 }
 
-int zcm_blocking_t::handle()
-{
-    if (mode != MODE_NONE && mode != MODE_HANDLE) {
-        ZCM_DEBUG("Err: call to handle() when 'mode != MODE_NONE && mode != MODE_HANDLE'");
-        return -1;
-    }
-
-    // If this is the first time handle() is called, we need to start the recv thread
-    if (mode == MODE_NONE) {
-        // Spawn the recv thread
-        recvRunning = true;
-        recvThread = thread{&zcm_blocking::recvThreadFunc, this};
-        mode = MODE_HANDLE;
-    }
-
-    unique_lock<mutex> lk(handleMutex);
-    return handleOneMessage();
-}
-
 void zcm_blocking_t::flush()
 {
     {
@@ -389,6 +403,9 @@ void zcm_blocking_t::flush()
         for (size_t i = 0; i < n; ++i) handleOneMessage();
     }
     {
+        // RRR: this won't prevent additional publishes anymore because we changed where pubMutex
+        //      is used. Currently, this will block until all messages (including ones published
+        //      after this function was called) are sent on the transport.
         unique_lock<mutex> lk(pubMutex);
         sendQueue.waitForEmpty();
     }
@@ -424,6 +441,29 @@ void zcm_blocking_t::recvThreadFunc()
         if (rc == ZCM_EOK) {
             bool success;
             do {
+                {
+                    unique_lock<mutex> lk(subRecvMutex);
+
+                    // Check if message matches a non regex channel
+                    auto it = subs.find(msg.channel);
+                    if (it == subs.end()) {
+                        // Check if message matches a regex channel
+                        bool foundRegex = false;
+                        for (zcm_sub_t* sub : subRegex) {
+                            regex* r = (regex*)sub->regexobj;
+                            if (regex_match(msg.channel, *r)) {
+                                foundRegex = true;
+                                break;
+                            }
+                        }
+                        // No subscription actually wants the message
+                        if (!foundRegex) {
+                            success = true;
+                            continue;
+                        }
+                    }
+                }
+
                 // Note: push only fails if it was forcefully woken up. In such a case, we
                 //       need to re-check the running condition; however, if we are still
                 //       running, we want to still push the same message, necessitating the
@@ -436,6 +476,8 @@ void zcm_blocking_t::recvThreadFunc()
 
 void zcm_blocking_t::handleThreadFunc()
 {
+    unique_lock<mutex> lk(modeMutex);
+
     // Spawn the recv thread
     recvRunning = true;
     recvThread = thread{&zcm_blocking::recvThreadFunc, this};
@@ -470,7 +512,7 @@ void zcm_blocking_t::dispatchMsg(zcm_msg_t* msg)
     // This means users cannot call zcm_subscribe or
     // zcm_unsubscribe from a callback without deadlocking.
     {
-        unique_lock<mutex> lk(subMutex);
+        unique_lock<mutex> lk(subDispatchMutex);
 
         // dispatch to a non regex channel
         auto it = subs.find(msg->channel);
@@ -483,7 +525,7 @@ void zcm_blocking_t::dispatchMsg(zcm_msg_t* msg)
         // dispatch to any regex channels
         for (zcm_sub_t* sub : subRegex) {
             regex* r = (regex*)sub->regexobj;
-            if (regex_match(msg->channel,* r)) {
+            if (regex_match(msg->channel, *r)) {
                 sub->callback(&rbuf, msg->channel, sub->usr);
             }
         }
