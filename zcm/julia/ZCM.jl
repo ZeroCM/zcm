@@ -174,23 +174,42 @@ function subscribe(zcm::Zcm, channel::AbstractString,
                    msgtype=Void,
                    additional_args...)
     callback = typed_handler(handler, msgtype, additional_args...)
-    c_handler = cfunction(handler_wrapper, Void, (Ref{Native.RecvBuf}, Cstring, Ref{typeof(callback)}))
+    c_handler = cfunction(handler_wrapper, Void,
+                          (Ref{Native.RecvBuf}, Cstring, Ref{typeof(callback)}))
     uv_wrapper = ccall(("uv_zcm_msg_handler_create", "libzcmjulia"),
                        Ptr{Native.UvSub},
                        (Ptr{Void}, Ptr{Void}),
                        c_handler, Ref(callback))
     uv_handler = cglobal(("uv_zcm_msg_handler_trigger", "libzcmjulia"))
-    csub = ccall(("zcm_subscribe", "libzcm"), Ptr{Native.Sub},
-                (Ptr{Native.Zcm}, Cstring, Ptr{Void}, Ptr{Native.UvSub}),
-                zcm, channel, uv_handler, uv_wrapper)
+    try_sub = () -> ccall(("zcm_try_subscribe", "libzcm"), Ptr{Native.Sub},
+                          (Ptr{Native.Zcm}, Cstring, Ptr{Void}, Ptr{Native.UvSub}),
+                          zcm, channel, uv_handler, uv_wrapper)
+    csub = Ptr{Native.Sub}(C_NULL)
+    while (true)
+        csub = try_sub()
+        if (csub == C_NULL)
+            yield()
+        else
+            break
+        end
+    end
     sub = Subscription(callback, c_handler, uv_wrapper, uv_handler, csub)
     push!(zcm.subscriptions, sub)
     return sub
 end
 
 function unsubscribe(zcm::Zcm, sub::Subscription)
-    ret = ccall(("zcm_unsubscribe", "libzcm"), Cint,
-                 (Ptr{Native.Zcm}, Ptr{Native.Sub}), zcm, sub.native_sub)
+    try_unsub = () -> ccall(("zcm_try_unsubscribe", "libzcm"), Cint,
+                            (Ptr{Native.Zcm}, Ptr{Native.Sub}), zcm, sub.native_sub)
+    ret = Cint(0)
+    while (true)
+        ret = try_unsub()
+        if (ret == -2)
+            yield()
+        else
+            break
+        end
+    end
     ccall(("uv_zcm_msg_handler_destroy", "libzcmjulia"), Void,
           (Ptr{Native.UvSub},), sub.uv_wrapper)
     deleteat!(zcm.subscriptions, findin(zcm.subscriptions, [sub]))
@@ -208,7 +227,11 @@ function publish(zcm::Zcm, channel::AbstractString, msg::AbstractZCMType)
 end
 
 function flush(zcm::Zcm)
-    ccall(("zcm_flush", "libzcm"), Void, (Ptr{Native.Zcm},), zcm)
+    # RRR (Bendes): Technically this isn't allowed yet.
+    #               Haven't yet figured out how to handle the case where
+    #               there is a msg dispatch already in progress awaiting
+    #               scheduling. Probably need to do something like a try_flush()
+    # ccall(("zcm_flush", "libzcm"), Void, (Ptr{Native.Zcm},), zcm)
 end
 
 function start(zcm::Zcm)
@@ -216,7 +239,11 @@ function start(zcm::Zcm)
 end
 
 function stop(zcm::Zcm)
-    ccall(("zcm_stop", "libzcm"), Void, (Ptr{Native.Zcm},), zcm)
+    # RRR (Bendes): Technically this isn't allowed yet.
+    #               Haven't yet figured out how to handle the case where
+    #               there is a msg dispatch already in progress awaiting
+    #               scheduling. Probably need to do something like a try_stop()
+    # ccall(("zcm_stop", "libzcm"), Void, (Ptr{Native.Zcm},), zcm)
 end
 
 function handle(zcm::Zcm)

@@ -32,9 +32,6 @@ msg.timestamp = 2;
 publish(zcm, "EXAMPLE", msg)
 
 sleep(0.5)
-stop(zcm)
-
-start(zcm)
 
 msg.timestamp = 3;
 publish(zcm, "EXAMPLE", msg)
