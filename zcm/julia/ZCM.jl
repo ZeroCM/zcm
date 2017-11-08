@@ -212,8 +212,7 @@ function publish(zcm::Zcm, channel::AbstractString, data::Vector{UInt8})
                  zcm, convert(String, channel), data, length(data))
 end
 
-# TODO: force msg to be derived from our zcm msg basetype
-function publish(zcm::Zcm, channel::AbstractString, msg)
+function publish(zcm::Zcm, channel::AbstractString, msg::AbstractZCMType)
     publish(zcm, channel, encode(msg))
 end
 
