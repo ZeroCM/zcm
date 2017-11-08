@@ -30,7 +30,7 @@ struct Msg
     zcm_msg_t msg;
 
     // NOTE: copy the provided data into this object
-    Msg(uint64_t utime, const char *channel, size_t len, const uint8_t *buf)
+    Msg(uint64_t utime, const char* channel, size_t len, const uint8_t* buf)
     {
         msg.utime = utime;
         msg.channel = strdup(channel);
@@ -39,7 +39,7 @@ struct Msg
         memcpy(msg.buf, buf, len);
     }
 
-    Msg(zcm_msg_t *msg) : Msg(msg->utime, msg->channel, msg->len, msg->buf) {}
+    Msg(zcm_msg_t* msg) : Msg(msg->utime, msg->channel, msg->len, msg->buf) {}
 
     ~Msg()
     {
@@ -50,7 +50,7 @@ struct Msg
         memset(&msg, 0, sizeof(msg));
     }
 
-    zcm_msg_t *get()
+    zcm_msg_t* get()
     {
         return &msg;
     }
@@ -84,16 +84,19 @@ struct zcm_blocking
     using SubList = vector<zcm_sub_t*>;
 
   public:
-    zcm_blocking(zcm_t *z, zcm_trans_t *zt_);
+    zcm_blocking(zcm_t* z, zcm_trans_t* zt_);
     ~zcm_blocking();
 
     void run();
     void start();
     void stop();
 
-    int publish(const string& channel, const uint8_t *data, uint32_t len);
-    zcm_sub_t *subscribe(const string& channel, zcm_msg_handler_t cb, void *usr, bool block);
-    int unsubscribe(zcm_sub_t *sub, bool block);
+    void pause();
+    void resume();
+
+    int publish(const string& channel, const uint8_t* data, uint32_t len);
+    zcm_sub_t* subscribe(const string& channel, zcm_msg_handler_t cb, void* usr, bool block);
+    int unsubscribe(zcm_sub_t* sub, bool block);
     int handle();
     void flush();
 
@@ -102,11 +105,11 @@ private:
     void recvThreadFunc();
     void handleThreadFunc();
 
-    void dispatchMsg(zcm_msg_t *msg);
+    void dispatchMsg(zcm_msg_t* msg);
     int handleOneMessage();
 
-    bool deleteSubEntry(zcm_sub_t *sub, size_t nentriesleft);
-    bool deleteFromSubList(SubList& slist, zcm_sub_t *sub);
+    bool deleteSubEntry(zcm_sub_t* sub, size_t nentriesleft);
+    bool deleteFromSubList(SubList& slist, zcm_sub_t* sub);
 
 private:
     typedef enum {
@@ -116,8 +119,8 @@ private:
         MODE_HANDLE
     } Mode_t;
 
-    zcm_t *z;
-    zcm_trans_t *zt;
+    zcm_t* z;
+    zcm_trans_t* zt;
     unordered_map<string, SubList> subs;
     SubList subRegex;
     size_t mtu;
@@ -140,11 +143,16 @@ private:
     ThreadsafeQueue<Msg> sendQueue {QUEUE_SIZE};
     ThreadsafeQueue<Msg> recvQueue {QUEUE_SIZE};
 
-    mutex pubmut;
-    mutex submut;
+    mutex              pubMutex;
+    mutex              subMutex;
+    mutex              handleMutex;
+
+    bool               paused {false};
+    mutex              pauseMutex;
+    condition_variable pauseCond;
 };
 
-zcm_blocking_t::zcm_blocking(zcm_t *z, zcm_trans_t *zt_)
+zcm_blocking_t::zcm_blocking(zcm_t* z, zcm_trans_t* zt_)
 {
     zt = zt_;
     mtu = zcm_trans_get_mtu(zt);
@@ -165,7 +173,7 @@ zcm_blocking_t::~zcm_blocking()
         }
     }
     for (auto& sub : subRegex) {
-        delete (regex *) sub->regexobj;
+        delete (regex*) sub->regexobj;
         delete sub;
     }
 }
@@ -206,6 +214,7 @@ void zcm_blocking_t::stop()
     if (mode == MODE_RUN || mode == MODE_SPAWN) {
         if (handleRunning) {
             handleRunning = false;
+            pauseCond.notify_all();
             recvQueue.forceWakeups();
             if (mode == MODE_SPAWN)
                 handleThread.join();
@@ -232,16 +241,30 @@ void zcm_blocking_t::stop()
     mode = MODE_NONE;
 }
 
+void zcm_blocking_t::pause()
+{
+    unique_lock<mutex> lk(pauseMutex);
+    paused = true;
+    pauseCond.notify_all();
+}
+
+void zcm_blocking_t::resume()
+{
+    unique_lock<mutex> lk(pauseMutex);
+    paused = false;
+    pauseCond.notify_all();
+}
+
 // Note: We use a lock on publish() to make sure it can be
 // called concurrently. Without the lock, there is a potential
 // race to block on sendQueue.push()
-int zcm_blocking_t::publish(const string& channel, const uint8_t *data, uint32_t len)
+int zcm_blocking_t::publish(const string& channel, const uint8_t* data, uint32_t len)
 {
     // Check the validity of the request
     if (len > mtu) return ZCM_EINVALID;
     if (channel.size() > ZCM_CHANNEL_MAXLEN) return ZCM_EINVALID;
 
-    unique_lock<mutex> lk(pubmut);
+    unique_lock<mutex> lk(pubMutex);
 
     // If needed: spawn the send thread
     if (!sendRunning) {
@@ -263,11 +286,11 @@ int zcm_blocking_t::publish(const string& channel, const uint8_t *data, uint32_t
 // Note: We use a lock on subscribe() to make sure it can be
 // called concurrently. Without the lock, there is a race
 // on modifying and reading the 'subs' and 'subRegex' containers
-zcm_sub_t *zcm_blocking_t::subscribe(const string& channel,
-                                     zcm_msg_handler_t cb, void *usr,
+zcm_sub_t* zcm_blocking_t::subscribe(const string& channel,
+                                     zcm_msg_handler_t cb, void* usr,
                                      bool block)
 {
-    unique_lock<mutex> lk(submut, std::defer_lock);
+    unique_lock<mutex> lk(subMutex, std::defer_lock);
     if (block) lk.lock();
     else if (!lk.try_lock()) return nullptr;
     int rc;
@@ -288,7 +311,7 @@ zcm_sub_t *zcm_blocking_t::subscribe(const string& channel,
         return nullptr;
     }
 
-    zcm_sub_t *sub = new zcm_sub_t();
+    zcm_sub_t* sub = new zcm_sub_t();
     ZCM_ASSERT(sub);
     strncpy(sub->channel, channel.c_str(), sizeof(sub->channel)/sizeof(sub->channel[0]));
     sub->regex = regex;
@@ -296,7 +319,7 @@ zcm_sub_t *zcm_blocking_t::subscribe(const string& channel,
     sub->callback = cb;
     sub->usr = usr;
     if (regex) {
-        sub->regexobj = (void *) new std::regex(sub->channel);
+        sub->regexobj = (void*) new std::regex(sub->channel);
         ZCM_ASSERT(sub->regexobj);
         subRegex.push_back(sub);
     } else {
@@ -309,9 +332,9 @@ zcm_sub_t *zcm_blocking_t::subscribe(const string& channel,
 // Note: We use a lock on unsubscribe() to make sure it can be
 // called concurrently. Without the lock, there is a race
 // on modifying and reading the 'subs' and 'subRegex' containers
-int zcm_blocking_t::unsubscribe(zcm_sub_t *sub, bool block)
+int zcm_blocking_t::unsubscribe(zcm_sub_t* sub, bool block)
 {
-    unique_lock<mutex> lk(submut, std::defer_lock);
+    unique_lock<mutex> lk(subMutex, std::defer_lock);
     if (block) lk.lock();
     else if (!lk.try_lock()) return -2;
 
@@ -352,26 +375,27 @@ int zcm_blocking_t::handle()
         mode = MODE_HANDLE;
     }
 
+    unique_lock<mutex> lk(handleMutex);
     return handleOneMessage();
 }
 
 void zcm_blocking_t::flush()
 {
-    unique_lock<mutex> lk(pubmut);
+    unique_lock<mutex> lk(pubMutex);
     sendQueue.waitForEmpty();
 }
 
 void zcm_blocking_t::sendThreadFunc()
 {
     while (sendRunning) {
-        Msg *m = sendQueue.top();
+        Msg* m = sendQueue.top();
         // If the Queue was forcibly woken-up, recheck the
         // running condition, and then retry.
         if (m == nullptr)
             continue;
 
-        zcm_msg_t *msg = m->get();
-        int ret = zcm_trans_sendmsg(zt, *msg);
+        zcm_msg_t* msg = m->get();
+        int ret = zcm_trans_sendmsg(zt,* msg);
         if (ret != ZCM_EOK)
             ZCM_DEBUG("zcm_trans_sendmsg() failed to return EOK.. dropping the msg!");
         sendQueue.pop();
@@ -403,8 +427,15 @@ void zcm_blocking_t::handleThreadFunc()
     recvThread = thread{&zcm_blocking::recvThreadFunc, this};
 
     // Become the handle thread
-    while (handleRunning)
+    while (handleRunning) {
+        {
+            unique_lock<mutex> lk(pauseMutex);
+            pauseCond.wait(lk, [&]{ return !paused || !handleRunning; });
+            if (!handleRunning) break;
+        }
+        unique_lock<mutex> lk(handleMutex);
         handleOneMessage();
+    }
 
     // Shutdown recv thread
     recvRunning = false;
@@ -412,7 +443,7 @@ void zcm_blocking_t::handleThreadFunc()
     recvThread.join();
 }
 
-void zcm_blocking_t::dispatchMsg(zcm_msg_t *msg)
+void zcm_blocking_t::dispatchMsg(zcm_msg_t* msg)
 {
     zcm_recv_buf_t rbuf;
     rbuf.recv_utime = msg->utime;
@@ -425,20 +456,20 @@ void zcm_blocking_t::dispatchMsg(zcm_msg_t *msg)
     // This means users cannot call zcm_subscribe or
     // zcm_unsubscribe from a callback without deadlocking.
     {
-        unique_lock<mutex> lk(submut);
+        unique_lock<mutex> lk(subMutex);
 
         // dispatch to a non regex channel
         auto it = subs.find(msg->channel);
         if (it != subs.end()) {
-            for (zcm_sub_t *sub : it->second) {
+            for (zcm_sub_t* sub : it->second) {
                 sub->callback(&rbuf, msg->channel, sub->usr);
             }
         }
 
         // dispatch to any regex channels
-        for (zcm_sub_t *sub : subRegex) {
-            regex *r = (regex *)sub->regexobj;
-            if (regex_match(msg->channel, *r)) {
+        for (zcm_sub_t* sub : subRegex) {
+            regex* r = (regex*)sub->regexobj;
+            if (regex_match(msg->channel,* r)) {
                 sub->callback(&rbuf, msg->channel, sub->usr);
             }
         }
@@ -447,7 +478,7 @@ void zcm_blocking_t::dispatchMsg(zcm_msg_t *msg)
 
 int zcm_blocking_t::handleOneMessage()
 {
-    Msg *m = recvQueue.top();
+    Msg* m = recvQueue.top();
     // If the Queue was forcibly woken-up, recheck the
     // running condition, and then retry.
     if (m == nullptr)
@@ -458,11 +489,11 @@ int zcm_blocking_t::handleOneMessage()
     return 0;
 }
 
-bool zcm_blocking_t::deleteSubEntry(zcm_sub_t *sub, size_t nentriesleft)
+bool zcm_blocking_t::deleteSubEntry(zcm_sub_t* sub, size_t nentriesleft)
 {
     int rc = ZCM_EOK;
     if (sub->regex) {
-        delete (std::regex *) sub->regexobj;
+        delete (std::regex*) sub->regexobj;
         if (nentriesleft == 0) {
             rc = zcm_trans_recvmsg_enable(zt, NULL, false);
         }
@@ -473,7 +504,7 @@ bool zcm_blocking_t::deleteSubEntry(zcm_sub_t *sub, size_t nentriesleft)
     return rc == ZCM_EOK;
 }
 
-bool zcm_blocking_t::deleteFromSubList(SubList& slist, zcm_sub_t *sub)
+bool zcm_blocking_t::deleteFromSubList(SubList& slist, zcm_sub_t* sub)
 {
     for (size_t i = 0; i < slist.size(); i++) {
         if (slist[i] == sub) {
@@ -491,64 +522,74 @@ bool zcm_blocking_t::deleteFromSubList(SubList& slist, zcm_sub_t *sub)
 /////////////// C Interface Functions ////////////////
 extern "C" {
 
-zcm_blocking_t *zcm_blocking_create(zcm_t *z, zcm_trans_t *trans)
+zcm_blocking_t* zcm_blocking_create(zcm_t* z, zcm_trans_t* trans)
 {
     return new zcm_blocking_t(z, trans);
 }
 
-void zcm_blocking_destroy(zcm_blocking_t *zcm)
+void zcm_blocking_destroy(zcm_blocking_t* zcm)
 {
     if (zcm) delete zcm;
 }
 
-int zcm_blocking_publish(zcm_blocking_t *zcm, const char *channel, const uint8_t *data, uint32_t len)
+int zcm_blocking_publish(zcm_blocking_t* zcm, const char* channel, const uint8_t* data, uint32_t len)
 {
     return zcm->publish(channel, data, len);
 }
 
-zcm_sub_t *zcm_blocking_subscribe(zcm_blocking_t *zcm, const char *channel,
-                                  zcm_msg_handler_t cb, void *usr)
+zcm_sub_t* zcm_blocking_subscribe(zcm_blocking_t* zcm, const char* channel,
+                                  zcm_msg_handler_t cb, void* usr)
 {
     return zcm->subscribe(channel, cb, usr, true);
 }
 
-zcm_sub_t *zcm_blocking_try_subscribe(zcm_blocking_t *zcm, const char *channel,
-                                      zcm_msg_handler_t cb, void *usr)
+zcm_sub_t* zcm_blocking_try_subscribe(zcm_blocking_t* zcm, const char* channel,
+                                      zcm_msg_handler_t cb, void* usr)
 {
     return zcm->subscribe(channel, cb, usr, false);
 }
 
-int zcm_blocking_unsubscribe(zcm_blocking_t *zcm, zcm_sub_t *sub)
+int zcm_blocking_unsubscribe(zcm_blocking_t* zcm, zcm_sub_t* sub)
 {
     return zcm->unsubscribe(sub, true);
 }
 
-int zcm_blocking_try_unsubscribe(zcm_blocking_t *zcm, zcm_sub_t *sub)
+int zcm_blocking_try_unsubscribe(zcm_blocking_t* zcm, zcm_sub_t* sub)
 {
     return zcm->unsubscribe(sub, false);
 }
 
-void zcm_blocking_flush(zcm_blocking_t *zcm)
+void zcm_blocking_flush(zcm_blocking_t* zcm)
 {
     zcm->flush();
 }
 
-void zcm_blocking_run(zcm_blocking_t *zcm)
+void zcm_blocking_run(zcm_blocking_t* zcm)
 {
     zcm->run();
 }
 
-void zcm_blocking_start(zcm_blocking_t *zcm)
+void zcm_blocking_start(zcm_blocking_t* zcm)
 {
     zcm->start();
 }
 
-void zcm_blocking_stop(zcm_blocking_t *zcm)
+void zcm_blocking_pause(zcm_blocking_t* zcm)
+{
+    zcm->pause();
+}
+
+void zcm_blocking_resume(zcm_blocking_t* zcm)
+{
+    zcm->resume();
+}
+
+void zcm_blocking_stop(zcm_blocking_t* zcm)
 {
     zcm->stop();
 }
 
-int zcm_blocking_handle(zcm_blocking_t *zcm)
+int zcm_blocking_handle(zcm_blocking_t* zcm)
 {
     return zcm->handle();
 }

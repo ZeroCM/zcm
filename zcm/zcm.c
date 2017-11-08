@@ -25,10 +25,10 @@
 # define ZCM_DEBUG(...)
 #endif
 
-zcm_t *zcm_create(const char *url)
+zcm_t* zcm_create(const char* url)
 {
 #ifndef ZCM_EMBEDDED
-    zcm_t *z = malloc(sizeof(zcm_t));
+    zcm_t* z = malloc(sizeof(zcm_t));
     ZCM_ASSERT(z);
     if (zcm_init(z, url) == -1) {
         free(z);
@@ -41,9 +41,9 @@ zcm_t *zcm_create(const char *url)
 #endif
 }
 
-zcm_t *zcm_create_trans(zcm_trans_t *zt)
+zcm_t* zcm_create_trans(zcm_trans_t* zt)
 {
-    zcm_t *z = malloc(sizeof(zcm_t));
+    zcm_t* z = malloc(sizeof(zcm_t));
     ZCM_ASSERT(z);
     if (zcm_init_trans(z, zt) == -1) {
         free(z);
@@ -52,13 +52,13 @@ zcm_t *zcm_create_trans(zcm_trans_t *zt)
     return z;
 }
 
-void zcm_destroy(zcm_t *zcm)
+void zcm_destroy(zcm_t* zcm)
 {
     zcm_cleanup(zcm);
     free(zcm);
 }
 
-int zcm_init(zcm_t *zcm, const char *url)
+int zcm_init(zcm_t* zcm, const char* url)
 {
 #ifndef ZCM_EMBEDDED
     zcm->err = ZCM_ECONNECT;
@@ -72,13 +72,13 @@ int zcm_init(zcm_t *zcm, const char *url)
         }
     }
     int ret = -1;
-    zcm_url_t *u = zcm_url_create(url);
+    zcm_url_t* u = zcm_url_create(url);
     ZCM_ASSERT(u);
-    const char *protocol = zcm_url_protocol(u);
+    const char* protocol = zcm_url_protocol(u);
 
-    zcm_trans_create_func *creator = zcm_transport_find(protocol);
+    zcm_trans_create_func* creator = zcm_transport_find(protocol);
     if (creator) {
-        zcm_trans_t *trans = creator(u);
+        zcm_trans_t* trans = creator(u);
         if (trans) {
             ret = zcm_init_trans(zcm, trans);
         } else {
@@ -96,7 +96,7 @@ int zcm_init(zcm_t *zcm, const char *url)
 #endif
 }
 
-int zcm_init_trans(zcm_t *zcm, zcm_trans_t *zt)
+int zcm_init_trans(zcm_t* zcm, zcm_trans_t* zt)
 {
     if (zt == NULL)
         goto fail;
@@ -133,7 +133,7 @@ int zcm_init_trans(zcm_t *zcm, zcm_trans_t *zt)
     return -1;
 }
 
-void zcm_cleanup(zcm_t *zcm)
+void zcm_cleanup(zcm_t* zcm)
 {
     if (zcm) {
 #ifndef ZCM_EMBEDDED
@@ -148,25 +148,25 @@ void zcm_cleanup(zcm_t *zcm)
     }
 }
 
-int zcm_errno(const zcm_t *zcm)
+int zcm_errno(const zcm_t* zcm)
 {
     return zcm->err;
 }
 
-static const char *errcode_str[] = {
-    "Okay, no errors",                          /* ZCM_EOK */
+static const char* errcode_str[] = {
+    "Okay, no errors",                          /* ZCM_EOK      */
     "Invalid arguments",                        /* ZCM_EINVALID */
-    "Resource unavailable, try again",          /* ZCM_EAGAIN */
+    "Resource unavailable, try again",          /* ZCM_EAGAIN   */
     "Transport connection failed",              /* ZCM_ECONNECT */
-    "Operation was unexpectedly interrupted",   /* ZCM_EINTR */
+    "Operation was unexpectedly interrupted",   /* ZCM_EINTR    */
 };
 
-const char *zcm_strerror(const zcm_t *zcm)
+const char* zcm_strerror(const zcm_t* zcm)
 {
     return zcm_strerrno(zcm->err);
 }
 
-const char *zcm_strerrno(int err)
+const char* zcm_strerrno(int err)
 {
     if (((unsigned) err) >= ZCM__RESERVED_COUNT) {
         return "Unknown error occurred";
@@ -175,7 +175,7 @@ const char *zcm_strerrno(int err)
     }
 }
 
-int zcm_publish(zcm_t *zcm, const char *channel, const uint8_t *data, uint32_t len)
+int zcm_publish(zcm_t* zcm, const char* channel, const uint8_t* data, uint32_t len)
 {
 #ifndef ZCM_EMBEDDED
     switch (zcm->type) {
@@ -192,7 +192,7 @@ int zcm_publish(zcm_t *zcm, const char *channel, const uint8_t *data, uint32_t l
     assert(0 && "unreachable");
 }
 
-void zcm_flush(zcm_t *zcm)
+void zcm_flush(zcm_t* zcm)
 {
 #ifndef ZCM_EMBEDDED
     switch (zcm->type) {
@@ -203,7 +203,7 @@ void zcm_flush(zcm_t *zcm)
 #endif
 }
 
-zcm_sub_t *zcm_subscribe(zcm_t *zcm, const char *channel, zcm_msg_handler_t cb, void *usr)
+zcm_sub_t* zcm_subscribe(zcm_t* zcm, const char* channel, zcm_msg_handler_t cb, void* usr)
 {
 #ifndef ZCM_EMBEDDED
     switch (zcm->type) {
@@ -217,7 +217,7 @@ zcm_sub_t *zcm_subscribe(zcm_t *zcm, const char *channel, zcm_msg_handler_t cb, 
     assert(0 && "unreachable");
 }
 
-zcm_sub_t *zcm_try_subscribe(zcm_t *zcm, const char *channel, zcm_msg_handler_t cb, void *usr)
+zcm_sub_t* zcm_try_subscribe(zcm_t* zcm, const char* channel, zcm_msg_handler_t cb, void* usr)
 {
 #ifndef ZCM_EMBEDDED
     switch (zcm->type) {
@@ -231,7 +231,7 @@ zcm_sub_t *zcm_try_subscribe(zcm_t *zcm, const char *channel, zcm_msg_handler_t 
     assert(0 && "unreachable");
 }
 
-int zcm_unsubscribe(zcm_t *zcm, zcm_sub_t *sub)
+int zcm_unsubscribe(zcm_t* zcm, zcm_sub_t* sub)
 {
 #ifndef ZCM_EMBEDDED
     switch (zcm->type) {
@@ -245,7 +245,7 @@ int zcm_unsubscribe(zcm_t *zcm, zcm_sub_t *sub)
     assert(0 && "unreachable");
 }
 
-int zcm_try_unsubscribe(zcm_t *zcm, zcm_sub_t *sub)
+int zcm_try_unsubscribe(zcm_t* zcm, zcm_sub_t* sub)
 {
 #ifndef ZCM_EMBEDDED
     switch (zcm->type) {
@@ -259,7 +259,7 @@ int zcm_try_unsubscribe(zcm_t *zcm, zcm_sub_t *sub)
     assert(0 && "unreachable");
 }
 
-void zcm_start(zcm_t *zcm)
+void zcm_start(zcm_t* zcm)
 {
 #ifndef ZCM_EMBEDDED
     switch (zcm->type) {
@@ -270,7 +270,7 @@ void zcm_start(zcm_t *zcm)
 #endif
 }
 
-void zcm_stop(zcm_t *zcm)
+void zcm_stop(zcm_t* zcm)
 {
 #ifndef ZCM_EMBEDDED
     switch (zcm->type) {
@@ -281,7 +281,7 @@ void zcm_stop(zcm_t *zcm)
 #endif
 }
 
-void zcm_run(zcm_t *zcm)
+void zcm_run(zcm_t* zcm)
 {
 #ifndef ZCM_EMBEDDED
     switch (zcm->type) {
@@ -293,7 +293,29 @@ void zcm_run(zcm_t *zcm)
 #endif
 }
 
-int zcm_handle(zcm_t *zcm)
+void zcm_pause(zcm_t* zcm)
+{
+#ifndef ZCM_EMBEDDED
+    switch (zcm->type) {
+        case ZCM_BLOCKING:    return zcm_blocking_pause(zcm->impl); break;
+        case ZCM_NONBLOCKING: assert(0 && "Cannot pause() on a nonblocking ZCM interface"); break;
+    }
+#else
+#endif
+}
+
+void zcm_resume(zcm_t* zcm)
+{
+#ifndef ZCM_EMBEDDED
+    switch (zcm->type) {
+        case ZCM_BLOCKING:    return zcm_blocking_resume(zcm->impl); break;
+        case ZCM_NONBLOCKING: assert(0 && "Cannot resume() on a nonblocking ZCM interface"); break;
+    }
+#else
+#endif
+}
+
+int zcm_handle(zcm_t* zcm)
 {
 #ifndef ZCM_EMBEDDED
     switch (zcm->type) {
@@ -306,7 +328,7 @@ int zcm_handle(zcm_t *zcm)
     return -1;
 }
 
-int zcm_handle_nonblock(zcm_t *zcm)
+int zcm_handle_nonblock(zcm_t* zcm)
 {
 #ifndef ZCM_EMBEDDED
     switch (zcm->type) {

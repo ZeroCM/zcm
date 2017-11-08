@@ -78,6 +78,16 @@ inline void ZCM::stop()
     zcm_stop(zcm);
 }
 
+inline void ZCM::pause()
+{
+    zcm_pause(zcm);
+}
+
+inline void ZCM::resume()
+{
+    zcm_resume(zcm);
+}
+
 inline int ZCM::handle()
 {
     return zcm_handle(zcm);
