@@ -3,7 +3,7 @@ include("../build/types/example_t.jl");
 using ZCM;
 
 numReceived = 0
-handler = function(rbuf::ZCM.RecvBuf, channel::String, msg::example_t, usr)
+handler = function(rbuf, channel::String, msg::example_t)
     println("Received message on channel: ", channel)
     global numReceived
     @assert (numReceived == msg.timestamp) "Received message with incorrect timestamp"
@@ -16,7 +16,7 @@ if (!good(zcm))
     exit()
 end
 
-sub = subscribe(zcm, "EXAMPLE", example_t, handler, Void)
+sub = subscribe(zcm, "EXAMPLE", handler, example_t)
 
 msg = example_t()
 
