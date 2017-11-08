@@ -31,7 +31,7 @@ import Base: flush,
     include_string("abstract AbstractZCMType")
 
     # takebuf_array was deprecated in favor of take! in v0.6
-    _takebuf_array(buf) = _takebuf_array(buf)
+    _takebuf_array(buf) = takebuf_array(buf)
 else
     include_string("abstract type AbstractZCMType end")
 
@@ -189,9 +189,10 @@ will cause `handler()` to be invoked with:
 
     handler(channel, msg, X, Y, Z)
 """
-function subscribe(zcm::Zcm, channel::AbstractString,
-                   msgtype::Type{<:AbstractZCMType},
-                   handler, additional_args...)
+function subscribe{T <: AbstractZCMType}(zcm::Zcm,
+                                         channel::AbstractString,
+                                         msgtype::Type{T},
+                                         handler, additional_args...)
     callback = (channel, message) -> handler(channel, message, additional_args...)
     subscribe(zcm, channel, SubscriptionOptions(msgtype, callback))
 end
