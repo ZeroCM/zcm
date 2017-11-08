@@ -10,7 +10,13 @@ export Zcm,
        stop,
        handle,
        handle_nonblock,
-       close
+       close,
+       LogEvent,
+       LogFile,
+       readNextEvent,
+       readPrevEvent,
+       readEventAtOffset,
+       writeEvent
 
 import Base: flush,
              start,
@@ -257,7 +263,6 @@ type LogEvent
         return instance
     end
 end
-export LogEvent
 
 type LogFile
     eventLog::Ptr{Native.EventLog}
@@ -280,33 +285,28 @@ type LogFile
         return instance
     end
 end
-export LogFile
 
 function good(lf::LogFile)
     return lf.eventLog != C_NULL
 end
-export good
 
 function readNextEvent(lf::LogFile)
     event = ccall(("zcm_eventlog_read_next_event", "libzcm"), Ptr{Native.EventLogEvent},
                   (Ptr{Native.EventLog},), lf.eventLog)
     return LogEvent(event)
 end
-export readNextEvent
 
 function readPrevEvent(lf::LogFile)
     event = ccall(("zcm_eventlog_read_prev_event", "libzcm"), Ptr{Native.EventLogEvent},
                   (Ptr{Native.EventLog},), lf.eventLog)
     return LogEvent(event)
 end
-export readPrevEvent
 
 function readEventAtOffset(lf::LogFile, offset::Int64)
     event = ccall(("zcm_eventlog_read_event_at_offset", "libzcm"), Ptr{Native.EventLogEvent},
                   (Ptr{Native.EventLog}, Int64), lf.eventLog, offset)
     return LogEvent(event)
 end
-export readEventAtOffset
 
 # RRR: need to make a way to encode the event into a native object before we'll
 #      be able to write different data out to the file
@@ -315,7 +315,6 @@ function writeEvent(lf::LogFile, event::LogEvent)
                  (Ptr{Native.EventLog}, Ptr{Native.EventLogEvent}),
                  lf.eventLog, event.event)
 end
-export writeEvent
 
 end # module ZCM
 
