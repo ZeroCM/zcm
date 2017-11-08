@@ -134,7 +134,7 @@ end
 function subscribe{T <: SubscriptionOptions}(zcm::Zcm, channel::AbstractString, options::T)
     # The C function is called with the receive buffer, channel name, and the
     # SubscriptionOptions struct
-    c_handler = cfunction(onresponse, Void, Tuple{Ref{Native.RecvBuf}, Cstring, Ref{T}})
+    c_handler = cfunction(onresponse, Void, (Ref{Native.RecvBuf}, Cstring, Ref{T}))
     uv_wrapper = ccall(("uv_zcm_msg_handler_create", "libzcmjulia"),
                        Ptr{Native.UvSub},
                        (Ptr{Void}, Ptr{Void}),
