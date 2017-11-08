@@ -49,7 +49,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
     string recvmsgChannel;
     size_t recvmsgBufferSize = START_BUF_SIZE; // Start at 1MB but allow it to grow to MTU
-    char* recvmsgBuffer;
+    uint8_t* recvmsgBuffer;
 
     // Mutex used to protect 'subsocks' while allowing
     // recvmsgEnable() and recvmsg() to be called
@@ -67,7 +67,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
         ZCM_DEBUG("IPC Address: %s\n", subnet.c_str());
 
-        recvmsgBuffer = new char[recvmsgBufferSize];
+        recvmsgBuffer = new uint8_t[recvmsgBufferSize];
 
         ctx = zmq_init(ZMQ_IO_THREADS);
         assert(ctx != nullptr);
@@ -395,7 +395,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
                         ZCM_DEBUG("Reallocating recv buffer to handle larger messages. Size is now %d", rc);
                         recvmsgBufferSize = rc * 2;
                         delete[] recvmsgBuffer;
-                        recvmsgBuffer = new char[recvmsgBufferSize];
+                        recvmsgBuffer = new uint8_t[recvmsgBufferSize];
                         return ZCM_EAGAIN;
                     }
                     recvmsgChannel = pchannels[i];

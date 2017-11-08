@@ -20,8 +20,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     // using the "inFlight" pointers to store their memory until the next message is dispatched
     // Note: Have to use free() to clean up chan memory in these because we create them via strdup
     deque<zcm_msg_t*> msgs;
-    const char* inFlightChanMem = nullptr;
-          char* inFlightDataMem = nullptr;
+    const char*    inFlightChanMem = nullptr;
+          uint8_t* inFlightDataMem = nullptr;
 
     ZCM_TRANS_CLASSNAME(zcm_url_t *url)
     {
@@ -72,7 +72,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         newMsg->utime = msg.utime;
         newMsg->len = msg.len;
         newMsg->channel = strdup(msg.channel);
-        newMsg->buf = new char[msg.len];
+        newMsg->buf = new uint8_t[msg.len];
         std::copy_n(msg.buf, msg.len, newMsg->buf);
 
         msgs.push_back(newMsg);

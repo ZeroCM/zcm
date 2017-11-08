@@ -80,14 +80,15 @@ void zcm_nonblocking_destroy(zcm_nonblocking_t *zcm)
     }
 }
 
-int zcm_nonblocking_publish(zcm_nonblocking_t *z, const char *channel, const char *data,
-                            uint32_t len)
+int zcm_nonblocking_publish(zcm_nonblocking_t *z, const char *channel,
+                            const uint8_t *data, uint32_t len)
 {
     zcm_msg_t msg;
 
     msg.channel = channel;
     msg.len = len;
-    msg.buf = (char*)data;
+    /* Casting away constness okay because msg isn't used past end of function */
+    msg.buf = (uint8_t*) data;
     return zcm_trans_sendmsg(z->zt, msg);
 }
 
@@ -181,7 +182,7 @@ static void dispatch_message(zcm_nonblocking_t *zcm, zcm_msg_t *msg)
                 strncmp(zcm->subs[i].channel, msg->channel, subsChanLen - 2) == 0) {
 
                 rbuf.zcm = zcm->z;
-                rbuf.data = (char*)msg->buf;
+                rbuf.data = msg->buf;
                 rbuf.data_size = msg->len;
                 rbuf.recv_utime = msg->utime;
 
@@ -191,7 +192,7 @@ static void dispatch_message(zcm_nonblocking_t *zcm, zcm_msg_t *msg)
         } else {
             if (strcmp(zcm->subs[i].channel, msg->channel) == 0) {
                 rbuf.zcm = zcm->z;
-                rbuf.data = (char*)msg->buf;
+                rbuf.data = msg->buf;
                 rbuf.data_size = msg->len;
                 rbuf.recv_utime = msg->utime;
 

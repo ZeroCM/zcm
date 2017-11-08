@@ -292,7 +292,7 @@ int UDPM::sendmsg(zcm_msg_t msg)
         ssize_t status = sendfd.sendBuffers(destAddr,
                               (char*)&hdr, sizeof(hdr),
                               (char*)msg.channel, channel_size+1,
-                              msg.buf, msg.len);
+                              (char*)msg.buf, msg.len);
 
         int packet_size = sizeof(hdr) + payload_size;
         ZCM_DEBUG("transmitting %zu byte [%s] payload (%d byte pkt)",
@@ -341,7 +341,7 @@ int UDPM::sendmsg(zcm_msg_t msg)
         ssize_t status = sendfd.sendBuffers(destAddr,
                                             (char*)&hdr, sizeof(hdr),
                                             (char*)msg.channel, channel_size+1,
-                                            msg.buf, firstfrag_datasize);
+                                            (char*)msg.buf, firstfrag_datasize);
 
         // transmit the rest of the fragments
         for (u16 frag_no = 1; packet_size == status && frag_no < nfragments; frag_no++) {
@@ -380,7 +380,7 @@ int UDPM::recvmsg(zcm_msg_t *msg, int timeout)
     msg->utime = m->utime;
     msg->channel = m->channel;
     msg->len = m->datalen;
-    msg->buf = m->data;
+    msg->buf = (uint8_t*) m->data;
 
     return ZCM_EOK;
 }

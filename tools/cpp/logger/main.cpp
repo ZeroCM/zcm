@@ -219,8 +219,8 @@ static zcm::LogEvent* cloneLogEvent(const zcm::LogEvent* evt)
     ret->timestamp = evt->timestamp;
     ret->channel   = evt->channel;
     ret->datalen   = evt->datalen;
-    ret->data      = new char[evt->datalen];
-    memcpy(ret->data, evt->data, evt->datalen * sizeof(char));
+    ret->data      = new uint8_t[evt->datalen];
+    memcpy(ret->data, evt->data, evt->datalen * sizeof(uint8_t));
     return ret;
 }
 
@@ -427,8 +427,8 @@ struct Logger
         }
 
         if (evts.empty()) {
-            le->data = new char[rbuf->data_size];
-            memcpy(le->data, rbuf->data, sizeof(char) * rbuf->data_size);
+            le->data = new uint8_t[rbuf->data_size];
+            memcpy(le->data, rbuf->data, sizeof(uint8_t) * rbuf->data_size);
             evts.push_back(le);
         } else {
             delete le;

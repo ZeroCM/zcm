@@ -35,7 +35,7 @@ void IndexerPlugin::indexEvent(const zcm::Json::Value& index,
                                off_t offset,
                                uint64_t timestamp,
                                int64_t hash,
-                               const char* data,
+                               const uint8_t* data,
                                int32_t datalen)
 { pluginIndex[channel][typeName].append(std::to_string(offset)); }
 

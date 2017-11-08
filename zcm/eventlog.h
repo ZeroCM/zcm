@@ -12,12 +12,12 @@ extern "C" {
 typedef struct _zcm_eventlog_event_t zcm_eventlog_event_t;
 struct _zcm_eventlog_event_t
 {
-    int64_t eventnum;   /* populated by write_event */
-    int64_t timestamp;
-    int32_t channellen;
-    int32_t datalen;
-    char   *channel;
-    void   *data;
+    int64_t  eventnum;   /* populated by write_event */
+    int64_t  timestamp;
+    int32_t  channellen;
+    int32_t  datalen;
+    char    *channel;
+    uint8_t *data;
 };
 
 typedef struct _zcm_eventlog_t zcm_eventlog_t;

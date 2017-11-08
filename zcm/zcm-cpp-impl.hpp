@@ -93,7 +93,7 @@ inline void ZCM::flush()
     zcm_flush(zcm);
 }
 
-inline int ZCM::publish(const std::string& channel, const char* data, uint32_t len)
+inline int ZCM::publish(const std::string& channel, const uint8_t* data, uint32_t len)
 {
     return publishRaw(channel, data, len);
 }
@@ -105,7 +105,7 @@ inline int ZCM::publish(const std::string& channel, const Msg* msg)
     uint8_t* buf = new uint8_t[len];
     ZCM_ASSERT(buf);
     msg->encode(buf, 0, len);
-    int status = publishRaw(channel, (const char*)buf, len);
+    int status = publishRaw(channel, buf, len);
     delete[] buf;
     return status;
 }
@@ -381,7 +381,7 @@ inline void ZCM::unsubscribe(Subscription* sub)
 inline zcm_t* ZCM::getUnderlyingZCM()
 { return zcm; }
 
-inline int ZCM::publishRaw(const std::string& channel, const char* data, uint32_t len)
+inline int ZCM::publishRaw(const std::string& channel, const uint8_t* data, uint32_t len)
 { return zcm_publish(zcm, channel.c_str(), data, len); }
 
 inline void ZCM::subscribeRaw(void*& rawSub, const std::string& channel,
@@ -439,7 +439,7 @@ inline const LogEvent* LogFile::cplusplusIfyEvent(zcm_eventlog_event_t* evt)
     curEvent.channel.assign(evt->channel, evt->channellen);
     curEvent.timestamp = evt->timestamp;
     curEvent.datalen = evt->datalen;
-    curEvent.data = (char*)evt->data;
+    curEvent.data = evt->data;
     return &curEvent;
 }
 
@@ -467,6 +467,7 @@ inline int LogFile::writeEvent(const LogEvent* event)
     evt.timestamp = event->timestamp;
     evt.channellen = event->channel.size();
     evt.datalen = event->datalen;
+    // casting away constness okay because evt isn't used past the end of this function
     evt.channel = (char*) event->channel.c_str();
     evt.data = event->data;
     return zcm_eventlog_write_event(eventlog, &evt);

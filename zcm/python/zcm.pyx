@@ -10,7 +10,7 @@ cdef extern from "zcm/zcm.h":
     ctypedef struct zcm_sub_t:
         pass
     ctypedef struct zcm_recv_buf_t:
-        char* data
+        uint8_t* data
         uint32_t data_size
         pass
     ctypedef void (*zcm_msg_handler_t)(const zcm_recv_buf_t *rbuf, const char *channel, void *usr)
@@ -23,7 +23,7 @@ cdef extern from "zcm/zcm.h":
 
     zcm_sub_t *zcm_subscribe  (zcm_t *zcm, const char *channel, zcm_msg_handler_t cb, void *usr)
     int        zcm_unsubscribe(zcm_t *zcm, zcm_sub_t *sub)
-    int        zcm_publish    (zcm_t *zcm, const char *channel, const void *data, uint32_t dlen)
+    int        zcm_publish    (zcm_t *zcm, const char *channel, const uint8_t *data, uint32_t dlen)
     void       zcm_flush      (zcm_t *zcm)
 
     void   zcm_run   (zcm_t *zcm)
@@ -39,7 +39,7 @@ cdef extern from "zcm/zcm.h":
         int32_t  channellen
         int32_t  datalen
         char    *channel
-        void    *data
+        uint8_t *data
 
     zcm_eventlog_t *zcm_eventlog_create(const char *path, const char *mode)
     void            zcm_eventlog_destroy(zcm_eventlog_t *eventlog)
@@ -86,7 +86,7 @@ cdef class ZCM:
         zcm_unsubscribe(self.zcm, sub.sub)
     def publish(self, bytes channel, object msg):
         _data = msg.encode()
-        cdef const char* data = _data
+        cdef const uint8_t* data = _data
         zcm_publish(self.zcm, channel, data, len(_data) * sizeof(uint8_t))
     def flush(self):
         zcm_flush(self.zcm)
@@ -150,7 +150,7 @@ cdef class LogFile:
         curEvent.eventnum = evt.eventnum
         curEvent.setChannel   (evt.channel[:evt.channellen])
         curEvent.setTimestamp (evt.timestamp)
-        curEvent.setData      ((<char*>evt.data)[:evt.datalen])
+        curEvent.setData      ((<uint8_t*>evt.data)[:evt.datalen])
         return curEvent
     def readNextEvent(self):
         cdef zcm_eventlog_event_t* evt = zcm_eventlog_read_next_event(self.eventlog)
@@ -168,5 +168,5 @@ cdef class LogFile:
         evt.channellen = len(event.channel)
         evt.datalen    = len(event.data)
         evt.channel    = <char*> event.channel
-        evt.data       = <char*> event.data
+        evt.data       = <uint8_t*> event.data
         return zcm_eventlog_write_event(self.eventlog, &evt);

@@ -30,12 +30,12 @@ struct Msg
     zcm_msg_t msg;
 
     // NOTE: copy the provided data into this object
-    Msg(uint64_t utime, const char *channel, size_t len, const char *buf)
+    Msg(uint64_t utime, const char *channel, size_t len, const uint8_t *buf)
     {
         msg.utime = utime;
         msg.channel = strdup(channel);
         msg.len = len;
-        msg.buf = (char*)malloc(len);
+        msg.buf = (uint8_t*)malloc(len);
         memcpy(msg.buf, buf, len);
     }
 
@@ -91,7 +91,7 @@ struct zcm_blocking
     void start();
     void stop();
 
-    int publish(const string& channel, const char *data, uint32_t len);
+    int publish(const string& channel, const uint8_t *data, uint32_t len);
     zcm_sub_t *subscribe(const string& channel, zcm_msg_handler_t cb, void *usr, bool block);
     int unsubscribe(zcm_sub_t *sub, bool block);
     int handle();
@@ -235,7 +235,7 @@ void zcm_blocking_t::stop()
 // Note: We use a lock on publish() to make sure it can be
 // called concurrently. Without the lock, there is a potential
 // race to block on sendQueue.push()
-int zcm_blocking_t::publish(const string& channel, const char *data, uint32_t len)
+int zcm_blocking_t::publish(const string& channel, const uint8_t *data, uint32_t len)
 {
     // Check the validity of the request
     if (len > mtu) return ZCM_EINVALID;
@@ -417,7 +417,7 @@ void zcm_blocking_t::dispatchMsg(zcm_msg_t *msg)
     zcm_recv_buf_t rbuf;
     rbuf.recv_utime = msg->utime;
     rbuf.zcm = z;
-    rbuf.data = (char*)msg->buf;
+    rbuf.data = msg->buf;
     rbuf.data_size = msg->len;
 
     // Note: We use a lock on dispatch to ensure there is not
@@ -501,7 +501,7 @@ void zcm_blocking_destroy(zcm_blocking_t *zcm)
     if (zcm) delete zcm;
 }
 
-int zcm_blocking_publish(zcm_blocking_t *zcm, const char *channel, const char *data, uint32_t len)
+int zcm_blocking_publish(zcm_blocking_t *zcm, const char *channel, const uint8_t *data, uint32_t len)
 {
     return zcm->publish(channel, data, len);
 }

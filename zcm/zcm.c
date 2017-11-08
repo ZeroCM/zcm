@@ -175,7 +175,7 @@ const char *zcm_strerrno(int err)
     }
 }
 
-int zcm_publish(zcm_t *zcm, const char *channel, const void *data, uint32_t len)
+int zcm_publish(zcm_t *zcm, const char *channel, const uint8_t *data, uint32_t len)
 {
 #ifndef ZCM_EMBEDDED
     switch (zcm->type) {

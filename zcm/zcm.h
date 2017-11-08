@@ -56,7 +56,7 @@ struct zcm_recv_buf_t
 {
     int64_t recv_utime;
     zcm_t *zcm;
-    char *data;           /* NOTE: do not free, the library manages this memory */
+    uint8_t *data;           /* NOTE: do not free, the library manages this memory */
     uint32_t data_size;
 };
 
@@ -115,7 +115,7 @@ int zcm_try_unsubscribe(zcm_t *zcm, zcm_sub_t *sub);
    call the zcm_flush() method.
    Returns 0 on success, and -1 on failure
    Sets zcm errno on failure */
-int  zcm_publish(zcm_t *zcm, const char *channel, const void *data, uint32_t len);
+int  zcm_publish(zcm_t *zcm, const char *channel, const uint8_t  *data, uint32_t len);
 
 /* Blocking until all published messages have been sent even if the underlying
    transport is nonblocking. This should not be called concurrently with

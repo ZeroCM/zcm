@@ -12,8 +12,8 @@ typedef struct  zcm_blocking zcm_blocking_t;
 zcm_blocking_t *zcm_blocking_create(zcm_t *z, zcm_trans_t *trans);
 void            zcm_blocking_destroy(zcm_blocking_t *zcm);
 
-int        zcm_blocking_publish(zcm_blocking_t *zcm, const char *channel, const char *data,
-                                uint32_t len);
+int        zcm_blocking_publish(zcm_blocking_t *zcm, const char *channel,
+                                const uint8_t *data, uint32_t len);
 
 zcm_sub_t *zcm_blocking_subscribe(zcm_blocking_t *zcm, const char *channel,
                                   zcm_msg_handler_t cb, void *usr);

@@ -561,7 +561,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             // Good! Return it
             msg->channel = (char*)recvChannelMem;
             msg->len = dataLen;
-            msg->buf = (char*)recvDataMem;
+            msg->buf = recvDataMem;
 
             return ZCM_EOK;
         }

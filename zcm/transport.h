@@ -206,7 +206,7 @@ struct zcm_msg_t
     uint64_t utime;  /* 0 means invalid (caller should compute its own utime) */
     const char *channel;
     size_t len;
-    char *buf;
+    uint8_t *buf;
 };
 
 struct zcm_trans_t

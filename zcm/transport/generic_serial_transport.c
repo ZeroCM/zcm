@@ -162,7 +162,7 @@ struct zcm_trans_generic_serial_t
     circBuffer_t sendBuffer;
     circBuffer_t recvBuffer;
     char         recvChanName[ZCM_CHANNEL_MAXLEN+1];
-    char         recvMsgData[ZCM_GENERIC_SERIAL_MTU];
+    uint8_t      recvMsgData[ZCM_GENERIC_SERIAL_MTU];
 
     uint32_t (*get)(uint8_t* data, uint32_t nData, void* usr);
     uint32_t (*put)(const uint8_t* data, uint32_t nData, void* usr);
