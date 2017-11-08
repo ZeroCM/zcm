@@ -131,7 +131,7 @@ function onresponse(rbuf::Native.RecvBuf, channelbytes::Cstring, opts::Subscript
     return nothing
 end
 
-function subscribe(zcm::Zcm, channel::AbstractString, options::T) where T <: SubscriptionOptions
+function subscribe{T <: SubscriptionOptions}(zcm::Zcm, channel::AbstractString, options::T)
     # The C function is called with the receive buffer, channel name, and the
     # SubscriptionOptions struct
     c_handler = cfunction(onresponse, Void, Tuple{Ref{Native.RecvBuf}, Cstring, Ref{T}})
