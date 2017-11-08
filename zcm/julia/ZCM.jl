@@ -144,11 +144,27 @@ function subscribe(zcm::Zcm, channel::AbstractString, options::T) where T <: Sub
     return sub
 end
 
-# TODO: get this into docs:
-# Note to self: handler could be either a function or a functor, so long as it has
-#               handler(channel::String, msg::msgtype) defined
-function subscribe(zcm::Zcm, channel::AbstractString, msgtype::Type{<:AbstractZCMType}, handler)
-    subscribe(zcm, channel, SubscriptionOptions(msgtype, handler))
+"""
+    subscribe(zcm::Zcm, channel::AbstractString, msgtype::Type, handler, additional_args...)
+
+Adds a subscription using ZCM object `zcm` for messages of type `msgtype` on
+the given channel. The `handler` must be a function or callable object, and
+will be called with:
+
+    handler(channel::String, msg::msgtype)
+
+If additional arguments are supplied to `subscribe()` after the handler,
+then they will also be passed to the handler each time it is called. So:
+
+    subscribe(zcm, channel, msgtype, handler, X, Y, Z)
+
+will cause `handler()` to be invoked with:
+
+    handler(channel, msg, X, Y, Z)
+"""
+function subscribe(zcm::Zcm, channel::AbstractString, msgtype::Type{<:AbstractZCMType}, handler, additional_args...)
+    callback = (channel, message) -> handler(channel, message, additional_args...)
+    subscribe(zcm, channel, SubscriptionOptions(msgtype, callback))
 end
 
 function unsubscribe(zcm::Zcm, sub::Subscription)

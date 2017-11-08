@@ -2,23 +2,23 @@ include("../build/types/example_t.jl")
 
 using ZCM
 
-# Demonstration of using a closure as the message handler. The `handler()` function
-# closes over the received_timestamps variable, so it can append to that list
-# any time a message is received. 
-received_timestamps = Int[]
-
-handler = function(channel::String, msg::example_t)
-    println("Received message on channel: ", channel)
-    @assert msg.timestamp == length(received_timestamps) "Received message with incorrect timestamp"
-    push!(received_timestamps, msg.timestamp)
-end
 
 zcm = Zcm("inproc")
 if (!good(zcm))
     error("Unable to initialize zcm");
 end
 
-sub = subscribe(zcm, "EXAMPLE", example_t, handler)
+# This handler expects an additional argument `received_timestamps`. To
+# ensure that argument is provided, we just have to pass it as an
+# additional argument to `subscribe()`
+function handler(channel::String, msg::example_t, received_timestamps::Vector)
+    println("Received message on channel: ", channel)
+    @assert msg.timestamp == length(received_timestamps) "Received message with incorrect timestamp"
+    push!(received_timestamps, msg.timestamp)
+end
+
+received_timestamps = Int[]
+sub = subscribe(zcm, "EXAMPLE", example_t, handler, received_timestamps)
 
 msg = example_t()
 
