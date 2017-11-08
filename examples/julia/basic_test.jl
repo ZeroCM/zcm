@@ -48,6 +48,7 @@ sleep(0.5)
 stop(zcm)
 
 unsubscribe(zcm, sub)
+unsubscribe(zcm, sub2)
 
 @assert (numReceived == 6) "Didn't receive proper number of messages"
 

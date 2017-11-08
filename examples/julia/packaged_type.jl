@@ -1,14 +1,21 @@
-include("../build/types/test_package/test_package_packaged_t.jl");
+push!(LOAD_PATH, "../build/types")
+import test_package: packaged_t, packaged_recursive_t
+import other_package: other_recursive_t
 
 using ZCM;
 
 numReceived = 0
-handler = function(rbuf, channel::String, msg::test_package_packaged_t)
+function handler(rbuf, channel::String, msg::packaged_t)
     println("Received message on channel: ", channel)
     global numReceived
     @assert (((numReceived % 2) == 0) == msg.packaged) "Received message with incorrect packaged flag"
     numReceived = numReceived + 1
 end
+
+msg = other_recursive_t()
+msg.child = packaged_recursive_t()
+msg.child.child = packaged_t()
+@assert msg.child.child.packaged == false
 
 zcm = Zcm("inproc")
 if (!good(zcm))
@@ -16,9 +23,9 @@ if (!good(zcm))
     exit()
 end
 
-sub = subscribe(zcm, "EXAMPLE", handler, test_package_packaged_t)
+sub = subscribe(zcm, "EXAMPLE", handler, packaged_t)
 
-msg = test_package_packaged_t()
+msg = packaged_t()
 
 start(zcm)
 
