@@ -77,18 +77,24 @@ struct EmitJulia : public Emitter
 
     void emitDependencies()
     {
+        // TODO: prevent duplicate include()s of the same file
         unordered_set<string> dependencies;
         for (auto& lm : ls.members) {
             auto& tn = lm.type.fullname;
             if (!ZCMGen::isPrimitiveType(tn) &&
                 dependencies.find(tn) == dependencies.end() &&
                 tn != ls.structname.fullname) {
-                dependencies.insert(lm.type.nameUnderscore());
+                if (lm.type.package == ls.structname.package) {
+                    dependencies.insert("include(\"" + lm.type.shortname + ".jl\")");
+                    // dependencies.insert("isdefined(" + lm.type.package + ", :" + lm.type.shortname + ") || include(\"" + lm.type.shortname + ".jl\")");
+                } else {
+                    dependencies.insert("import " + lm.type.package);
+                }
             }
         }
 
         for (auto& tn : dependencies) {
-            emit(0, "include(\"%s.jl\")", tn.c_str());
+            emit(0, tn.c_str());
         }
 
         if (dependencies.size() > 0) emit(0, "");
@@ -110,7 +116,7 @@ struct EmitJulia : public Emitter
 
     void emitInstance()
     {
-        const char *sn = ls.structname.nameUnderscoreCStr();
+        const char *sn = ls.structname.shortname.c_str();
 
         emitDependencies();
 
@@ -239,7 +245,7 @@ struct EmitJulia : public Emitter
 
     void emitGetHash()
     {
-        auto* sn = ls.structname.nameUnderscoreCStr();
+        auto* sn = ls.structname.shortname.c_str();
 
         emit(0, "const __%s_hash = Ref(Int64(0))", sn);
 
@@ -316,7 +322,7 @@ struct EmitJulia : public Emitter
 
     void emitEncodeOne()
     {
-        auto* sn = ls.structname.nameUnderscoreCStr();
+        auto* sn = ls.structname.shortname.c_str();
 
         emit(0, "function ZCM._encode_one(msg::%s, buf)", sn);
         if (ls.members.size() == 0) {
@@ -369,7 +375,7 @@ struct EmitJulia : public Emitter
 
     void emitEncode()
     {
-        auto* sn = ls.structname.nameUnderscoreCStr();
+        auto* sn = ls.structname.shortname.c_str();
 
         emit(0, "function ZCM.encode(msg::%s)", sn);
         emit(0, "    buf = IOBuffer()");
@@ -448,7 +454,7 @@ struct EmitJulia : public Emitter
 
     void emitDecodeOne()
     {
-        auto* sn = ls.structname.nameUnderscoreCStr();
+        auto* sn = ls.structname.shortname.c_str();
 
         emit(0, "function ZCM._decode_one(::Type{%s}, buf)", sn);
         emit(1,     "msg = %s();", sn);
@@ -528,7 +534,7 @@ struct EmitJulia : public Emitter
 
     void emitDecode()
     {
-        auto* sn = ls.structname.nameUnderscoreCStr();
+        auto* sn = ls.structname.shortname.c_str();
 
         emit(0, "function ZCM.decode(::Type{%s}, data::Vector{UInt8})", sn);
         emit(0, "    buf = IOBuffer(data)");
@@ -554,22 +560,143 @@ struct EmitJulia : public Emitter
     }
 };
 
-int emitJulia(ZCMGen& zcm)
+struct JlEmitPack : public Emitter
 {
-    for (auto& ls : zcm.structs) {
-        string package = StringUtil::dotsToSlashes(ls.structname.package);
-        if (package != "") package = "/" + package;
+    ZCMGen& zcm;
 
-        string path = zcm.gopt->getString("julia-path") + package;
+    JlEmitPack(ZCMGen& zcm, const string& fname):
+        Emitter(fname), zcm(zcm) {}
 
-        string fileName = path + "/" + ls.structname.nameUnderscore() + ".jl";
+    int emitPackage(const string& packName, vector<ZCMStruct*>& packStructs)
+    {
+        // create the package directory, if necessary
+        vector<string> dirs = StringUtil::split(packName, '.');
+        string pdname = StringUtil::join(dirs, '/');
+        int havePackage = dirs.size() > 0;
 
-        if (zcm.needsGeneration(ls.zcmfile, fileName)) {
-            FileUtil::makeDirsForFile(fileName);
-            EmitJulia E{zcm, ls, fileName};
+        auto& ppath = zcm.gopt->getString("ppath");
+        string packageDirPrefix = ppath + ((ppath.size() > 0) ? "/" : "");
+        string packageDir = packageDirPrefix + pdname + (havePackage ? "/" : "");
+
+        if (packageDir != "") {
+            if (!FileUtil::exists(packageDir)) {
+                FileUtil::mkdirWithParents(packageDir, 0755);
+            }
+            if (!FileUtil::dirExists(packageDir)) {
+                cerr << "Could not create directory " << packageDir << "\n";
+                return -1;
+            }
+        }
+
+        // write the main package module, if any
+        FILE *moduleJlFp = nullptr;
+        unordered_set<string> moduleJlIncludes;
+
+        if (havePackage) {
+            int ndirs = dirs.size();
+            // TODO: handle nested packages
+            if (ndirs != 1) {
+                perror("Can't handle more than one level of packaging in Julia yet");
+                return -1;
+            }
+            vector<string> moduleJlFnameParts;
+            moduleJlFnameParts.push_back(packageDirPrefix);
+            moduleJlFnameParts.push_back(packName + ".jl");
+
+            string moduleJlFname = StringUtil::join(moduleJlFnameParts, '/');
+
+            // close module file pointer if already open
+            if (moduleJlFp) {
+                fclose(moduleJlFp);
+                moduleJlFp = nullptr;
+            }
+            if (FileUtil::exists(moduleJlFname)) {
+                moduleJlFp = fopen(moduleJlFname.c_str(), "r");
+                if (!moduleJlFp) {
+                    perror("fopen");
+                    return -1;
+                }
+                while(!feof(moduleJlFp)) {
+                    char buf[4096];
+                    memset(buf, 0, sizeof(buf));
+                    char *result = fgets(buf, sizeof(buf)-1, moduleJlFp);
+                    if (!result)
+                        break;
+                    auto words = StringUtil::split(StringUtil::strip(buf), '"');
+                    if (words.size() < 3)
+                        continue;
+                    if (words[0] == "include(" && words[2][0] == ')') {
+                        string module = string(words[1].c_str());
+                        moduleJlIncludes.insert(std::move(module));
+                    }
+                }
+                fclose(moduleJlFp);
+                moduleJlFp = nullptr;
+            }
+            moduleJlFp = fopen(moduleJlFname.c_str(), "w");
+            if (!moduleJlFp) {
+                perror("fopen");
+                return -1;
+            }
+
+            //////////////////////////////////////////////////////////////////
+            //////////////////////////////////////////////////////////////////
+            //////////////////////////////////////////////////////////////////
+
+            fprintf(moduleJlFp, "\"\"\"ZCM package %s.jl file\n"
+                     "This file automatically generated by zcm-gen.\n"
+                     "DO NOT MODIFY BY HAND!!!!\n"
+                     "\"\"\"\n\n"
+                     "module %s\n\n",
+                     packName.c_str(), packName.c_str());
+            for (auto& incl : moduleJlIncludes) {
+                fprintf(moduleJlFp, "include(\"%s\")\n", incl.c_str());
+            }
+        }
+
+        ////////////////////////////////////////////////////////////
+        // STRUCTS
+        for (auto *ls_ : packStructs) {
+            auto& ls = *ls_;
+            auto& sn_ = ls.structname.shortname;
+            auto *sn = sn_.c_str();
+            string path = packageDir + sn_ + ".jl";
+
+            if(moduleJlFp) {
+                fprintf(moduleJlFp, "include(\"%s/%s.jl\")", pdname.c_str(), sn);
+            }
+
+            if (!zcm.needsGeneration(ls.zcmfile, path))
+                continue;
+
+            EmitJulia E{zcm, ls, path};
             if (!E.good()) return -1;
             E.emitType();
+            // PyEmitStruct{zcm, ls, path}.emitStruct();
         }
+
+        if(moduleJlFp) {
+            fprintf(moduleJlFp, "\n\nend\n");
+            fclose(moduleJlFp);
+        }
+
+        return 0;
+    }
+};
+
+int emitJulia(ZCMGen& zcm)
+{
+    unordered_map<string, vector<ZCMStruct*> > packages;
+
+    // group the structs by package
+    for (auto& ls : zcm.structs)
+        packages[ls.structname.package].push_back(&ls);
+
+    for (auto& kv : packages) {
+        auto& name = kv.first;
+        auto& pack = kv.second;
+        int ret = JlEmitPack{zcm, name}.emitPackage(name, pack);
+        if (ret != 0) return ret;
     }
 
     return 0;

@@ -135,9 +135,6 @@ def outFileName(ctx, inp, lang, absPath=False):
     if lang == 'python':
         return defaultOutFileName(fileparts, absPath).replace('.zcm', '.py')
     if lang == 'julia':
-        fileparts[2] = fileparts[2].replace('.zcm.', '.jl')
-        if fileparts[1] != "":
-            fileparts[2] = '_'.join(fileparts[1].split('.')) + "_" + fileparts[2]
         return defaultOutFileName(fileparts, absPath).replace('.zcm', '.jl')
 
     raise WafError('This should not be possible')
