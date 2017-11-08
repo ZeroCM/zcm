@@ -106,9 +106,13 @@ end
 # Defines the conversion when we pass this to a C function expecting a pointer
 Base.unsafe_convert(::Type{Ptr{Native.Zcm}}, zcm::Zcm) = zcm.zcm
 
-good(zcm::Zcm) = (zcm.zcm != C_NULL) && (errno(zcm) == 0)
+function good(zcm::Zcm)
+    (zcm.zcm != C_NULL) && (errno(zcm) == 0)
+end
 
-errno(zcm::Zcm) = ccall(("zcm_errno", "libzcm"), Cint, (Ptr{Native.Zcm},), zcm)
+function errno(zcm::Zcm)
+    ccall(("zcm_errno", "libzcm"), Cint, (Ptr{Native.Zcm},), zcm)
+end
 
 function strerror(zcm::Zcm)
     val =  ccall(("zcm_strerror", "libzcm"), Cstring, (Ptr{Native.Zcm},), zcm)
@@ -183,15 +187,25 @@ function publish(zcm::Zcm, channel::AbstractString, data::Vector{UInt8})
 end
 
 # TODO: force msg to be derived from our zcm msg basetype
-publish(zcm::Zcm, channel::AbstractString, msg) = publish(zcm, channel, encode(msg))
+function publish(zcm::Zcm, channel::AbstractString, msg)
+    publish(zcm, channel, encode(msg))
+end
 
-Base.flush(zcm::Zcm) = ccall(("zcm_flush", "libzcm"), Void, (Ptr{Native.Zcm},), zcm)
+function Base.flush(zcm::Zcm)
+    ccall(("zcm_flush", "libzcm"), Void, (Ptr{Native.Zcm},), zcm)
+end
 
-Base.start(zcm::Zcm) = ccall(("zcm_start", "libzcm"), Void, (Ptr{Native.Zcm},), zcm)
+function Base.start(zcm::Zcm)
+    ccall(("zcm_start", "libzcm"), Void, (Ptr{Native.Zcm},), zcm)
+end
 
-stop(zcm::Zcm) = ccall(("zcm_stop", "libzcm"), Void, (Ptr{Native.Zcm},), zcm)
+function stop(zcm::Zcm)
+    ccall(("zcm_stop", "libzcm"), Void, (Ptr{Native.Zcm},), zcm)
+end
 
-handle(zcm::Zcm) = ccall(("zcm_handle", "libzcm"), Cint, (Ptr{Native.Zcm},), zcm)
+function handle(zcm::Zcm)
+    ccall(("zcm_handle", "libzcm"), Cint, (Ptr{Native.Zcm},), zcm)
+end
 
 function handle_nonblock(zcm::Zcm)
     ccall(("zcm_handle_nonblock", "libzcm"), Cint,
