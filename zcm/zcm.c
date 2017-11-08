@@ -267,6 +267,7 @@ void zcm_start(zcm_t* zcm)
         case ZCM_NONBLOCKING: assert(0 && "Cannot start() on a nonblocking ZCM interface"); break;
     }
 #else
+    assert(0 && "the blocking api is not supported");
 #endif
 }
 
@@ -278,6 +279,7 @@ void zcm_stop(zcm_t* zcm)
         case ZCM_NONBLOCKING: assert(0 && "Cannot stop() on a nonblocking ZCM interface"); break;
     }
 #else
+    assert(0 && "the blocking api is not supported");
 #endif
 }
 
@@ -301,6 +303,7 @@ void zcm_pause(zcm_t* zcm)
         case ZCM_NONBLOCKING: assert(0 && "Cannot pause() on a nonblocking ZCM interface"); break;
     }
 #else
+    assert(0 && "the blocking api is not supported");
 #endif
 }
 
@@ -312,6 +315,7 @@ void zcm_resume(zcm_t* zcm)
         case ZCM_NONBLOCKING: assert(0 && "Cannot resume() on a nonblocking ZCM interface"); break;
     }
 #else
+    assert(0 && "the blocking api is not supported");
 #endif
 }
 
@@ -326,6 +330,19 @@ int zcm_handle(zcm_t* zcm)
     assert(0 && "the blocking api is not supported");
 #endif
     return -1;
+}
+
+void zcm_set_recv_queue_size(zcm_t* zcm, uint32_t numMsgs)
+{
+#ifndef ZCM_EMBEDDED
+    switch (zcm->type) {
+        case ZCM_BLOCKING:    return zcm_blocking_set_recv_queue_size(zcm->impl, numMsgs); break;
+        case ZCM_NONBLOCKING:
+            assert(0 && "Cannot set_recv_queue_size() on a nonblocking ZCM interface"); break;
+    }
+#else
+    assert(0 && "the blocking api is not supported");
+#endif
 }
 
 int zcm_handle_nonblock(zcm_t* zcm)

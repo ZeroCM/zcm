@@ -22,6 +22,12 @@ class ThreadsafeQueue
     ThreadsafeQueue(size_t size) : queue(size) {}
     ~ThreadsafeQueue() {}
 
+    void resize(size_t size)
+    {
+        std::unique_lock<std::mutex> lk(mut);
+        return queue.resize(size);
+    }
+
     bool hasFreeSpace()
     {
         std::unique_lock<std::mutex> lk(mut);
@@ -32,6 +38,12 @@ class ThreadsafeQueue
     {
         std::unique_lock<std::mutex> lk(mut);
         return queue.hasMessage();
+    }
+
+    size_t numMessages()
+    {
+        std::unique_lock<std::mutex> lk(mut);
+        return queue.numMessages();
     }
 
     // Wait for hasFreeSpace() and then push the new element
@@ -57,7 +69,7 @@ class ThreadsafeQueue
     // Always returns a valid Element* except when is was
     // forcibly awoken by forceWakeups(). In such a case
     // nullptr is returned to the user
-    Element *top()
+    Element* top()
     {
         std::unique_lock<std::mutex> lk(mut);
         int localWakeupNum = wakeupNum;

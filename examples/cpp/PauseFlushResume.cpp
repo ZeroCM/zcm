@@ -6,7 +6,7 @@
 #include "types/example_t.hpp"
 using namespace std;
 
-static const uint16_t hz = 1;
+static const uint16_t hz = 5;
 static const char *CHANNEL = "EXAMPLE";
 
 static bool running = true;
@@ -46,19 +46,27 @@ int main(int argc, char *argv[])
     Handler handler;
     zcm.subscribe(CHANNEL, &Handler::handleMessage, &handler);
 
+    zcm.setRecvQueueSize(64);
+
     thread sendThread(&sendMessages, ref(zcm));
 
     zcm.start();
 
     usleep(1e6 * 5);
 
+    printf("\nPausing\n");
     zcm.pause();
 
     usleep(1e6 * 5);
+    printf("\nFlushing\n");
+    zcm.flush();
 
+    usleep(1e6 * 5);
+
+    printf("\nResuming\n");
     zcm.resume();
 
-    usleep(1e6 * 1);
+    usleep(1e6 * 2);
 
     zcm.stop();
 

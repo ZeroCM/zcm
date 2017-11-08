@@ -10,7 +10,7 @@
 template<class Element>
 class Queue
 {
-    Element *queue;
+    Element* queue;
     size_t   size;
     size_t   front = 0;
     size_t   back = 0;
@@ -22,9 +22,8 @@ class Queue
         // a branch every once in a while. The branch is almost always
         // Not Taken
 
-        size_t nextIdx = i+1;
-        if (nextIdx == size)
-            return 0;
+        size_t nextIdx = i + 1;
+        if (nextIdx == size) return 0;
         return nextIdx;
     }
 
@@ -43,6 +42,13 @@ class Queue
         free(queue);
     }
 
+    void resize(size_t size)
+    {
+        queue = (Element*) realloc(queue, size * sizeof(Element));
+        this->size = size;
+        ZCM_ASSERT(queue);
+    }
+
     bool hasFreeSpace()
     {
         return front != incIdx(back);
@@ -51,6 +57,15 @@ class Queue
     bool hasMessage()
     {
         return front != back;
+    }
+
+    size_t numMessages()
+    {
+        if (back >= front) {
+            return back - front;
+        } else {
+            return size - (front - back);
+        }
     }
 
     // Requires that hasFreeSpace() == true

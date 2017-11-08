@@ -100,7 +100,9 @@ struct zcm_blocking
     int handle();
     void flush();
 
-private:
+    void setRecvQueueSize(uint32_t numMsgs);
+
+  private:
     void sendThreadFunc();
     void recvThreadFunc();
     void handleThreadFunc();
@@ -111,7 +113,7 @@ private:
     bool deleteSubEntry(zcm_sub_t* sub, size_t nentriesleft);
     bool deleteFromSubList(SubList& slist, zcm_sub_t* sub);
 
-private:
+  private:
     typedef enum {
         MODE_NONE = 0,
         MODE_RUN,
@@ -381,8 +383,20 @@ int zcm_blocking_t::handle()
 
 void zcm_blocking_t::flush()
 {
-    unique_lock<mutex> lk(pubMutex);
-    sendQueue.waitForEmpty();
+    {
+        unique_lock<mutex> lk(handleMutex);
+        size_t n = recvQueue.numMessages();
+        for (size_t i = 0; i < n; ++i) handleOneMessage();
+    }
+    {
+        unique_lock<mutex> lk(pubMutex);
+        sendQueue.waitForEmpty();
+    }
+}
+
+void zcm_blocking_t::setRecvQueueSize(uint32_t numMsgs)
+{
+    recvQueue.resize(numMsgs);
 }
 
 void zcm_blocking_t::sendThreadFunc()
@@ -592,6 +606,11 @@ void zcm_blocking_stop(zcm_blocking_t* zcm)
 int zcm_blocking_handle(zcm_blocking_t* zcm)
 {
     return zcm->handle();
+}
+
+void zcm_blocking_set_recv_queue_size(zcm_blocking_t* zcm, uint32_t sz)
+{
+    return zcm->setRecvQueueSize(sz);
 }
 
 }
