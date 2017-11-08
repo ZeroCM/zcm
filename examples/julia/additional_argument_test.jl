@@ -18,7 +18,7 @@ function handler(rbuf, channel::String, msg::example_t, received_timestamps::Vec
 end
 
 received_timestamps = Int[]
-sub = subscribe(zcm, "EXAMPLE", typed_handler(handler, example_t), received_timestamps)
+sub = subscribe(zcm, "EXAMPLE", handler, example_t, received_timestamps)
 
 msg = example_t()
 

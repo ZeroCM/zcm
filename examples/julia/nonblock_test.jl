@@ -16,7 +16,7 @@ if (!good(zcm))
     exit()
 end
 
-sub = subscribe(zcm, "EXAMPLE", typed_handler(handler, example_t))
+sub = subscribe(zcm, "EXAMPLE", handler, example_t)
 
 msg = example_t()
 
