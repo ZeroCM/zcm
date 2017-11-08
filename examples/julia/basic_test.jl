@@ -3,7 +3,7 @@ include("../build/types/example_t.jl");
 using ZCM;
 
 numReceived = 0
-function handler(channel::String, msg::example_t)
+function handler(rbuf, channel::String, msg::example_t)
     println("Received message on channel: ", channel)
     global numReceived
     @assert (numReceived == msg.timestamp) "Received message with incorrect timestamp"
@@ -15,7 +15,7 @@ if (!good(zcm))
     error("Unable to initialize zcm");
 end
 
-sub = subscribe(zcm, "EXAMPLE", example_t, handler)
+sub = subscribe(zcm, "EXAMPLE", typed_handler(handler, example_t))
 
 msg = example_t()
 
