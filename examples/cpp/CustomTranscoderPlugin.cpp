@@ -15,7 +15,7 @@ class CustomTranscoderPlugin : public zcm::TranscoderPlugin
 {
   private:
     zcm::LogEvent newEvt = {};
-    char* newData;
+    uint8_t* newData;
 
   public:
     static zcm::TranscoderPlugin* makeTranscoderPlugin();
@@ -69,7 +69,7 @@ CustomTranscoderPlugin::transcodeEvent(int64_t hash, const zcm::LogEvent* evt)
 
     int size = e2.getEncodedSize();
     delete newData;
-    newData = new char[size];
+    newData = new uint8_t[size];
     size = e2.encode(newData, 0, size);
 
     newEvt.timestamp = evt->timestamp;
