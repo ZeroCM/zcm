@@ -293,6 +293,7 @@ int zcm_try_stop(zcm_t* zcm)
 #else
     assert(0 && "the blocking api is not supported");
 #endif
+    return ZCM_EINVALID;
 }
 
 void zcm_run(zcm_t* zcm)
