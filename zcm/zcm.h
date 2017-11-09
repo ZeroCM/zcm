@@ -100,12 +100,12 @@ zcm_sub_t* zcm_subscribe(zcm_t* zcm, const char* channel, zcm_msg_handler_t cb, 
 zcm_sub_t* zcm_try_subscribe(zcm_t* zcm, const char* channel, zcm_msg_handler_t cb, void* usr);
 
 /* Unsubscribe to zcm messages, freeing the subscription object
-   Returns 0 on success, and -1 on failure
+   Returns ZCM_EOK on success, error code on failure
    Does NOT set zcm errno on failure */
 int zcm_unsubscribe(zcm_t* zcm, zcm_sub_t* sub);
 
 /* Unsubscribe to zcm messages, freeing the subscription object
-   Returns 0 on success, and -1 on failure
+   Returns ZCM_EOK on success, error code on failure
    Can fail to subscribe if zcm is already running
    Does NOT set zcm errno on failure */
 int zcm_try_unsubscribe(zcm_t* zcm, zcm_sub_t* sub);
@@ -113,7 +113,7 @@ int zcm_try_unsubscribe(zcm_t* zcm, zcm_sub_t* sub);
 /* Publish a zcm message buffer. Note: the message may not be completely
    sent after this call has returned. To block until the messages are transmitted,
    call the zcm_flush() method.
-   Returns 0 on success, and -1 on failure
+   Returns 0 on success, error code on failure
    Sets zcm errno on failure */
 int zcm_publish(zcm_t* zcm, const char* channel, const uint8_t* data, uint32_t len);
 
@@ -128,7 +128,8 @@ void zcm_flush(zcm_t* zcm);
 void zcm_run(zcm_t* zcm);
 void zcm_start(zcm_t* zcm);
 void zcm_stop(zcm_t* zcm);
-void zcm_pause(zcm_t* zcm); /* pauses message dispatch, not transport */
+int  zcm_try_stop(zcm_t* zcm); /* returns 0 on success, error code on failure */
+void zcm_pause(zcm_t* zcm); /* pauses message dispatch and publishing, not transport */
 void zcm_resume(zcm_t* zcm);
 int  zcm_handle(zcm_t* zcm); /* returns 0 normally, and -1 when an error occurs. */
 /* Determines how many messages can be stored from the transport without being dispatched.

@@ -43,6 +43,9 @@ void sendMessages()
 
 int main(int argc, char *argv[])
 {
+    bool block = true;
+    if (argc > 1 && strcmp(argv[1], "-n") == 0) block = false;
+
     zcm::ZCM zcm {""};
     if (!zcm.good()) return 1;
 
@@ -71,8 +74,17 @@ int main(int argc, char *argv[])
 
     usleep(1e6 * 1);
 
-    printf("\nStopping\n");
-    zcm.stop();
+    if (block) {
+        printf("\nStopping\n");
+        zcm.stop();
+    } else {
+        printf("\nTrying to Stop ");
+        while (zcm.try_stop() != ZCM_EOK) {
+            printf(".");
+            usleep(1000);
+        }
+        printf("\n");
+    }
 
     running = false;
     sendThread.join();

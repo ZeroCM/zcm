@@ -452,7 +452,7 @@ int zcm_blocking_t::unsubscribe(zcm_sub_t* sub, bool block)
         lk1.lock();
         lk2.lock();
     } else if (!lk1.try_lock() || !lk2.try_lock()) {
-        return -2;
+        return ZCM_EAGAIN;
     }
 
     bool success = true;
@@ -462,7 +462,7 @@ int zcm_blocking_t::unsubscribe(zcm_sub_t* sub, bool block)
         auto it = subs.find(sub->channel);
         if (it == subs.end()) {
             ZCM_DEBUG("failed to find the subscription channel in unsubscribe()");
-            return -1;
+            return ZCM_EINVALID;
         }
 
         SubList& slist = it->second;
@@ -471,7 +471,7 @@ int zcm_blocking_t::unsubscribe(zcm_sub_t* sub, bool block)
 
     if (!success) {
         ZCM_DEBUG("failed to find the subscription entry in unsubscribe()");
-        return -1;
+        return ZCM_EINVALID;
     }
 
     return 0;
@@ -490,13 +490,13 @@ void zcm_blocking_t::flush()
 
     size_t n;
 
-    recvQueue.enable();
-    n = recvQueue.numMessages();
-    for (size_t i = 0; i < n; ++i) dispatchOneMessage();
-
     sendQueue.enable();
     n = sendQueue.numMessages();
     for (size_t i = 0; i < n; ++i) sendOneMessage();
+
+    recvQueue.enable();
+    n = recvQueue.numMessages();
+    for (size_t i = 0; i < n; ++i) dispatchOneMessage();
 
     paused = prevPauseState;
 }
@@ -752,6 +752,11 @@ void zcm_blocking_resume(zcm_blocking_t* zcm)
 void zcm_blocking_stop(zcm_blocking_t* zcm)
 {
     zcm->stop(true);
+}
+
+int  zcm_blocking_try_stop(zcm_blocking_t* zcm)
+{
+    return zcm->stop(false);
 }
 
 int zcm_blocking_handle(zcm_blocking_t* zcm)

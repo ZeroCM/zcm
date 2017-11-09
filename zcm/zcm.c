@@ -181,7 +181,7 @@ int zcm_publish(zcm_t* zcm, const char* channel, const uint8_t* data, uint32_t l
     switch (zcm->type) {
         case ZCM_BLOCKING: {
             zcm->err = zcm_blocking_publish(zcm->impl, channel, data, len);
-            return zcm->err == 0 ? 0 : -1;
+            return zcm->err;
         } break;
         case ZCM_NONBLOCKING: return zcm_nonblocking_publish(zcm->impl, channel, data, len); break;
     }
@@ -277,6 +277,18 @@ void zcm_stop(zcm_t* zcm)
     switch (zcm->type) {
         case ZCM_BLOCKING:    return zcm_blocking_stop(zcm->impl); break;
         case ZCM_NONBLOCKING: assert(0 && "Cannot stop() on a nonblocking ZCM interface"); break;
+    }
+#else
+    assert(0 && "the blocking api is not supported");
+#endif
+}
+
+int zcm_try_stop(zcm_t* zcm)
+{
+#ifndef ZCM_EMBEDDED
+    switch (zcm->type) {
+        case ZCM_BLOCKING:    return zcm_blocking_try_stop(zcm->impl); break;
+        case ZCM_NONBLOCKING: assert(0 && "Cannot try_stop() on a nonblocking ZCM interface"); break;
     }
 #else
     assert(0 && "the blocking api is not supported");
