@@ -54,7 +54,7 @@ class ThreadsafeQueue
     {
         std::unique_lock<std::mutex> lk(mut);
         cond.wait(lk, [&](){ return disabled || queue.hasFreeSpace(); });
-        if (disabled) return false;
+        if (!queue.hasFreeSpace()) return false;
 
         queue.push(std::forward<Args>(args)...);
         cond.notify_all();
@@ -102,6 +102,8 @@ class ThreadsafeQueue
         cond.wait(lk, [&](){ return disabled || !queue.hasMessage(); });
     }
 
+    // Forcefully wakes up top() and push(). top() *will not* return a message from
+    // the queue, even if one exists. push() *will* push the message if there is room.
     void disable()
     {
         std::unique_lock<std::mutex> lk(mut);

@@ -1,15 +1,16 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <string>
+#include <atomic>
 #include <thread>
 #include <zcm/zcm-cpp.hpp>
 #include "types/example_t.hpp"
 using namespace std;
 
-static const uint16_t hz = 5;
+static const uint16_t hz = 25;
 static const char *CHANNEL = "EXAMPLE";
 
-static bool running = true;
+static atomic<bool> running {true};
 
 class Handler
 {
@@ -25,8 +26,11 @@ class Handler
         }
 };
 
-void sendMessages(zcm::ZCM& zcm)
+void sendMessages()
 {
+    zcm::ZCM zcm {""};
+    if (!zcm.good()) return;
+
     example_t msg {};
     msg.timestamp = 0;
 
@@ -40,34 +44,34 @@ void sendMessages(zcm::ZCM& zcm)
 int main(int argc, char *argv[])
 {
     zcm::ZCM zcm {""};
-    if (!zcm.good())
-        return 1;
+    if (!zcm.good()) return 1;
 
     Handler handler;
     zcm.subscribe(CHANNEL, &Handler::handleMessage, &handler);
 
     zcm.setRecvQueueSize(64);
 
-    thread sendThread(&sendMessages, ref(zcm));
+    thread sendThread(&sendMessages);
 
     zcm.start();
 
-    usleep(1e6 * 5);
+    usleep(1e6 * 1);
 
     printf("\nPausing\n");
     zcm.pause();
 
-    usleep(1e6 * 5);
+    usleep(1e6 * 1);
     printf("\nFlushing\n");
     zcm.flush();
 
-    usleep(1e6 * 5);
+    usleep(1e6 * 1);
 
     printf("\nResuming\n");
     zcm.resume();
 
-    usleep(1e6 * 2);
+    usleep(1e6 * 1);
 
+    printf("\nStopping\n");
     zcm.stop();
 
     running = false;

@@ -5,7 +5,7 @@
 #include <zcm/transport_registrar.h>
 #include "types/example_t.h"
 
-#define HZ 10
+#define HZ 1000
 //#define NRANGES 10000
 #define NRANGES 100
 

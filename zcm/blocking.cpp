@@ -107,12 +107,15 @@ struct zcm_blocking
     void handleThreadFunc();
 
     void dispatchMsg(zcm_msg_t* msg);
-    int handleOneMessage();
+    bool dispatchOneMessage();
+    bool sendOneMessage();
+
+    // Mutexes protecting the ...OneMessage() functions
+    mutex dispatchMutex;
+    mutex sendMutex;
 
     bool deleteSubEntry(zcm_sub_t* sub, size_t nentriesleft);
     bool deleteFromSubList(SubList& slist, zcm_sub_t* sub);
-
-  private:
 
     zcm_t* z;
     zcm_trans_t* zt;
@@ -123,8 +126,8 @@ struct zcm_blocking
     // These 2 mutexes used to implement a read-write style infrastructure on the subscription
     // lists. Both the recvThread and the message dispatch may read the subscriptions
     // concurrently, but subscribe() and unsubscribe() need both locks in order to write to it.
-    mutex              subDispatchMutex;
-    mutex              subRecvMutex;
+    mutex subDispatchMutex;
+    mutex subRecvMutex;
 
     static constexpr size_t QUEUE_SIZE = 16;
     ThreadsafeQueue<Msg> sendQueue {QUEUE_SIZE};
@@ -150,22 +153,21 @@ struct zcm_blocking
     SendMode_t sendMode {SEND_MODE_STOPPED}; // operates on the sendQueue
 
     // These mutexes protects read and write access to the mode flags
-    mutex              recvModeMutex;
-    mutex              sendModeMutex;
+    mutex recvModeMutex;
+    mutex sendModeMutex;
 
     bool recvRunning   {false}; // operates on the recvQueue
     bool handleRunning {false}; // operates on the recvQueue
 
     // These mutexes are used around blocks of code in which you change the value of
     // any of the ...Running flags
-    mutex              recvMutex;
-    mutex              handleMutex;
+    mutex recvMutex;
+    mutex handleMutex;
+
     // Flag and condition variable used to pause the handleThread (use handleMutex)
+    // and sendThread (use sendModeMutex)
     bool               paused {false};
     condition_variable pauseCond;
-
-    // Mutex protecting message dispatch (through the handleOne() func)
-    mutex              dispatchMutex;
 };
 
 zcm_blocking_t::zcm_blocking(zcm_t* z, zcm_trans_t* zt_)
@@ -301,19 +303,20 @@ int zcm_blocking_t::handle()
     }
 
     unique_lock<mutex> lk(dispatchMutex);
-    return handleOneMessage();
+    return dispatchOneMessage();
 }
 
 void zcm_blocking_t::pause()
 {
-    unique_lock<mutex> lk(handleMutex);
+    unique_lock<mutex> lk1(handleMutex);
+    unique_lock<mutex> lk2(sendModeMutex);
     paused = true;
-    pauseCond.notify_all();
 }
 
 void zcm_blocking_t::resume()
 {
-    unique_lock<mutex> lk(handleMutex);
+    unique_lock<mutex> lk1(handleMutex);
+    unique_lock<mutex> lk2(sendModeMutex);
     paused = false;
     pauseCond.notify_all();
 }
@@ -430,17 +433,26 @@ int zcm_blocking_t::unsubscribe(zcm_sub_t* sub, bool block)
 
 void zcm_blocking_t::flush()
 {
-    {
-        unique_lock<mutex> lk(dispatchMutex);
-        size_t n = recvQueue.numMessages();
-        for (size_t i = 0; i < n; ++i) handleOneMessage();
-    }
-    {
-        // RRR: this won't prevent additional publishes anymore because we changed where pubMutex
-        //      is used. Currently, this will block until all messages (including ones published
-        //      after this function was called) are sent on the transport.
-        sendQueue.waitForEmpty();
-    }
+    recvQueue.disable();
+    sendQueue.disable();
+
+    unique_lock<mutex> lk1(handleMutex);
+    unique_lock<mutex> lk2(sendModeMutex);
+
+    bool prevPauseState = paused;
+    paused = true;
+
+    size_t n;
+
+    recvQueue.enable();
+    n = recvQueue.numMessages();
+    for (size_t i = 0; i < n; ++i) dispatchOneMessage();
+
+    sendQueue.enable();
+    n = sendQueue.numMessages();
+    for (size_t i = 0; i < n; ++i) sendOneMessage();
+
+    paused = prevPauseState;
 }
 
 void zcm_blocking_t::setRecvQueueSize(uint32_t numMsgs)
@@ -453,17 +465,11 @@ void zcm_blocking_t::sendThreadFunc()
     while (true) {
         {
             unique_lock<mutex> lk(sendModeMutex);
+            pauseCond.wait(lk, [&]{ return !paused || (sendMode == SEND_MODE_HALT); });
             if (sendMode == SEND_MODE_HALT) break;
         }
-        Msg* m = sendQueue.top();
-        // If the Queue was forcibly woken-up, recheck the
-        // running condition, and then retry.
-        if (m == nullptr) continue;
-
-        zcm_msg_t* msg = m->get();
-        int ret = zcm_trans_sendmsg(zt,* msg);
-        if (ret != ZCM_EOK) ZCM_DEBUG("zcm_trans_sendmsg() returned error, dropping the msg!");
-        sendQueue.pop();
+        unique_lock<mutex> lk(sendMutex);
+        sendOneMessage();
     }
 }
 
@@ -522,7 +528,7 @@ void zcm_blocking_t::handleThreadFunc()
             if (!handleRunning) break;
         }
         unique_lock<mutex> lk(dispatchMutex);
-        handleOneMessage();
+        dispatchOneMessage();
     }
 
     {
@@ -530,6 +536,7 @@ void zcm_blocking_t::handleThreadFunc()
         unique_lock<mutex> lk(recvMutex);
         recvRunning = false;
         recvQueue.disable();
+        lk.unlock();
         recvThread.join();
     }
 }
@@ -567,16 +574,30 @@ void zcm_blocking_t::dispatchMsg(zcm_msg_t* msg)
     }
 }
 
-int zcm_blocking_t::handleOneMessage()
+bool zcm_blocking_t::dispatchOneMessage()
 {
     Msg* m = recvQueue.top();
     // If the Queue was forcibly woken-up, recheck the
     // running condition, and then retry.
-    if (m == nullptr) return -1;
+    if (m == nullptr) return false;
 
     dispatchMsg(m->get());
     recvQueue.pop();
-    return 0;
+    return true;
+}
+
+bool zcm_blocking_t::sendOneMessage()
+{
+    Msg* m = sendQueue.top();
+    // If the Queue was forcibly woken-up, recheck the
+    // running condition, and then retry.
+    if (m == nullptr) return false;
+
+    zcm_msg_t* msg = m->get();
+    int ret = zcm_trans_sendmsg(zt, *msg);
+    if (ret != ZCM_EOK) ZCM_DEBUG("zcm_trans_sendmsg() returned error, dropping the msg!");
+    sendQueue.pop();
+    return true;
 }
 
 bool zcm_blocking_t::deleteSubEntry(zcm_sub_t* sub, size_t nentriesleft)
