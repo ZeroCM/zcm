@@ -88,7 +88,7 @@ struct zcm_blocking
 
     void run();
     void start();
-    void stop();
+    int stop(bool block);
     int handle();
 
     void pause();
@@ -104,15 +104,15 @@ struct zcm_blocking
   private:
     void sendThreadFunc();
     void recvThreadFunc();
-    void handleThreadFunc();
+    void hndlThreadFunc();
 
     void dispatchMsg(zcm_msg_t* msg);
     bool dispatchOneMessage();
     bool sendOneMessage();
 
     // Mutexes protecting the ...OneMessage() functions
-    mutex dispatchMutex;
-    mutex sendMutex;
+    mutex dispOneMutex;
+    mutex sendOneMutex;
 
     bool deleteSubEntry(zcm_sub_t* sub, size_t nentriesleft);
     bool deleteFromSubList(SubList& slist, zcm_sub_t* sub);
@@ -126,16 +126,12 @@ struct zcm_blocking
     // These 2 mutexes used to implement a read-write style infrastructure on the subscription
     // lists. Both the recvThread and the message dispatch may read the subscriptions
     // concurrently, but subscribe() and unsubscribe() need both locks in order to write to it.
-    mutex subDispatchMutex;
+    mutex subDispMutex;
     mutex subRecvMutex;
 
     static constexpr size_t QUEUE_SIZE = 16;
     ThreadsafeQueue<Msg> sendQueue {QUEUE_SIZE};
     ThreadsafeQueue<Msg> recvQueue {QUEUE_SIZE};
-
-    thread sendThread;
-    thread recvThread;
-    thread handleThread;
 
     typedef enum {
         RECV_MODE_NONE = 0,
@@ -145,27 +141,31 @@ struct zcm_blocking
     } RecvMode_t;
     RecvMode_t recvMode {RECV_MODE_NONE};
 
-    typedef enum {
-        SEND_MODE_STOPPED = 0,
-        SEND_MODE_RUNNING,
-        SEND_MODE_HALT,
-    } SendMode_t;
-    SendMode_t sendMode {SEND_MODE_STOPPED}; // operates on the sendQueue
-
-    // These mutexes protects read and write access to the mode flags
+    // This mutex protects read and write access to the recv mode flag
     mutex recvModeMutex;
-    mutex sendModeMutex;
 
-    bool recvRunning   {false}; // operates on the recvQueue
-    bool handleRunning {false}; // operates on the recvQueue
+    thread sendThread;
+    thread recvThread;
+    thread hndlThread;
 
-    // These mutexes are used around blocks of code in which you change the value of
-    // any of the ...Running flags
-    mutex recvMutex;
-    mutex handleMutex;
+    typedef enum {
+        THREAD_STATE_STOPPED = 0,
+        THREAD_STATE_RUNNING,
+        THREAD_STATE_HALTING,
+        THREAD_STATE_HALTED,
+    } ThreadState_t;
 
-    // Flag and condition variable used to pause the handleThread (use handleMutex)
-    // and sendThread (use sendModeMutex)
+    ThreadState_t sendThreadState {THREAD_STATE_STOPPED};
+    ThreadState_t recvThreadState {THREAD_STATE_STOPPED};
+    ThreadState_t hndlThreadState {THREAD_STATE_STOPPED};
+
+    // These mutexes protect read and write access to the ThreadState flags
+    mutex sendStateMutex;
+    mutex recvStateMutex;
+    mutex hndlStateMutex;
+
+    // Flag and condition variable used to pause the hndlThread (use hndlStateMutex)
+    // and sendThread (use sendStateMutex)
     bool               paused {false};
     condition_variable pauseCond;
 };
@@ -179,7 +179,7 @@ zcm_blocking_t::zcm_blocking(zcm_t* z, zcm_trans_t* zt_)
 zcm_blocking_t::~zcm_blocking()
 {
     // Shutdown all threads
-    stop();
+    stop(true);
 
     // Destroy the transport
     zcm_trans_destroy(zt);
@@ -208,11 +208,11 @@ void zcm_blocking_t::run()
 
     // Run it!
     {
-        unique_lock<mutex> lk2(handleMutex);
-        handleRunning = true;
+        unique_lock<mutex> lk2(hndlStateMutex);
+        hndlThreadState = THREAD_STATE_RUNNING;
         recvQueue.enable();
     }
-    handleThreadFunc();
+    hndlThreadFunc();
 
     // Restore the "non-running" state
     lk1.lock();
@@ -230,54 +230,100 @@ void zcm_blocking_t::start()
     recvMode = RECV_MODE_SPAWN;
     lk1.unlock();
 
-    unique_lock<mutex> lk2(handleMutex);
-    // Start the handle thread
-    handleRunning = true;
+    unique_lock<mutex> lk2(hndlStateMutex);
+    // Start the hndl thread
+    hndlThreadState = THREAD_STATE_RUNNING;
     recvQueue.enable();
-    handleThread = thread{&zcm_blocking::handleThreadFunc, this};
+    hndlThread = thread{&zcm_blocking::hndlThreadFunc, this};
 }
 
-void zcm_blocking_t::stop()
+int zcm_blocking_t::stop(bool block)
 {
     unique_lock<mutex> lk1(recvModeMutex);
 
-    // Shutdown recv and handle threads
+    // Shutdown recv and hndl threads
     if (recvMode == RECV_MODE_RUN || recvMode == RECV_MODE_SPAWN) {
-        unique_lock<mutex> lk2(handleMutex);
-        if (handleRunning) {
-            handleRunning = false;
+        unique_lock<mutex> lk2(hndlStateMutex);
+        if (hndlThreadState == THREAD_STATE_RUNNING) {
+            hndlThreadState = THREAD_STATE_HALTING;
             recvQueue.disable();
             pauseCond.notify_all();
             lk2.unlock();
-            if (recvMode == RECV_MODE_SPAWN) handleThread.join();
+            if (block && recvMode == RECV_MODE_SPAWN) {
+                hndlThread.join();
+                lk2.lock();
+                hndlThreadState = THREAD_STATE_STOPPED;
+            }
         }
 
     // Shutdown recv thread
     } else if (recvMode == RECV_MODE_HANDLE) {
-        unique_lock<mutex> lk2(recvMutex);
-        if (recvRunning) {
-            recvRunning = false;
+        unique_lock<mutex> lk2(recvStateMutex);
+        if (recvThreadState == THREAD_STATE_RUNNING) {
+            recvThreadState = THREAD_STATE_HALTING;
             recvQueue.disable();
             lk2.unlock();
-            recvThread.join();
+            if (block) {
+                recvThread.join();
+                lk2.lock();
+                recvThreadState = THREAD_STATE_STOPPED;
+            }
         }
     }
 
     // Shutdown send thread
     {
-        unique_lock<mutex> lk2(sendModeMutex);
-        if (sendMode == SEND_MODE_RUNNING) {
-            sendMode = SEND_MODE_HALT;
+        unique_lock<mutex> lk2(sendStateMutex);
+        if (sendThreadState == THREAD_STATE_RUNNING) {
+            sendThreadState = THREAD_STATE_HALTING;
             sendQueue.disable();
             lk2.unlock();
-            sendThread.join();
-            lk2.lock();
-            sendMode = SEND_MODE_STOPPED;
+            if (block) {
+                sendThread.join();
+                lk2.lock();
+                sendThreadState = THREAD_STATE_STOPPED;
+            }
+        }
+    }
+
+    if (!block) {
+        switch (recvMode) {
+            case RECV_MODE_SPAWN:
+                {
+                    unique_lock<mutex> lk2(hndlStateMutex);
+                    if (hndlThreadState == THREAD_STATE_HALTING) return ZCM_EAGAIN;
+                    if (hndlThreadState == THREAD_STATE_HALTED) {
+                        hndlThread.join();
+                        hndlThreadState = THREAD_STATE_STOPPED;
+                    }
+                }
+                break;
+            case RECV_MODE_HANDLE:
+                {
+                    unique_lock<mutex> lk2(recvStateMutex);
+                    if (recvThreadState == THREAD_STATE_HALTING) return ZCM_EAGAIN;
+                    if (recvThreadState == THREAD_STATE_HALTED) {
+                        recvThread.join();
+                        recvThreadState = THREAD_STATE_STOPPED;
+                    }
+                }
+                break;
+            default: break;
+        }
+
+        if (sendThreadState == THREAD_STATE_HALTING) {
+            unique_lock<mutex> lk2(sendStateMutex);
+            if (sendThreadState == THREAD_STATE_HALTING) return ZCM_EAGAIN;
+            if (sendThreadState == THREAD_STATE_HALTED) {
+                sendThread.join();
+                sendThreadState = THREAD_STATE_STOPPED;
+            }
         }
     }
 
     // Restore the "non-running" state
     recvMode = RECV_MODE_NONE;
+    return ZCM_EOK;
 }
 
 int zcm_blocking_t::handle()
@@ -294,29 +340,29 @@ int zcm_blocking_t::handle()
             recvMode = RECV_MODE_HANDLE;
             lk1.unlock();
 
-            unique_lock<mutex> lk2(recvMutex);
+            unique_lock<mutex> lk2(recvStateMutex);
             // Spawn the recv thread
-            recvRunning = true;
+            recvThreadState = THREAD_STATE_RUNNING;
             recvQueue.enable();
             recvThread = thread{&zcm_blocking::recvThreadFunc, this};
         }
     }
 
-    unique_lock<mutex> lk(dispatchMutex);
+    unique_lock<mutex> lk(dispOneMutex);
     return dispatchOneMessage();
 }
 
 void zcm_blocking_t::pause()
 {
-    unique_lock<mutex> lk1(handleMutex);
-    unique_lock<mutex> lk2(sendModeMutex);
+    unique_lock<mutex> lk1(hndlStateMutex);
+    unique_lock<mutex> lk2(sendStateMutex);
     paused = true;
 }
 
 void zcm_blocking_t::resume()
 {
-    unique_lock<mutex> lk1(handleMutex);
-    unique_lock<mutex> lk2(sendModeMutex);
+    unique_lock<mutex> lk1(hndlStateMutex);
+    unique_lock<mutex> lk2(sendStateMutex);
     paused = false;
     pauseCond.notify_all();
 }
@@ -332,9 +378,9 @@ int zcm_blocking_t::publish(const string& channel, const uint8_t* data, uint32_t
 
     // If needed: spawn the send thread
     {
-        unique_lock<mutex> lk(sendModeMutex);
-        if (sendMode == SEND_MODE_STOPPED) {
-            sendMode = SEND_MODE_RUNNING;
+        unique_lock<mutex> lk(sendStateMutex);
+        if (sendThreadState == THREAD_STATE_STOPPED) {
+            sendThreadState = THREAD_STATE_RUNNING;
             sendThread = thread{&zcm_blocking::sendThreadFunc, this};
         }
     }
@@ -351,8 +397,8 @@ zcm_sub_t* zcm_blocking_t::subscribe(const string& channel,
                                      zcm_msg_handler_t cb, void* usr,
                                      bool block)
 {
-    unique_lock<mutex> lk1(subDispatchMutex, std::defer_lock);
-    unique_lock<mutex> lk2(subRecvMutex,     std::defer_lock);
+    unique_lock<mutex> lk1(subDispMutex, std::defer_lock);
+    unique_lock<mutex> lk2(subRecvMutex, std::defer_lock);
     if (block) {
         lk1.lock();
         lk2.lock();
@@ -400,8 +446,8 @@ zcm_sub_t* zcm_blocking_t::subscribe(const string& channel,
 // on modifying and reading the 'subs' and 'subRegex' containers
 int zcm_blocking_t::unsubscribe(zcm_sub_t* sub, bool block)
 {
-    unique_lock<mutex> lk1(subDispatchMutex, std::defer_lock);
-    unique_lock<mutex> lk2(subRecvMutex,     std::defer_lock);
+    unique_lock<mutex> lk1(subDispMutex, std::defer_lock);
+    unique_lock<mutex> lk2(subRecvMutex, std::defer_lock);
     if (block) {
         lk1.lock();
         lk2.lock();
@@ -436,8 +482,8 @@ void zcm_blocking_t::flush()
     recvQueue.disable();
     sendQueue.disable();
 
-    unique_lock<mutex> lk1(handleMutex);
-    unique_lock<mutex> lk2(sendModeMutex);
+    unique_lock<mutex> lk1(hndlStateMutex);
+    unique_lock<mutex> lk2(sendStateMutex);
 
     bool prevPauseState = paused;
     paused = true;
@@ -464,21 +510,24 @@ void zcm_blocking_t::sendThreadFunc()
 {
     while (true) {
         {
-            unique_lock<mutex> lk(sendModeMutex);
-            pauseCond.wait(lk, [&]{ return !paused || (sendMode == SEND_MODE_HALT); });
-            if (sendMode == SEND_MODE_HALT) break;
+            unique_lock<mutex> lk(sendStateMutex);
+            pauseCond.wait(lk, [&]{ return !paused || sendThreadState == THREAD_STATE_HALTING; });
+            if (sendThreadState == THREAD_STATE_HALTING) break;
         }
-        unique_lock<mutex> lk(sendMutex);
+        unique_lock<mutex> lk(sendOneMutex);
         sendOneMessage();
     }
+
+    unique_lock<mutex> lk(sendStateMutex);
+    sendThreadState = THREAD_STATE_HALTED;
 }
 
 void zcm_blocking_t::recvThreadFunc()
 {
     while (true) {
         {
-            unique_lock<mutex> lk(recvMutex);
-            if (!recvRunning) break;
+            unique_lock<mutex> lk(recvStateMutex);
+            if (recvThreadState == THREAD_STATE_HALTING) break;
         }
         zcm_msg_t msg;
         int rc = zcm_trans_recvmsg(zt, &msg, RECV_TIMEOUT);
@@ -509,36 +558,41 @@ void zcm_blocking_t::recvThreadFunc()
             recvQueue.push(&msg);
         }
     }
+    unique_lock<mutex> lk(recvStateMutex);
+    recvThreadState = THREAD_STATE_HALTED;
 }
 
-void zcm_blocking_t::handleThreadFunc()
+void zcm_blocking_t::hndlThreadFunc()
 {
     {
         // Spawn the recv thread
-        unique_lock<mutex> lk(recvMutex);
-        recvRunning = true;
+        unique_lock<mutex> lk(recvStateMutex);
+        recvThreadState = THREAD_STATE_RUNNING;
         recvThread = thread{&zcm_blocking::recvThreadFunc, this};
     }
 
     // Become the handle thread
     while (true) {
         {
-            unique_lock<mutex> lk(handleMutex);
-            pauseCond.wait(lk, [&]{ return !paused || !handleRunning; });
-            if (!handleRunning) break;
+            unique_lock<mutex> lk(hndlStateMutex);
+            pauseCond.wait(lk, [&]{ return !paused || hndlThreadState == THREAD_STATE_HALTING; });
+            if (hndlThreadState == THREAD_STATE_HALTING) break;
         }
-        unique_lock<mutex> lk(dispatchMutex);
+        unique_lock<mutex> lk(dispOneMutex);
         dispatchOneMessage();
     }
 
     {
         // Shutdown recv thread
-        unique_lock<mutex> lk(recvMutex);
-        recvRunning = false;
+        unique_lock<mutex> lk(recvStateMutex);
+        recvThreadState = THREAD_STATE_HALTING;
         recvQueue.disable();
         lk.unlock();
         recvThread.join();
     }
+
+    unique_lock<mutex> lk(hndlStateMutex);
+    hndlThreadState = THREAD_STATE_HALTED;
 }
 
 void zcm_blocking_t::dispatchMsg(zcm_msg_t* msg)
@@ -554,7 +608,7 @@ void zcm_blocking_t::dispatchMsg(zcm_msg_t* msg)
     // This means users cannot call zcm_subscribe or
     // zcm_unsubscribe from a callback without deadlocking.
     {
-        unique_lock<mutex> lk(subDispatchMutex);
+        unique_lock<mutex> lk(subDispMutex);
 
         // dispatch to a non regex channel
         auto it = subs.find(msg->channel);
@@ -672,32 +726,32 @@ int zcm_blocking_try_unsubscribe(zcm_blocking_t* zcm, zcm_sub_t* sub)
 
 void zcm_blocking_flush(zcm_blocking_t* zcm)
 {
-    zcm->flush();
+    return zcm->flush();
 }
 
 void zcm_blocking_run(zcm_blocking_t* zcm)
 {
-    zcm->run();
+    return zcm->run();
 }
 
 void zcm_blocking_start(zcm_blocking_t* zcm)
 {
-    zcm->start();
+    return zcm->start();
 }
 
 void zcm_blocking_pause(zcm_blocking_t* zcm)
 {
-    zcm->pause();
+    return zcm->pause();
 }
 
 void zcm_blocking_resume(zcm_blocking_t* zcm)
 {
-    zcm->resume();
+    return zcm->resume();
 }
 
 void zcm_blocking_stop(zcm_blocking_t* zcm)
 {
-    zcm->stop();
+    zcm->stop(true);
 }
 
 int zcm_blocking_handle(zcm_blocking_t* zcm)
