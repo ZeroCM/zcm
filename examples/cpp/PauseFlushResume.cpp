@@ -52,7 +52,7 @@ int main(int argc, char *argv[])
     Handler handler;
     zcm.subscribe(CHANNEL, &Handler::handleMessage, &handler);
 
-    zcm.setRecvQueueSize(64);
+    zcm.setQueueSize(64);
 
     thread sendThread(&sendMessages);
 

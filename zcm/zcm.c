@@ -345,13 +345,13 @@ int zcm_handle(zcm_t* zcm)
     return -1;
 }
 
-void zcm_set_recv_queue_size(zcm_t* zcm, uint32_t numMsgs)
+void zcm_set_queue_size(zcm_t* zcm, uint32_t numMsgs)
 {
 #ifndef ZCM_EMBEDDED
     switch (zcm->type) {
-        case ZCM_BLOCKING:    return zcm_blocking_set_recv_queue_size(zcm->impl, numMsgs); break;
+        case ZCM_BLOCKING:    return zcm_blocking_set_queue_size(zcm->impl, numMsgs); break;
         case ZCM_NONBLOCKING:
-            assert(0 && "Cannot set_recv_queue_size() on a nonblocking ZCM interface"); break;
+            assert(0 && "Cannot set_queue_size() on a nonblocking ZCM interface"); break;
     }
 #else
     assert(0 && "the blocking api is not supported");

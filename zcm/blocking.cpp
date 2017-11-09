@@ -99,7 +99,7 @@ struct zcm_blocking
     int unsubscribe(zcm_sub_t* sub, bool block);
     void flush();
 
-    void setRecvQueueSize(uint32_t numMsgs);
+    void setQueueSize(uint32_t numMsgs);
 
   private:
     void sendThreadFunc();
@@ -501,8 +501,9 @@ void zcm_blocking_t::flush()
     paused = prevPauseState;
 }
 
-void zcm_blocking_t::setRecvQueueSize(uint32_t numMsgs)
+void zcm_blocking_t::setQueueSize(uint32_t numMsgs)
 {
+    sendQueue.resize(numMsgs);
     recvQueue.resize(numMsgs);
 }
 
@@ -764,9 +765,9 @@ int zcm_blocking_handle(zcm_blocking_t* zcm)
     return zcm->handle();
 }
 
-void zcm_blocking_set_recv_queue_size(zcm_blocking_t* zcm, uint32_t sz)
+void zcm_blocking_set_queue_size(zcm_blocking_t* zcm, uint32_t sz)
 {
-    return zcm->setRecvQueueSize(sz);
+    return zcm->setQueueSize(sz);
 }
 
 }

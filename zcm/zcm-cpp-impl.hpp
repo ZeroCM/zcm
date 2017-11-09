@@ -108,9 +108,9 @@ inline void ZCM::flush()
     return zcm_flush(zcm);
 }
 
-inline void ZCM::setRecvQueueSize(uint32_t sz)
+inline void ZCM::setQueueSize(uint32_t sz)
 {
-    return zcm_set_recv_queue_size(zcm, sz);
+    return zcm_set_queue_size(zcm, sz);
 }
 
 inline int ZCM::publish(const std::string& channel, const uint8_t* data, uint32_t len)
