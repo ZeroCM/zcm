@@ -1,0 +1,4 @@
+package foo;
+struct t1 {
+	foo.t2 x;
+}

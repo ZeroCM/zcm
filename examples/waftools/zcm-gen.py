@@ -135,7 +135,19 @@ def outFileName(ctx, inp, lang, absPath=False):
     if lang == 'python':
         return defaultOutFileName(fileparts, absPath).replace('.zcm', '.py')
     if lang == 'julia':
-        return defaultOutFileName(fileparts, absPath).replace('.zcm', '.jl')
+        print "fileparts: ", fileparts
+        print "absPath: ", absPath
+        folder, package, zcmfile, sourcedir = fileparts
+        jlfile = zcmfile.replace('.zcm', '.jl')
+        if package != "":
+            jlfile = '_'.join(package.split('.')) + '_' + jlfile
+        # prepend an underscore to distinguish the type from the module
+        jlfile = '_' + jlfile
+        # Only the top-level package corresponds to a subfolder
+        package = "".join(package.split('.')[:1])
+        fileparts = [folder, package, jlfile, sourcedir]
+        print "outfile: ", defaultOutFileName(fileparts, absPath)
+        return defaultOutFileName(fileparts, absPath)
 
     raise WafError('This should not be possible')
 

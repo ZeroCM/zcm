@@ -1,0 +1,5 @@
+package foo.bar;
+struct t3 {
+	foo.t1 x;
+	unpackaged_t y;
+}

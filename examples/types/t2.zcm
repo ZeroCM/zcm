@@ -1,0 +1,4 @@
+package foo;
+struct t2 {
+	int64_t x;
+}
