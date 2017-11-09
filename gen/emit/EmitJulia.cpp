@@ -637,6 +637,11 @@ struct JlEmitPack : public Emitter
 
         FILE *moduleJlFp = nullptr;
         if (havePackage) {
+            // If we are inside a package, then we need to generate a single
+            // Julia file containing the top-level module and any submodules
+
+            // For a type foo.bar.baz.t1, we will put the module file in 
+            // foo.jl 
             vector<string> moduleJlFnameParts;
             moduleJlFnameParts.push_back(packageDirPrefix);
             moduleJlFnameParts.push_back(pdname + ".jl");
@@ -646,11 +651,16 @@ struct JlEmitPack : public Emitter
                 moduleJlFp = nullptr;
             }
             if (FileUtil::exists(moduleJlFname)) {
+                // If the module exists already, then we need to parse it and
+                // extract any existing sub-modules and types contained in the
+                // module. We'll include those entries in the final generated
+                // module file. 
                 moduleJlFp = fopen(moduleJlFname.c_str(), "r");
                 if (!moduleJlFp) {
                     perror("fopen");
                     return -1;
                 }
+                // Read chunks of the existing file line by line
                 while(!feof(moduleJlFp)) {
                     char buf[4096];
                     memset(buf, 0, sizeof(buf));
@@ -659,6 +669,8 @@ struct JlEmitPack : public Emitter
                         break;
                     auto words = StringUtil::split(StringUtil::strip(buf), ' ');
                     if (words.size() >= 2 && words[0] == "import") {
+                        // If this line matches "import foo", then store "foo" in 
+                        // the set of imports
                         string module = string(words[1].c_str());
                         moduleJlImports.insert(std::move(module));
                     } else if (words.size() >= 6 && 
@@ -666,12 +678,16 @@ struct JlEmitPack : public Emitter
                                words[2] == "module" &&
                                words[4] == ";" && 
                                words[5] == "end") {
+                        // Otherwise, if the line matches:
+                        // @eval foo module bar.baz ; end
+                        // then store foo.bar.baz in the submodules set
                         moduleJlSubmodules.insert(words[1] + "." + words[3]);
                     }
                 }
                 fclose(moduleJlFp);
                 moduleJlFp = nullptr;
             }
+            // Regardless of whether the module existed, we'll create a new file
             moduleJlFp = fopen(moduleJlFname.c_str(), "w");
             if (!moduleJlFp) {
                 perror("fopen");
@@ -686,15 +702,29 @@ struct JlEmitPack : public Emitter
             for (auto& submod : moduleJlSubmodules) {
                 auto parts = StringUtil::split(submod, '.');
                 if (parts.size() >= 2) {
+                    // Restore each of the submodules we parsed from the 
+                    // existing file (if any), and also generate the submodule
+                    // corresponding to the current package (if necessary)
                     vector<string> parentParts(parts.begin(), parts.end() - 1);
                     auto parent = StringUtil::join(parentParts, '.');
                     auto module = parts.at(parts.size() - 1);
                     fprintf(moduleJlFp, "@eval %s module %s ; end\n", parent.c_str(), module.c_str());
                 }
             }
+            // LOAD_PATH controls where Julia looks for files you `import`. 
+            // We're going to tell Julia that if we're in a package foo.bar.baz,
+            // it should first look in the `foo/` folder for any types it imports.
+            // unshift!(x, y) in Julia prepends y to the vector x. Its opposite
+            // is shift!(x) which removes the first element of x. We'll put that
+            // shift!(LOAD_PATH) in a `finally` block to ensure that the 
+            // LOAD_PATH is restored even if something goes wrong with the 
+            // imports
             fprintf(moduleJlFp, "\nunshift!(LOAD_PATH, joinpath(@__DIR__, \"%s\"))\n", pdname.c_str());
             fprintf(moduleJlFp, "try\n");
             for (auto& import : moduleJlImports) {
+                // Restore each of the existing imports. Each import defines a
+                // single ZCM type somewhere in the package or one of its
+                // submodule
                 fprintf(moduleJlFp, "import %s", import.c_str());
             }
         }
@@ -705,6 +735,8 @@ struct JlEmitPack : public Emitter
             auto& ls = *ls_;
             string path = packageDir + "_" + ls.structname.nameUnderscore() + ".jl";
 
+            // If we're in a package, then add an appropriate import statement
+            // to ensure that this struct is added to the Julia module
             if(moduleJlFp) {
                 fprintf(moduleJlFp, "import _%s\n", ls.structname.nameUnderscoreCStr());
             }
@@ -718,6 +750,7 @@ struct JlEmitPack : public Emitter
         }
 
         if(moduleJlFp) {
+            // Restore LOAD_PATH no matter what
             fprintf(moduleJlFp, "finally\n");
             fprintf(moduleJlFp, "    shift!(LOAD_PATH)\n");
             fprintf(moduleJlFp, "end\n");
@@ -736,6 +769,7 @@ int emitJulia(ZCMGen& zcm)
         return -1;
     }
 
+    // Copied wholesale from EmitPython.cpp
     unordered_map<string, vector<ZCMStruct*> > packages;
 
     // group the structs by package
