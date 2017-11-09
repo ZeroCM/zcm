@@ -8,11 +8,10 @@ msg = example_t()
 msg.timestamp = 10
 
 encoded = encoded_t()
-encoded.msg = msg.encode()
+encoded.msg = ZCM.encode(msg)
 encoded.n   = length(encoded.msg)
 
-decoded = example_t()
-decoded.decode(encoded.msg)
+decoded = ZCM.decode(example_t, encoded.msg)
 @assert (decoded.timestamp == msg.timestamp) "Encode/decode mismatch"
 
 println("Success")
