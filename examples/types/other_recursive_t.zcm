@@ -1,4 +1,0 @@
-package other_package;
-struct other_recursive_t {
-	test_package.packaged_recursive_t child;
-}
