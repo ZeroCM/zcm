@@ -251,8 +251,8 @@ struct EmitJulia : public Emitter
         for (auto &lm : ls.members) {
             if (!ZCMGen::isPrimitiveType(lm.type.fullname)) {
                 auto *mtn = lm.type.nameUnderscoreCStr();
-                const char *ghr = "ZCM._get_hash_recursive(newparents)";
-                emitContinue("+ reinterpret(UInt64, %s.%s)", mtn, ghr);
+                emitContinue("+ reinterpret(UInt64,"
+                                           "ZCM._get_hash_recursive(%s, newparents))", mtn);
             }
         }
         emitEnd("");
@@ -284,7 +284,7 @@ struct EmitJulia : public Emitter
                    tn == "float"   || tn == "double") {
             emit(indent, "write(buf, hton(%s))", accessor);
         } else {
-            emit(indent, "%s._encode_one(buf)", accessor);
+            emit(indent, "ZCM._encode_one(%s,buf)", accessor);
         }
     }
 
@@ -313,7 +313,7 @@ struct EmitJulia : public Emitter
     {
         auto* sn = ls.structname.nameUnderscoreCStr();
 
-        emit(0, "function ZCM.encode_one(msg::%s, buf)", sn);
+        emit(0, "function ZCM._encode_one(msg::%s, buf)", sn);
         if (ls.members.size() == 0) {
             emit(1, "return nothing");
             emit(0, "end");
@@ -369,7 +369,7 @@ struct EmitJulia : public Emitter
         emit(0, "function ZCM.encode(msg::%s)", sn);
         emit(0, "    buf = IOBuffer()");
         emit(0, "    write(buf, hton(ZCM.getHash(%s)))", sn);
-        emit(0, "    ZCM.encode_one(msg, buf)");
+        emit(0, "    ZCM._encode_one(msg, buf)");
         emit(0, "    return ZCM._takebuf_array(buf);");
         emit(0, "end");
         emit(0, "");
@@ -398,7 +398,7 @@ struct EmitJulia : public Emitter
             emit(indent, "%sntoh(reinterpret(%s, read(buf, %u))[1])%s",
                          accessor, mappedTypename.c_str(), typeSize, sfx);
         } else {
-            emit(indent, "%smsg.%s._decode_one(buf)%s", accessor, mn.c_str(), sfx);
+            emit(indent, "%sZCM._decode_one(msg.%s,buf)%s", accessor, mn.c_str(), sfx);
         }
     }
 
@@ -445,7 +445,7 @@ struct EmitJulia : public Emitter
     {
         auto* sn = ls.structname.nameUnderscoreCStr();
 
-        emit(0, "function ZCM.decode_one(::Type{%s}, buf)", sn);
+        emit(0, "function ZCM._decode_one(::Type{%s}, buf)", sn);
         emit(1,     "msg = %s();", sn);
 
         for (auto& lm : ls.members) {
@@ -530,7 +530,7 @@ struct EmitJulia : public Emitter
         emit(0, "    if ntoh(reinterpret(Int64, read(buf, 8))[1]) != ZCM.getHash(%s)", sn);
         emit(0, "        throw(\"Decode error\")");
         emit(0, "    end");
-        emit(0, "    return ZCM.decode_one(%s, buf)", sn);
+        emit(0, "    return ZCM._decode_one(%s, buf)", sn);
         emit(0, "end");
         emit(0, "");
     }

@@ -46,8 +46,8 @@ function encode end
 function decode end
 function getHash end
 function _get_hash_recursive end
-function encode_one end
-function decode_one end
+function _encode_one end
+function _decode_one end
 
 
 # RRR / Note: Julia requires that the memory layout of the C structs is consistent
