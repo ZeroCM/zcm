@@ -62,35 +62,46 @@ int main(int argc, char *argv[])
     msg.timestamp = 0;
 
     zcm.start();
-    //zcm.pause();
+    zcm.publish(chanO, &msg);
+    zcm.flush();
+    usleep(1e6);
+    zcm.pause();
 
     auto publishBlock = [&](){
-        size_t initCount = count;
-        while (count == initCount) {
+        for (size_t i = 0; i < numInBlock / 2; ++i) {
             zcm.publish(chanO, &msg);
             ++msg.timestamp;
+            zcm.flush();
             usleep(1e6 / hz);
         }
-        //zcm.flush();
+        size_t initCount = count;
+        for (size_t i = 0; i < numInBlock; ++i) {
+            if (count != initCount) break;
+            zcm.publish(chanO, &msg);
+            ++msg.timestamp;
+            zcm.flush();
+            usleep(1e6 / hz);
+        }
     };
 
     auto receiveBlock = [&](size_t blockNum){
+        count = (blockNum - 1) * numInBlock;
         while (count < numInBlock * blockNum) {
-            //zcm.flush();
+            zcm.flush();
             usleep(1e6 / hz);
         }
+        printf("Finished receiving block %zu\n", blockNum);
     };
 
     if (order == 1) publishBlock();
 
     size_t blockNum = 1;
     while (count < numToRecv) {
+        printf("\nWaiting on block %zu\n", blockNum);
         receiveBlock(blockNum);
         publishBlock();
         ++blockNum;
     }
-    // publish a few extra messages to make sure the other program exits
-    publishBlock();
 
     printf("\nStopping\n");
     zcm.stop();

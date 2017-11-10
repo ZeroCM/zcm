@@ -164,10 +164,11 @@ struct zcm_blocking
     mutex recvStateMutex;
     mutex hndlStateMutex;
 
-    // Flag and condition variable used to pause the hndlThread (use hndlStateMutex)
-    // and sendThread (use sendStateMutex)
+    // Flag and condition variables used to pause the sendThread (use sendStateMutex)
+    // and hndlThread (use hndlStateMutex)
     bool               paused {false};
-    condition_variable pauseCond;
+    condition_variable sendPauseCond;
+    condition_variable hndlPauseCond;
 };
 
 zcm_blocking_t::zcm_blocking(zcm_t* z, zcm_trans_t* zt_)
@@ -204,11 +205,11 @@ void zcm_blocking_t::run()
         return;
     }
     recvMode = RECV_MODE_RUN;
-    lk1.unlock();
 
     // Run it!
     {
         unique_lock<mutex> lk2(hndlStateMutex);
+        lk1.unlock();
         hndlThreadState = THREAD_STATE_RUNNING;
         recvQueue.enable();
     }
@@ -228,9 +229,9 @@ void zcm_blocking_t::start()
         return;
     }
     recvMode = RECV_MODE_SPAWN;
-    lk1.unlock();
 
     unique_lock<mutex> lk2(hndlStateMutex);
+    lk1.unlock();
     // Start the hndl thread
     hndlThreadState = THREAD_STATE_RUNNING;
     recvQueue.enable();
@@ -247,8 +248,8 @@ int zcm_blocking_t::stop(bool block)
         if (hndlThreadState == THREAD_STATE_RUNNING) {
             hndlThreadState = THREAD_STATE_HALTING;
             recvQueue.disable();
-            pauseCond.notify_all();
             lk2.unlock();
+            hndlPauseCond.notify_all();
             if (block && recvMode == RECV_MODE_SPAWN) {
                 hndlThread.join();
                 lk2.lock();
@@ -278,6 +279,7 @@ int zcm_blocking_t::stop(bool block)
             sendThreadState = THREAD_STATE_HALTING;
             sendQueue.disable();
             lk2.unlock();
+            sendPauseCond.notify_all();
             if (block) {
                 sendThread.join();
                 lk2.lock();
@@ -311,8 +313,8 @@ int zcm_blocking_t::stop(bool block)
             default: break;
         }
 
+        unique_lock<mutex> lk2(sendStateMutex);
         if (sendThreadState == THREAD_STATE_HALTING) {
-            unique_lock<mutex> lk2(sendStateMutex);
             if (sendThreadState == THREAD_STATE_HALTING) return ZCM_EAGAIN;
             if (sendThreadState == THREAD_STATE_HALTED) {
                 sendThread.join();
@@ -338,9 +340,9 @@ int zcm_blocking_t::handle()
         // If this is the first time handle() is called, we need to start the recv thread
         if (recvMode == RECV_MODE_NONE) {
             recvMode = RECV_MODE_HANDLE;
-            lk1.unlock();
 
             unique_lock<mutex> lk2(recvStateMutex);
+            lk1.unlock();
             // Spawn the recv thread
             recvThreadState = THREAD_STATE_RUNNING;
             recvQueue.enable();
@@ -364,7 +366,10 @@ void zcm_blocking_t::resume()
     unique_lock<mutex> lk1(hndlStateMutex);
     unique_lock<mutex> lk2(sendStateMutex);
     paused = false;
-    pauseCond.notify_all();
+    lk1.unlock();
+    lk2.unlock();
+    sendPauseCond.notify_all();
+    hndlPauseCond.notify_all();
 }
 
 // Note: We use a lock on publish() to make sure it can be
@@ -490,13 +495,19 @@ void zcm_blocking_t::flush()
 
     size_t n;
 
-    sendQueue.enable();
-    n = sendQueue.numMessages();
-    for (size_t i = 0; i < n; ++i) sendOneMessage();
+    {
+        unique_lock<mutex> lk3(sendOneMutex);
+        sendQueue.enable();
+        n = sendQueue.numMessages();
+        for (size_t i = 0; i < n; ++i) sendOneMessage();
+    }
 
-    recvQueue.enable();
-    n = recvQueue.numMessages();
-    for (size_t i = 0; i < n; ++i) dispatchOneMessage();
+    {
+        unique_lock<mutex> lk3(dispOneMutex);
+        recvQueue.enable();
+        n = recvQueue.numMessages();
+        for (size_t i = 0; i < n; ++i) dispatchOneMessage();
+    }
 
     paused = prevPauseState;
 }
@@ -512,7 +523,9 @@ void zcm_blocking_t::sendThreadFunc()
     while (true) {
         {
             unique_lock<mutex> lk(sendStateMutex);
-            pauseCond.wait(lk, [&]{ return !paused || sendThreadState == THREAD_STATE_HALTING; });
+            sendPauseCond.wait(lk, [&]{
+                    return !paused || sendThreadState == THREAD_STATE_HALTING;
+            });
             if (sendThreadState == THREAD_STATE_HALTING) break;
         }
         unique_lock<mutex> lk(sendOneMutex);
@@ -576,7 +589,9 @@ void zcm_blocking_t::hndlThreadFunc()
     while (true) {
         {
             unique_lock<mutex> lk(hndlStateMutex);
-            pauseCond.wait(lk, [&]{ return !paused || hndlThreadState == THREAD_STATE_HALTING; });
+            hndlPauseCond.wait(lk, [&]{
+                return !paused || hndlThreadState == THREAD_STATE_HALTING;
+            });
             if (hndlThreadState == THREAD_STATE_HALTING) break;
         }
         unique_lock<mutex> lk(dispOneMutex);
