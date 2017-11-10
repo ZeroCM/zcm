@@ -356,18 +356,18 @@ int zcm_blocking_t::handle()
 
 void zcm_blocking_t::pause()
 {
-    unique_lock<mutex> lk1(hndlStateMutex);
-    unique_lock<mutex> lk2(sendStateMutex);
+    unique_lock<mutex> lk1(sendStateMutex);
+    unique_lock<mutex> lk2(hndlStateMutex);
     paused = true;
 }
 
 void zcm_blocking_t::resume()
 {
-    unique_lock<mutex> lk1(hndlStateMutex);
-    unique_lock<mutex> lk2(sendStateMutex);
+    unique_lock<mutex> lk1(sendStateMutex);
+    unique_lock<mutex> lk2(hndlStateMutex);
     paused = false;
-    lk1.unlock();
     lk2.unlock();
+    lk1.unlock();
     sendPauseCond.notify_all();
     hndlPauseCond.notify_all();
 }
@@ -487,29 +487,43 @@ void zcm_blocking_t::flush()
     recvQueue.disable();
     sendQueue.disable();
 
-    unique_lock<mutex> lk1(hndlStateMutex);
-    unique_lock<mutex> lk2(sendStateMutex);
+    unique_lock<mutex> lk1(sendStateMutex);
+    unique_lock<mutex> lk2(hndlStateMutex);
 
+    // RRR: we need to change this to be more bits of info so we know when things
+    //      are paused and who paused them (to prevent a "resume" from interrupting
+    //      a "flush")
     bool prevPauseState = paused;
     paused = true;
 
-    size_t n;
-
     {
         unique_lock<mutex> lk3(sendOneMutex);
+        unique_lock<mutex> lk4(dispOneMutex);
+
+        lk2.unlock();
+        lk1.unlock();
+
+        size_t n;
+
         sendQueue.enable();
         n = sendQueue.numMessages();
         for (size_t i = 0; i < n; ++i) sendOneMessage();
-    }
 
-    {
-        unique_lock<mutex> lk3(dispOneMutex);
         recvQueue.enable();
         n = recvQueue.numMessages();
         for (size_t i = 0; i < n; ++i) dispatchOneMessage();
     }
 
+    lk1.lock();
+    lk2.lock();
+
     paused = prevPauseState;
+
+    lk2.unlock();
+    lk1.unlock();
+
+    sendPauseCond.notify_all();
+    hndlPauseCond.notify_all();
 }
 
 void zcm_blocking_t::setQueueSize(uint32_t numMsgs)
