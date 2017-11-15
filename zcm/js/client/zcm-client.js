@@ -37,6 +37,7 @@ var zcm = (function(){
                                               msg     : msg });
         }
 
+        // RRR: I'm guessing one of these subscribe calls is supposed to not have a type right?
         /**
          * Subscribes to zcm messages on the given channel of the specified zcmtype.
          * @param {string} channel - the zcm channel to subscribe to

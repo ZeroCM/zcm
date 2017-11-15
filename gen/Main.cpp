@@ -8,7 +8,7 @@ extern "C" {
 #include "tokenize.h"
 }
 
-int main(int argc, char *argv[])
+int main(int argc, char* argv[])
 {
     GetOpt gopt;
     gopt.addBool('h',  "help",     0,    "Show this help");

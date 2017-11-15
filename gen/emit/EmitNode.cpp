@@ -86,6 +86,8 @@ struct EmitModule : public Emitter
         emit(0, "var UINT64_MAX = bigint('ffffffffffffffff', 16);");
         emit(0, "function rotateLeftOne(val)");
         emit(0, "{");
+        // RRR: why are you anding with UINT64_MAX? Does bigint not guarantee the shifted in bit?
+        //      If so, you should be anding with max-1.
         emit(0, "    return val.shiftLeft(1).and(UINT64_MAX).add("
                            "val.shiftRight(63).and(1))");
         emit(0, "}");
@@ -217,7 +219,7 @@ struct EmitModule : public Emitter
 
     void emitEncodeSingleMember(const ZCMMember& lm, const string& accessor_, int indent)
     {
-        auto *accessor = accessor_.c_str();
+        auto* accessor = accessor_.c_str();
         auto* tn = lm.type.nameUnderscoreCStr();
 
         auto writerFunc = getWriterFunc(tn);
@@ -233,8 +235,8 @@ struct EmitModule : public Emitter
                               const string& len_, int fixedLen)
     {
         auto& tn = lm.type.fullname;
-        auto *accessor = accessor_.c_str();
-        auto *len = len_.c_str();
+        auto* accessor = accessor_.c_str();
+        auto* len = len_.c_str();
 
         auto writerFunc = getWriterFunc(tn);
 
@@ -268,7 +270,7 @@ struct EmitModule : public Emitter
             } else {
                 string accessor = "msg." + lm.membername;
                 size_t n;
-                for (n = 0; n < lm.dimensions.size() - 1; n++) {
+                for (n = 0; n < lm.dimensions.size() - 1; ++n) {
                     auto& dim = lm.dimensions[n];
                     accessor += "[i" + to_string(n) + "]";
                     if (dim.mode == ZCM_CONST) {
@@ -326,7 +328,7 @@ struct EmitModule : public Emitter
 
     void emitEncodedSize(const ZCMStruct& ls)
     {
-        auto *sn = ls.structname.nameUnderscoreCStr();
+        auto* sn = ls.structname.nameUnderscoreCStr();
 
         emit(0, "%s.encodedSize = function(msg)", sn);
         emit(0, "{");
@@ -373,9 +375,9 @@ struct EmitModule : public Emitter
     void emitDecodeSingleMember(const ZCMMember& lm, const string& accessor_,
                                 int indent, const string& sfx_)
     {
-        auto *accessor = accessor_.c_str();
+        auto* accessor = accessor_.c_str();
         auto* tn = lm.type.nameUnderscoreCStr();
-        auto *sfx = sfx_.c_str();
+        auto* sfx = sfx_.c_str();
 
         auto readerFunc = getReaderFunc(tn);
 
@@ -390,9 +392,9 @@ struct EmitModule : public Emitter
                               bool isFirst, const string& len_, bool fixedLen)
     {
         auto& tn = lm.type.fullname;
-        auto *accessor = accessor_.c_str();
-        auto *len = len_.c_str();
-        const char *suffix = isFirst ? "" : ")";
+        auto* accessor = accessor_.c_str();
+        auto* len = len_.c_str();
+        const char* suffix = isFirst ? "" : ")";
 
         auto readerFunc = getReaderFunc(tn);
 
@@ -408,7 +410,7 @@ struct EmitModule : public Emitter
 
     void emitDecodeOne(const ZCMStruct& ls)
     {
-        auto *sn = ls.structname.nameUnderscoreCStr();
+        auto* sn = ls.structname.nameUnderscoreCStr();
 
         emit(0, "%s_decode_one = function(R)", sn);
         emit(0, "{");
@@ -423,7 +425,7 @@ struct EmitModule : public Emitter
                 // iterate through the dimensions of the member, building up
                 // an accessor string, and emitting for loops
                 uint n = 0;
-                for (n = 0; n < lm.dimensions.size() - 1; n++) {
+                for (n = 0; n < lm.dimensions.size() - 1; ++n) {
                     auto& dim = lm.dimensions[n];
 
                     if (n == 0) {
@@ -482,7 +484,7 @@ struct EmitModule : public Emitter
 
     void emitDecode(const ZCMStruct& ls)
     {
-        auto *sn = ls.structname.nameUnderscoreCStr();
+        auto* sn = ls.structname.nameUnderscoreCStr();
 
         emit(0, "%s.decode = function(data)", sn);
         emit(0, "{");
@@ -559,8 +561,8 @@ struct EmitModule : public Emitter
 
     void emitStruct(ZCMStruct& ls)
     {
-        auto *sn = ls.structname.nameUnderscoreCStr();
-        auto *fn = ls.structname.fullname.c_str();
+        auto* sn = ls.structname.nameUnderscoreCStr();
+        auto* fn = ls.structname.fullname.c_str();
 
         emit(0, "/********************************************/", sn);
         emit(0, "// %s", sn);
@@ -584,7 +586,7 @@ struct EmitModule : public Emitter
         emit(0, "{");
         emit(1, "return {");
         for (auto& ls : zcm.structs) {
-            auto *sn = ls.structname.fullname.c_str();
+            auto* sn = ls.structname.fullname.c_str();
             emit(2, "'%s' : new exports.%s(),", sn, sn);
         }
         emit(1, "};");

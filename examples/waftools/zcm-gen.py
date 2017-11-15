@@ -241,15 +241,14 @@ def zcmgen(ctx, **kw):
         ctx(name       = uselib_name + '_java',
             features   = 'javac jar',
             use        = ['zcmjar', genfiles_name],
-            srcdir     = ctx.path.find_or_declare('java/' +
-                                                  javapkg_name.split('.')[0]),
+            srcdir     = ctx.path.find_or_declare('java/' + javapkg_name.split('.')[0]),
             outdir     = 'java/classes',  # path to output (for .class)
             basedir    = 'java/classes',  # basedir for jar
             destfile   = uselib_name + '.jar')
 
     if 'python' in lang:
-        pythontg = ctx(target = uselib_name + '_python',
-                       rule   = 'touch ${TGT}')
+        ctx(target = uselib_name + '_python',
+            rule   = 'touch ${TGT}')
 
 @extension('.zcm')
 def process_zcmtypes(self, node):

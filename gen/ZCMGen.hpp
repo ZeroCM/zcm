@@ -34,7 +34,7 @@ struct ZCMTypename
         }
         return underscore;
     }
-    const char *nameUnderscoreCStr() const
+    const char* nameUnderscoreCStr() const
     {
         return nameUnderscore().c_str();
     }
@@ -115,10 +115,10 @@ struct ZCMStruct
     string               comment;
 
     // Returns the member of a struct by name. Returns NULL on error.
-    ZCMMember *findMember(const string& name);
+    ZCMMember* findMember(const string& name);
 
     // Returns the constant of a struct by name. Returns NULL on error.
-    ZCMConstant *findConst(const string& name);
+    ZCMConstant* findConst(const string& name);
 
     u64 computeHash();
 
@@ -130,7 +130,7 @@ struct ZCMGen
 {
     string             package;
 
-    GetOpt             *gopt = nullptr;
+    GetOpt*            gopt = nullptr;
     vector<ZCMStruct>  structs;
 
     string             comment;

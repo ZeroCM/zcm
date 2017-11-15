@@ -15,7 +15,7 @@ bool Emitter::good()
     return f != nullptr;
 }
 
-void Emitter::emit(int n, const char *msg, ...)
+void Emitter::emit(int n, const char* msg, ...)
 {
     va_list va;
     va_start(va, msg);
@@ -27,7 +27,7 @@ void Emitter::emit(int n, const char *msg, ...)
     va_end(va);
 }
 
-void Emitter::emitStart(int n, const char *msg, ...)
+void Emitter::emitStart(int n, const char* msg, ...)
 {
     va_list va;
     va_start(va, msg);
@@ -38,7 +38,7 @@ void Emitter::emitStart(int n, const char *msg, ...)
     va_end(va);
 }
 
-void Emitter::emitContinue(const char *msg, ...)
+void Emitter::emitContinue(const char* msg, ...)
 {
     va_list va;
     va_start(va, msg);
@@ -46,7 +46,7 @@ void Emitter::emitContinue(const char *msg, ...)
     va_end(va);
 }
 
-void Emitter::emitEnd(const char *msg, ...)
+void Emitter::emitEnd(const char* msg, ...)
 {
     va_list va;
     va_start(va, msg);
@@ -55,7 +55,7 @@ void Emitter::emitEnd(const char *msg, ...)
     va_end(va);
 }
 
-void Emitter::fprintfPass(const char *msg, ...)
+void Emitter::fprintfPass(const char* msg, ...)
 {
     va_list va;
     va_start(va, msg);

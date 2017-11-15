@@ -3,6 +3,7 @@
 def build(ctx):
     ctx.zcmgen(name    = 'examplezcmtypes',
                source  = ctx.path.ant_glob('*.zcm', excl='little_endian_t.zcm'),
+               # RRR: gonna have to rip this out to the julia branch
                lang    = ['c_stlib', 'c_shlib', 'cpp', 'java', 'python', 'nodejs', 'julia'],
                javapkg = 'example.zcmtypes')
 
