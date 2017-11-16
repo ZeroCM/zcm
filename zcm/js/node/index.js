@@ -8,6 +8,8 @@ var ffi = require('ffi');
 var ref = require('ref');
 var StructType = require('ref-struct');
 var ArrayType = require('ref-array');
+var bigint = require('big-integer');
+var assert = require('assert');
 
 // Define some types
 var voidRef = ref.refType('void')
@@ -147,9 +149,11 @@ function zcm(zcmtypes, zcmurl)
         if (_type) {
             // Note: this lookup is because the type that is given by a client doesn't have
             //       the necessary functions, so we need to look up our complete class here
-            var type = zcmtypeHashMap[_type.__hash];
+            var hash = bigint.isInstance(_type.__hash) ?  _type.__hash.toString() : _type.__hash;
+            var type = zcmtypeHashMap[hash];
             var sub = subscribe_raw(channel, function (channel, data) {
-                cb(channel, type.decode(data));
+                var msg = type.decode(data)
+                if (msg != null) cb(channel, msg);
             }, successCb);
         } else {
             var sub = subscribe_raw(channel, cb, successCb);

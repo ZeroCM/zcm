@@ -382,7 +382,7 @@ struct EmitModule : public Emitter
         if (readerFunc != "") {
             emit(indent, "%sR.%s()%s;", accessor, readerFunc.c_str(), sfx);
         } else {
-            emit(indent, "%s = %s_decode_one(R)%s", tn, accessor, sfx);
+            emit(indent, "%s%s_decode_one(R)%s", accessor, tn, sfx);
         }
     }
 
@@ -489,8 +489,9 @@ struct EmitModule : public Emitter
         emit(1,     "var R = createReader(data);");
         emit(1,     "var hash = R.readU64();");
         emit(1,     "if (!hash.eq(%s.__get_hash_recursive())) {", sn);
-        emit(1,     "    console.error('Err: hash mismatch on %s. "
-                                       "Received: ', hash, '. Expected: ', expect);", sn);
+        emit(1,     "    console.error('Err: hash mismatch on %s.')", sn);
+        emit(1,     "    console.error('Received:\\n', hash)");
+        emit(1,     "    console.error('Expected:\\n', %s.__get_hash_recursive());", sn);
         emit(1,     "    return null;");
         emit(1,     "}");
         emit(1,     "return %s_decode_one(R);", sn);
@@ -501,10 +502,10 @@ struct EmitModule : public Emitter
     {
         auto* sn = ls.structname.nameUnderscoreCStr();
 
-        emit(0, "%s._hash = null;", sn);
+        emit(0, "%s.__hash = null;", sn);
         emit(0, "%s.__get_hash_recursive = function(parents)", sn);
         emit(0, "{");
-        emit(1,     "if (%s._hash != null) return %s._hash", sn, sn);
+        emit(1,     "if (%s.__hash != null) return %s.__hash", sn, sn);
         emit(1,     "if (!parents) parents = [];");
         emit(1,     "if (parents.indexOf('%s') != -1) return 0;", ls.structname.fullname.c_str());
         for (auto& lm : ls.members) {
@@ -523,8 +524,8 @@ struct EmitModule : public Emitter
         emitEnd (".and(UINT64_MAX);");
 
         emit(0, "");
-        emit(1, "%s._hash = rotateLeftOne(tmphash);", sn);
-        emit(1, "return %s._hash;", sn);
+        emit(1, "%s.__hash = rotateLeftOne(tmphash);", sn);
+        emit(1, "return %s.__hash;", sn);
         emit(0, "};");
     }
 

@@ -1,6 +1,7 @@
 var express = require('express');
 var app = express();
 var http = require('http').Server(app);
+var assert = require('assert');
 app.use(express.static("public"));
 
 var zcm = require('zerocm');
@@ -10,7 +11,7 @@ if (!z) {
     throw "Failed to create ZCM";
 }
 
-function basicExample()
+function recursiveExample()
 {
     setInterval(function() {
         var msg = new zcmtypes.example_t();
@@ -23,7 +24,7 @@ function basicExample()
         msg.enabled     = false;
         var r = new zcmtypes.recursive_t();
         r.e = msg;
-        z.publish("FOOBAR_SERVER", msg);
+        z.publish("FOOBAR_SERVER", r);
     }, 1000);
 }
 
@@ -58,22 +59,28 @@ function packageExample()
     }, 1000);
 }
 
-basicExample();
+recursiveExample();
 multidimExample();
 packageExample();
-// RRR: test recursive type here
 
-// RRR: test a typed subscription here
+var typedSub = null;
+z.subscribe("FOOBAR_SERVER", zcmtypes.recursive_t, function(channel, msg) {
+    console.log("Typed message received on channel " + channel);
+    assert('e' in msg && 'timestamp' in msg.e && msg.e.timestamp == 0, "Wrong msg received");
+}, function successCb (_sub) {
+    typedSub = _sub;
+});
 
 var sub = null;
 z.subscribe(".*", null, function(channel, msg) {
-    console.log("Subscribe message received on channel " + channel);
+    console.log("Untyped message received on channel " + channel);
 }, function successCb (_sub) {
     sub = _sub;
 });
 
 process.on('exit', function() {
     if (sub) z.unsubscribe(sub);
+    if (typedSub) z.unsubscribe(typedSub);
 });
 
 http.listen(3000, function(){
