@@ -11,6 +11,21 @@ if (!z) {
     throw "Failed to create ZCM";
 }
 
+function basicExample()
+{
+    setInterval(function() {
+        var msg = new zcmtypes.example_t();
+        msg.timestamp   = 0;
+        msg.position    = [2, 4, 6];
+        msg.orientation = [0, 2, 4, 6];
+        msg.num_ranges  = 2;
+        msg.ranges      = [7, 6];
+        msg.name        = 'foobar string';
+        msg.enabled     = false;
+        z.publish("BASIC_EXAMPLE", msg);
+    }, 1000);
+}
+
 function recursiveExample()
 {
     setInterval(function() {
@@ -24,7 +39,7 @@ function recursiveExample()
         msg.enabled     = false;
         var r = new zcmtypes.recursive_t();
         r.e = msg;
-        z.publish("FOOBAR_SERVER", r);
+        z.publish("RECURSIVE_EXAMPLE", r);
     }, 1000);
 }
 
@@ -59,12 +74,13 @@ function packageExample()
     }, 1000);
 }
 
+basicExample();
 recursiveExample();
 multidimExample();
 packageExample();
 
 var typedSub = null;
-z.subscribe("FOOBAR_SERVER", zcmtypes.recursive_t, function(channel, msg) {
+z.subscribe("RECURSIVE_EXAMPLE", zcmtypes.recursive_t, function(channel, msg) {
     console.log("Typed message received on channel " + channel);
     assert('e' in msg && 'timestamp' in msg.e && msg.e.timestamp == 0, "Wrong msg received");
 }, function successCb (_sub) {

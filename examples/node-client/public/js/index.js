@@ -7,11 +7,11 @@ function handle(channel, msg) {
 var subscriptions = [];
 
 function subscribe(successCb) {
-    console.log('Subscribing to FOOBAR_SERVER');
-    z.subscribe('FOOBAR_SERVER', z.getZcmtypes()['example_t'], handle,
+    console.log('Subscribing to BASIC_EXAMPLE');
+    z.subscribe('BASIC_EXAMPLE', z.getZcmtypes()['example_t'], handle,
                 function _successCb (sub) {
-                    console.log('Subscribed to FOOBAR_SERVER. Sub id:', sub);
-                    subscriptions.push({channel      : 'FOOBAR_SERVER',
+                    console.log('Subscribed to BASIC_EXAMPLE. Sub id:', sub);
+                    subscriptions.push({channel      : 'BASIC_EXAMPLE',
                                         subscription : sub});
                     if (successCb) successCb(true);
                 });
