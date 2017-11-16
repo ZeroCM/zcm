@@ -2,7 +2,7 @@
 # encoding: utf-8
 
 def build(ctx):
-    DEPS = ['zcm']
+    DEPS = ['default', 'zcm']
 
     if ctx.env.USING_CXXTEST:
         ctx.cxxtest(use = DEPS)

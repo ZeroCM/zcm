@@ -1,5 +1,6 @@
 #include "ZCMGen.hpp"
 #include <cmath>
+#include <unordered_map>
 
 extern "C" {
 #include "tokenize.h"
@@ -19,8 +20,8 @@ extern "C" {
 **/
 
 
-//zcm_struct_t *parse_struct(zcmgen_t *zcm, const char *zcmfile, tokenize_t *t);
-//zcm_enum_t *parse_enum(zcmgen_t *zcm, const char *zcmfile, tokenize_t *t);
+//zcm_struct_t* parse_struct(zcmgen_t* zcm, const char* zcmfile, tokenize_t* t);
+//zcm_enum_t* parse_enum(zcmgen_t* zcm, const char* zcmfile, tokenize_t* t);
 
 // zcm's built-in types. Note that unsigned types are not present
 // because there is no safe java implementation. Really, you don't
@@ -55,15 +56,42 @@ static vector<string> constTypes {
     "double"
 };
 
+static vector<string> fixedPointTypes {
+    "int8_t",
+    "int16_t",
+    "int32_t",
+    "int64_t"
+};
+
+static unordered_map<string, size_t> primitiveTypeSize {
+    {"int8_t",  1},
+    {"int16_t", 2},
+    {"int32_t", 4},
+    {"int64_t", 8},
+    {"byte",    1},
+    {"float",   4},
+    {"double",  8},
+    {"boolean", 1}
+};
+
 // Given NULL-terminated array of strings "ts", does "t" appear in it?
 static bool inArray(const vector<string>& ts, const string& t)
 {
     return std::find(begin(ts), end(ts), t) != end(ts);
 }
 
-bool ZCMGen::isPrimitiveType(const string& t)  { return inArray(primitiveTypes, t); }
-bool ZCMGen::isArrayDimType(const string& t)   { return inArray(arrayDimTypes, t);  }
-bool ZCMGen::isLegalConstType(const string& t) { return inArray(constTypes, t);     }
+bool   ZCMGen::isPrimitiveType(const string& t)       { return inArray(primitiveTypes, t); }
+bool   ZCMGen::isArrayDimType(const string& t)        { return inArray(arrayDimTypes, t);  }
+bool   ZCMGen::isLegalConstType(const string& t)      { return inArray(constTypes, t);     }
+size_t ZCMGen::getPrimitiveTypeSize(const string& tn)
+{
+    auto iter = primitiveTypeSize.find(tn);
+    if (iter == primitiveTypeSize.end()) {
+        fprintf(stderr, "Unable to find size of primitive type: %s\n", tn.c_str());
+        exit(1);
+    }
+    return iter->second;
+}
 
 static bool isLegalMemberName(const string& t)
 {
@@ -97,14 +125,11 @@ static u64 hashUpdate(u64 v, const string& s)
 ZCMGen::ZCMGen()
 {}
 
-// Parse a type into package and class name.  If no package is
-// specified, we will try to use the package from the last specified
-// "package" directive, like in Java.
+// Parse a type into package and class name.
 ZCMTypename::ZCMTypename(ZCMGen& zcmgen, const string& name)
 {
     ZCMTypename& t = *this;
 
-    const string& thisPackage = zcmgen.package;
     const string& packagePrefix = zcmgen.gopt->getString("package-prefix");
 
     t.fullname = name;
@@ -116,20 +141,11 @@ ZCMTypename::ZCMTypename(ZCMGen& zcmgen, const string& name)
     //
     size_t dot = name.rfind('.');
     if (dot == string::npos) {
+        t.package = "";
         t.shortname = name;
-        if (ZCMGen::isPrimitiveType(t.shortname)) {
-            t.package = "";
-        } else {
-            t.package = thisPackage;
-            if (t.package.size() > 0) {
-                t.fullname = t.package + "." + t.shortname;
-            } else {
-                t.fullname = t.shortname;
-            }
-        }
     } else {
         t.package = name.substr(0, dot);
-        t.shortname = name.substr(dot+1);
+        t.shortname = name.substr(dot + 1);
     }
 
     if (packagePrefix.size() > 0 && !ZCMGen::isPrimitiveType(t.shortname)) {
@@ -150,6 +166,8 @@ ZCMStruct::ZCMStruct(ZCMGen& zcmgen, const string& zcmfile, const string& struct
 ZCMConstant::ZCMConstant(const string& type, const string& name, const string& valstr) :
     type(type), membername(name), valstr(valstr)
 {}
+
+bool ZCMConstant::isFixedPoint() { return inArray(fixedPointTypes, type); }
 
 u64 ZCMStruct::computeHash()
 {
@@ -186,7 +204,7 @@ u64 ZCMStruct::computeHash()
 
 // semantic error: it parsed fine, but it's illegal. (we don't try to
 // identify the offending token). This function does not return.
-static void semantic_error(tokenize_t *t, const char *fmt, ...)
+static void semantic_error(tokenize_t* t, const char* fmt, ...)
 {
     va_list ap;
     va_start(ap, fmt);
@@ -204,7 +222,7 @@ static void semantic_error(tokenize_t *t, const char *fmt, ...)
 }
 
 // semantic warning: it parsed fine, but it's dangerous.
-static void semantic_warning(tokenize_t *t, const char *fmt, ...)
+static void semantic_warning(tokenize_t* t, const char* fmt, ...)
 {
     va_list ap;
     va_start(ap, fmt);
@@ -220,7 +238,7 @@ static void semantic_warning(tokenize_t *t, const char *fmt, ...)
 }
 
 // parsing error: we cannot continue. This function does not return.
-static void parse_error(tokenize_t *t, const char *fmt, ...)
+static void parse_error(tokenize_t* t, const char* fmt, ...)
 {
     va_list ap;
     va_start(ap, fmt);
@@ -245,7 +263,7 @@ static void parse_error(tokenize_t *t, const char *fmt, ...)
 }
 
 // Consume any available comments and store them in zcmgen->comment_doc
-static void parseTryConsumeComment(tokenize_t* t, ZCMGen *zcmgen = NULL)
+static void parseTryConsumeComment(tokenize_t* t, ZCMGen* zcmgen = NULL)
 {
     if (zcmgen)
         zcmgen->comment = "";
@@ -262,7 +280,7 @@ static void parseTryConsumeComment(tokenize_t* t, ZCMGen *zcmgen = NULL)
 }
 
 // If the next non-comment token is "tok", consume it and return 1. Else, return 0
-static int parseTryConsume(tokenize_t *t, const char *tok)
+static int parseTryConsume(tokenize_t* t, const char* tok)
 {
     parseTryConsumeComment(t);
     int res = tokenize_peek(t);
@@ -280,7 +298,7 @@ static int parseTryConsume(tokenize_t *t, const char *tok)
 
 // Consume the next token. If it's not "tok", an error is emitted and
 // the program exits.
-static void parseRequire(tokenize_t *t, const char *tok)
+static void parseRequire(tokenize_t* t, const char* tok)
 {
     parseTryConsumeComment(t);
     int res;
@@ -294,14 +312,14 @@ static void parseRequire(tokenize_t *t, const char *tok)
 
 // require that the next token exist (not EOF). Description is a
 // human-readable description of what was expected to be read.
-static void tokenizeNextOrFail(tokenize_t *t, const char *description)
+static void tokenizeNextOrFail(tokenize_t* t, const char* description)
 {
     int res = tokenize_next(t);
     if (res == EOF)
         parse_error(t, "End of file reached, expected %s.", description);
 }
 
-static int parseConst(ZCMGen& zcmgen, ZCMStruct& lr, tokenize_t *t)
+static int parseConst(ZCMGen& zcmgen, ZCMStruct& lr, tokenize_t* t)
 {
     parseTryConsumeComment(t);
     tokenizeNextOrFail(t, "type identifier");
@@ -342,7 +360,7 @@ static int parseConst(ZCMGen& zcmgen, ZCMStruct& lr, tokenize_t *t)
         // TODO: Rewrite all of this in a much cleaner C++ style approach
         // TODO: This should migrate to either the ctor or a helper function called just
         //       before the ctor
-        char *endptr = NULL;
+        char* endptr = NULL;
         #define INT_CASE(TYPE, STORE) \
             } else if (lctypename == #TYPE) { \
                 long long v = strtoll(t->token, &endptr, 0); \
@@ -392,7 +410,7 @@ static int parseConst(ZCMGen& zcmgen, ZCMStruct& lr, tokenize_t *t)
 
 // parse a member declaration. This looks long and scary, but most of
 // the code is for semantic analysis (error checking)
-static int parseMember(ZCMGen& zcmgen, ZCMStruct& lr, tokenize_t *t)
+static int parseMember(ZCMGen& zcmgen, ZCMStruct& lr, tokenize_t* t)
 {
     // Read a type specification. Then read members (multiple
     // members can be defined per-line.) Each member can have
@@ -413,13 +431,12 @@ static int parseMember(ZCMGen& zcmgen, ZCMStruct& lr, tokenize_t *t)
         parse_error(t, "invalid type name");
 
     // A common mistake is use 'int' as a type instead of 'intN_t'
-    if(string(t->token) == "int")
+    if (string(t->token) == "int")
         semantic_warning(t, "int type should probably be int8_t, int16_t, int32_t, or int64_t");
 
     ZCMTypename lt {zcmgen, t->token};
 
     do {
-
         // get the zcm type name
         parseTryConsumeComment(t);
         tokenizeNextOrFail(t, "name identifier");
@@ -507,14 +524,15 @@ static int parseMember(ZCMGen& zcmgen, ZCMStruct& lr, tokenize_t *t)
 }
 
 /** assume the "struct" token is already consumed **/
-static ZCMStruct parseStruct(ZCMGen& zcmgen, const string& zcmfile, tokenize_t *t)
+static ZCMStruct parseStruct(ZCMGen& zcmgen, const string& zcmfile,
+                             const string& package, tokenize_t* t)
 {
     parseTryConsumeComment(t);
     tokenizeNextOrFail(t, "struct name");
 
     string name = t->token;
 
-    ZCMStruct lr {zcmgen, zcmfile, name};
+    ZCMStruct lr {zcmgen, zcmfile, (package == "") ? name : package + "." + name};
     if (zcmgen.comment != "")
         std::swap(lr.comment, zcmgen.comment);
 
@@ -545,7 +563,7 @@ static const ZCMStruct* findStruct(ZCMGen& zcmgen, const string& package, const 
 }
 
 /** parse entity (top-level construct), return EOF if eof. **/
-static int parseEntity(ZCMGen& zcmgen, const string& zcmfile, tokenize_t *t)
+static int parseEntity(ZCMGen& zcmgen, const string& zcmfile, tokenize_t* t)
 {
     parseTryConsumeComment(t, &zcmgen);
 
@@ -562,7 +580,7 @@ static int parseEntity(ZCMGen& zcmgen, const string& zcmfile, tokenize_t *t)
     }
 
     if (string(t->token) ==  "struct") {
-        ZCMStruct lr = parseStruct(zcmgen, zcmfile, t);
+        ZCMStruct lr = parseStruct(zcmgen, zcmfile, zcmgen.package, t);
 
         // check for duplicate types
         auto* prior = findStruct(zcmgen,
@@ -576,6 +594,7 @@ static int parseEntity(ZCMGen& zcmgen, const string& zcmfile, tokenize_t *t)
             return 1;
         } else {
             zcmgen.structs.push_back(std::move(lr));
+            zcmgen.package = "";
         }
         return 0;
     }
@@ -586,7 +605,7 @@ static int parseEntity(ZCMGen& zcmgen, const string& zcmfile, tokenize_t *t)
 
 int ZCMGen::handleFile(const string& path)
 {
-    tokenize_t *t = tokenize_create(path.c_str());
+    tokenize_t* t = tokenize_create(path.c_str());
 
     if (t==NULL) {
         perror(path.c_str());
@@ -658,7 +677,7 @@ void ZCMGen::dump()
 }
 
 /** Find and return the member whose name is name. **/
-ZCMMember *ZCMStruct::findMember(const string& name)
+ZCMMember* ZCMStruct::findMember(const string& name)
 {
     for (auto& lm : members)
         if (lm.membername == name)
@@ -667,7 +686,7 @@ ZCMMember *ZCMStruct::findMember(const string& name)
     return nullptr;
 }
 
-ZCMConstant *ZCMStruct::findConst(const string& name)
+ZCMConstant* ZCMStruct::findConst(const string& name)
 {
     for (auto& lc : constants)
         if (lc.membername == name)
@@ -701,7 +720,6 @@ bool ZCMGen::needsGeneration(const string& declaringfile, const string& outfile)
 /** Is the member an array of constant size? If it is not an array, it returns zero. **/
 bool ZCMMember::isConstantSizeArray()
 {
-
     if (dimensions.size() == 0)
         return true;
 

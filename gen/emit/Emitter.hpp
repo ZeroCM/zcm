@@ -9,13 +9,13 @@ struct Emitter
 
     static inline int indent(int n) { return 4*n; }
 
-    void emit(int indent, const char *msg, ...);
-    void emitStart(int indent, const char *msg, ...);
-    void emitContinue(const char *msg, ...);
-    void emitEnd(const char *msg, ...);
+    void emit(int indent, const char* msg, ...);
+    void emitStart(int indent, const char* msg, ...);
+    void emitContinue(const char* msg, ...);
+    void emitEnd(const char* msg, ...);
 
-    void fprintfPass(const char *msg, ...);
+    void fprintfPass(const char* msg, ...);
 
   private:
-    FILE *f = nullptr;
+    FILE* f = nullptr;
 };

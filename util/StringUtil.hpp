@@ -110,4 +110,7 @@ namespace StringUtil
         const char *ending = &s[s.size()-suffix.size()];
         return 0 == ::strcmp(ending, suffix.c_str());
     }
+
+    static inline string dotsToUnderscores(const string& s)
+    { return replace(s, '.', '_'); }
 }

@@ -4,7 +4,7 @@ def build(ctx):
     lang = ['c_stlib', 'c_shlib', 'cpp']
     if ctx.env.USING_JAVA:
         lang += ['java']
-    if ctx.env.USING_NODE:
+    if ctx.env.USING_NODEJS:
         lang += ['nodejs']
     if ctx.env.USING_PYTHON:
         lang += ['python']

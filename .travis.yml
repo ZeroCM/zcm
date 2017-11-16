@@ -17,12 +17,14 @@ before_script: mkdir ../tmp
 script:
   - ./waf distclean configure build &&
     ./waf distclean configure --use-all --use-third-party --use-clang --use-cxxtest --prefix=../tmp/ &&
-    ./waf build build_asan &&
+    ./waf build &&
     ./waf install &&
     cd examples && source ./env /home/travis/build/ZeroCM/tmp &&
     export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/home/travis/build/ZeroCM/tmp/lib/pkgconfig &&
     export PATH=$PATH:/home/travis/build/ZeroCM/tmp/bin &&
     ./waf distclean configure build && cd .. &&
+    ./waf distclean configure --use-all --use-third-party --use-clang --use-cxxtest --prefix=../tmp/ &&
+    ./waf build_asan &&
     ./waf install_asan &&
     cd examples && source ./env /home/travis/build/ZeroCM/tmp &&
     export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/home/travis/build/ZeroCM/tmp/lib/pkgconfig &&

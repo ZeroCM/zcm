@@ -181,23 +181,30 @@ def zcmgen(ctx, **kw):
     if not kw['source']:
         return
 
-    # Add .zcm files to build so the process_zcmtypes rule picks them up
-    genfiles_name = uselib_name + '_genfiles'
-    tg = ctx(name         = genfiles_name,
-             source       = kw['source'],
-             lang         = lang,
-             littleEndian = littleEndian,
-             javapkg      = javapkg_name)
+    zcmgen = ctx.root.find_or_declare(ctx.env.ZCMGEN)
 
     bld = ctx.path.get_bld().abspath()
     inc = os.path.dirname(bld)
 
     if 'nodejs' in lang:
         bldcmd = '%s --node --npath %s ' % (ctx.env['ZCMGEN'], bld)
-        nodejstg = ctx(name   = uselib_name + '_nodejs',
-                       target = 'zcmtypes.js',
-                       source = tg.source,
-                       rule   = bldcmd + '${SRC}')
+        ctx(name   = uselib_name + '_nodejs',
+            target = 'zcmtypes.js',
+            source = kw['source'],
+            rule   = bldcmd + '${SRC}')
+
+    # Add .zcm files to build so the process_zcmtypes rule picks them up
+    if len(lang) == 0 or ('nodejs' in lang and len(lang) == 1):
+        return
+
+    genfiles_name = uselib_name + '_genfiles'
+    tg = ctx(name         = genfiles_name,
+             source       = kw['source'],
+             lang         = lang,
+             littleEndian = littleEndian,
+             javapkg      = javapkg_name)
+    for s in tg.source:
+        ctx.add_manual_dependency(s, zcmgen)
 
     if not building:
         return
@@ -210,39 +217,38 @@ def zcmgen(ctx, **kw):
             csrc.append(outnode)
 
     if 'c_stlib' in lang:
-        cstlibtg = ctx.stlib(name            = uselib_name + '_c_stlib',
-                             target          = uselib_name,
-                             use             = ['default', 'zcm'],
-                             includes        = inc,
-                             export_includes = inc,
-                             source          = csrc)
+        ctx.stlib(name            = uselib_name + '_c_stlib',
+                  target          = uselib_name,
+                  use             = ['default', 'zcm'],
+                  includes        = inc,
+                  export_includes = inc,
+                  source          = csrc)
 
     if 'c_shlib' in lang:
-        cshlibtg = ctx.shlib(name            = uselib_name + '_c_shlib',
-                             target          = uselib_name,
-                             use             = ['default', 'zcm'],
-                             includes        = inc,
-                             export_includes = inc,
-                             source          = csrc)
+        ctx.shlib(name            = uselib_name + '_c_shlib',
+                  target          = uselib_name,
+                  use             = ['default', 'zcm'],
+                  includes        = inc,
+                  export_includes = inc,
+                  source          = csrc)
 
     if 'cpp' in lang:
-        cpptg = ctx(target          = uselib_name + '_cpp',
-                    rule            = 'touch ${TGT}',
-                    export_includes = inc)
+        ctx(target          = uselib_name + '_cpp',
+            rule            = 'touch ${TGT}',
+            export_includes = inc)
 
     if 'java' in lang:
-        javatg = ctx(name       = uselib_name + '_java',
-                     features   = 'javac jar',
-                     use        = ['zcmjar', genfiles_name],
-                     srcdir     = ctx.path.find_or_declare('java/' +
-                                                           javapkg_name.split('.')[0]),
-                     outdir     = 'java/classes',  # path to output (for .class)
-                     basedir    = 'java/classes',  # basedir for jar
-                     destfile   = uselib_name + '.jar')
+        ctx(name       = uselib_name + '_java',
+            features   = 'javac jar',
+            use        = ['zcmjar', genfiles_name],
+            srcdir     = ctx.path.find_or_declare('java/' + javapkg_name.split('.')[0]),
+            outdir     = 'java/classes',  # path to output (for .class)
+            basedir    = 'java/classes',  # basedir for jar
+            destfile   = uselib_name + '.jar')
 
     if 'python' in lang:
-        pythontg = ctx(target = uselib_name + '_python',
-                       rule   = 'touch ${TGT}')
+        ctx(target = uselib_name + '_python',
+            rule   = 'touch ${TGT}')
 
 @extension('.zcm')
 def process_zcmtypes(self, node):

@@ -86,7 +86,7 @@ static bool structHasStringMember(ZCMStruct& lr)
 
 static string dimSizePrefix(const string& dimSize)
 {
-    char *eptr;
+    char* eptr;
     int ret = strtol(dimSize.c_str(), &eptr, 0);
     (void) ret;
     if(*eptr == '\0')
@@ -147,7 +147,7 @@ struct TypeTable
             "outs.writeDouble(#);"});
     }
 
-    PrimInfo *find(const string& type)
+    PrimInfo* find(const string& type)
     {
         auto it = tbl.find(type);
         if (it == tbl.end())
@@ -167,7 +167,7 @@ struct EmitStruct : public Emitter
     EmitStruct(ZCMGen& zcm, ZCMStruct& lr, const string& fname):
         Emitter(fname), zcm(zcm), lr(lr) {}
 
-    void encodeRecursive(ZCMMember& lm, PrimInfo *pinfo, const string& accessor, int depth)
+    void encodeRecursive(ZCMMember& lm, PrimInfo* pinfo, const string& accessor, int depth)
     {
         int ndims = (int)lm.dimensions.size();
 
@@ -207,7 +207,7 @@ struct EmitStruct : public Emitter
         emit(2+depth, "}");
     }
 
-    void decodeRecursive(ZCMMember& lm, PrimInfo *pinfo, const string& accessor, int depth)
+    void decodeRecursive(ZCMMember& lm, PrimInfo* pinfo, const string& accessor, int depth)
     {
         int ndims = (int)lm.dimensions.size();
 
@@ -244,7 +244,7 @@ struct EmitStruct : public Emitter
         emit(2+depth, "}");
     }
 
-    void copyRecursive(ZCMMember& lm, PrimInfo *pinfo, const string& accessor, int depth)
+    void copyRecursive(ZCMMember& lm, PrimInfo* pinfo, const string& accessor, int depth)
     {
         int ndims = (int)lm.dimensions.size();
 
@@ -330,7 +330,7 @@ struct EmitStruct : public Emitter
         emit(0, "{");
 
         for (auto& lm : lr.members) {
-            PrimInfo *pinfo = typeTable.find(lm.type.fullname);
+            PrimInfo* pinfo = typeTable.find(lm.type.fullname);
             emitStart(1, "public ");
 
             if (pinfo)  {
@@ -351,7 +351,7 @@ struct EmitStruct : public Emitter
 
         // pre-allocate any fixed-size arrays.
         for (auto& lm : lr.members) {
-            PrimInfo *pinfo = typeTable.find(lm.type.fullname);
+            PrimInfo* pinfo = typeTable.find(lm.type.fullname);
 
             int ndims = (int)lm.dimensions.size();
             if (ndims == 0 || !lm.isConstantSizeArray())
@@ -380,8 +380,8 @@ struct EmitStruct : public Emitter
             assert(ZCMGen::isLegalConstType(lc.type));
 
             auto& tn = lc.type;
-            auto *name = lc.membername.c_str();
-            auto *value = lc.valstr.c_str();
+            auto* name = lc.membername.c_str();
+            auto* value = lc.valstr.c_str();
 
             if (tn == "int8_t") {
                 emit(1, "public static final byte %s = (byte) %s;", name, value);
@@ -417,7 +417,7 @@ struct EmitStruct : public Emitter
 
         emit(2, "long hash = ZCM_FINGERPRINT_BASE");
         for (auto& lm : lr.members) {
-            PrimInfo *pinfo = typeTable.find(lm.type.fullname);
+            PrimInfo* pinfo = typeTable.find(lm.type.fullname);
             if (pinfo)
                 continue;
             emit(3, " + %s._hashRecursive(classes)", makeFqn(zcm, lm.type.fullname).c_str());
@@ -445,7 +445,7 @@ struct EmitStruct : public Emitter
             emit(2, "char[] __strbuf = null;");
 
         for (auto& lm : lr.members) {
-            PrimInfo *pinfo = typeTable.find(lm.type.fullname);
+            PrimInfo* pinfo = typeTable.find(lm.type.fullname);
             string accessor = makeAccessor(lm, "this");
             encodeRecursive(lm, pinfo, accessor, 0);
             emit(0," ");
@@ -454,9 +454,9 @@ struct EmitStruct : public Emitter
         emit(0," ");
 
         ///////////////// decode //////////////////
-        auto *sn = lr.structname.shortname.c_str();
+        auto* sn = lr.structname.shortname.c_str();
         auto fqn_ = makeFqn(zcm, lr.structname.fullname);
-        auto *fqn = fqn_.c_str();
+        auto* fqn = fqn_.c_str();
 
         // decoding constructors
         emit(1, "public %s(byte[] data) throws IOException", sn);
@@ -487,7 +487,7 @@ struct EmitStruct : public Emitter
             emit(2, "char[] __strbuf = null;");
 
         for (auto& lm : lr.members) {
-            PrimInfo *pinfo = typeTable.find(lm.type.fullname);
+            PrimInfo* pinfo = typeTable.find(lm.type.fullname);
             string accessor = makeAccessor(lm, "this");
 
             // allocate an array if necessary
@@ -520,7 +520,7 @@ struct EmitStruct : public Emitter
         emit(2,"%s outobj = new %s();", classname.c_str(), classname.c_str());
 
         for (auto& lm : lr.members) {
-            PrimInfo *pinfo = typeTable.find(lm.type.fullname);
+            PrimInfo* pinfo = typeTable.find(lm.type.fullname);
             string accessor = makeAccessor(lm, "");
 
             // allocate an array if necessary

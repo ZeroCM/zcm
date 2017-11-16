@@ -8,7 +8,7 @@ extern "C" {
 #include "tokenize.h"
 }
 
-int main(int argc, char *argv[])
+int main(int argc, char* argv[])
 {
     GetOpt gopt;
     gopt.addBool('h',  "help",     0,    "Show this help");
@@ -26,16 +26,16 @@ int main(int argc, char *argv[])
     setupOptionsC(gopt);
 
     gopt.addSpacer("**** C++ options ****");
-    gopt.addBool('x', "cpp",         0,     "Emit C++ code");
+    gopt.addBool('x', "cpp",       0,     "Emit C++ code");
     setupOptionsCpp(gopt);
 
     gopt.addSpacer("**** Java options ****");
     gopt.addBool('j', "java",      0,     "Emit Java code");
     setupOptionsJava(gopt);
 
-     gopt.addSpacer("**** Python options ****");
-     gopt.addBool('p', "python",      0,     "Emit Python code");
-     setupOptionsPython(gopt);
+    gopt.addSpacer("**** Python options ****");
+    gopt.addBool('p', "python",    0,     "Emit Python code");
+    setupOptionsPython(gopt);
 
     gopt.addSpacer("**** Node.js options ****");
     gopt.addBool('n', "node",      0,     "Emit Node.js code");
@@ -70,7 +70,15 @@ int main(int argc, char *argv[])
 
     // If "-p" or "--package" was specified, then print out package and exit
     if (gopt.getBool("package")) {
-        printf("%s\n", zcm.package.c_str());
+        string package = "";
+        for (auto& s : zcm.structs) {
+            if (package != "" && s.structname.package != package) {
+                fprintf(stderr, "Multiple types with different packages specified.\n");
+                return 1;
+            }
+            package = s.structname.package;
+        }
+        printf("%s\n", package.c_str());
         return 0;
     }
 

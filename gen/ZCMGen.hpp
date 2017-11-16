@@ -2,6 +2,8 @@
 #include "Common.hpp"
 #include "GetOpt.hpp"
 
+#include "util/StringUtil.hpp"
+
 extern "C" {
 #include "getopt.h"
 }
@@ -20,6 +22,24 @@ struct ZCMTypename
 
     static bool isSame(const ZCMTypename& a, const ZCMTypename& b)
     { return a.fullname == b.fullname; }
+
+    //////////////////////////////////////////////////////////////////////////////
+    mutable string underscore;
+    mutable bool hasUnderscore = false;
+    const string& nameUnderscore() const
+    {
+        if (!hasUnderscore) {
+            hasUnderscore = true;
+            underscore = StringUtil::dotsToUnderscores(fullname);
+        }
+        return underscore;
+    }
+    const char* nameUnderscoreCStr() const
+    {
+        return nameUnderscore().c_str();
+    }
+    //////////////////////////////////////////////////////////////////////////////
+
 };
 
 enum ZCMDimensionMode {
@@ -72,6 +92,8 @@ struct ZCMConstant
     // attached to the constant.
     string comment;
 
+    bool isFixedPoint();
+
     ZCMConstant(const string& type, const string& name, const string& valstr);
 };
 
@@ -86,42 +108,17 @@ struct ZCMStruct
 
     string               zcmfile; // file/path of function that declared it
     u64                  hash;
+    string               package;
 
     // Comments in the ZCM type defition immediately before a struct is declared
     // are attached to that struct.
     string               comment;
 
-
-    //////////////////////////////////////////////////////////////////////////////
-    static inline string dotsToUnderscores(const string& s)
-    {
-        string ret = s;
-        for (uint i = 0; i < ret.size(); i++)
-            if (ret[i] == '.')
-                ret[i] = '_';
-        return ret;
-    }
-    string underscore;
-    bool hasUnderscore = false;
-    const string& nameUnderscore()
-    {
-        if (!hasUnderscore) {
-            hasUnderscore = true;
-            underscore = dotsToUnderscores(structname.fullname);
-        }
-        return underscore;
-    }
-    const char *nameUnderscoreCStr()
-    {
-        return nameUnderscore().c_str();
-    }
-    //////////////////////////////////////////////////////////////////////////////
-
     // Returns the member of a struct by name. Returns NULL on error.
-    ZCMMember *findMember(const string& name);
+    ZCMMember* findMember(const string& name);
 
     // Returns the constant of a struct by name. Returns NULL on error.
-    ZCMConstant *findConst(const string& name);
+    ZCMConstant* findConst(const string& name);
 
     u64 computeHash();
 
@@ -131,8 +128,9 @@ struct ZCMStruct
 
 struct ZCMGen
 {
-    string             package; // remembers the last-specified package name, which is prepended to other types.
-    GetOpt             *gopt = nullptr;
+    string             package;
+
+    GetOpt*            gopt = nullptr;
     vector<ZCMStruct>  structs;
 
     string             comment;
@@ -152,6 +150,8 @@ struct ZCMGen
 
     // Returns true if the argument is a built-in type (e.g., "int64_t", "float").
     static bool isPrimitiveType(const string& t);
+
+    static size_t getPrimitiveTypeSize(const string& tn);
 
     // Returns true if the argument is a built-in type usable as and array dim
     static bool isArrayDimType(const string& t);

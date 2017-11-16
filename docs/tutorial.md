@@ -312,9 +312,7 @@ cfg.h:
     /* ... code removed ... */
 
 As you can see, cfg\_t can be used in the same same way as any other zcmtype.
-The type nesting *just works*! Note that currently, nested types are not
-supported by the nodejs zcm bindings. If this is a huge pain for you,
-[speak up](contributing.md)!
+The type nesting *just works*!
 
 ### Array Types
 

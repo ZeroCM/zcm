@@ -8,6 +8,8 @@ var ffi = require('ffi');
 var ref = require('ref');
 var StructType = require('ref-struct');
 var ArrayType = require('ref-array');
+var bigint = require('big-integer');
+var assert = require('assert');
 
 // Define some types
 var voidRef = ref.refType('void')
@@ -91,11 +93,19 @@ function makeDispatcher(cb)
 
 function zcm(zcmtypes, zcmurl)
 {
-    var zcmtypes = zcmtypes;
-
     var zcmtypeHashMap = {};
-    for (var type in zcmtypes)
-        zcmtypeHashMap[zcmtypes[type].__hash] = zcmtypes[type];
+    // Note: recursive to handle packages (which are set as objects in the zcmtypes exports)
+    function rehashTypes(zcmtypes) {
+        for (var type in zcmtypes) {
+            if (type == 'getZcmtypes') continue;
+            if (typeof(zcmtypes[type]) == 'object') {
+                rehashTypes(zcmtypes[type]);
+                continue;
+            }
+            zcmtypeHashMap[zcmtypes[type].__get_hash_recursive()] = zcmtypes[type];
+        }
+    }
+    rehashTypes(zcmtypes);
 
     var z = libzcm.zcm_create(zcmurl);
     if (z.isNull()) {
@@ -111,10 +121,9 @@ function zcm(zcmtypes, zcmurl)
      *                        type from zcmtypes.js)
      * @param {Buffer} msg - the decoded message (must be a zcmtype)
      */
-    function publish(channel, type, msg)
+    function publish(channel, msg)
     {
-        var _type = zcmtypes[type];
-        publish_raw(channel, _type.encode(msg));
+        publish_raw(channel, zcmtypeHashMap[msg.__hash].encode(msg));
     }
 
     /**
@@ -135,12 +144,16 @@ function zcm(zcmtypes, zcmurl)
      * @param {dispatchDecodedCallback} cb - callback to handle received messages
      * @param {successCb} successCb - callback for successful subscription
      */
-    function subscribe(channel, type, cb, successCb)
+    function subscribe(channel, _type, cb, successCb)
     {
-        if (type) {
-            var type = zcmtypes[type];
+        if (_type) {
+            // Note: this lookup is because the type that is given by a client doesn't have
+            //       the necessary functions, so we need to look up our complete class here
+            var hash = bigint.isInstance(_type.__hash) ?  _type.__hash.toString() : _type.__hash;
+            var type = zcmtypeHashMap[hash];
             var sub = subscribe_raw(channel, function (channel, data) {
-                cb(channel, type.decode(data));
+                var msg = type.decode(data)
+                if (msg != null) cb(channel, msg);
             }, successCb);
         } else {
             var sub = subscribe_raw(channel, cb, successCb);
@@ -190,7 +203,6 @@ function zcm(zcmtypes, zcmurl)
         publish:        publish,
         subscribe:      subscribe,
         unsubscribe:    unsubscribe,
-        zcmtypes:       zcmtypes,
     };
 }
 
@@ -205,7 +217,7 @@ function zcm_create(zcmtypes, zcmurl, http)
             var subscriptions = {};
             var nextSub = 0;
             socket.on('client-to-server', function (data) {
-                ret.publish(data.channel, data.type, data.msg);
+                ret.publish(data.channel, data.msg);
             });
             socket.on('subscribe', function (data, returnSubscription) {
                 var subId = nextSub++;
@@ -238,7 +250,7 @@ function zcm_create(zcmtypes, zcmurl, http)
                 }
                 nextSub = 0;
             });
-            socket.emit('zcmtypes', zcmtypes);
+            socket.emit('zcmtypes', zcmtypes.getZcmtypes());
         });
     }
 
