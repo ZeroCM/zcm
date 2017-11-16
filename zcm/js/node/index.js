@@ -92,8 +92,7 @@ function makeDispatcher(cb)
 function zcm(zcmtypes, zcmurl)
 {
     var zcmtypeHashMap = {};
-    // RRR: maybe I'm misunderstanding the structure of the zcmtypes object, but why
-    //      do you have to go recursive? Could you overwrite a given key's value multiple times?
+    // Note: recursive to handle packages (which are set as objects in the zcmtypes exports)
     function rehashTypes(zcmtypes) {
         for (var type in zcmtypes) {
             if (type == 'getZcmtypes') continue;
@@ -145,10 +144,9 @@ function zcm(zcmtypes, zcmurl)
      */
     function subscribe(channel, _type, cb, successCb)
     {
-        // RRR: again, might be because I don't know what the zcmtypes object looks like
-        //      but why is the type you are given as an argument here different than the
-        //      one you look up?
         if (_type) {
+            // Note: this lookup is because the type that is given by a client doesn't have
+            //       the necessary functions, so we need to look up our complete class here
             var type = zcmtypeHashMap[_type.__hash];
             var sub = subscribe_raw(channel, function (channel, data) {
                 cb(channel, type.decode(data));

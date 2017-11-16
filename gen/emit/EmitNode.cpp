@@ -86,8 +86,6 @@ struct EmitModule : public Emitter
         emit(0, "var UINT64_MAX = bigint('ffffffffffffffff', 16);");
         emit(0, "function rotateLeftOne(val)");
         emit(0, "{");
-        // RRR: why are you anding with UINT64_MAX? Does bigint not guarantee the shifted in bit?
-        //      If so, you should be anding with max-1.
         emit(0, "    return val.shiftLeft(1).and(UINT64_MAX).add("
                            "val.shiftRight(63).and(1))");
         emit(0, "}");
@@ -508,7 +506,7 @@ struct EmitModule : public Emitter
         emit(0, "{");
         emit(1,     "if (%s._hash != null) return %s._hash", sn, sn);
         emit(1,     "if (!parents) parents = [];");
-        emit(1,     "if (parents.includes('%s')) return 0;", ls.structname.fullname.c_str());
+        emit(1,     "if (parents.indexOf('%s') != -1) return 0;", ls.structname.fullname.c_str());
         for (auto& lm : ls.members) {
             if (!ZCMGen::isPrimitiveType(lm.type.fullname)) {
                 emit(1, "newparents = parents.push('%s')", lm.type.fullname.c_str());

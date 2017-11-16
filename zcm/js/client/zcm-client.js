@@ -37,27 +37,12 @@ var zcm = (function(){
                                               msg     : msg });
         }
 
-        // RRR: I'm guessing one of these subscribe calls is supposed to not have a type right?
         /**
          * Subscribes to zcm messages on the given channel of the specified zcmtype.
          * @param {string} channel - the zcm channel to subscribe to
          * @param {string} type - the zcmtype of messages on the channel (must be a generated
-         *                        type from zcmtypes.js)
-         * @param {dispatchDecodedCallback} handler - handler for received messages
-         */
-        function subscribe(channel, type, handler, successCb) {
-            socket.emit("subscribe", { channel : channel, type : type },
-                        function (subId) {
-                            subscriptions[subId] = { callback : handler,
-                                                     channel  : channel,
-                                                     type     : type };
-                            if (successCb) successCb(subId);
-                        });
-        }
-
-        /**
-         * Subscribes to zcm messages on the given channel of the specified zcmtype.
-         * @param {string} channel - the zcm channel to subscribe to
+         *                        type from zcmtypes.js). Passing null yields an untyped
+         *                        subscription.
          * @param {dispatchDecodedCallback} handler - handler for received messages
          */
         function subscribe(channel, type, handler, successCb) {

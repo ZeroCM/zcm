@@ -61,6 +61,9 @@ function packageExample()
 basicExample();
 multidimExample();
 packageExample();
+// RRR: test recursive type here
+
+// RRR: test a typed subscription here
 
 var sub = null;
 z.subscribe(".*", null, function(channel, msg) {

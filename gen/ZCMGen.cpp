@@ -167,7 +167,6 @@ ZCMConstant::ZCMConstant(const string& type, const string& name, const string& v
     type(type), membername(name), valstr(valstr)
 {}
 
-// RRR: why put this all the way down here
 bool ZCMConstant::isFixedPoint() { return inArray(fixedPointTypes, type); }
 
 u64 ZCMStruct::computeHash()
@@ -595,7 +594,6 @@ static int parseEntity(ZCMGen& zcmgen, const string& zcmfile, tokenize_t* t)
             return 1;
         } else {
             zcmgen.structs.push_back(std::move(lr));
-            // RRR: what's going on here?
             zcmgen.package = "";
         }
         return 0;
