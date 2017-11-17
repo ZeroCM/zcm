@@ -45,6 +45,9 @@ def build(ctx):
         target = '.zcm-embed-tmp.tar.gz',
         color  = "PINK")
 
+    # RRR: getting an error message when trying to build clang when we hit here:
+    #      [69/82] Compiling build/tsan/zcm/.zcm-embed-tmp.tar.gz
+    #              find: ‘zcm/zcm-embed.tar’: No such file or directory
     ctx(rule   = package_embedded,
         name   = 'embed-tar-finish',
         source = '.zcm-embed-tmp.tar.gz',

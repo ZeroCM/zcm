@@ -97,7 +97,7 @@ struct zcm_blocking
     int publish(const string& channel, const uint8_t* data, uint32_t len);
     zcm_sub_t* subscribe(const string& channel, zcm_msg_handler_t cb, void* usr, bool block);
     int unsubscribe(zcm_sub_t* sub, bool block);
-    void flush();
+    int flush(bool block);
 
     void setQueueSize(uint32_t numMsgs);
 
@@ -334,7 +334,7 @@ int zcm_blocking_t::handle()
         unique_lock<mutex> lk1(recvModeMutex);
         if (recvMode != RECV_MODE_NONE && recvMode != RECV_MODE_HANDLE) {
             ZCM_DEBUG("Err: call to handle() when 'recvMode != RECV_MODE_NONE && recvMode != RECV_MODE_HANDLE'");
-            return -1;
+            return ZCM_EINVALID;
         }
 
         // If this is the first time handle() is called, we need to start the recv thread
@@ -351,7 +351,7 @@ int zcm_blocking_t::handle()
     }
 
     unique_lock<mutex> lk(dispOneMutex);
-    return dispatchOneMessage();
+    return dispatchOneMessage() ? ZCM_EOK : ZCM_EAGAIN;
 }
 
 void zcm_blocking_t::pause()
@@ -482,14 +482,20 @@ int zcm_blocking_t::unsubscribe(zcm_sub_t* sub, bool block)
     return 0;
 }
 
-void zcm_blocking_t::flush()
+int zcm_blocking_t::flush(bool block)
 {
     size_t n;
 
     {
         sendQueue.disable();
 
-        unique_lock<mutex> lk(sendOneMutex);
+        unique_lock<mutex> lk(sendOneMutex, defer_lock);
+
+        if (block) lk.lock();
+        else if (!lk.try_lock()) {
+            sendQueue.enable();
+            return ZCM_EAGAIN;
+        }
 
         sendQueue.enable();
         n = sendQueue.numMessages();
@@ -499,12 +505,20 @@ void zcm_blocking_t::flush()
     {
         recvQueue.disable();
 
-        unique_lock<mutex> lk(dispOneMutex);
+        unique_lock<mutex> lk(dispOneMutex, defer_lock);
+
+        if (block) lk.lock();
+        else if (!lk.try_lock()) {
+            recvQueue.enable();
+            return ZCM_EAGAIN;
+        }
 
         recvQueue.enable();
         n = recvQueue.numMessages();
         for (size_t i = 0; i < n; ++i) dispatchOneMessage();
     }
+
+    return ZCM_EOK;
 }
 
 void zcm_blocking_t::setQueueSize(uint32_t numMsgs)
@@ -737,7 +751,12 @@ int zcm_blocking_try_unsubscribe(zcm_blocking_t* zcm, zcm_sub_t* sub)
 
 void zcm_blocking_flush(zcm_blocking_t* zcm)
 {
-    return zcm->flush();
+    zcm->flush(true);
+}
+
+int  zcm_blocking_try_flush(zcm_blocking_t* zcm)
+{
+    return zcm->flush(false);
 }
 
 void zcm_blocking_run(zcm_blocking_t* zcm)

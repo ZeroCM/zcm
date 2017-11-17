@@ -360,7 +360,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
                 p->socket = sock;
                 p->events = ZMQ_POLLIN;
                 pchannels.emplace_back(channel);
-                i++;
+                ++i;
             }
         }
 
@@ -374,7 +374,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             return ZCM_EAGAIN;
         }
         if (rc >= 0) {
-            for (size_t i = 0; i < pitems.size(); i++) {
+            for (size_t i = 0; i < pitems.size(); ++i) {
                 auto& p = pitems[i];
                 if (p.revents != 0) {
                     // NOTE: zmq_recv can return an integer > the len parameter passed in

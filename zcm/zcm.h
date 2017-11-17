@@ -62,14 +62,18 @@ struct zcm_recv_buf_t
 
 /* Standard create/destroy functions. These will malloc() and free() the zcm_t object.
    Sets zcm errno on failure */
+#ifndef ZCM_EMBEDDED
 zcm_t* zcm_create(const char* url);
+#endif
 zcm_t* zcm_create_trans(zcm_trans_t* zt);
 void   zcm_destroy(zcm_t* zcm);
 
+#ifndef ZCM_EMBEDDED
 /* Initialize a zcm object allocated by caller
    Returns 0 on success, and -1 on failure
    Sets zcm errno on failure */
 int zcm_init(zcm_t* zcm, const char* url);
+#endif
 
 /* Initialize a zcm instance allocated by caller using a transport provided by caller
    Returns 0 on success, and -1 on failure
@@ -119,19 +123,23 @@ int zcm_publish(zcm_t* zcm, const char* channel, const uint8_t* data, uint32_t l
 
 /* Block until all published messages have been sent even if the underlying
    transport is nonblocking. Additionally, dispatches all messages that have
-   already been received sequentially in this thread. This should not be called
-   concurrently with zcm_publish(). This function may cause all calls to
-   zcm_publish() or zcm_handle() to block when used with a blocking transport. */
+   already been received sequentially in this thread. */
 void zcm_flush(zcm_t* zcm);
 
+/* Nonblocking version of flush (ZCM_EAGAIN if fail, ZCM_EOK if success) as defined
+   above. If you want to guarantee that this function returns ZCM_EOK at some point,
+   you should zcm_pause() first. */
+int  zcm_try_flush(zcm_t* zcm);
+
+#ifndef ZCM_EMBEDDED
 /* Blocking Mode Only: Functions for controlling the message dispatch loop */
 void zcm_run(zcm_t* zcm);
 void zcm_start(zcm_t* zcm);
 void zcm_stop(zcm_t* zcm);
-int  zcm_try_stop(zcm_t* zcm); /* returns 0 on success, error code on failure */
+int  zcm_try_stop(zcm_t* zcm); /* returns ZCM_EOK on success, error code on failure */
 void zcm_pause(zcm_t* zcm); /* pauses message dispatch and publishing, not transport */
 void zcm_resume(zcm_t* zcm);
-int  zcm_handle(zcm_t* zcm); /* returns 0 normally, and -1 when an error occurs. */
+int  zcm_handle(zcm_t* zcm); /* returns ZCM_EOK normally, error code on failure. */
 /* Determines how many messages can be stored from the transport without being dispatched
    As well as the number of messages that may be stored from the user without being
    transmitted by the transport. Normal operation does not require the user to modify
@@ -141,7 +149,11 @@ int  zcm_handle(zcm_t* zcm); /* returns 0 normally, and -1 when an error occurs.
    messages will not be read from / sent to the transport, which could cause significant
    issues depending on the transport. */
 void zcm_set_queue_size(zcm_t* zcm, uint32_t numMsgs);
+#endif
 
+/* RRR: a bit strange that this doesn't use the error codes, but I guess it'd be a little
+        weird to return like EAGAIN when you dispatch a message because it isn't really
+        an error, just telling you something happened. */
 /* Non-Blocking Mode Only: Functions checking and dispatching messages */
 /* Returns 1 if a message was dispatched, and 0 otherwise */
 int zcm_handle_nonblock(zcm_t* zcm);
