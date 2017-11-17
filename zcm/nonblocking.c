@@ -212,8 +212,7 @@ int zcm_nonblocking_handle_nonblock(zcm_nonblocking_t *zcm)
     zcm_trans_update(zcm->zt);
 
     /* Try to receive a messages from the transport and dispatch them */
-    if ((ret = zcm_trans_recvmsg(zcm->zt, &msg, 0)) != ZCM_EOK)
-        return ret;
+    if ((ret = zcm_trans_recvmsg(zcm->zt, &msg, 0)) != ZCM_EOK) return ret;
     dispatch_message(zcm, &msg);
 
     return ZCM_EOK;

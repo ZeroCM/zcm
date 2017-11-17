@@ -16,6 +16,7 @@
 
 #ifndef ZCM_EMBEDDED
 #include <stdlib.h>
+#include <string.h>
 
 # include "zcm/blocking.h"
 # include "zcm/transport_registrar.h"
@@ -23,6 +24,16 @@
 #else
 /** Note: here's to hoping that variadic macros are "portable enough" **/
 # define ZCM_DEBUG(...)
+#endif
+
+#ifndef ZCM_EMBEDDED
+int zcm_retcode_name_to_enum(const char* zcm_retcode_name)
+{
+    #define X(n, v, s) if (strcmp(#n, zcm_retcode_name) == 0) return v;
+    ZCM_RETURN_CODES
+    #undef X
+    return ZCM_NUM_RETURN_CODES;
+}
 #endif
 
 #ifndef ZCM_EMBEDDED
@@ -146,11 +157,9 @@ int zcm_errno(const zcm_t* zcm)
 }
 
 static const char* errcode_str[] = {
-    "Okay, no errors",                          /* ZCM_EOK      */
-    "Invalid arguments",                        /* ZCM_EINVALID */
-    "Resource unavailable, try again",          /* ZCM_EAGAIN   */
-    "Transport connection failed",              /* ZCM_ECONNECT */
-    "Operation was unexpectedly interrupted",   /* ZCM_EINTR    */
+    #define X(n, v, s) s,
+    ZCM_RETURN_CODES
+    #undef X
 };
 
 const char* zcm_strerror(const zcm_t* zcm)
@@ -160,11 +169,9 @@ const char* zcm_strerror(const zcm_t* zcm)
 
 const char* zcm_strerrno(int err)
 {
-    if (((unsigned) err) >= ZCM__RESERVED_COUNT) {
-        return "Unknown error occurred";
-    } else {
-        return errcode_str[(unsigned) err];
-    }
+    if (((unsigned) err) >= ZCM_NUM_RETURN_CODES) err = ZCM_NUM_RETURN_CODES;
+
+    return errcode_str[(unsigned) err];
 }
 
 int zcm_publish(zcm_t* zcm, const char* channel, const uint8_t* data, uint32_t len)

@@ -21,15 +21,20 @@ enum zcm_type {
     ZCM_NONBLOCKING
 };
 
+#define ZCM_RETURN_CODES \
+    X(ZCM_EOK,              0, "Okay, no errors"                       ) \
+    X(ZCM_EINVALID,         1, "Invalid arguments"                     ) \
+    X(ZCM_EAGAIN  ,         2, "Resource unavailable, try again"       ) \
+    X(ZCM_ECONNECT,         3, "Transport connection failed"           ) \
+    X(ZCM_EINTR   ,         4, "Operation was unexpectedly interrupted") \
+    X(ZCM_EUNKNOWN,         5, "Unknown error"                         ) \
+    X(ZCM_NUM_RETURN_CODES, 6, "Invalid return code"                   )
+
 /* Return codes */
 enum zcm_return_codes {
-    ZCM_EOK       = 0,
-    ZCM_EINVALID  = 1,
-    ZCM_EAGAIN    = 2,
-    ZCM_ECONNECT  = 3,
-    ZCM_EINTR     = 4,
-    ZCM__RESERVED_COUNT,
-    ZCM_EUNKNOWN  = 255,
+    #define X(n, v, s) n = v,
+    ZCM_RETURN_CODES
+    #undef X
 };
 
 /* Forward typedef'd structs */
@@ -59,6 +64,10 @@ struct zcm_recv_buf_t
     uint8_t* data; /* NOTE: do not free, the library manages this memory */
     uint32_t data_size;
 };
+
+#ifndef ZCM_EMBEDDED
+int zcm_retcode_name_to_enum(const char* zcm_retcode_name);
+#endif
 
 /* Standard create/destroy functions. These will malloc() and free() the zcm_t object.
    Sets zcm errno on failure */
@@ -151,11 +160,9 @@ int  zcm_handle(zcm_t* zcm); /* returns ZCM_EOK normally, error code on failure.
 void zcm_set_queue_size(zcm_t* zcm, uint32_t numMsgs);
 #endif
 
-/* RRR: a bit strange that this doesn't use the error codes, but I guess it'd be a little
-        weird to return like EAGAIN when you dispatch a message because it isn't really
-        an error, just telling you something happened. */
-/* Non-Blocking Mode Only: Functions checking and dispatching messages */
-/* Returns 1 if a message was dispatched, and 0 otherwise */
+/* Non-Blocking Mode Only: Functions checking and dispatching messages
+   Returns ZCM_EOK if a message was dispatched, ZCM_EAGAIN if no messages,
+   error code otherwise */
 int zcm_handle_nonblock(zcm_t* zcm);
 
 /*

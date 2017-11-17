@@ -34,14 +34,34 @@ var subscriptionRef = ref.refType(subscription);
 
 // Define our Foreign Function Interface to the zcm library
 var libzcm = new ffi.Library('libzcm', {
-    'zcm_create':          ['pointer', ['string']],
-    'zcm_destroy':         ['void', ['pointer']],
-    'zcm_publish':         ['int', ['pointer', 'string', 'pointer', 'int']],
-    'zcm_try_subscribe':   ['pointer', ['pointer', 'string', 'pointer', 'pointer']],
-    'zcm_try_unsubscribe': ['int', ['pointer', 'pointer']],
-    'zcm_start':           ['void', ['pointer']],
-    'zcm_stop':            ['void', ['pointer']],
+    'zcm_retcode_name_to_enum': ['int', ['string']],
+    'zcm_create':               ['pointer', ['string']],
+    'zcm_destroy':              ['void', ['pointer']],
+    'zcm_publish':              ['int', ['pointer', 'string', 'pointer', 'int']],
+    'zcm_try_subscribe':        ['pointer', ['pointer', 'string', 'pointer', 'pointer']],
+    'zcm_try_unsubscribe':      ['int', ['pointer', 'pointer']],
+    'zcm_start':                ['void', ['pointer']],
+    'zcm_try_stop':             ['int', ['pointer']],
+    'zcm_try_flush':            ['int', ['pointer']],
+    'zcm_pause':                ['void', ['pointer']],
+    'zcm_resume':               ['void', ['pointer']]
 });
+
+var ZCM_EOK              = libzcm.zcm_retcode_name_to_enum("ZCM_EOK");
+var ZCM_EINVALID         = libzcm.zcm_retcode_name_to_enum("ZCM_EINVALID");
+var ZCM_EAGAIN           = libzcm.zcm_retcode_name_to_enum("ZCM_EAGAIN");
+var ZCM_ECONNECT         = libzcm.zcm_retcode_name_to_enum("ZCM_ECONNECT");
+var ZCM_EINTR            = libzcm.zcm_retcode_name_to_enum("ZCM_EINTR");
+var ZCM_EUNKNOWN         = libzcm.zcm_retcode_name_to_enum("ZCM_EUNKNOWN");
+var ZCM_NUM_RETURN_CODES = libzcm.zcm_retcode_name_to_enum("ZCM_NUM_RETURN_CODES");
+
+exports.ZCM_EOK              = ZCM_EOK;
+exports.ZCM_EINVALID         = ZCM_EINVALID;
+exports.ZCM_EAGAIN           = ZCM_EAGAIN;
+exports.ZCM_ECONNECT         = ZCM_ECONNECT;
+exports.ZCM_EINTR            = ZCM_EINTR;
+exports.ZCM_EUNKNOWN         = ZCM_EUNKNOWN;
+exports.ZCM_NUM_RETURN_CODES = ZCM_NUM_RETURN_CODES;
 
 /**
  * Callback that handles data received on the zcm transport which this program has subscribed to
@@ -186,12 +206,13 @@ function zcm(zcmtypes, zcmurl)
     /**
      * Unsubscribes from the zcm channel referenced by the given subscription
      * @param {subscriptionRef} subscription - ref to the subscription to be unsubscribed from
+     * @param {successCb} successCb - callback for successful unsubscription
      */
     function unsubscribe(subscription, successCb)
     {
         setTimeout(function unsub() {
             var ret = libzcm.zcm_try_unsubscribe(z, subscription.subscription);
-            if (ret == -2) {
+            if (ret != ZCM_EOK) {
                 setTimeout(unsub, 0);
                 return;
             }
@@ -199,10 +220,71 @@ function zcm(zcmtypes, zcmurl)
         }, 0)
     }
 
+    /**
+     * Forces all incoming and outgoing messages to be flushed to their handlers / to the transport.
+     * @params {doneCb} doneCb - callback for successful flush
+     */
+    function flush(doneCb)
+    {
+        setTimeout(function f() {
+            var ret = libzcm.zcm_try_flush(z);
+            if (ret != ZCM_EOK) {
+                setTimeout(f, 0);
+                return;
+            }
+            if (doneCb) doneCb();
+        }, 0)
+    }
+
+    /**
+     * Starts the zcm internal threads. Called by default on creation
+     */
+    function start()
+    {
+        libzcm.zcm_start(z);
+    }
+
+    /**
+     * Stops the zcm internal threads.
+     * @params {stoppedCb} stoppedCb - callback for successful stop
+     */
+    function stop(stoppedCb)
+    {
+        setTimeout(function s() {
+            var ret = libzcm.zcm_try_stop(z);
+            if (ret != ZCM_EOK) {
+                setTimeout(s, 0);
+                return;
+            }
+            if (stoppedCb) stoppedCb();
+        }, 0)
+    }
+
+    /**
+     * Pauses transport publishing and message dispatch
+     */
+    function pause()
+    {
+        libzcm.zcm_pause(z);
+    }
+
+    /**
+     * Resumes transport publishing and message dispatch
+     */
+    function resume()
+    {
+        libzcm.zcm_resume(z);
+    }
+
     return {
         publish:        publish,
         subscribe:      subscribe,
         unsubscribe:    unsubscribe,
+        flush:          flush,
+        start:          start,
+        stop:           stop,
+        pause:          pause,
+        resume:         resume,
     };
 }
 
@@ -242,6 +324,17 @@ function zcm_create(zcmtypes, zcmurl, http)
                                     delete subscriptions[subId];
                                     if (successCb) successCb();
                                 });
+            });
+            socket.on('flush', function (doneCb) {
+                ret.flush(doneCb);
+            });
+            socket.on('pause', function (cb) {
+                ret.pause();
+                if (cb) cb();
+            });
+            socket.on('resume', function (cb) {
+                ret.resume();
+                if (cb) cb();
             });
             socket.on('disconnect', function () {
                 for (var subId in subscriptions) {

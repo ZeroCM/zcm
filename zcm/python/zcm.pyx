@@ -12,8 +12,8 @@ cdef extern from "zcm/zcm.h":
         ZCM_EAGAIN,
         ZCM_ECONNECT,
         ZCM_EINTR,
-        ZCM__RESERVED_COUNT,
-        ZCM_EUNKNOWN
+        ZCM_EUNKNOWN,
+        ZCM_NUM_RETURN_CODES
     ctypedef struct zcm_t:
         pass
     ctypedef struct zcm_sub_t:
