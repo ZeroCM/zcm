@@ -8,5 +8,5 @@ def build(ctx):
 
     ctx.zcmgen(name         = 'examplezcmtypes-little-endian',
                source       = ctx.path.ant_glob('little_endian_t.zcm'),
-               lang         = ['c_stlib', 'c_shlib', 'cpp'],
+               lang         = ['c_stlib', 'c_shlib', 'cpp', 'julia'],
                littleEndian = True)
