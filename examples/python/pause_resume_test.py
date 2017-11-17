@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-from zcm import ZCM
+import zcm
 import sys
 sys.path.insert(0, '../build/types/')
 from example_t import example_t
@@ -18,23 +18,34 @@ def handler(channel, msg):
     assert msg.timestamp == 10
     done = done + 1
 
-zcm = ZCM()
-if not zcm.good():
+z = zcm.ZCM()
+if not z.good():
     print "Unable to initialize zcm"
     exit()
-zcm.start()
+z.start()
 
 msg = example_t()
 msg.timestamp = 10
-subs = zcm.subscribe("TEST", example_t, handler)
+subs = z.subscribe("TEST", example_t, handler)
 
+assert z.publish("TEST", msg) == zcm.ZCM_EOK
+time.sleep(1)
+
+z.pause()
+for i in range(0,5):
+    assert z.publish("TEST", msg) == zcm.ZCM_EOK
+
+while done != 5:
+    z.flush()
+
+z.resume()
 while True:
-    zcm.publish("TEST", msg)
+    z.publish("TEST", msg)
     if done == 10:
         break
     time.sleep(0.25)
 
-zcm.unsubscribe(subs)
-zcm.stop()
+z.unsubscribe(subs)
+z.stop()
 
 print "Success"

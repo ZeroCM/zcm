@@ -314,12 +314,10 @@ int zcm_blocking_t::stop(bool block)
         }
 
         unique_lock<mutex> lk2(sendStateMutex);
-        if (sendThreadState == THREAD_STATE_HALTING) {
-            if (sendThreadState == THREAD_STATE_HALTING) return ZCM_EAGAIN;
-            if (sendThreadState == THREAD_STATE_HALTED) {
-                sendThread.join();
-                sendThreadState = THREAD_STATE_STOPPED;
-            }
+        if (sendThreadState == THREAD_STATE_HALTING) return ZCM_EAGAIN;
+        if (sendThreadState == THREAD_STATE_HALTED) {
+            sendThread.join();
+            sendThreadState = THREAD_STATE_STOPPED;
         }
     }
 

@@ -90,7 +90,7 @@ void CustomIndexerPlugin::tearDown(const zcm::Json::Value& index,
         assert(evtB);
         assert(msgB.decode(evtB->data, 0, evtB->datalen));
 
-        return msgA.position[0] < msgB.position[0];
+        return msgA.position[0] > msgB.position[0];
     };
 
     for (std::string channel : pluginIndex.getMemberNames()) {
