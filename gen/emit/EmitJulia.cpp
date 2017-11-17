@@ -671,14 +671,13 @@ struct JlEmitPack : public Emitter
                     char buf[4096];
                     memset(buf, 0, sizeof(buf));
                     char *result = fgets(buf, sizeof(buf)-1, moduleJlFp);
-                    if (!result)
-                        break;
+                    if (!result) break;
+
                     auto words = StringUtil::split(StringUtil::strip(buf), ' ');
                     if (words.size() >= 2 && words[0] == "import") {
                         // If this line matches "import foo", then store "foo" in
                         // the set of imports
-                        string module = string(words[1].c_str());
-                        moduleJlImports.insert(std::move(module));
+                        moduleJlImports.insert(words[1]);
                     } else if (words.size() >= 6 &&
                                words[0] == "@eval" &&
                                words[2] == "module" &&
