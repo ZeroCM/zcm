@@ -118,7 +118,7 @@ struct EmitJulia : public Emitter
             // definition into the right module
             emit(0, "import %s", lsPackage.c_str());
             emit(0, "@eval %s begin", ls.structname.package.c_str());
-        } else { 
+        } else {
             // The type we're creating is not in a package, so we don't need to
             // do anything. But we'll create a "begin" block so that the number
             // of terminating "end" statements is the same no matter which path
@@ -640,8 +640,8 @@ struct JlEmitPack : public Emitter
             // If we are inside a package, then we need to generate a single
             // Julia file containing the top-level module and any submodules
 
-            // For a type foo.bar.baz.t1, we will put the module file in 
-            // foo.jl 
+            // For a type foo.bar.baz.t1, we will put the module file in
+            // foo.jl
             vector<string> moduleJlFnameParts;
             moduleJlFnameParts.push_back(packageDirPrefix);
             moduleJlFnameParts.push_back(pdname + ".jl");
@@ -654,7 +654,7 @@ struct JlEmitPack : public Emitter
                 // If the module exists already, then we need to parse it and
                 // extract any existing sub-modules and types contained in the
                 // module. We'll include those entries in the final generated
-                // module file. 
+                // module file.
                 moduleJlFp = fopen(moduleJlFname.c_str(), "r");
                 if (!moduleJlFp) {
                     perror("fopen");
@@ -665,18 +665,17 @@ struct JlEmitPack : public Emitter
                     char buf[4096];
                     memset(buf, 0, sizeof(buf));
                     char *result = fgets(buf, sizeof(buf)-1, moduleJlFp);
-                    if (!result)
-                        break;
+                    if (!result) break;
+
                     auto words = StringUtil::split(StringUtil::strip(buf), ' ');
                     if (words.size() >= 2 && words[0] == "import") {
-                        // If this line matches "import foo", then store "foo" in 
+                        // If this line matches "import foo", then store "foo" in
                         // the set of imports
-                        string module = string(words[1].c_str());
-                        moduleJlImports.insert(std::move(module));
-                    } else if (words.size() >= 6 && 
+                        moduleJlImports.insert(words[1]);
+                    } else if (words.size() >= 6 &&
                                words[0] == "@eval" &&
                                words[2] == "module" &&
-                               words[4] == ";" && 
+                               words[4] == ";" &&
                                words[5] == "end") {
                         // Otherwise, if the line matches:
                         // @eval foo module bar.baz ; end
@@ -702,7 +701,7 @@ struct JlEmitPack : public Emitter
             for (auto& submod : moduleJlSubmodules) {
                 auto parts = StringUtil::split(submod, '.');
                 if (parts.size() >= 2) {
-                    // Restore each of the submodules we parsed from the 
+                    // Restore each of the submodules we parsed from the
                     // existing file (if any), and also generate the submodule
                     // corresponding to the current package (if necessary)
                     vector<string> parentParts(parts.begin(), parts.end() - 1);
@@ -711,13 +710,13 @@ struct JlEmitPack : public Emitter
                     fprintf(moduleJlFp, "@eval %s module %s ; end\n", parent.c_str(), module.c_str());
                 }
             }
-            // LOAD_PATH controls where Julia looks for files you `import`. 
+            // LOAD_PATH controls where Julia looks for files you `import`.
             // We're going to tell Julia that if we're in a package foo.bar.baz,
             // it should first look in the `foo/` folder for any types it imports.
             // unshift!(x, y) in Julia prepends y to the vector x. Its opposite
             // is shift!(x) which removes the first element of x. We'll put that
-            // shift!(LOAD_PATH) in a `finally` block to ensure that the 
-            // LOAD_PATH is restored even if something goes wrong with the 
+            // shift!(LOAD_PATH) in a `finally` block to ensure that the
+            // LOAD_PATH is restored even if something goes wrong with the
             // imports
             fprintf(moduleJlFp, "\nunshift!(LOAD_PATH, joinpath(@__DIR__, \"%s\"))\n", pdname.c_str());
             fprintf(moduleJlFp, "try\n");
