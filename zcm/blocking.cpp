@@ -99,7 +99,7 @@ struct zcm_blocking
     int unsubscribe(zcm_sub_t* sub, bool block);
     int flush(bool block);
 
-    void setQueueSize(uint32_t numMsgs);
+    int setQueueSize(uint32_t numMsgs, bool block);
 
   private:
     void sendThreadFunc();
@@ -519,10 +519,41 @@ int zcm_blocking_t::flush(bool block)
     return ZCM_EOK;
 }
 
-void zcm_blocking_t::setQueueSize(uint32_t numMsgs)
+int zcm_blocking_t::setQueueSize(uint32_t numMsgs, bool block)
 {
-    sendQueue.resize(numMsgs);
-    recvQueue.resize(numMsgs);
+    if (sendQueue.getCapacity() != numMsgs) {
+
+        sendQueue.disable();
+
+        unique_lock<mutex> lk(sendOneMutex, defer_lock);
+
+        if (block) lk.lock();
+        else if (!lk.try_lock()) {
+            sendQueue.enable();
+            return ZCM_EAGAIN;
+        }
+
+        sendQueue.setCapacity(numMsgs);
+        sendQueue.enable();
+    }
+
+    if (recvQueue.getCapacity() != numMsgs) {
+
+        recvQueue.disable();
+
+        unique_lock<mutex> lk(dispOneMutex, defer_lock);
+
+        if (block) lk.lock();
+        else if (!lk.try_lock()) {
+            recvQueue.enable();
+            return ZCM_EAGAIN;
+        }
+
+        recvQueue.setCapacity(numMsgs);
+        recvQueue.enable();
+    }
+
+    return ZCM_EOK;
 }
 
 void zcm_blocking_t::sendThreadFunc()
@@ -794,7 +825,12 @@ int zcm_blocking_handle(zcm_blocking_t* zcm)
 
 void zcm_blocking_set_queue_size(zcm_blocking_t* zcm, uint32_t sz)
 {
-    return zcm->setQueueSize(sz);
+    zcm->setQueueSize(sz, true);
+}
+
+int  zcm_blocking_try_set_queue_size(zcm_blocking_t* zcm, uint32_t sz)
+{
+    return zcm->setQueueSize(sz, false);
 }
 
 }

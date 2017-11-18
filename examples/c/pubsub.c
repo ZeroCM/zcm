@@ -6,7 +6,7 @@
 #include <zcm/transport_registrar.h>
 #include "types/example_t.h"
 
-#define HZ 1000
+#define HZ 10
 #define NRANGES 100
 #define CHANNEL "EXAMPLE"
 

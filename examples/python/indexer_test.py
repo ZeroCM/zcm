@@ -57,7 +57,6 @@ while i < 100:
     # Note: Not sure a "long" is the right type here. Technically the number in
     #       the index was originally an off_t
     evt = log.readEventOffset(long(index['custom plugin'][event.getChannel()][type(msg).__name__][i]))
-    print("%d %d" % (evt.getEventnum(), i))
     assert evt.getEventnum() == 100 - i - 1, "Event nums dont match"
     assert evt.getTimestamp() == event.getTimestamp(), "Timestamps dont match"
     assert evt.getChannel() == event.getChannel(), "Channels dont match"

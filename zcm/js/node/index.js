@@ -34,17 +34,18 @@ var subscriptionRef = ref.refType(subscription);
 
 // Define our Foreign Function Interface to the zcm library
 var libzcm = new ffi.Library('libzcm', {
-    'zcm_retcode_name_to_enum': ['int', ['string']],
+    'zcm_retcode_name_to_enum': ['int',     ['string']],
     'zcm_create':               ['pointer', ['string']],
-    'zcm_destroy':              ['void', ['pointer']],
-    'zcm_publish':              ['int', ['pointer', 'string', 'pointer', 'int']],
+    'zcm_destroy':              ['void',    ['pointer']],
+    'zcm_publish':              ['int',     ['pointer', 'string', 'pointer', 'int']],
     'zcm_try_subscribe':        ['pointer', ['pointer', 'string', 'pointer', 'pointer']],
-    'zcm_try_unsubscribe':      ['int', ['pointer', 'pointer']],
-    'zcm_start':                ['void', ['pointer']],
-    'zcm_try_stop':             ['int', ['pointer']],
-    'zcm_try_flush':            ['int', ['pointer']],
-    'zcm_pause':                ['void', ['pointer']],
-    'zcm_resume':               ['void', ['pointer']]
+    'zcm_try_unsubscribe':      ['int',     ['pointer', 'pointer']],
+    'zcm_start':                ['void',    ['pointer']],
+    'zcm_try_stop':             ['int',     ['pointer']],
+    'zcm_try_flush':            ['int',     ['pointer']],
+    'zcm_pause':                ['void',    ['pointer']],
+    'zcm_resume':               ['void',    ['pointer']],
+    'zcm_try_set_queue_size':   ['int',     ['pointer', 'int']],
 });
 
 var ZCM_EOK              = libzcm.zcm_retcode_name_to_enum("ZCM_EOK");
@@ -276,6 +277,21 @@ function zcm(zcmtypes, zcmurl)
         libzcm.zcm_resume(z);
     }
 
+    /**
+     * Sets the recv and send queue sizes within zcm
+     */
+    function setQueueSize(sz, cb)
+    {
+        setTimeout(function s() {
+            var ret = libzcm.zcm_try_set_queue_size(z, sz);
+            if (ret != ZCM_EOK) {
+                setTimeout(s, 0);
+                return;
+            }
+            if (cb) cb();
+        }, 0)
+    }
+
     return {
         publish:        publish,
         subscribe:      subscribe,
@@ -285,6 +301,7 @@ function zcm(zcmtypes, zcmurl)
         stop:           stop,
         pause:          pause,
         resume:         resume,
+        setQueueSize:   setQueueSize,
     };
 }
 
@@ -335,6 +352,9 @@ function zcm_create(zcmtypes, zcmurl, http)
             socket.on('resume', function (cb) {
                 ret.resume();
                 if (cb) cb();
+            });
+            socket.on('setQueueSize', function (sz, cb) {
+                ret.setQueueSize(sz, cb);
             });
             socket.on('disconnect', function () {
                 for (var subId in subscriptions) {

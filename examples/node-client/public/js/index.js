@@ -67,4 +67,6 @@ function resume() {
 
 onload = function(){
     z = zcm.create();
+
+    z.setQueueSize(5);
 }

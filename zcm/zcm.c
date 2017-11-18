@@ -265,96 +265,77 @@ int zcm_try_unsubscribe(zcm_t* zcm, zcm_sub_t* sub)
 #ifndef ZCM_EMBEDDED
 void zcm_start(zcm_t* zcm)
 {
-    switch (zcm->type) {
-        case ZCM_BLOCKING:    return zcm_blocking_start(zcm->impl);
-        case ZCM_NONBLOCKING: assert(0 && "Cannot start() on a nonblocking ZCM interface"); break;
-    }
+    assert(zcm->type == ZCM_BLOCKING);
+    return zcm_blocking_start(zcm->impl);
 }
 #endif
 
 #ifndef ZCM_EMBEDDED
 void zcm_stop(zcm_t* zcm)
 {
-    switch (zcm->type) {
-        case ZCM_BLOCKING:    return zcm_blocking_stop(zcm->impl);
-        case ZCM_NONBLOCKING: assert(0 && "Cannot stop() on a nonblocking ZCM interface"); break;
-    }
+    assert(zcm->type == ZCM_BLOCKING);
+    return zcm_blocking_stop(zcm->impl);
 }
 #endif
 
 #ifndef ZCM_EMBEDDED
 int zcm_try_stop(zcm_t* zcm)
 {
-    switch (zcm->type) {
-        case ZCM_BLOCKING:    return zcm_blocking_try_stop(zcm->impl);
-        case ZCM_NONBLOCKING:
-            assert(0 && "Cannot try_stop() on a nonblocking ZCM interface"); break;
-    }
-    return ZCM_EINVALID;
+    assert(zcm->type == ZCM_BLOCKING);
+    return zcm_blocking_try_stop(zcm->impl);
 }
 #endif
 
 #ifndef ZCM_EMBEDDED
 void zcm_run(zcm_t* zcm)
 {
-    switch (zcm->type) {
-        case ZCM_BLOCKING:    return zcm_blocking_run(zcm->impl);
-        case ZCM_NONBLOCKING: assert(0 && "Cannot run() on a nonblocking ZCM interface"); break;
-    }
+    assert(zcm->type == ZCM_BLOCKING);
+    return zcm_blocking_run(zcm->impl);
 }
 #endif
 
 #ifndef ZCM_EMBEDDED
 void zcm_pause(zcm_t* zcm)
 {
-    switch (zcm->type) {
-        case ZCM_BLOCKING:    return zcm_blocking_pause(zcm->impl);
-        case ZCM_NONBLOCKING: assert(0 && "Cannot pause() on a nonblocking ZCM interface"); break;
-    }
+    assert(zcm->type == ZCM_BLOCKING);
+    return zcm_blocking_pause(zcm->impl);
 }
 #endif
 
 #ifndef ZCM_EMBEDDED
 void zcm_resume(zcm_t* zcm)
 {
-    switch (zcm->type) {
-        case ZCM_BLOCKING:    return zcm_blocking_resume(zcm->impl);
-        case ZCM_NONBLOCKING: assert(0 && "Cannot resume() on a nonblocking ZCM interface"); break;
-    }
+    assert(zcm->type == ZCM_BLOCKING);
+    return zcm_blocking_resume(zcm->impl);
 }
 #endif
 
 #ifndef ZCM_EMBEDDED
 int zcm_handle(zcm_t* zcm)
 {
-    switch (zcm->type) {
-        case ZCM_BLOCKING:    return zcm_blocking_handle(zcm->impl);
-        case ZCM_NONBLOCKING: assert(0 && "Cannot handle() on a nonblocking ZCM interface"); break;
-    }
-    return -1;
+    assert(zcm->type == ZCM_BLOCKING);
+    return zcm_blocking_handle(zcm->impl);
 }
 #endif
 
 #ifndef ZCM_EMBEDDED
 void zcm_set_queue_size(zcm_t* zcm, uint32_t numMsgs)
 {
-    switch (zcm->type) {
-        case ZCM_BLOCKING:    return zcm_blocking_set_queue_size(zcm->impl, numMsgs); break;
-        case ZCM_NONBLOCKING:
-            assert(0 && "Cannot set_queue_size() on a nonblocking ZCM interface"); break;
-    }
+    assert(zcm->type == ZCM_BLOCKING);
+    return zcm_blocking_set_queue_size(zcm->impl, numMsgs);
+}
+#endif
+
+#ifndef ZCM_EMBEDDED
+int  zcm_try_set_queue_size(zcm_t* zcm, uint32_t numMsgs)
+{
+    assert(zcm->type == ZCM_BLOCKING);
+    return zcm_blocking_try_set_queue_size(zcm->impl, numMsgs);
 }
 #endif
 
 int zcm_handle_nonblock(zcm_t* zcm)
 {
-#ifndef ZCM_EMBEDDED
-    switch (zcm->type) {
-        case ZCM_BLOCKING:
-            assert(0 && "Cannot handle_nonblock() on a blocking ZCM interface"); break;
-        case ZCM_NONBLOCKING: return zcm_nonblocking_handle_nonblock(zcm->impl); break;
-    }
-#endif
     assert(zcm->type == ZCM_NONBLOCKING);
     return zcm_nonblocking_handle_nonblock(zcm->impl);
 }

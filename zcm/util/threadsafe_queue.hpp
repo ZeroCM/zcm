@@ -22,10 +22,16 @@ class ThreadsafeQueue
     ThreadsafeQueue(size_t size) : queue(size) {}
     ~ThreadsafeQueue() {}
 
-    void resize(size_t size)
+    size_t getCapacity()
     {
         std::unique_lock<std::mutex> lk(mut);
-        return queue.resize(size);
+        return queue.getCapacity();
+    }
+
+    void setCapacity(size_t capacity)
+    {
+        std::unique_lock<std::mutex> lk(mut);
+        return queue.setCapacity(capacity);
     }
 
     bool hasFreeSpace()
@@ -96,12 +102,6 @@ class ThreadsafeQueue
         cond.notify_all();
     }
 
-    void waitForEmpty()
-    {
-        std::unique_lock<std::mutex> lk(mut);
-        cond.wait(lk, [&](){ return disabled || !queue.hasMessage(); });
-    }
-
     // Forcefully wakes up top() and push(). top() *will not* return a message from
     // the queue, even if one exists. push() *will* push the message if there is room.
     void disable()
@@ -115,6 +115,5 @@ class ThreadsafeQueue
     {
         std::unique_lock<std::mutex> lk(mut);
         disabled = false;
-        cond.notify_all();
     }
 };

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <utility>
+#include <memory>
 #include <cstring>
 #include <cassert>
 
@@ -11,27 +12,27 @@ template<class Element>
 class Queue
 {
     Element* queue;
-    size_t   size;
+    size_t   capacity;
     size_t   front = 0;
     size_t   back = 0;
 
     size_t incIdx(size_t i)
     {
-        // Note: one might be tempted to write '(i+1)%size' here
+        // Note: one might be tempted to write '(i+1)%capacity' here
         // But, the modulus operation is slower than possibly missing
         // a branch every once in a while. The branch is almost always
         // Not Taken
 
         size_t nextIdx = i + 1;
-        if (nextIdx == size) return 0;
+        if (nextIdx == capacity) return 0;
         return nextIdx;
     }
 
   public:
-    Queue(size_t size) : size(size)
+    Queue(size_t capacity) : capacity(capacity)
     {
-        // We intentionally use malloc here to avoid intiailized
-        queue = (Element*) malloc(size * sizeof(Element));
+        // We are avoiding initializing the structs here
+        queue = (Element*) new uint8_t[capacity * sizeof(Element)];
         ZCM_ASSERT(queue);
     }
 
@@ -39,14 +40,32 @@ class Queue
     {
         // We need to deconstruct any elements still in the queue
         while (hasMessage()) pop();
-        free(queue);
+        delete[] ((uint8_t*) queue);
     }
 
-    void resize(size_t size)
+    size_t getCapacity()
     {
-        queue = (Element*) realloc(queue, size * sizeof(Element));
-        this->size = size;
-        ZCM_ASSERT(queue);
+        return capacity;
+    }
+
+    void setCapacity(size_t capacity)
+    {
+        uint8_t* newQueue = new uint8_t[capacity * sizeof(Element)];
+        ZCM_ASSERT(newQueue);
+
+        size_t newBack = 0;
+        while (hasMessage() && newBack < capacity) {
+            uint8_t* msg = (uint8_t*) &top();
+            std::uninitialized_copy_n(msg, sizeof(Element), newQueue + newBack * sizeof(Element));
+            front = incIdx(front);
+            ++newBack;
+        }
+
+        delete[] ((uint8_t*) queue);
+        queue = (Element*) newQueue;
+        front = 0;
+        back = newBack;
+        this->capacity = capacity;
     }
 
     bool hasFreeSpace()
@@ -64,7 +83,7 @@ class Queue
         if (back >= front) {
             return back - front;
         } else {
-            return size - (front - back);
+            return capacity - (front - back);
         }
     }
 

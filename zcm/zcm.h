@@ -158,6 +158,7 @@ int  zcm_handle(zcm_t* zcm); /* returns ZCM_EOK normally, error code on failure.
    messages will not be read from / sent to the transport, which could cause significant
    issues depending on the transport. */
 void zcm_set_queue_size(zcm_t* zcm, uint32_t numMsgs);
+int  zcm_try_set_queue_size(zcm_t* zcm, uint32_t numMsgs); /* returns ZCM_EOK or ZCM_EAGAIN */
 #endif
 
 /* Non-Blocking Mode Only: Functions checking and dispatching messages

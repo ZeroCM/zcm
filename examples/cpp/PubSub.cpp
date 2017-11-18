@@ -56,7 +56,7 @@ static void sendMessages(zcm::ZCM& zcm)
 
     while (1) {
         zcm.publish(CHANNEL, &msg);
-        usleep(1000*10);
+        usleep(1000*1000);
     }
 }
 

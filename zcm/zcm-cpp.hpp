@@ -36,7 +36,6 @@ class ZCM
     virtual inline void run();
     virtual inline void start();
     virtual inline void stop();
-    virtual inline int  try_stop();
     virtual inline void pause();
     virtual inline void resume();
     virtual inline int  handle();

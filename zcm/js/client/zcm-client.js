@@ -97,6 +97,14 @@ var zcm = (function(){
             socket.emit("resume", cb);
         }
 
+        /**
+         * Sets the recv and send queue sizes within zcm
+         */
+        function setQueueSize(sz, cb)
+        {
+            socket.emit('setQueueSize', sz, cb);
+        }
+
         return {
             publish:        publish,
             subscribe:      subscribe,
@@ -104,6 +112,7 @@ var zcm = (function(){
             flush:          flush,
             pause:          pause,
             resume:         resume,
+            setQueueSize:   setQueueSize,
             getZcmtypes:    getZcmtypes,
         };
     }

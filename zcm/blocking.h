@@ -34,6 +34,7 @@ void zcm_blocking_pause(zcm_blocking_t* zcm);
 void zcm_blocking_resume(zcm_blocking_t* zcm);
 int  zcm_blocking_handle(zcm_blocking_t* zcm);
 void zcm_blocking_set_queue_size(zcm_blocking_t* zcm, uint32_t numMsgs);
+int  zcm_blocking_try_set_queue_size(zcm_blocking_t* zcm, uint32_t numMsgs);
 
 #ifdef __cplusplus
 }

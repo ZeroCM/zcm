@@ -36,15 +36,15 @@ cdef extern from "zcm/zcm.h":
 
     int  zcm_publish(zcm_t* zcm, const char* channel, const uint8_t* data, uint32_t dlen)
 
-    int  zcm_try_flush     (zcm_t* zcm)
+    int  zcm_try_flush         (zcm_t* zcm)
 
-    void zcm_run           (zcm_t* zcm)
-    void zcm_start         (zcm_t* zcm)
-    int  zcm_try_stop      (zcm_t* zcm)
-    void zcm_pause         (zcm_t* zcm)
-    void zcm_resume        (zcm_t* zcm)
-    int  zcm_handle        (zcm_t* zcm)
-    void zcm_set_queue_size(zcm_t* zcm, uint32_t numMsgs)
+    void zcm_run               (zcm_t* zcm)
+    void zcm_start             (zcm_t* zcm)
+    int  zcm_try_stop          (zcm_t* zcm)
+    void zcm_pause             (zcm_t* zcm)
+    void zcm_resume            (zcm_t* zcm)
+    int  zcm_handle            (zcm_t* zcm)
+    int  zcm_try_set_queue_size(zcm_t* zcm, uint32_t numMsgs)
 
     int  zcm_handle_nonblock(zcm_t* zcm);
 
@@ -129,7 +129,8 @@ cdef class ZCM:
     def handle(self):
         return zcm_handle(self.zcm)
     def setQueueSize(self, numMsgs):
-        zcm_set_queue_size(self.zcm, numMsgs)
+        while zcm_try_set_queue_size(self.zcm, numMsgs) != ZCM_EOK:
+            time.sleep(0) # yield the gil
     def handleNonblock(self):
         return zcm_handle_nonblock(self.zcm)
 

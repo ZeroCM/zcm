@@ -31,6 +31,7 @@ subs = z.subscribe("TEST", example_t, handler)
 assert z.publish("TEST", msg) == zcm.ZCM_EOK
 time.sleep(1)
 
+z.setQueueSize(10)
 z.pause()
 for i in range(0,5):
     assert z.publish("TEST", msg) == zcm.ZCM_EOK

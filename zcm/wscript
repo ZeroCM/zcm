@@ -45,9 +45,6 @@ def build(ctx):
         target = '.zcm-embed-tmp.tar.gz',
         color  = "PINK")
 
-    # RRR: getting an error message when trying to build clang when we hit here:
-    #      [69/82] Compiling build/tsan/zcm/.zcm-embed-tmp.tar.gz
-    #              find: ‘zcm/zcm-embed.tar’: No such file or directory
     ctx(rule   = package_embedded,
         name   = 'embed-tar-finish',
         source = '.zcm-embed-tmp.tar.gz',
@@ -99,19 +96,19 @@ def package_embedded(tsk):
 
     outputDir = os.path.dirname(tsk.outputs[0].abspath())
 
-    cmd = 'fldr=' + tsk.outputs[0].relpath() + ' && rm -rf ${fldr%%.*} && ' + \
+    cmd = 'export fldr=' + tsk.outputs[0].relpath() + ' && rm -rf ${fldr%%.*} && ' + \
           'mkdir -p ${fldr%%.*} && cd ${fldr%%.*} && tar -xaf ' + str(tsk.inputs[0])
     ret = tsk.exec_command(cmd)
     if ret is not 0:
         raise WafError('Unable to prep files for zcm-embed tarball generation')
 
-    cmd = 'fldr=%s && %s/scripts/prepend-embed-guards.sh ${fldr%%.*}' % \
-          (tsk.outputs[0].relpath(), bld.path.abspath())
+    cmd = 'export fldr=' + tsk.outputs[0].relpath() + ' && ' + \
+          bld.path.abspath() + '/scripts/prepend-embed-guards.sh ${fldr%%.*}'
     ret = tsk.exec_command(cmd)
     if ret is not 0:
         raise WafError('Unable to prepend embed guard in zcm-embed tarball generation')
 
-    cmd = 'fldr=' + tsk.outputs[0].relpath() + ' && cd ${fldr%%.*} && ' + \
+    cmd = 'export fldr=' + tsk.outputs[0].relpath() + ' && cd ${fldr%%.*} && ' + \
           'tar czf ' + tsk.outputs[0].abspath() + ' *'
     ret = tsk.exec_command(cmd)
     if ret is not 0:
