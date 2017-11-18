@@ -36,8 +36,13 @@ z.pause()
 for i in range(0,5):
     assert z.publish("TEST", msg) == zcm.ZCM_EOK
 
+start = time.time()
 while done != 5:
     z.flush()
+    time.sleep(0) # yield the gil
+    if (time.time() - start > 2):
+        print "Failure"
+        sys.exit(1)
 
 z.resume()
 while True:

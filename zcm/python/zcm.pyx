@@ -46,7 +46,7 @@ cdef extern from "zcm/zcm.h":
     int  zcm_handle            (zcm_t* zcm)
     int  zcm_try_set_queue_size(zcm_t* zcm, uint32_t numMsgs)
 
-    int  zcm_handle_nonblock(zcm_t* zcm);
+    int  zcm_handle_nonblock(zcm_t* zcm)
 
     ctypedef struct zcm_eventlog_t:
         pass

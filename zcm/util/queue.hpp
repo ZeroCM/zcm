@@ -18,7 +18,7 @@ class Queue
 
     size_t incIdx(size_t i)
     {
-        // Note: one might be tempted to write '(i+1)%capacity' here
+        // Note: one might be tempted to write '(i + 1) % capacity' here
         // But, the modulus operation is slower than possibly missing
         // a branch every once in a while. The branch is almost always
         // Not Taken
