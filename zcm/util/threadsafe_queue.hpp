@@ -16,11 +16,23 @@ class ThreadsafeQueue
 
     std::mutex mut;
     std::condition_variable cond;
-    volatile int wakeupNum = 0;
+    bool disabled = false;
 
   public:
     ThreadsafeQueue(size_t size) : queue(size) {}
     ~ThreadsafeQueue() {}
+
+    size_t getCapacity()
+    {
+        std::unique_lock<std::mutex> lk(mut);
+        return queue.getCapacity();
+    }
+
+    void setCapacity(size_t capacity)
+    {
+        std::unique_lock<std::mutex> lk(mut);
+        return queue.setCapacity(capacity);
+    }
 
     bool hasFreeSpace()
     {
@@ -34,6 +46,12 @@ class ThreadsafeQueue
         return queue.hasMessage();
     }
 
+    size_t numMessages()
+    {
+        std::unique_lock<std::mutex> lk(mut);
+        return queue.numMessages();
+    }
+
     // Wait for hasFreeSpace() and then push the new element
     // Returns true if the value was pushed, otherwise it
     // was forcibly awoken by forceWakeups()
@@ -41,15 +59,24 @@ class ThreadsafeQueue
     bool push(Args&&... args)
     {
         std::unique_lock<std::mutex> lk(mut);
-        int localWakeupNum = wakeupNum;
-        cond.wait(lk, [&](){
-            return localWakeupNum < wakeupNum ||
-                   queue.hasFreeSpace();
-        });
-        if (localWakeupNum < wakeupNum)
-            return false;
+        cond.wait(lk, [&](){ return disabled || queue.hasFreeSpace(); });
+        if (!queue.hasFreeSpace()) return false;
+
         queue.push(std::forward<Args>(args)...);
-        cond.notify_one();
+        cond.notify_all();
+        return true;
+    }
+
+    // Check for hasFreeSpace() and if so, push the new element
+    // Returns true if the value was pushed, returns false if no room
+    template<class... Args>
+    bool pushIfRoom(Args&&... args)
+    {
+        std::unique_lock<std::mutex> lk(mut);
+        if (!queue.hasFreeSpace()) return ZCM_EAGAIN;
+
+        queue.push(std::forward<Args>(args)...);
+        cond.notify_all();
         return true;
     }
 
@@ -57,20 +84,14 @@ class ThreadsafeQueue
     // Always returns a valid Element* except when is was
     // forcibly awoken by forceWakeups(). In such a case
     // nullptr is returned to the user
-    Element *top()
+    Element* top()
     {
         std::unique_lock<std::mutex> lk(mut);
-        int localWakeupNum = wakeupNum;
-        cond.wait(lk, [&](){
-            return localWakeupNum < wakeupNum ||
-                   queue.hasMessage();
-        });
-        if (localWakeupNum < wakeupNum) {
-            return nullptr;
-        } else {
-            Element& elt = queue.top();
-            return &elt;
-        }
+        cond.wait(lk, [&](){ return disabled || queue.hasMessage(); });
+        if (disabled) return nullptr;
+
+        Element& elt = queue.top();
+        return &elt;
     }
 
     // Requires that hasMessage() == true
@@ -78,25 +99,21 @@ class ThreadsafeQueue
     {
         std::unique_lock<std::mutex> lk(mut);
         queue.pop();
-        cond.notify_one();
-    }
-
-    // Force all blocked threads to wakeup and return from
-    // whichever methods are blocking them
-    void forceWakeups()
-    {
-        std::unique_lock<std::mutex> lk(mut);
-        wakeupNum++;
         cond.notify_all();
     }
 
-    void waitForEmpty()
+    // Forcefully wakes up top() and push(). top() *will not* return a message from
+    // the queue, even if one exists. push() *will* push the message if there is room.
+    void disable()
     {
         std::unique_lock<std::mutex> lk(mut);
-        int localWakeupNum = wakeupNum;
-        cond.wait(lk, [&](){
-            return localWakeupNum < wakeupNum ||
-                   !queue.hasMessage();
-        });
+        disabled = true;
+        cond.notify_all();
+    }
+
+    void enable()
+    {
+        std::unique_lock<std::mutex> lk(mut);
+        disabled = false;
     }
 };

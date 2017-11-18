@@ -28,7 +28,7 @@ class CustomIndexerPlugin : public zcm::IndexerPlugin
     void indexEvent(const zcm::Json::Value& index, zcm::Json::Value& pluginIndex,
                     std::string channel, std::string typeName,
                     off_t offset, uint64_t timestamp, int64_t hash,
-                    const char* data, int32_t datalen) override;
+                    const uint8_t* data, int32_t datalen) override;
 
     void tearDown(const zcm::Json::Value& index,
                   zcm::Json::Value& pluginIndex,
@@ -57,7 +57,7 @@ void CustomIndexerPlugin::indexEvent(const zcm::Json::Value& index,
                                      zcm::Json::Value& pluginIndex,
                                      std::string channel, std::string typeName,
                                      off_t offset, uint64_t timestamp, int64_t hash,
-                                     const char* data, int32_t datalen)
+                                     const uint8_t* data, int32_t datalen)
 {
     if (typeName != "example_t") return;
     pluginIndex[channel][typeName].append(std::to_string(offset));
@@ -90,7 +90,7 @@ void CustomIndexerPlugin::tearDown(const zcm::Json::Value& index,
         assert(evtB);
         assert(msgB.decode(evtB->data, 0, evtB->datalen));
 
-        return msgA.position[0] < msgB.position[0];
+        return msgA.position[0] > msgB.position[0];
     };
 
     for (std::string channel : pluginIndex.getMemberNames()) {

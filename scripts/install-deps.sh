@@ -11,6 +11,7 @@ while getopts "is" opt; do
 done
 
 PKGS=''
+PIP_PKGS=''
 
 ## Waf dependencies
 PKGS+='pkg-config '
@@ -28,7 +29,8 @@ PKGS+='default-jdk default-jre '
 PKGS+='nodejs nodejs-legacy npm '
 
 ## Python
-PKGS+='cython '
+PKGS+='python python-pip '
+PIP_PKGS+='Cython '
 
 ## LibElf
 PKGS+='libelf-dev libelf1 '
@@ -60,6 +62,20 @@ if $SINGLE_MODE; then
     done
 else
     sudo apt-get install -yq $PKGS
+fi
+
+sudo pip install --upgrade pip
+ret=$?
+if [[ $ret -ne 0 && "$STRICT" == "true" ]]; then
+    echo "Failed to upgrade pip"
+    exit $ret
+fi
+
+sudo pip install $PIP_PKGS
+ret=$?
+if [[ $ret -ne 0 && "$STRICT" == "true" ]]; then
+    echo "Failed to install pip packages"
+    exit $ret
 fi
 
 echo "Updating db"

@@ -8,6 +8,8 @@
 #include <algorithm>
 #include <cstring>
 #include <deque>
+#include <mutex>
+#include <condition_variable>
 
 #define ZCM_TRANS_CLASSNAME TransportNonblockInproc
 #define MTU (1<<28)
@@ -20,12 +22,15 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     // using the "inFlight" pointers to store their memory until the next message is dispatched
     // Note: Have to use free() to clean up chan memory in these because we create them via strdup
     deque<zcm_msg_t*> msgs;
-    const char* inFlightChanMem = nullptr;
-          char* inFlightDataMem = nullptr;
+    const char*    inFlightChanMem = nullptr;
+          uint8_t* inFlightDataMem = nullptr;
 
-    ZCM_TRANS_CLASSNAME(zcm_url_t *url)
+    condition_variable msgCond;
+    mutex msgLock;
+
+    ZCM_TRANS_CLASSNAME(zcm_url_t *url, bool blocking)
     {
-        trans_type = ZCM_NONBLOCKING;
+        trans_type = blocking ? ZCM_BLOCKING : ZCM_NONBLOCKING;
         vtbl = &methods;
     }
 
@@ -42,16 +47,10 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         delete [] inFlightDataMem;
     }
 
-    bool good()
-    {
-        return true;
-    }
+    bool good() { return true; }
 
     /********************** METHODS **********************/
-    size_t get_mtu()
-    {
-        return MTU;
-    }
+    size_t get_mtu() { return MTU; }
 
     int sendmsg(zcm_msg_t msg)
     {
@@ -72,21 +71,34 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         newMsg->utime = msg.utime;
         newMsg->len = msg.len;
         newMsg->channel = strdup(msg.channel);
-        newMsg->buf = new char[msg.len];
+        newMsg->buf = new uint8_t[msg.len];
         std::copy_n(msg.buf, msg.len, newMsg->buf);
 
+        std::unique_lock<mutex> lk(msgLock, defer_lock);
+        if (trans_type == ZCM_BLOCKING) lk.lock();
         msgs.push_back(newMsg);
+        if (trans_type == ZCM_BLOCKING) {
+            lk.unlock();
+            msgCond.notify_all();
+        }
+
         return ZCM_EOK;
     }
 
-    int recvmsg_enable(const char *channel, bool enable)
-    {
-        return ZCM_EOK;
-    }
+    int recvmsg_enable(const char *channel, bool enable) { return ZCM_EOK; }
 
     int recvmsg(zcm_msg_t *msg, int timeout)
     {
-        if (msgs.empty()) return ZCM_EAGAIN;
+        std::unique_lock<mutex> lk(msgLock, defer_lock);
+
+        if (trans_type == ZCM_BLOCKING) {
+            lk.lock();
+            bool available = msgCond.wait_for(lk, chrono::milliseconds(timeout),
+                                              [&](){ return !msgs.empty(); });
+            if (!available) return ZCM_EAGAIN;
+        } else {
+            if (msgs.empty()) return ZCM_EAGAIN;
+        }
 
         // Clean up memory from last message
         free((void*) inFlightChanMem);
@@ -105,10 +117,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         return ZCM_EOK;
     }
 
-    int update()
-    {
-        return ZCM_EOK;
-    }
+    int update() { return ZCM_EOK; }
 
     /********************** STATICS **********************/
     static zcm_trans_methods_t methods;
@@ -136,7 +145,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     static void _destroy(zcm_trans_t *zt)
     { delete cast(zt); }
 
-    static const TransportRegister reg;
+    static const TransportRegister regBlocking;
+    static const TransportRegister regNonblocking;
 };
 
 zcm_trans_methods_t ZCM_TRANS_CLASSNAME::methods = {
@@ -148,12 +158,18 @@ zcm_trans_methods_t ZCM_TRANS_CLASSNAME::methods = {
     &ZCM_TRANS_CLASSNAME::_destroy,
 };
 
-static zcm_trans_t *create(zcm_url_t *url)
-{
-    return new ZCM_TRANS_CLASSNAME(url);
-}
+static zcm_trans_t *create_blocking(zcm_url_t *url)
+{ return new ZCM_TRANS_CLASSNAME(url, true); }
 
-const TransportRegister ZCM_TRANS_CLASSNAME::reg(
+static zcm_trans_t *create_nonblocking(zcm_url_t *url)
+{ return new ZCM_TRANS_CLASSNAME(url, false); }
+
+const TransportRegister ZCM_TRANS_CLASSNAME::regBlocking(
+    "block-inproc",
+    "Blocking in-process deterministic transport",
+    create_blocking);
+
+const TransportRegister ZCM_TRANS_CLASSNAME::regNonblocking(
     "nonblock-inproc",
     "Nonblocking in-process deterministic transport. NOT INTERNALLY THREADSAFE",
-    create);
+    create_nonblocking);

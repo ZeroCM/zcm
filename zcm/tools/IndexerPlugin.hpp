@@ -159,7 +159,7 @@ class IndexerPlugin
                             off_t offset,
                             uint64_t timestamp,
                             int64_t hash,
-                            const char* data,
+                            const uint8_t* data,
                             int32_t datalen);
 
     // Do anything that your plugin requires doing before the indexer exits

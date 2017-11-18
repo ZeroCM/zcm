@@ -79,7 +79,7 @@ JNIEXPORT jint JNICALL Java_zcm_zcm_ZCMJNI_publish
     jbyte* data = (*env)->GetByteArrayElements(env, dataJ, NULL);
 
     assert(offsetJ == 0);
-    int ret = zcm_publish(I->zcm, channel, (char*)data, lenJ);
+    int ret = zcm_publish(I->zcm, channel, (uint8_t*)data, lenJ);
 
     (*env)->ReleaseStringUTFChars(env, channelJ, channel);
 

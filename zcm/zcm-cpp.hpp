@@ -36,12 +36,15 @@ class ZCM
     virtual inline void run();
     virtual inline void start();
     virtual inline void stop();
-    virtual inline int handle();
-    virtual inline int handleNonblock();
+    virtual inline void pause();
+    virtual inline void resume();
+    virtual inline int  handle();
+    virtual inline int  handleNonblock();
     virtual inline void flush();
+    virtual inline void setQueueSize(uint32_t sz);
 
   public:
-    inline int publish(const std::string& channel, const char* data, uint32_t len);
+    inline int publish(const std::string& channel, const uint8_t* data, uint32_t len);
 
     // Note: if we make a publish binding that takes a const message reference, the compiler does
     //       not select the right version between the pointer and reference versions, so when the
@@ -91,7 +94,7 @@ class ZCM
 
   protected:
     /**** Methods for inheritor override ****/
-    virtual inline int publishRaw(const std::string& channel, const char* data, uint32_t len);
+    virtual inline int publishRaw(const std::string& channel, const uint8_t* data, uint32_t len);
 
     // Set the value of "rawSub" with your underlying subscription. "rawSub" will be passed
     // (by reference) into unsubscribeRaw when zcm->unsubscribe() is called on a cpp subscription
@@ -138,7 +141,7 @@ struct LogEvent
     int64_t     timestamp;
     std::string channel;
     int32_t     datalen;
-    char*       data;
+    uint8_t*       data;
 };
 
 struct LogFile

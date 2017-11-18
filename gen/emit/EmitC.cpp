@@ -808,7 +808,7 @@ struct EmitSource : public Emit
         emit(0, "          free (buf);");
         emit(0, "          return data_size;");
         emit(0, "      }");
-        emit(0, "      int status = zcm_publish (lc, channel, (char*)buf, (size_t)data_size);");
+        emit(0, "      int status = zcm_publish (lc, channel, buf, (size_t)data_size);");
         emit(0, "      free (buf);");
         emit(0, "      return status;");
         emit(0, "}");

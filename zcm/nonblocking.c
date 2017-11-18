@@ -11,8 +11,8 @@
 
 struct zcm_nonblocking
 {
-    zcm_t *z;
-    zcm_trans_t *zt;
+    zcm_t* z;
+    zcm_trans_t* zt;
 
     bool allChannelsEnabled;
 
@@ -53,9 +53,9 @@ static bool isSupportedRegex(const char* c, size_t clen)
     return true;
 }
 
-zcm_nonblocking_t *zcm_nonblocking_create(zcm_t *z, zcm_trans_t *zt)
+zcm_nonblocking_t* zcm_nonblocking_create(zcm_t* z, zcm_trans_t* zt)
 {
-    zcm_nonblocking_t *zcm;
+    zcm_nonblocking_t* zcm;
 
     zcm = malloc(sizeof(zcm_nonblocking_t));
     if (!zcm) return NULL;
@@ -71,7 +71,7 @@ zcm_nonblocking_t *zcm_nonblocking_create(zcm_t *z, zcm_trans_t *zt)
     return zcm;
 }
 
-void zcm_nonblocking_destroy(zcm_nonblocking_t *zcm)
+void zcm_nonblocking_destroy(zcm_nonblocking_t* zcm)
 {
     if (zcm) {
         if (zcm->zt) zcm_trans_destroy(zcm->zt);
@@ -80,19 +80,20 @@ void zcm_nonblocking_destroy(zcm_nonblocking_t *zcm)
     }
 }
 
-int zcm_nonblocking_publish(zcm_nonblocking_t *z, const char *channel, const char *data,
-                            uint32_t len)
+int zcm_nonblocking_publish(zcm_nonblocking_t* z, const char* channel,
+                            const uint8_t* data, uint32_t len)
 {
     zcm_msg_t msg;
 
     msg.channel = channel;
     msg.len = len;
-    msg.buf = (char*)data;
+    /* Casting away constness okay because msg isn't used past end of function */
+    msg.buf = (uint8_t*) data;
     return zcm_trans_sendmsg(z->zt, msg);
 }
 
-zcm_sub_t *zcm_nonblocking_subscribe(zcm_nonblocking_t *zcm, const char *channel,
-                                     zcm_msg_handler_t cb, void *usr)
+zcm_sub_t* zcm_nonblocking_subscribe(zcm_nonblocking_t* zcm, const char* channel,
+                                     zcm_msg_handler_t cb, void* usr)
 {
     int rc;
     size_t i;
@@ -132,7 +133,7 @@ zcm_sub_t *zcm_nonblocking_subscribe(zcm_nonblocking_t *zcm, const char *channel
     return NULL;
 }
 
-int zcm_nonblocking_unsubscribe(zcm_nonblocking_t *zcm, zcm_sub_t *sub)
+int zcm_nonblocking_unsubscribe(zcm_nonblocking_t* zcm, zcm_sub_t* sub)
 {
     size_t i;
     int    match_idx = sub - zcm->subs;
@@ -164,10 +165,10 @@ int zcm_nonblocking_unsubscribe(zcm_nonblocking_t *zcm, zcm_sub_t *sub)
     return rc;
 }
 
-static void dispatch_message(zcm_nonblocking_t *zcm, zcm_msg_t *msg)
+static void dispatch_message(zcm_nonblocking_t* zcm, zcm_msg_t* msg)
 {
     zcm_recv_buf_t rbuf;
-    zcm_sub_t *sub;
+    zcm_sub_t* sub;
 
     size_t i;
     for (i = 0; i < zcm->subInUseEnd; ++i) {
@@ -181,7 +182,7 @@ static void dispatch_message(zcm_nonblocking_t *zcm, zcm_msg_t *msg)
                 strncmp(zcm->subs[i].channel, msg->channel, subsChanLen - 2) == 0) {
 
                 rbuf.zcm = zcm->z;
-                rbuf.data = (char*)msg->buf;
+                rbuf.data = msg->buf;
                 rbuf.data_size = msg->len;
                 rbuf.recv_utime = msg->utime;
 
@@ -191,7 +192,7 @@ static void dispatch_message(zcm_nonblocking_t *zcm, zcm_msg_t *msg)
         } else {
             if (strcmp(zcm->subs[i].channel, msg->channel) == 0) {
                 rbuf.zcm = zcm->z;
-                rbuf.data = (char*)msg->buf;
+                rbuf.data = msg->buf;
                 rbuf.data_size = msg->len;
                 rbuf.recv_utime = msg->utime;
 
@@ -202,7 +203,7 @@ static void dispatch_message(zcm_nonblocking_t *zcm, zcm_msg_t *msg)
     }
 }
 
-int zcm_nonblocking_handle_nonblock(zcm_nonblocking_t *zcm)
+int zcm_nonblocking_handle_nonblock(zcm_nonblocking_t* zcm)
 {
     int ret;
     zcm_msg_t msg;
@@ -211,8 +212,8 @@ int zcm_nonblocking_handle_nonblock(zcm_nonblocking_t *zcm)
     zcm_trans_update(zcm->zt);
 
     /* Try to receive a messages from the transport and dispatch them */
-    if ((ret = zcm_trans_recvmsg(zcm->zt, &msg, 0)) != ZCM_EOK)
-        return ret;
+    if ((ret = zcm_trans_recvmsg(zcm->zt, &msg, 0)) != ZCM_EOK) return ret;
+
     dispatch_message(zcm, &msg);
 
     return ZCM_EOK;

@@ -48,7 +48,7 @@ static void send_msgs(zcm_t *zcm)
 
     while (1) {
         example_t_publish(zcm, CHANNEL, &msg);
-        usleep(1000/HZ);
+        usleep(1e6/HZ);
     }
 }
 

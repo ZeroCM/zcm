@@ -13,6 +13,8 @@ if [[ $1 != "" ]]; then
     prefix=$1
 fi
 
+export ASAN_SYMBOLIZER_PATH=/usr/bin/llvm-symbolizer
+export ASAN_OPTIONS=check_initialization_order=1
 export CLASSPATH=$CLASSPATH:$prefix/share/java/zcm.jar
 export CLASSPATH=$CLASSPATH:$prefix/share/java/zcm-tools.jar
 export CLASSPATH=$CLASSPATH:$DIR/build/types/examplezcmtypes.jar

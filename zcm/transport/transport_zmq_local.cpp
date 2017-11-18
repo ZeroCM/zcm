@@ -49,7 +49,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
     string recvmsgChannel;
     size_t recvmsgBufferSize = START_BUF_SIZE; // Start at 1MB but allow it to grow to MTU
-    char* recvmsgBuffer;
+    uint8_t* recvmsgBuffer;
 
     // Mutex used to protect 'subsocks' while allowing
     // recvmsgEnable() and recvmsg() to be called
@@ -67,7 +67,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
         ZCM_DEBUG("IPC Address: %s\n", subnet.c_str());
 
-        recvmsgBuffer = new char[recvmsgBufferSize];
+        recvmsgBuffer = new uint8_t[recvmsgBufferSize];
 
         ctx = zmq_init(ZMQ_IO_THREADS);
         assert(ctx != nullptr);
@@ -360,7 +360,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
                 p->socket = sock;
                 p->events = ZMQ_POLLIN;
                 pchannels.emplace_back(channel);
-                i++;
+                ++i;
             }
         }
 
@@ -374,7 +374,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             return ZCM_EAGAIN;
         }
         if (rc >= 0) {
-            for (size_t i = 0; i < pitems.size(); i++) {
+            for (size_t i = 0; i < pitems.size(); ++i) {
                 auto& p = pitems[i];
                 if (p.revents != 0) {
                     // NOTE: zmq_recv can return an integer > the len parameter passed in
@@ -395,7 +395,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
                         ZCM_DEBUG("Reallocating recv buffer to handle larger messages. Size is now %d", rc);
                         recvmsgBufferSize = rc * 2;
                         delete[] recvmsgBuffer;
-                        recvmsgBuffer = new char[recvmsgBufferSize];
+                        recvmsgBuffer = new uint8_t[recvmsgBufferSize];
                         return ZCM_EAGAIN;
                     }
                     recvmsgChannel = pchannels[i];
