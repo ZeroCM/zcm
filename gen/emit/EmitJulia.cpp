@@ -726,7 +726,7 @@ struct JlEmitPack : public Emitter
             // shift!(LOAD_PATH) in a `finally` block to ensure that the
             // LOAD_PATH is restored even if something goes wrong with the
             // imports
-            fprintf(moduleJlFp, "\nunshift!(LOAD_PATH, joinpath(@__DIR__, \"%s\"))\n", pdname.c_str());
+            fprintf(moduleJlFp, "\nunshift!(LOAD_PATH, joinpath(dirname(@__FILE__), \"%s\"))\n", pdname.c_str());
             fprintf(moduleJlFp, "try\n");
             for (auto& import : moduleJlImports) {
                 // Restore each of the existing imports. Each import defines a
