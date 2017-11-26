@@ -160,6 +160,7 @@ struct EmitJulia : public Emitter
         // define the class
         emitComment(0, ls.comment);
         emit(0, "import ZCM");
+        emit(0, "export %s", sn);
         emit(0, "type %s <: ZCM.AbstractZCMType", sn);
         emit(0, "");
 
