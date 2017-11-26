@@ -122,13 +122,13 @@ struct EmitJulia : public Emitter
             // The type we're creating is in a package, so we need to @eval its
             // definition into the right module
             emit(0, "import %s", lsPackage.c_str());
-            emit(0, "@eval %s begin", ls.structname.package.c_str());
+            emit(0, "eval(%s, quote", ls.structname.package.c_str());
         } else {
             // The type we're creating is not in a package, so we don't need to
             // do anything. But we'll create a "begin" block so that the number
             // of terminating "end" statements is the same no matter which path
             // was chosen here.
-            emit(0, "begin");
+            emit(0, "(begin");
         }
 
         for (auto& tn : imports) {
@@ -147,7 +147,7 @@ struct EmitJulia : public Emitter
     void emitModuleEnd()
     {
         const char *sn = ls.structname.nameUnderscoreCStr();
-        emit(0, "end # from the `begin` block above");
+        emit(0, "end) # from the `begin` or `quote` block above");
         emit(0, "end # module _%s;", sn);
     }
 
@@ -678,15 +678,17 @@ struct JlEmitPack : public Emitter
                         // If this line matches "import foo", then store "foo" in
                         // the set of imports
                         moduleJlImports.insert(words[1]);
-                    } else if (words.size() >= 6 &&
-                               words[0] == "@eval" &&
-                               words[2] == "module" &&
-                               words[4] == ";" &&
-                               words[5] == "end") {
+                    } else if (words.size() >= 7 &&
+                               words[0] == "eval(" &&
+                               words[2] == "," &&
+                               words[3] == ":(module" &&
+                               words[5] == ";" &&
+                               words[6] == "end))\n") {
+                        cout << "match: " << words[1] << " " << words[4] << endl;
                         // Otherwise, if the line matches:
                         // @eval foo module bar.baz ; end
                         // then store foo.bar.baz in the submodules set
-                        moduleJlSubmodules.insert(words[1] + "." + words[3]);
+                        moduleJlSubmodules.insert(words[1] + "." + words[4]);
                     }
                 }
                 fclose(moduleJlFp);
@@ -713,7 +715,7 @@ struct JlEmitPack : public Emitter
                     vector<string> parentParts(parts.begin(), parts.end() - 1);
                     auto parent = StringUtil::join(parentParts, '.');
                     auto module = parts.at(parts.size() - 1);
-                    fprintf(moduleJlFp, "@eval %s module %s ; end\n", parent.c_str(), module.c_str());
+                    fprintf(moduleJlFp, "eval( %s , :(module %s ; end))\n", parent.c_str(), module.c_str());
                 }
             }
             // LOAD_PATH controls where Julia looks for files you `import`.
