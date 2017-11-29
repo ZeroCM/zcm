@@ -46,4 +46,8 @@ def build(ctx):
               use    = ['default', 'zcm', 'examplezcmtypes_cpp'],
               source = 'CustomTranscoderPlugin.cpp')
 
+    ctx.program(target = 'packaged',
+                use = 'default zcm examplezcmtypes_cpp',
+                source = 'Packaged.cpp')
+
     ctx.recurse('transport')

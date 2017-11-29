@@ -1,5 +1,5 @@
 package test_package;
-struct packaged_t {
+struct packaged2_t {
     boolean packaged;
-    packaged2_t a;
+    .example4_t e;
 }

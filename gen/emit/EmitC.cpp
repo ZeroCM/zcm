@@ -27,7 +27,7 @@ static string makeAccessor(ZCMMember& lm, const string& n, uint dim)
         return "&("+n+"[element]."+lm.membername+")";
     } else {
         string s = n+"[element]."+lm.membername;
-        for (uint d = 0; d < dim; d++)
+        for (uint d = 0; d < dim; ++d)
             s += "[" + string(1, d+'a') + "]";
         return s;
     }
@@ -188,7 +188,7 @@ struct EmitHeader : public Emit
                     emitEnd(";");
                 } else {
                     emitStart(1, "%-10s ", mapTypeName(lm.type.fullname).c_str());
-                    for (int d = 0; d < ndim; d++)
+                    for (int d = 0; d < ndim; ++d)
                         emitContinue("*");
                     emitEnd("%s;", lm.membername.c_str());
                 }
@@ -399,7 +399,7 @@ struct EmitSource : public Emit
         if (lm.dimensions.size() == 0)
             return;
 
-        for (uint i = 0; i < lm.dimensions.size() - 1; i++) {
+        for (uint i = 0; i < lm.dimensions.size() - 1; ++i) {
             char var = 'a' + i;
 
             if (flags & FLAG_EMIT_MALLOCS) {
@@ -414,7 +414,7 @@ struct EmitSource : public Emit
             }
 
             emit(2+i, "{ int %c;", var);
-            emit(2+i, "for (%c = 0; %c < %s; %c++) {", var, var, makeArraySize(lm, "p", i).c_str(), var);
+            emit(2+i, "for (%c = 0; %c < %s; ++%c) {", var, var, makeArraySize(lm, "p", i).c_str(), var);
         }
 
         if (flags & FLAG_EMIT_MALLOCS) {
@@ -432,7 +432,7 @@ struct EmitSource : public Emit
             return;
 
         auto sz = lm.dimensions.size();
-        for (uint i = 0; i < sz - 1; i++) {
+        for (uint i = 0; i < sz - 1; ++i) {
             uint indent = sz - i;
             if (flags & FLAG_EMIT_FREES) {
                 string accessor = makeAccessor(lm, "p", sz-1-i);
@@ -459,7 +459,7 @@ struct EmitSource : public Emit
             emit(1, "int thislen;");
         }
         emit(0,"");
-        emit(1,    "for (element = 0; element < elements; element++) {");
+        emit(1,    "for (element = 0; element < elements; ++element) {");
         emit(0,"");
         for (auto& lm : lr.members) {
             emitCArrayLoopsStart(lm, "p", FLAG_NONE);
@@ -510,7 +510,7 @@ struct EmitSource : public Emit
         emit(0,"{");
         emit(1,    "int pos = 0, thislen, element;");
         emit(0,"");
-        emit(1,    "for (element = 0; element < elements; element++) {");
+        emit(1,    "for (element = 0; element < elements; ++element) {");
         emit(0,"");
         for (auto& lm : lr.members) {
             emitCArrayLoopsStart(lm, "p", lm.isConstantSizeArray() ? FLAG_NONE : FLAG_EMIT_MALLOCS);
@@ -539,7 +539,7 @@ struct EmitSource : public Emit
         emit(0,"int __%s_decode_array_cleanup(%s* p, int elements)", tn_, tn_);
         emit(0,"{");
         emit(1,    "int element;");
-        emit(1,    "for (element = 0; element < elements; element++) {");
+        emit(1,    "for (element = 0; element < elements; ++element) {");
         emit(0,"");
         for (auto& lm : lr.members) {
             emitCArrayLoopsStart(lm, "p", FLAG_NONE);
@@ -600,7 +600,7 @@ struct EmitSource : public Emit
         emit(0,"int __%s_encoded_array_size(const %s* p, int elements)", tn_, tn_);
         emit(0,"{");
         emit(1,"int size = 0, element;");
-        emit(1,    "for (element = 0; element < elements; element++) {");
+        emit(1,    "for (element = 0; element < elements; ++element) {");
         emit(0,"");
         for (auto& lm : lr.members) {
             emitCArrayLoopsStart(lm, "p", FLAG_NONE);
@@ -667,7 +667,7 @@ struct EmitSource : public Emit
         emit(1,"");
 
         int num_fields = lr.members.size();
-        for(int i = 0; i < num_fields; i++) {
+        for(int i = 0; i < num_fields; ++i) {
             emit(2,"case %d: {", i);
 
             ZCMMember& m = lr.members[i];
@@ -682,14 +682,14 @@ struct EmitSource : public Emit
 
             emit(3,"f->name = \"%s\";", m.membername.c_str());
             emit(3,"f->type = %s;", typeval.c_str());
-            emit(3,"f->typestr = \"%s\";", m.type.shortname.c_str());
+            emit(3,"f->typestr = \"%s\";", m.type.fullname.c_str());
 
             int num_dim = m.dimensions.size();
             emit(3,"f->num_dim = %d;", num_dim);
 
             if(num_dim != 0) {
 
-                for(int j = 0; j < num_dim; j++) {
+                for(int j = 0; j < num_dim; ++j) {
                     ZCMDimension& d = m.dimensions[j];
                     if(d.mode == ZCM_VAR)
                         emit(3,"f->dim_size[%d] = p->%s;", j, d.size.c_str());
@@ -697,7 +697,7 @@ struct EmitSource : public Emit
                         emit(3,"f->dim_size[%d] = %s;", j, d.size.c_str());
                 }
 
-                for(int j = 0; j < num_dim; j++) {
+                for(int j = 0; j < num_dim; ++j) {
                     ZCMDimension& d = m.dimensions[j];
                     emit(3,"f->dim_is_variable[%d] = %d;", j, d.mode == ZCM_VAR);
                 }
@@ -747,7 +747,7 @@ struct EmitSource : public Emit
         emit(0,"int __%s_clone_array(const %s* p, %s* q, int elements)", tn_, tn_, tn_);
         emit(0,"{");
         emit(1,    "int element;");
-        emit(1,    "for (element = 0; element < elements; element++) {");
+        emit(1,    "for (element = 0; element < elements; ++element) {");
         emit(0,"");
         for (auto& lm : lr.members) {
 

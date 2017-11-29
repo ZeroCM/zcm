@@ -95,7 +95,7 @@ size_t ZCMGen::getPrimitiveTypeSize(const string& tn)
 
 static bool isLegalMemberName(const string& t)
 {
-    return isalpha(t[0]) || t[0] == '_';
+    return isalpha(t[0]) || t[0] == '_' || t[0] == '.';
 }
 
 static u64 signExtendedRightShift(u64 val, size_t nShift)
@@ -319,7 +319,7 @@ static void tokenizeNextOrFail(tokenize_t* t, const char* description)
         parse_error(t, "End of file reached, expected %s.", description);
 }
 
-static int parseConst(ZCMGen& zcmgen, ZCMStruct& lr, tokenize_t* t)
+static int parseConst(ZCMGen& zcmgen, ZCMStruct& zs, tokenize_t* t)
 {
     parseTryConsumeComment(t);
     tokenizeNextOrFail(t, "type identifier");
@@ -328,7 +328,7 @@ static int parseConst(ZCMGen& zcmgen, ZCMStruct& lr, tokenize_t* t)
     if (!ZCMGen::isLegalConstType(t->token))
         parse_error(t, "invalid type for const");
 
-    string lctypename = t->token;
+    string type = t->token;
 
     do {
         // get the member name
@@ -340,9 +340,9 @@ static int parseConst(ZCMGen& zcmgen, ZCMStruct& lr, tokenize_t* t)
         string membername = t->token;
 
         // make sure this name isn't already taken.
-        if (lr.findMember(t->token))
+        if (zs.findMember(t->token))
             semantic_error(t, "Duplicate member name '%s'.", t->token);
-        if (lr.findConst(t->token))
+        if (zs.findConst(t->token))
             semantic_error(t, "Duplicate member name '%s'.", t->token);
 
         // get the value
@@ -351,18 +351,18 @@ static int parseConst(ZCMGen& zcmgen, ZCMStruct& lr, tokenize_t* t)
         tokenizeNextOrFail(t, "constant value");
 
         // create a new const member
-        ZCMConstant lc {lctypename, membername, t->token};
+        ZCMConstant zc {type, membername, t->token};
 
         // Attach the last comment if one was defined.
         if (zcmgen.comment != "")
-            std::swap(lc.comment, zcmgen.comment);
+            std::swap(zc.comment, zcmgen.comment);
 
         // TODO: Rewrite all of this in a much cleaner C++ style approach
         // TODO: This should migrate to either the ctor or a helper function called just
         //       before the ctor
         char* endptr = NULL;
         #define INT_CASE(TYPE, STORE) \
-            } else if (lctypename == #TYPE) { \
+            } else if (type == #TYPE) { \
                 long long v = strtoll(t->token, &endptr, 0); \
                 if (endptr == t->token || *endptr != '\0') \
                     parse_error(t, "Expected integer value"); \
@@ -379,7 +379,7 @@ static int parseConst(ZCMGen& zcmgen, ZCMStruct& lr, tokenize_t* t)
                 STORE = (TYPE) v;
 
         #define FLT_CASE(TYPE, STORE) \
-            } else if (lctypename == #TYPE) { \
+            } else if (type == #TYPE) { \
                 double v = strtod(t->token, &endptr); \
                 if (endptr == t->token || *endptr != '\0') \
                     parse_error(t, "Expected floating point value"); \
@@ -389,18 +389,18 @@ static int parseConst(ZCMGen& zcmgen, ZCMStruct& lr, tokenize_t* t)
                 STORE = (TYPE) v;
 
         if (false) {
-        INT_CASE(int8_t,  lc.val.i8)
-        INT_CASE(int16_t, lc.val.i16)
-        INT_CASE(int32_t, lc.val.i32)
-        INT_CASE(int64_t, lc.val.i64)
-        FLT_CASE(float,   lc.val.f)
-        FLT_CASE(double,  lc.val.d)
+        INT_CASE(int8_t,  zc.val.i8)
+        INT_CASE(int16_t, zc.val.i16)
+        INT_CASE(int32_t, zc.val.i32)
+        INT_CASE(int64_t, zc.val.i64)
+        FLT_CASE(float,   zc.val.f)
+        FLT_CASE(double,  zc.val.d)
         } else {
             fprintf(stderr, "[%s]\n", t->token);
             assert(0);
         }
 
-        lr.constants.push_back(std::move(lc));
+        zs.constants.push_back(std::move(zc));
 
     } while (parseTryConsume(t, ","));
 
@@ -410,7 +410,7 @@ static int parseConst(ZCMGen& zcmgen, ZCMStruct& lr, tokenize_t* t)
 
 // parse a member declaration. This looks long and scary, but most of
 // the code is for semantic analysis (error checking)
-static int parseMember(ZCMGen& zcmgen, ZCMStruct& lr, tokenize_t* t)
+static int parseMember(ZCMGen& zcmgen, ZCMStruct& zs, tokenize_t* t)
 {
     // Read a type specification. Then read members (multiple
     // members can be defined per-line.) Each member can have
@@ -420,7 +420,7 @@ static int parseMember(ZCMGen& zcmgen, ZCMStruct& lr, tokenize_t* t)
     if (parseTryConsume(t, "struct")) {
         parse_error(t, "recursive structs not implemented.");
     } else if (parseTryConsume(t, "const")) {
-        return parseConst(zcmgen, lr, t);
+        return parseConst(zcmgen, zs, t);
     }
 
     // standard declaration
@@ -431,10 +431,22 @@ static int parseMember(ZCMGen& zcmgen, ZCMStruct& lr, tokenize_t* t)
         parse_error(t, "invalid type name");
 
     // A common mistake is use 'int' as a type instead of 'intN_t'
-    if (string(t->token) == "int")
-        semantic_warning(t, "int type should probably be int8_t, int16_t, int32_t, or int64_t");
+    string type(t->token);
+    if (type == "int")
+        semantic_error(t, "int type must be int8_t, int16_t, int32_t, or int64_t");
 
-    ZCMTypename lt {zcmgen, t->token};
+    // RRR: double check this can't be size 0
+    if (!zcmgen.isPrimitiveType(type)) {
+        if (type[0] != '.') {
+            if (!zs.structname.package.empty()) {
+                type = zs.structname.package + "." + type;
+            }
+        } else {
+            type = type.substr(1);
+        }
+    }
+
+    ZCMTypename zt {zcmgen, type};
 
     do {
         // get the zcm type name
@@ -445,15 +457,15 @@ static int parseMember(ZCMGen& zcmgen, ZCMStruct& lr, tokenize_t* t)
             parse_error(t, "Invalid member name: must start with [a-zA-Z_].");
 
         // make sure this name isn't already taken.
-        if (lr.findMember(t->token))
+        if (zs.findMember(t->token))
             semantic_error(t, "Duplicate member name '%s'.", t->token);
-        if (lr.findConst(t->token))
+        if (zs.findConst(t->token))
             semantic_error(t, "Duplicate member name '%s'.", t->token);
 
         // create a new member
-        ZCMMember lm { lt, t->token };
+        ZCMMember zm { zt, t->token };
         if (zcmgen.comment != "")
-            std::swap(lm.comment, zcmgen.comment);
+            std::swap(zm.comment, zcmgen.comment);
 
         // (multi-dimensional) array declaration?
         while (parseTryConsume(t, "[")) {
@@ -464,7 +476,7 @@ static int parseMember(ZCMGen& zcmgen, ZCMStruct& lr, tokenize_t* t)
 
             ZCMDimension dim;
 
-            if (ZCMConstant* c = lr.findConst(t->token)) {
+            if (ZCMConstant* c = zs.findConst(t->token)) {
                 if (!ZCMGen::isArrayDimType(c->type))
                     semantic_error(t, "Array dimension '%s' must be an integer type.", t->token);
 
@@ -490,7 +502,7 @@ static int parseMember(ZCMGen& zcmgen, ZCMStruct& lr, tokenize_t* t)
                     // 2) an integer type
                     int okay = 0;
 
-                    for (auto& thislm : lr.members) {
+                    for (auto& thislm : zs.members) {
                         if (thislm.membername == t->token) {
                             if (thislm.dimensions.size() != 0)
                                 semantic_error(t, "Array dimension '%s' must be not be an array type.", t->token);
@@ -511,10 +523,10 @@ static int parseMember(ZCMGen& zcmgen, ZCMStruct& lr, tokenize_t* t)
             parseRequire(t, "]");
 
             // increase the dimensionality of the array by one dimension.
-            lm.dimensions.push_back(std::move(dim));
+            zm.dimensions.push_back(std::move(dim));
         }
 
-        lr.members.push_back(std::move(lm));
+        zs.members.push_back(std::move(zm));
 
     } while(parseTryConsume(t, ","));
 
@@ -532,9 +544,9 @@ static ZCMStruct parseStruct(ZCMGen& zcmgen, const string& zcmfile,
 
     string name = t->token;
 
-    ZCMStruct lr {zcmgen, zcmfile, (package == "") ? name : package + "." + name};
+    ZCMStruct zs {zcmgen, zcmfile, (package == "") ? name : package + "." + name};
     if (zcmgen.comment != "")
-        std::swap(lr.comment, zcmgen.comment);
+        std::swap(zs.comment, zcmgen.comment);
 
     parseRequire(t, "{");
 
@@ -545,19 +557,19 @@ static ZCMStruct parseStruct(ZCMGen& zcmgen, const string& zcmfile,
         if (parseTryConsume(t, "}"))
             break;
 
-        parseMember(zcmgen, lr, t);
+        parseMember(zcmgen, zs, t);
     }
 
-    lr.hash = lr.computeHash();
-    return lr;
+    zs.hash = zs.computeHash();
+    return zs;
 }
 
 static const ZCMStruct* findStruct(ZCMGen& zcmgen, const string& package, const string& name)
 {
-    for (auto& lr : zcmgen.structs) {
-        if (package == lr.structname.package &&
-            name == lr.structname.shortname)
-            return &lr;
+    for (auto& zs : zcmgen.structs) {
+        if (package == zs.structname.package &&
+            name == zs.structname.shortname)
+            return &zs;
     }
     return nullptr;
 }
@@ -579,28 +591,28 @@ static int parseEntity(ZCMGen& zcmgen, const string& zcmfile, tokenize_t* t)
         return 0;
     }
 
-    if (string(t->token) ==  "struct") {
-        ZCMStruct lr = parseStruct(zcmgen, zcmfile, zcmgen.package, t);
-
-        // check for duplicate types
-        auto* prior = findStruct(zcmgen,
-                                 lr.structname.package,
-                                 lr.structname.shortname);
-        if (prior) {
-            printf("ERROR:  duplicate type %s declared in %s\n",
-                   lr.structname.fullname.c_str(), zcmfile.c_str());
-            printf("        %s was previously declared in %s\n",
-                   lr.structname.fullname.c_str(), prior->zcmfile.c_str());
-            return 1;
-        } else {
-            zcmgen.structs.push_back(std::move(lr));
-            zcmgen.package = "";
-        }
-        return 0;
+    if (string(t->token) != "struct") {
+        parse_error(t, "Missing struct token.");
+        return 1;
     }
 
-    parse_error(t, "Missing struct token.");
-    return 1;
+    ZCMStruct zs = parseStruct(zcmgen, zcmfile, zcmgen.package, t);
+
+    // check for duplicate types
+    auto* prior = findStruct(zcmgen,
+                             zs.structname.package,
+                             zs.structname.shortname);
+    if (prior) {
+        printf("ERROR:  duplicate type %s declared in %s\n",
+               zs.structname.fullname.c_str(), zcmfile.c_str());
+        printf("        %s was previously declared in %s\n",
+               zs.structname.fullname.c_str(), prior->zcmfile.c_str());
+        return 1;
+    } else {
+        zcmgen.structs.push_back(std::move(zs));
+        zcmgen.package = "";
+    }
+    return 0;
 }
 
 int ZCMGen::handleFile(const string& path)
@@ -666,31 +678,31 @@ void ZCMMember::dump()
 void ZCMStruct::dump()
 {
     printf("struct %s [hash=0x%16" PRId64 "]\n", structname.fullname.c_str(), hash);
-    for (auto& lm : members)
-        lm.dump();
+    for (auto& zm : members)
+        zm.dump();
 }
 
 void ZCMGen::dump()
 {
-    for (auto& lr : structs)
-        lr.dump();
+    for (auto& zs : structs)
+        zs.dump();
 }
 
 /** Find and return the member whose name is name. **/
 ZCMMember* ZCMStruct::findMember(const string& name)
 {
-    for (auto& lm : members)
-        if (lm.membername == name)
-            return &lm;
+    for (auto& zm : members)
+        if (zm.membername == name)
+            return &zm;
 
     return nullptr;
 }
 
 ZCMConstant* ZCMStruct::findConst(const string& name)
 {
-    for (auto& lc : constants)
-        if (lc.membername == name)
-            return &lc;
+    for (auto& zc : constants)
+        if (zc.membername == name)
+            return &zc;
 
     return nullptr;
 }

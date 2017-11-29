@@ -108,7 +108,6 @@ struct ZCMStruct
 
     string               zcmfile; // file/path of function that declared it
     u64                  hash;
-    string               package;
 
     // Comments in the ZCM type defition immediately before a struct is declared
     // are attached to that struct.
