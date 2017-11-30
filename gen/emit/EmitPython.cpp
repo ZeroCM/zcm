@@ -559,13 +559,13 @@ struct PyEmitStruct : public Emitter
         }
 
         for (auto& p : dependencies) {
-            auto& tn = p.first;
+            auto* tn = p.first.c_str();
             auto& type = p.second;
             if (type.package.empty()) {
-                emit(0, "from %s import %s", tn.c_str(), tn.c_str());
+                emit(0, "from %s import %s", tn, tn);
             } else {
                 emit(0, "from %s import %s as %s",
-                        type.fullname.c_str(), type.shortname.c_str(), type.nameUnderscoreCStr());
+                        tn, type.shortname.c_str(), type.nameUnderscoreCStr());
             }
             emit(0,"");
         }
@@ -606,7 +606,7 @@ struct PyEmitPack : public Emitter
 
         if (havePackage) {
             size_t ndirs = dirs.size();
-            for (size_t i = 0 ; i < ndirs; ++i) {
+            for (size_t i = 0; i < ndirs; ++i) {
 
                 vector<string> initPyFnameParts;
                 initPyFnameParts.push_back(packageDirPrefix);
