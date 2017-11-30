@@ -83,8 +83,8 @@ Using the grammar above, to be well-formed the following constraints must be sat
 
 ### Array Types
 
-Array types are encoded as a simple series of the element type. The econding does *NOT* include a length field for the
-the dimensions. For static array dimensions, the size is already known by the decoder. For dynamic array dimensions, the
+Array types are encoded as a simple series of the element type. The encoding does *NOT* include a length field for the
+dimensions. For static array dimensions, the size is already known by the decoder. For dynamic array dimensions, the
 size is encoded in another field (as mandated by the grammar). For these reasons, there is zero encoding overhead for
 arrays. This includes nested types.
 
@@ -98,9 +98,9 @@ type metadata.
 The optimized encoding formats specified above are made possible using a type hash. Each encoded message starts with
 a 64-bit hash field. As seen above, for one message, this is the only size overhead in ZCM Type encodings. Without the
 hash, the encoded data is at maximum the same size as an equivalent C struct. Further, the hash is a unique type identifier.
-The hash allows a decoder function to verify that a binary blob of data is ecoded as expected.
+The hash allows a decoder function to verify that a binary blob of data is encoded as expected.
 
-To acheive this lofty goal, it is crucial to get the type hash computation right. We must ensure that that a hash unique
+To acheive this lofty goal, it is crucial to get the type hash computation right. We must ensure that that a hash uniquely
 identifies a type layout. The hash is not intended to be cryptographic, but instead to catch programming and configuration
 errors.
 
