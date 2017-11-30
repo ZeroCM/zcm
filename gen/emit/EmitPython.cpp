@@ -17,9 +17,9 @@ void setupOptionsPython(GetOpt& gopt)
     gopt.addString(0, "ppath", "", "Python destination directory");
 }
 
-static char getStructFormat(ZCMMember& lm)
+static char getStructFormat(ZCMMember& zm)
 {
-    auto& tn = lm.type.fullname;
+    auto& tn = zm.type.fullname;
     if (tn == "byte")    return 'B';
     if (tn == "boolean") return 'b';
     if (tn == "int8_t")  return 'b';
@@ -34,14 +34,14 @@ static char getStructFormat(ZCMMember& lm)
 struct PyEmitStruct : public Emitter
 {
     ZCMGen& zcm;
-    ZCMStruct& ls;
+    ZCMStruct& zs;
 
-    PyEmitStruct(ZCMGen& zcm, ZCMStruct& ls, const string& fname):
-        Emitter(fname), zcm(zcm), ls(ls) {}
+    PyEmitStruct(ZCMGen& zcm, ZCMStruct& zs, const string& fname):
+        Emitter(fname), zcm(zcm), zs(zs) {}
 
     void emitStruct()
     {
-        auto& sn_ = ls.structname.shortname;
+        auto& sn_ = zs.structname.shortname;
         auto* sn = sn_.c_str();
 
         emit(0, "\"\"\"ZCM type definitions\n"
@@ -59,20 +59,20 @@ struct PyEmitStruct : public Emitter
 
         emit(0, "class %s(object):", sn);
         emitStart(0, "    __slots__ = [");
-        for (uint m = 0; m < ls.members.size(); m++) {
-            auto& lm = ls.members[m];
-            emitContinue("\"%s\"%s", lm.membername.c_str(),
-                         (m < ls.members.size()-1) ? ", " : "");
+        for (size_t m = 0; m < zs.members.size(); ++m) {
+            auto& zm = zs.members[m];
+            emitContinue("\"%s\"%s", zm.membername.c_str(),
+                         (m < zs.members.size()-1) ? ", " : "");
         }
         emitEnd("]");
         emit(0, "");
 
         // CONSTANTS
-        for (auto& lc : ls.constants) {
-            assert(ZCMGen::isLegalConstType(lc.type));
-            emit(1, "%s = %s", lc.membername.c_str(), lc.valstr.c_str());
+        for (auto& zc : zs.constants) {
+            assert(ZCMGen::isLegalConstType(zc.type));
+            emit(1, "%s = %s", zc.membername.c_str(), zc.valstr.c_str());
         }
-        if (ls.constants.size() > 0)
+        if (zs.constants.size() > 0)
             emit(0, "");
 
         emitPythonInit();
@@ -83,11 +83,11 @@ struct PyEmitStruct : public Emitter
         emitPythonFingerprint();
     }
 
-    void emitDecodeOne(ZCMMember& lm, const string& accessor_, int indent, const string& sfx_)
+    void emitDecodeOne(ZCMMember& zm, const string& accessor_, int indent, const string& sfx_)
     {
-        auto& tn = lm.type.fullname;
-        auto& mn = lm.membername;
-        auto& sn = lm.type.shortname;
+        auto& tn = zm.type.fullname;
+        auto& mn = zm.membername;
+        auto& sn = zm.type.shortname;
 
         auto* accessor = accessor_.c_str();
         auto* sfx = sfx_.c_str();
@@ -113,19 +113,19 @@ struct PyEmitStruct : public Emitter
         } else if (tn == "double") {
             emit(indent, "%sstruct.unpack('>d', buf.read(8))[0]%s", accessor, sfx);
         } else {
-            if (tn == ls.structname.fullname) {
+            if (tn == zs.structname.fullname) {
                 emit(indent, "%s%s._decode_one(buf)%s", accessor, sn.c_str(), sfx);
             } else {
                 emit(indent, "%s%s._decode_one(buf)%s",
-                             accessor, lm.type.nameUnderscoreCStr(), sfx);
+                             accessor, zm.type.nameUnderscoreCStr(), sfx);
             }
         }
     }
 
-    void emitDecodeList(ZCMMember& lm, const string& accessor_, int indent, bool isFirst,
+    void emitDecodeList(ZCMMember& zm, const string& accessor_, int indent, bool isFirst,
                         const string& len_, bool fixedLen)
     {
-        auto& tn = lm.type.fullname;
+        auto& tn = zm.type.fullname;
         const char* suffix = isFirst ? "" : ")";
         auto* accessor = accessor_.c_str();
         auto* len = len_.c_str();
@@ -136,29 +136,29 @@ struct PyEmitStruct : public Emitter
         } else if (tn == "boolean") {
             if(fixedLen) {
                 emit(indent, "%smap(bool, struct.unpack('>%s%c', buf.read(%d)))%s",
-                     accessor, len, getStructFormat(lm),
+                     accessor, len, getStructFormat(zm),
                      atoi(len) * ZCMGen::getPrimitiveTypeSize(tn),
                      suffix);
             } else {
                 emit(indent,
                      "%smap(bool, struct.unpack('>%%d%c' %% self.%s, buf.read(self.%s)))%s",
-                     accessor, getStructFormat(lm), len, len, suffix);
+                     accessor, getStructFormat(zm), len, len, suffix);
             }
         } else if (tn == "int8_t" || tn == "int16_t" || tn == "int32_t" || tn == "int64_t" ||
                    tn == "float"  || tn == "double") {
             if(fixedLen) {
                 emit (indent, "%sstruct.unpack('>%s%c', buf.read(%d))%s",
-                      accessor, len, getStructFormat(lm),
+                      accessor, len, getStructFormat(zm),
                       atoi(len) * ZCMGen::getPrimitiveTypeSize(tn),
                       suffix);
             } else {
                 if (ZCMGen::getPrimitiveTypeSize(tn) > 1) {
                     emit(indent, "%sstruct.unpack('>%%d%c' %% self.%s, buf.read(self.%s * %d))%s",
-                         accessor, getStructFormat(lm), len, len,
+                         accessor, getStructFormat(zm), len, len,
                          ZCMGen::getPrimitiveTypeSize(tn), suffix);
                 } else {
                     emit(indent, "%sstruct.unpack('>%%d%c' %% self.%s, buf.read(self.%s))%s",
-                         accessor, getStructFormat(lm), len, len, suffix);
+                         accessor, getStructFormat(zm), len, len, suffix);
                 }
             }
         } else {
@@ -176,11 +176,11 @@ struct PyEmitStruct : public Emitter
         emitStart(0, "        ");
         int fmtsize = 0;
         while (members.size() > 0) {
-            auto* lm = members.front(); members.pop();
-            emitContinue("self.%s", lm->membername.c_str());
+            auto* zm = members.front(); members.pop();
+            emitContinue("self.%s", zm->membername.c_str());
             if (members.size() > 0)
                 emitContinue (", ");
-            fmtsize += ZCMGen::getPrimitiveTypeSize(lm->type.fullname);
+            fmtsize += ZCMGen::getPrimitiveTypeSize(zm->type.fullname);
         }
         emitContinue (" = struct.unpack(\">");
         while (formats.size() > 0) {
@@ -193,32 +193,32 @@ struct PyEmitStruct : public Emitter
     void emitPythonDecodeOne()
     {
         emit(1, "def _decode_one(buf):");
-        emit(2, "self = %s()", ls.structname.shortname.c_str());
+        emit(2, "self = %s()", zs.structname.shortname.c_str());
 
         std::queue<int> structFmt;
         std::queue<ZCMMember*> structMembers;
 
-        for (auto& lm : ls.members) {
-            char fmt = getStructFormat(lm);
+        for (auto& zm : zs.members) {
+            char fmt = getStructFormat(zm);
 
-            if (lm.dimensions.size() == 0) {
-                if (fmt && lm.type.fullname != "boolean") {
+            if (zm.dimensions.size() == 0) {
+                if (fmt && zm.type.fullname != "boolean") {
                     structFmt.push((int)fmt);
-                    structMembers.push(&lm);
+                    structMembers.push(&zm);
                 } else {
                     flushReadStructFmt(structFmt, structMembers);
-                    string accessor = "self." + lm.membername + " = ";
-                    emitDecodeOne(lm, accessor.c_str(), 2, "");
+                    string accessor = "self." + zm.membername + " = ";
+                    emitDecodeOne(zm, accessor.c_str(), 2, "");
                 }
             } else {
                 flushReadStructFmt(structFmt, structMembers);
-                string accessor = "self." + lm.membername;
+                string accessor = "self." + zm.membername;
 
                 // iterate through the dimensions of the member, building up
                 // an accessor string, and emitting for loops
-                uint n = 0;
-                for (n = 0; n < lm.dimensions.size()-1; n++) {
-                    auto& dim = lm.dimensions[n];
+                size_t n = 0;
+                for (; n < zm.dimensions.size()-1; ++n) {
+                    auto& dim = zm.dimensions[n];
 
                     if(n == 0) {
                         emit(2, "%s = []", accessor.c_str());
@@ -232,17 +232,17 @@ struct PyEmitStruct : public Emitter
                         emit(2+n, "for i%d in range(self.%s):", n, dim.size.c_str());
                     }
 
-                    if(n > 0 && n < lm.dimensions.size()-1) {
+                    if(n > 0 && n < zm.dimensions.size()-1) {
                         accessor += "[i" + to_string(n-1) + "]";
                     }
                 }
 
                 // last dimension.
-                auto& lastDim = lm.dimensions[lm.dimensions.size()-1];
+                auto& lastDim = zm.dimensions[zm.dimensions.size()-1];
                 bool lastDimFixedLen = (lastDim.mode == ZCM_CONST);
 
-                if (ZCMGen::isPrimitiveType(lm.type.fullname) &&
-                    lm.type.fullname != "string") {
+                if (ZCMGen::isPrimitiveType(zm.type.fullname) &&
+                    zm.type.fullname != "string") {
                     // member is a primitive non-string type.  Emit code to
                     // decode a full array in one call to struct.unpack
                     if(n == 0) {
@@ -251,7 +251,7 @@ struct PyEmitStruct : public Emitter
                         accessor += ".append(";
                     }
 
-                    emitDecodeList(lm, accessor, 2+n, n==0,
+                    emitDecodeList(zm, accessor, 2+n, n==0,
                                    lastDim.size, lastDimFixedLen);
                 } else {
                     // member is either a string type or an inner ZCM type.  Each
@@ -268,7 +268,7 @@ struct PyEmitStruct : public Emitter
                         emit(2+n, "for i%d in range(self.%s):", n, lastDim.size.c_str());
                     }
                     accessor += ".append(";
-                    emitDecodeOne(lm, accessor, n+3, ")");
+                    emitDecodeOne(zm, accessor, n+3, ")");
                 }
             }
         }
@@ -286,17 +286,17 @@ struct PyEmitStruct : public Emitter
         emit(1, "        buf = data");
         emit(1, "    else:");
         emit(1, "        buf = BytesIO(data)");
-        emit(1, "    if buf.read(8) != %s._get_packed_fingerprint():", ls.structname.shortname.c_str());
+        emit(1, "    if buf.read(8) != %s._get_packed_fingerprint():", zs.structname.shortname.c_str());
         emit(1, "        raise ValueError(\"Decode error\")");
-        emit(1, "    return %s._decode_one(buf)", ls.structname.shortname.c_str());
+        emit(1, "    return %s._decode_one(buf)", zs.structname.shortname.c_str());
         emit(1, "decode = staticmethod(decode)");
         emit(0, "");
     }
 
-    void emitEncodeOne(ZCMMember& lm, const string& accessor_, int indent)
+    void emitEncodeOne(ZCMMember& zm, const string& accessor_, int indent)
     {
-        const string& tn = lm.type.fullname;
-        const string& mn = lm.membername;
+        const string& tn = zm.type.fullname;
+        const string& mn = zm.membername;
         auto* accessor = accessor_.c_str();
 
         if (tn == "string") {
@@ -319,22 +319,22 @@ struct PyEmitStruct : public Emitter
         } else if (tn == "double") {
             emit(indent, "buf.write(struct.pack('>d', %s))", accessor);
         } else {
-            auto& sn = lm.type.shortname;
+            auto& sn = zm.type.shortname;
             auto* gpf = "_get_packed_fingerprint()";
-            if (lm.type.fullname == ls.structname.fullname) {
+            if (zm.type.fullname == zs.structname.fullname) {
                 emit(indent, "assert %s.%s == %s.%s", accessor, gpf, sn.c_str(), gpf);
             } else {
                 emit(indent, "assert %s.%s == %s.%s",
-                     accessor, gpf, lm.type.nameUnderscoreCStr(), gpf);
+                     accessor, gpf, zm.type.nameUnderscoreCStr(), gpf);
             }
             emit(indent, "%s._encode_one(buf)", accessor);
         }
     }
 
-    void emitEncodeList(ZCMMember& lm, const string& accessor_, int indent,
+    void emitEncodeList(ZCMMember& zm, const string& accessor_, int indent,
                         const string& len_, int fixedLen)
     {
-        auto& tn = lm.type.fullname;
+        auto& tn = zm.type.fullname;
         auto* accessor = accessor_.c_str();
         auto* len = len_.c_str();
 
@@ -346,10 +346,10 @@ struct PyEmitStruct : public Emitter
                    tn == "int64_t" || tn == "float"  || tn == "double") {
             if (fixedLen) {
                 emit(indent, "buf.write(struct.pack('>%s%c', *%s[:%s]))",
-                     len, getStructFormat(lm), accessor, len);
+                     len, getStructFormat(zm), accessor, len);
             } else {
                 emit(indent, "buf.write(struct.pack('>%%d%c' %% self.%s, *%s[:self.%s]))",
-                     getStructFormat(lm), len, accessor, len);
+                     getStructFormat(zm), len, accessor, len);
             }
         } else {
             assert(0);
@@ -370,8 +370,8 @@ struct PyEmitStruct : public Emitter
         }
         emitContinue ("\", ");
         while (members.size() > 0) {
-            auto* lm = members.front(); members.pop();
-            emitContinue("self.%s", lm->membername.c_str());
+            auto* zm = members.front(); members.pop();
+            emitContinue("self.%s", zm->membername.c_str());
             if (members.size() > 0)
                 emitContinue(", ");
         }
@@ -381,7 +381,7 @@ struct PyEmitStruct : public Emitter
     void emitPythonEncodeOne()
     {
         emit(1, "def _encode_one(self, buf):");
-        if (ls.members.size() == 0) {
+        if (zs.members.size() == 0) {
             emit(2, "pass");
             return;
         }
@@ -389,22 +389,22 @@ struct PyEmitStruct : public Emitter
         std::queue<int> structFmt;
         std::queue<ZCMMember*> structMembers;
 
-        for (auto& lm : ls.members) {
-            char fmt = getStructFormat(lm);
-            if (lm.dimensions.size() == 0) {
+        for (auto& zm : zs.members) {
+            char fmt = getStructFormat(zm);
+            if (zm.dimensions.size() == 0) {
                 if (fmt) {
                     structFmt.push((int)fmt);
-                    structMembers.push(&lm);
+                    structMembers.push(&zm);
                 } else {
                     flushWriteStructFmt(structFmt, structMembers);
-                    emitEncodeOne (lm, "self."+lm.membername, 2);
+                    emitEncodeOne (zm, "self."+zm.membername, 2);
                 }
             } else {
                 flushWriteStructFmt(structFmt, structMembers);
-                string accessor = "self." + lm.membername;
-                unsigned int n;
-                for (n = 0; n < lm.dimensions.size()-1; n++) {
-                    auto& dim = lm.dimensions[n];
+                string accessor = "self." + zm.membername;
+                size_t n = 0;
+                for (; n < zm.dimensions.size()-1; ++n) {
+                    auto& dim = zm.dimensions[n];
                     accessor += "[i" + to_string(n) + "]";
                     if (dim.mode == ZCM_CONST) {
                         emit(2+n, "for i%d in range(%s):", n, dim.size.c_str());
@@ -414,12 +414,12 @@ struct PyEmitStruct : public Emitter
                 }
 
                 // last dimension.
-                auto& lastDim = lm.dimensions[lm.dimensions.size()-1];
+                auto& lastDim = zm.dimensions[zm.dimensions.size()-1];
                 bool lastDimFixedLen = (lastDim.mode == ZCM_CONST);
 
-                if (ZCMGen::isPrimitiveType(lm.type.fullname) &&
-                    lm.type.fullname != "string") {
-                    emitEncodeList(lm, accessor, 2+n, lastDim.size, lastDimFixedLen);
+                if (ZCMGen::isPrimitiveType(zm.type.fullname) &&
+                    zm.type.fullname != "string") {
+                    emitEncodeList(zm, accessor, 2+n, lastDim.size, lastDimFixedLen);
                 } else {
                     if (lastDimFixedLen) {
                         emit(2+n, "for i%d in range(%s):", n, lastDim.size.c_str());
@@ -427,7 +427,7 @@ struct PyEmitStruct : public Emitter
                         emit(2+n, "for i%d in range(self.%s):", n, lastDim.size.c_str());
                     }
                     accessor += "[i" + to_string(n) + "]";
-                    emitEncodeOne(lm, accessor, n+3);
+                    emitEncodeOne(zm, accessor, n+3);
                 }
             }
         }
@@ -440,16 +440,16 @@ struct PyEmitStruct : public Emitter
     {
         emit(1, "def encode(self):");
         emit(1, "    buf = BytesIO()");
-        emit(1, "    buf.write(%s._get_packed_fingerprint())", ls.structname.shortname.c_str());
+        emit(1, "    buf.write(%s._get_packed_fingerprint())", zs.structname.shortname.c_str());
         emit(1, "    self._encode_one(buf)");
         emit(1, "    return buf.getvalue()");
         emit(0, "");
     }
 
-    void emitMemberInitializer(ZCMMember& lm, int dimNum)
+    void emitMemberInitializer(ZCMMember& zm, int dimNum)
     {
-        if((size_t)dimNum == lm.dimensions.size()) {
-            auto& tn = lm.type.fullname;
+        if((size_t)dimNum == zm.dimensions.size()) {
+            auto& tn = zm.type.fullname;
             const char* initializer = nullptr;
             if (tn == "byte") initializer = "0";
             else if (tn == "boolean") initializer = "False";
@@ -464,23 +464,23 @@ struct PyEmitStruct : public Emitter
             if (initializer) {
                 fprintfPass("%s", initializer);
             } else {
-                fprintfPass("%s()", lm.type.nameUnderscoreCStr());
+                fprintfPass("%s()", zm.type.nameUnderscoreCStr());
             }
             return;
         }
         // Arrays of bytes get treated as strings, so that they can be more
         // efficiently packed and unpacked.
-        if ((size_t)dimNum == lm.dimensions.size() - 1 &&
-            lm.type.fullname == "byte") {
+        if ((size_t)dimNum == zm.dimensions.size() - 1 &&
+            zm.type.fullname == "byte") {
             fprintfPass("\"\"");
             return;
         }
-        auto& dim = lm.dimensions[dimNum];
+        auto& dim = zm.dimensions[dimNum];
         if (dim.mode == ZCM_VAR) {
             fprintfPass("[]");
         } else {
             fprintfPass("[ ");
-            emitMemberInitializer(lm, dimNum+1);
+            emitMemberInitializer(zm, dimNum+1);
             fprintfPass(" for dim%d in range(%s) ]", dimNum, dim.size.c_str());
         }
     }
@@ -488,11 +488,11 @@ struct PyEmitStruct : public Emitter
     void emitPythonInit()
     {
         emit(1,"def __init__(self):");
-        uint i;
-        for (i = 0; i < ls.members.size(); i++) {
-            auto& lm = ls.members[i];
-            emitStart(1, "    self.%s = ", lm.membername.c_str());
-            emitMemberInitializer(lm, 0);
+        size_t i = 0;
+        for (; i < zs.members.size(); ++i) {
+            auto& zm = zs.members[i];
+            emitStart(1, "    self.%s = ", zm.membername.c_str());
+            emitMemberInitializer(zm, 0);
             emitEnd("");
         }
         if (i == 0)
@@ -502,28 +502,28 @@ struct PyEmitStruct : public Emitter
 
     void emitPythonFingerprint()
     {
-        auto& sn_ = ls.structname.shortname;
+        auto& sn_ = zs.structname.shortname;
         auto* sn = sn_.c_str();
 
         emit(1, "_hash = None");
 
         emit(1, "def _get_hash_recursive(parents):");
         emit(2,     "if %s in parents: return 0", sn);
-        for (auto& lm : ls.members) {
-            if (!ZCMGen::isPrimitiveType(lm.type.fullname)) {
+        for (auto& zm : zs.members) {
+            if (!ZCMGen::isPrimitiveType(zm.type.fullname)) {
                 emit(2,     "newparents = parents + [%s]", sn);
                 break;
             }
         }
-        emitStart(2, "tmphash = (0x%" PRIx64, ls.hash);
-        for (auto &lm : ls.members) {
-            auto& msn = lm.type.shortname;
-            if (!ZCMGen::isPrimitiveType(lm.type.fullname)) {
+        emitStart(2, "tmphash = (0x%" PRIx64, zs.hash);
+        for (auto &zm : zs.members) {
+            auto& msn = zm.type.shortname;
+            if (!ZCMGen::isPrimitiveType(zm.type.fullname)) {
                 const char* ghr = "_get_hash_recursive(newparents)";
-                if (lm.type.fullname == ls.structname.fullname) {
+                if (zm.type.fullname == zs.structname.fullname) {
                     emitContinue("+ %s.%s", msn.c_str(), ghr);
                 } else {
-                    emitContinue("+ %s.%s", lm.type.nameUnderscoreCStr(), ghr);
+                    emitContinue("+ %s.%s", zm.type.nameUnderscoreCStr(), ghr);
                 }
             }
         }
@@ -549,12 +549,12 @@ struct PyEmitStruct : public Emitter
     void emitPythonDependencies()
     {
         unordered_map<string, ZCMTypename> dependencies;
-        for (auto& lm : ls.members) {
-            auto& tn = lm.type.fullname;
+        for (auto& zm : zs.members) {
+            auto& tn = zm.type.fullname;
             if (!ZCMGen::isPrimitiveType(tn) &&
                 dependencies.find(tn) == dependencies.end() &&
-                tn != ls.structname.fullname) {
-                dependencies.insert({tn, lm.type});
+                tn != zs.structname.fullname) {
+                dependencies.insert({tn, zm.type});
             }
         }
 
@@ -605,12 +605,12 @@ struct PyEmitPack : public Emitter
         unordered_set<string> initPyImports;
 
         if (havePackage) {
-            int ndirs = dirs.size();
-            for (int i=0 ; i<ndirs; i++) {
+            size_t ndirs = dirs.size();
+            for (size_t i = 0 ; i < ndirs; ++i) {
 
                 vector<string> initPyFnameParts;
                 initPyFnameParts.push_back(packageDirPrefix);
-                for (int j = 0; j <= i; j++)
+                for (size_t j = 0; j <= i; ++j)
                     initPyFnameParts.push_back(dirs[j]);
                 initPyFnameParts.push_back("__init__.py");
 
@@ -670,8 +670,8 @@ struct PyEmitPack : public Emitter
         ////////////////////////////////////////////////////////////
         // STRUCTS
         for (auto* ls_ : packStructs) {
-            auto& ls = *ls_;
-            auto& sn_ = ls.structname.shortname;
+            auto& zs = *ls_;
+            auto& sn_ = zs.structname.shortname;
             auto* sn = sn_.c_str();
             string path = packageDir + sn_ + ".py";
 
@@ -679,10 +679,10 @@ struct PyEmitPack : public Emitter
                 fprintf(initPyFp, "from .%s import %s\n", sn, sn);
             }
 
-            if (!zcm.needsGeneration(ls.zcmfile, path))
+            if (!zcm.needsGeneration(zs.zcmfile, path))
                 continue;
 
-            PyEmitStruct{zcm, ls, path}.emitStruct();
+            PyEmitStruct{zcm, zs, path}.emitStruct();
         }
 
         if(initPyFp)
@@ -702,8 +702,8 @@ int emitPython(ZCMGen& zcm)
     unordered_map<string, vector<ZCMStruct*> > packages;
 
     // group the structs by package
-    for (auto& ls : zcm.structs)
-        packages[ls.structname.package].push_back(&ls);
+    for (auto& zs : zcm.structs)
+        packages[zs.structname.package].push_back(&zs);
 
     for (auto& kv : packages) {
         auto& name = kv.first;

@@ -249,7 +249,7 @@ static void parse_error(tokenize_t* t, const char* fmt, ...)
 
     printf("%s : %i\n", t->path, t->token_line);
     printf("%s", t->buffer);
-    for (int i = 0; i < t->token_column; i++) {
+    for (int i = 0; i < t->token_column; ++i) {
         if (isspace(t->buffer[i]))
             printf("%c", t->buffer[i]);
         else

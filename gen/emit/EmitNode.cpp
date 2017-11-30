@@ -59,9 +59,9 @@ static string getWriterFunc(const string& type)
     }
 }
 
-static string getZeroInit(const ZCMMember& lm)
+static string getZeroInit(const ZCMMember& zm)
 {
-    auto& tn = lm.type.fullname;
+    auto& tn = zm.type.fullname;
     if (tn == "byte")    return "0";
     if (tn == "boolean") return "false";
     if (tn == "string")  return "\"\"";
@@ -71,7 +71,7 @@ static string getZeroInit(const ZCMMember& lm)
     if (tn == "int64_t") return "0";
     if (tn == "float")   return "0.0";
     if (tn == "double")  return "0.0";
-    return "new " + lm.type.nameUnderscore() + "()";
+    return "new " + zm.type.nameUnderscore() + "()";
 }
 
 struct EmitModule : public Emitter
@@ -222,18 +222,18 @@ struct EmitModule : public Emitter
         emit(0, "}");
         emit(0, "");
         unordered_set<string> packages;
-        for (auto& ls : zcm.structs)
-            if (ls.structname.package != "")
-                packages.insert(ls.structname.package);
+        for (auto& zs : zcm.structs)
+            if (zs.structname.package != "")
+                packages.insert(zs.structname.package);
         for (auto& pkg : packages)
             emit(0, "exports.%s = {};", pkg.c_str());
         emit(0, "");
     }
 
-    void emitEncodeSingleMember(const ZCMMember& lm, const string& accessor_, int indent)
+    void emitEncodeSingleMember(const ZCMMember& zm, const string& accessor_, int indent)
     {
         auto* accessor = accessor_.c_str();
-        auto* tn = lm.type.nameUnderscoreCStr();
+        auto* tn = zm.type.nameUnderscoreCStr();
 
         auto writerFunc = getWriterFunc(tn);
 
@@ -244,10 +244,10 @@ struct EmitModule : public Emitter
         }
     }
 
-    void emitEncodeListMember(const ZCMMember& lm, const string& accessor_, int indent,
+    void emitEncodeListMember(const ZCMMember& zm, const string& accessor_, int indent,
                               const string& len_, int fixedLen)
     {
-        auto& tn = lm.type.fullname;
+        auto& tn = zm.type.fullname;
         auto* accessor = accessor_.c_str();
         auto* len = len_.c_str();
 
@@ -266,25 +266,25 @@ struct EmitModule : public Emitter
         }
     }
 
-    void emitEncodeOne(const ZCMStruct& ls)
+    void emitEncodeOne(const ZCMStruct& zs)
     {
-        auto* sn = ls.structname.nameUnderscoreCStr();
+        auto* sn = zs.structname.nameUnderscoreCStr();
 
         emit(0, "%s_encode_one = function(msg, W)", sn);
         emit(0, "{");
-        if (ls.members.size() == 0) {
+        if (zs.members.size() == 0) {
             emit(0, "}");
             return;
         }
 
-        for (auto& lm : ls.members) {
-            if (lm.dimensions.size() == 0) {
-                emitEncodeSingleMember(lm, "msg." + lm.membername, 1);
+        for (auto& zm : zs.members) {
+            if (zm.dimensions.size() == 0) {
+                emitEncodeSingleMember(zm, "msg." + zm.membername, 1);
             } else {
-                string accessor = "msg." + lm.membername;
+                string accessor = "msg." + zm.membername;
                 size_t n;
-                for (n = 0; n < lm.dimensions.size() - 1; ++n) {
-                    auto& dim = lm.dimensions[n];
+                for (n = 0; n < zm.dimensions.size() - 1; ++n) {
+                    auto& dim = zm.dimensions[n];
                     accessor += "[i" + to_string(n) + "]";
                     if (dim.mode == ZCM_CONST) {
                         emit(1 + n, "for (var i%d = 0; i%d < %s; ++i%d) {",
@@ -296,11 +296,11 @@ struct EmitModule : public Emitter
                 }
 
                 // last dimension.
-                auto& lastDim = lm.dimensions[lm.dimensions.size() - 1];
+                auto& lastDim = zm.dimensions[zm.dimensions.size() - 1];
                 bool lastDimFixedLen = (lastDim.mode == ZCM_CONST);
 
-                if (ZCMGen::isPrimitiveType(lm.type.fullname)) {
-                    emitEncodeListMember(lm, accessor, n + 1, lastDim.size, lastDimFixedLen);
+                if (ZCMGen::isPrimitiveType(zm.type.fullname)) {
+                    emitEncodeListMember(zm, accessor, n + 1, lastDim.size, lastDimFixedLen);
                 } else {
                     if (lastDimFixedLen) {
                         emit(n + 1, "for (var i%d = 0; i%d < %s; ++i%d) {",
@@ -310,7 +310,7 @@ struct EmitModule : public Emitter
                                     n, n, lastDim.size.c_str(), n);
                     }
                     accessor += "[i" + to_string(n) + "]";
-                    emitEncodeSingleMember(lm, accessor, n + 2);
+                    emitEncodeSingleMember(zm, accessor, n + 2);
                     emit(n + 1, "}");
                 }
                 for (int i = (int) n - 1; i >= 0; --i) {
@@ -321,9 +321,9 @@ struct EmitModule : public Emitter
         emit(0, "}");
     }
 
-    void emitEncode(const ZCMStruct& ls)
+    void emitEncode(const ZCMStruct& zs)
     {
-        auto* sn = ls.structname.nameUnderscoreCStr();
+        auto* sn = zs.structname.nameUnderscoreCStr();
 
         emit(0, "%s.encode = function(msg)", sn);
         emit(0, "{");
@@ -339,22 +339,22 @@ struct EmitModule : public Emitter
         emit(0, "};");
     }
 
-    void emitEncodedSize(const ZCMStruct& ls)
+    void emitEncodedSize(const ZCMStruct& zs)
     {
-        auto* sn = ls.structname.nameUnderscoreCStr();
+        auto* sn = zs.structname.nameUnderscoreCStr();
 
         emit(0, "%s.encodedSize = function(msg)", sn);
         emit(0, "{");
         emit(1, "var size = 8;");
         emit(1, "var tmp = 1;");
-        for (auto& lm : ls.members) {
-            auto& mtn = lm.type.nameUnderscore();
-            auto& mn = lm.membername;
+        for (auto& zm : zs.members) {
+            auto& mtn = zm.type.nameUnderscore();
+            auto& mn = zm.membername;
 
             if (!ZCMGen::isPrimitiveType(mtn)) {
                 emit(1, "size += %s.encodedSize(msg.%s);", mtn.c_str(), mn.c_str());
             } else if (mtn != "string") {
-                int ndims = (int)lm.dimensions.size();
+                int ndims = (int)zm.dimensions.size();
                 if (ndims == 0) {
                     emit(1, "size += %d; \t//%s",
                                  ZCMGen::getPrimitiveTypeSize(mtn), mn.c_str());
@@ -362,14 +362,14 @@ struct EmitModule : public Emitter
                     emit(1, "tmp = 1;");
                     for (int i = 0; i < ndims; ++i) {
                         emit(1, "tmp *= %s%s;",
-                                (lm.dimensions[i].mode != ZCM_CONST) ? "msg." : "",
-                                lm.dimensions[i].size.c_str());
+                                (zm.dimensions[i].mode != ZCM_CONST) ? "msg." : "",
+                                zm.dimensions[i].size.c_str());
                     }
                     emit(1, "size += tmp * %d; \t//%s",
                                  ZCMGen::getPrimitiveTypeSize(mtn), mn.c_str());
                 }
             } else {
-                int ndims = (int)lm.dimensions.size();
+                int ndims = (int)zm.dimensions.size();
                 if (ndims == 0) {
                     // The +1 and +4 below are to account for the null character
                     // and the writing of the length respectively
@@ -385,11 +385,11 @@ struct EmitModule : public Emitter
         emit(0, "};");
     }
 
-    void emitDecodeSingleMember(const ZCMMember& lm, const string& accessor_,
+    void emitDecodeSingleMember(const ZCMMember& zm, const string& accessor_,
                                 int indent, const string& sfx_)
     {
         auto* accessor = accessor_.c_str();
-        auto* tn = lm.type.nameUnderscoreCStr();
+        auto* tn = zm.type.nameUnderscoreCStr();
         auto* sfx = sfx_.c_str();
 
         auto readerFunc = getReaderFunc(tn);
@@ -401,10 +401,10 @@ struct EmitModule : public Emitter
         }
     }
 
-    void emitDecodeListMember(const ZCMMember& lm, const string& accessor_, int indent,
+    void emitDecodeListMember(const ZCMMember& zm, const string& accessor_, int indent,
                               bool isFirst, const string& len_, bool fixedLen)
     {
-        auto& tn = lm.type.fullname;
+        auto& tn = zm.type.fullname;
         auto* accessor = accessor_.c_str();
         auto* len = len_.c_str();
         const char* suffix = isFirst ? "" : ")";
@@ -421,25 +421,25 @@ struct EmitModule : public Emitter
                      len, readerFunc.c_str(), suffix);
     }
 
-    void emitDecodeOne(const ZCMStruct& ls)
+    void emitDecodeOne(const ZCMStruct& zs)
     {
-        auto* sn = ls.structname.nameUnderscoreCStr();
+        auto* sn = zs.structname.nameUnderscoreCStr();
 
         emit(0, "%s_decode_one = function(R)", sn);
         emit(0, "{");
         emit(1,     "var msg = new %s();", sn);
-        for (auto& lm : ls.members) {
-            if (lm.dimensions.size() == 0) {
-                string accessor = "msg." + lm.membername + " = ";
-                emitDecodeSingleMember(lm, accessor.c_str(), 1, "");
+        for (auto& zm : zs.members) {
+            if (zm.dimensions.size() == 0) {
+                string accessor = "msg." + zm.membername + " = ";
+                emitDecodeSingleMember(zm, accessor.c_str(), 1, "");
             } else {
-                string accessor = "msg." + lm.membername;
+                string accessor = "msg." + zm.membername;
 
                 // iterate through the dimensions of the member, building up
                 // an accessor string, and emitting for loops
-                uint n = 0;
-                for (n = 0; n < lm.dimensions.size() - 1; ++n) {
-                    auto& dim = lm.dimensions[n];
+                size_t n = 0;
+                for (; n < zm.dimensions.size() - 1; ++n) {
+                    auto& dim = zm.dimensions[n];
 
                     if (n == 0) {
                         emit(1, "%s = []", accessor.c_str());
@@ -455,23 +455,23 @@ struct EmitModule : public Emitter
                                     n, n, dim.size.c_str(), n);
                     }
 
-                    if (n > 0 && n < lm.dimensions.size()-1) {
+                    if (n > 0 && n < zm.dimensions.size()-1) {
                         accessor += "[i" + to_string(n - 1) + "]";
                     }
                 }
 
                 // last dimension.
-                auto& lastDim = lm.dimensions[lm.dimensions.size()-1];
+                auto& lastDim = zm.dimensions[zm.dimensions.size()-1];
                 bool lastDimFixedLen = (lastDim.mode == ZCM_CONST);
 
-                if (ZCMGen::isPrimitiveType(lm.type.fullname)) {
+                if (ZCMGen::isPrimitiveType(zm.type.fullname)) {
                     if (n == 0) {
                         accessor += " = ";
                     } else {
                         accessor += ".push(";
                     }
 
-                    emitDecodeListMember(lm, accessor, n + 1, n == 0,
+                    emitDecodeListMember(zm, accessor, n + 1, n == 0,
                                          lastDim.size, lastDimFixedLen);
                 } else {
                     if (n == 0) {
@@ -484,7 +484,7 @@ struct EmitModule : public Emitter
                                 n, n, (lastDimFixedLen ? "" : "msg."),
                                 lastDim.size.c_str(), n);
                     accessor += ".push(";
-                    emitDecodeSingleMember(lm, accessor, n + 2, ")");
+                    emitDecodeSingleMember(zm, accessor, n + 2, ")");
                     emit(n + 1, "}");
                 }
                 for (int i = (int) n - 1; i >= 0; --i)
@@ -495,9 +495,9 @@ struct EmitModule : public Emitter
         emit(0, "}");
     }
 
-    void emitDecode(const ZCMStruct& ls)
+    void emitDecode(const ZCMStruct& zs)
     {
-        auto* sn = ls.structname.nameUnderscoreCStr();
+        auto* sn = zs.structname.nameUnderscoreCStr();
 
         emit(0, "%s.decode = function(data)", sn);
         emit(0, "{");
@@ -513,29 +513,29 @@ struct EmitModule : public Emitter
         emit(0, "};");
     }
 
-    void emitGetHash(const ZCMStruct& ls)
+    void emitGetHash(const ZCMStruct& zs)
     {
-        auto* sn = ls.structname.nameUnderscoreCStr();
+        auto* sn = zs.structname.nameUnderscoreCStr();
 
         emit(0, "%s.__hash = null;", sn);
         emit(0, "%s.__get_hash_recursive = function(parents)", sn);
         emit(0, "{");
         emit(1,     "if (%s.__hash != null) return %s.__hash", sn, sn);
         emit(1,     "if (!parents) parents = [];");
-        emit(1,     "if (parents.indexOf('%s') != -1) return 0;", ls.structname.fullname.c_str());
+        emit(1,     "if (parents.indexOf('%s') != -1) return 0;", zs.structname.fullname.c_str());
         // If any nonPrimitive members, push yourself into the list so you aren't double counted
-        for (auto& lm : ls.members) {
-            if (!ZCMGen::isPrimitiveType(lm.type.fullname)) {
+        for (auto& zm : zs.members) {
+            if (!ZCMGen::isPrimitiveType(zm.type.fullname)) {
                 emit(1, "newparents = parents.slice(0, parents.length);");
-                emit(1, "newparents.push('%s')", ls.structname.fullname.c_str());
+                emit(1, "newparents.push('%s')", zs.structname.fullname.c_str());
                 break;
             }
         }
-        emitStart(1, "var tmphash = bigint('%lu')", ls.hash);
-        for (auto &lm : ls.members) {
-            if (!ZCMGen::isPrimitiveType(lm.type.fullname)) {
+        emitStart(1, "var tmphash = bigint('%lu')", zs.hash);
+        for (auto &zm : zs.members) {
+            if (!ZCMGen::isPrimitiveType(zm.type.fullname)) {
                 emitContinue(".add(%s.__get_hash_recursive(newparents))",
-                             lm.type.nameUnderscoreCStr());
+                             zm.type.nameUnderscoreCStr());
             }
         }
         emitEnd (".and(UINT64_MAX);");
@@ -546,50 +546,50 @@ struct EmitModule : public Emitter
         emit(0, "};");
     }
 
-    void emitConstructor(const ZCMStruct& ls)
+    void emitConstructor(const ZCMStruct& zs)
     {
-        auto* sn = ls.structname.nameUnderscoreCStr();
+        auto* sn = zs.structname.nameUnderscoreCStr();
 
         emit(0, "function %s()", sn);
         emit(0, "{");
-        for (auto& lm : ls.members)
-            emit(1, "this.%s = %s;", lm.membername.c_str(), getZeroInit(lm).c_str());
+        for (auto& zm : zs.members)
+            emit(1, "this.%s = %s;", zm.membername.c_str(), getZeroInit(zm).c_str());
         emit(0, "");
-        for (size_t i = 0; i < ls.constants.size(); ++i) {
+        for (size_t i = 0; i < zs.constants.size(); ++i) {
             static string hexPrefix = "0x";
-            if (ls.constants[i].type == "int64_t") {
-                if (ls.constants[i].valstr.size() > 2 &&
-                    ls.constants[i].valstr.compare(0, hexPrefix.length(), hexPrefix) == 0)
+            if (zs.constants[i].type == "int64_t") {
+                if (zs.constants[i].valstr.size() > 2 &&
+                    zs.constants[i].valstr.compare(0, hexPrefix.length(), hexPrefix) == 0)
                     emit(1, "this.%s = bigint(\"%s\", 16).toString();",
-                            ls.constants[i].membername.c_str(),
-                            ls.constants[i].valstr.c_str() + 2);
+                            zs.constants[i].membername.c_str(),
+                            zs.constants[i].valstr.c_str() + 2);
                 else
                     emit(1, "this.%s = bigint(\"%s\").toString();",
-                            ls.constants[i].membername.c_str(), ls.constants[i].valstr.c_str());
+                            zs.constants[i].membername.c_str(), zs.constants[i].valstr.c_str());
             } else {
                 emit(1, "this.%s = %s;",
-                        ls.constants[i].membername.c_str(), ls.constants[i].valstr.c_str());
+                        zs.constants[i].membername.c_str(), zs.constants[i].valstr.c_str());
             }
         }
         emit(1, "this.__hash = %s.__get_hash_recursive().toString();", sn);
         emit(0, "}");
     }
 
-    void emitStruct(ZCMStruct& ls)
+    void emitStruct(ZCMStruct& zs)
     {
-        auto* sn = ls.structname.nameUnderscoreCStr();
-        auto* fn = ls.structname.fullname.c_str();
+        auto* sn = zs.structname.nameUnderscoreCStr();
+        auto* fn = zs.structname.fullname.c_str();
 
         emit(0, "/********************************************/", sn);
         emit(0, "// %s", sn);
         emit(0, "/********************************************/", sn);
-        emitConstructor(ls);
-        emitGetHash(ls);
-        emitEncodedSize(ls);
-        emitEncodeOne(ls);
-        emitEncode(ls);
-        emitDecodeOne(ls);
-        emitDecode(ls);
+        emitConstructor(zs);
+        emitGetHash(zs);
+        emitEncodedSize(zs);
+        emitEncodeOne(zs);
+        emitEncode(zs);
+        emitDecodeOne(zs);
+        emitDecode(zs);
 
         emit(0, "exports.%s = %s;", fn, sn);
         emit(0, "");
@@ -601,8 +601,8 @@ struct EmitModule : public Emitter
         emit(0, "exports.getZcmtypes = function()");
         emit(0, "{");
         emit(1, "return {");
-        for (auto& ls : zcm.structs) {
-            auto* sn = ls.structname.fullname.c_str();
+        for (auto& zs : zcm.structs) {
+            auto* sn = zs.structname.fullname.c_str();
             emit(2, "'%s' : new exports.%s(),", sn, sn);
         }
         emit(1, "};");
@@ -612,8 +612,8 @@ struct EmitModule : public Emitter
     void emitModule()
     {
         emitHeader();
-        for (auto& ls : zcm.structs) {
-            emitStruct(ls);
+        for (auto& zs : zcm.structs) {
+            emitStruct(zs);
         }
         emitGetClientZcmTypes();
     }
