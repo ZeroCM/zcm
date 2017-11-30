@@ -1,4 +1,4 @@
 package test_package;
-struct packaged3_t {
+struct example3_t {
     boolean packaged;
 }

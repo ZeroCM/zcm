@@ -113,10 +113,11 @@ struct PyEmitStruct : public Emitter
         } else if (tn == "double") {
             emit(indent, "%sstruct.unpack('>d', buf.read(8))[0]%s", accessor, sfx);
         } else {
-            if (lm.type.fullname == ls.structname.fullname) {
+            if (tn == ls.structname.fullname) {
                 emit(indent, "%s%s._decode_one(buf)%s", accessor, sn.c_str(), sfx);
             } else {
-                emit(indent, "%s%s._decode_one(buf)%s", accessor, tn.c_str(), sfx);
+                emit(indent, "%s%s._decode_one(buf)%s",
+                             accessor, lm.type.nameUnderscoreCStr(), sfx);
             }
         }
     }
@@ -324,7 +325,7 @@ struct PyEmitStruct : public Emitter
                 emit(indent, "assert %s.%s == %s.%s", accessor, gpf, sn.c_str(), gpf);
             } else {
                 emit(indent, "assert %s.%s == %s.%s",
-                     accessor, gpf, lm.type.fullname.c_str(), gpf);
+                     accessor, gpf, lm.type.nameUnderscoreCStr(), gpf);
             }
             emit(indent, "%s._encode_one(buf)", accessor);
         }
@@ -463,7 +464,7 @@ struct PyEmitStruct : public Emitter
             if (initializer) {
                 fprintfPass("%s", initializer);
             } else {
-                fprintfPass("%s()", tn.c_str());
+                fprintfPass("%s()", lm.type.nameUnderscoreCStr());
             }
             return;
         }
@@ -522,10 +523,7 @@ struct PyEmitStruct : public Emitter
                 if (lm.type.fullname == ls.structname.fullname) {
                     emitContinue("+ %s.%s", msn.c_str(), ghr);
                 } else {
-                    if (lm.type.package != "")
-                        emitContinue("+ %s.%s.%s", lm.type.package.c_str(), msn.c_str(), ghr);
-                    else
-                        emitContinue("+ %s.%s", msn.c_str(), ghr);
+                    emitContinue("+ %s.%s", lm.type.nameUnderscoreCStr(), ghr);
                 }
             }
         }
@@ -550,18 +548,25 @@ struct PyEmitStruct : public Emitter
 
     void emitPythonDependencies()
     {
-        unordered_set<string> dependencies;
+        unordered_map<string, ZCMTypename> dependencies;
         for (auto& lm : ls.members) {
             auto& tn = lm.type.fullname;
             if (!ZCMGen::isPrimitiveType(tn) &&
                 dependencies.find(tn) == dependencies.end() &&
                 tn != ls.structname.fullname) {
-                dependencies.insert(tn);
+                dependencies.insert({tn, lm.type});
             }
         }
 
-        for (auto& tn : dependencies) {
-            emit(0, "from %s import %s", tn.c_str(), tn.c_str());
+        for (auto& p : dependencies) {
+            auto& tn = p.first;
+            auto& type = p.second;
+            if (type.package.empty()) {
+                emit(0, "from %s import %s", tn.c_str(), tn.c_str());
+            } else {
+                emit(0, "from %s import %s as %s",
+                        type.fullname.c_str(), type.shortname.c_str(), type.nameUnderscoreCStr());
+            }
             emit(0,"");
         }
     }
