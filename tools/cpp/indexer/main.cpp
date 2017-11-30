@@ -105,7 +105,8 @@ struct Args
              << "                          ZCM_LOG_INDEXER_ZCMTYPES_PATH" << endl
              << "  -r, --readable          Don't minify the output index file. " << endl
              << "                          Leave it human readable" << endl
-             << "  -d, --debug             Run a dry run to ensure proper indexer setup" << endl
+             << "  -d, --use-default       Run with the default timestamp indexer" << endl
+             << "      --debug             Run a dry run to ensure proper indexer setup" << endl
              << endl << endl;
     }
 };
