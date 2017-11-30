@@ -83,8 +83,8 @@ Using the grammar above, to be well-formed the following constraints must be sat
 
 ### Array Types
 
-Array types are encoded as a simple series of the element type. The econding does *NOT* include a length field for the
-the dimensions. For static array dimensions, the size is already known by the decoder. For dynamic array dimensions, the
+Array types are encoded as a simple series of the element type. The encoding does *NOT* include a length field for the
+dimensions. For static array dimensions, the size is already known by the decoder. For dynamic array dimensions, the
 size is encoded in another field (as mandated by the grammar). For these reasons, there is zero encoding overhead for
 arrays. This includes nested types.
 
@@ -98,9 +98,9 @@ type metadata.
 The optimized encoding formats specified above are made possible using a type hash. Each encoded message starts with
 a 64-bit hash field. As seen above, for one message, this is the only size overhead in ZCM Type encodings. Without the
 hash, the encoded data is at maximum the same size as an equivalent C struct. Further, the hash is a unique type identifier.
-The hash allows a decoder function to verify that a binary blob of data is ecoded as expected.
+The hash allows a decoder function to verify that a binary blob of data is encoded as expected.
 
-To acheive this lofty goal, it is crucial to get the type hash computation right. We must ensure that that a hash unique
+To acheive this lofty goal, it is crucial to get the type hash computation right. We must ensure that that a hash uniquely
 identifies a type layout. The hash is not intended to be cryptographic, but instead to catch programming and configuration
 errors.
 
@@ -164,6 +164,33 @@ is fairly simple. The algorithm proceeds as follows:
 
         return ROTL(hash, 1); // rotate left by 1
     }
+
+## Packages
+
+Zcmgen allows the user to specify the package of the zcmtype which will then be used on a
+language-by-language bases to group types into namespaces, modules, etc. The semantics for
+specifying the package are as shown in the example below, which constructs a type `bar`
+within the package `foo`. Note that the specified package can actually be multiple nested
+packages, ie replacing `foo` with `foo1.foo2` would instead place the type `bar` within
+the package `foo2` which itself is within the package `foo1`.
+
+    package foo;
+    struct bar {
+        baz  b;
+        .qux q;
+    };
+
+When a type belongs to a package, all nonprimitive types within that type are assumed to
+also be from that package. In the example above, the zcmtype `foo.bar` contains a member
+`b` of type `foo.baz` (ie the package `foo` is automatically prepended to the specified
+type `baz` because the zcmtype `bar` is from the package `foo`). Should the user wish
+to specify a type that does not belong to the same package as the containing type, they
+can prepend the type with a `.` as in the case of the member `q` from the example, which
+will not belong to any package. This also allows the user to specify a member type from a
+completely separate package by prepending a leading `.` before the package. For instance,
+if the zcmtype `qux` actually belonged to a package `quuz` (that is not part of `foo`),
+replacing `.qux` with `.quuz.qux` would properly specify the desired type.
+
 
 <hr>
  <a style="margin-right: 1rem;" href="javascript:history.go(-1)">Back</a>

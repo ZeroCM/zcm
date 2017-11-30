@@ -51,7 +51,7 @@ static void print_value_scalar(TypeDb& db, zcm_field_t *field, void *data, int *
             break;
 
         case ZCM_FIELD_USER_TYPE: {
-            if (db.getByName(field->typestr)) {
+            if (db.getByName(StringUtil::dotsToUnderscores(field->typestr))) {
                 if(usertype_count == NULL) {
                     printf("<USER>");
                 } else {
@@ -190,7 +190,7 @@ void msg_display(TypeDb& db, const TypeMetadata& metadata_, void *msg, const Msg
             break;
 
         msg = field.data;
-        metadata = db.getByName(field.typestr);
+        metadata = db.getByName(StringUtil::dotsToUnderscores(field.typestr));
         if(metadata == NULL) {
             printf("ERROR: failed to find %s\n", field.typestr);
             return;

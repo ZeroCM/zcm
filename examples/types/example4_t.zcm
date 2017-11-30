@@ -1,0 +1,4 @@
+struct example4_t {
+    int64_t timestamp;
+    test_package.example3_t p;
+}

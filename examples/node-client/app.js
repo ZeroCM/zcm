@@ -66,10 +66,16 @@ function multidimExample()
 function packageExample()
 {
     var state = false;
+    var t = 0;
     setInterval(function() {
         var msg = new zcmtypes.test_package.packaged_t();
         msg.packaged = state;
+        msg.a.packaged = !state;
+        msg.a.e.timestamp = t++;
+        msg.a.e.p.packaged = state;
+
         state = !state;
+
         z.publish("PACKAGE_EXAMPLE", msg);
     }, 1000);
 }
@@ -87,6 +93,13 @@ z.subscribe("RECURSIVE_EXAMPLE", zcmtypes.recursive_t, function(channel, msg) {
     typedSub = _sub;
 });
 
+var typedSub2 = null;
+z.subscribe("PACKAGED", zcmtypes.test_package.packaged_t, function(channel, msg) {
+    console.log("Typed message received on channel " + channel);
+}, function successCb (_sub) {
+    typedSub2 = _sub;
+});
+
 var sub = null;
 z.subscribe(".*", null, function(channel, msg) {
     console.log("Untyped message received on channel " + channel);
@@ -97,6 +110,7 @@ z.subscribe(".*", null, function(channel, msg) {
 process.on('exit', function() {
     if (sub) z.unsubscribe(sub);
     if (typedSub) z.unsubscribe(typedSub);
+    if (typedSub2) z.unsubscribe(typedSub2);
 });
 
 http.listen(3000, function(){

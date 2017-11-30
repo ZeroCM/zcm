@@ -51,11 +51,11 @@ static string specialReplace(const string& haystack, const string& replace1)
     return ret;
 }
 
-static string makeAccessor(ZCMMember& lm, const string& obj)
+static string makeAccessor(ZCMMember& zm, const string& obj)
 {
     string ret;
-    ret += obj + (obj.size() == 0 ? "" : ".") + lm.membername;
-    for (size_t d = 0 ; d < lm.dimensions.size(); d++) {
+    ret += obj + (obj.size() == 0 ? "" : ".") + zm.membername;
+    for (size_t d = 0 ; d < zm.dimensions.size(); ++d) {
         char buf[10];
         sprintf(buf,"[%c]", 'a'+(int)d);
         ret += buf;
@@ -64,11 +64,11 @@ static string makeAccessor(ZCMMember& lm, const string& obj)
 }
 
 /** Make an accessor that points to the last array **/
-static string makeAccessorArray(ZCMMember& lm, const string& obj)
+static string makeAccessorArray(ZCMMember& zm, const string& obj)
 {
     string ret;
-    ret += obj + (obj.size() == 0 ? "" : ".") + lm.membername;
-    for (size_t d = 0 ; d < lm.dimensions.size()-1; d++) {
+    ret += obj + (obj.size() == 0 ? "" : ".") + zm.membername;
+    for (size_t d = 0 ; d < zm.dimensions.size()-1; ++d) {
         char buf[10];
         sprintf(buf,"[%c]", 'a'+(int)d);
         ret += buf;
@@ -76,10 +76,10 @@ static string makeAccessorArray(ZCMMember& lm, const string& obj)
     return ret;
 }
 
-static bool structHasStringMember(ZCMStruct& lr)
+static bool structHasStringMember(ZCMStruct& zs)
 {
-    for (auto& lm : lr.members)
-        if (lm.type.fullname == "string")
+    for (auto& zm : zs.members)
+        if (zm.type.fullname == "string")
             return true;
     return false;
 }
@@ -128,8 +128,8 @@ struct TypeTable
 
         tbl.emplace("string", PrimInfo{
             "String",
-            "__strbuf = new char[ins.readInt()-1]; for (int _i = 0; _i < __strbuf.length; _i++) __strbuf[_i] = (char) (ins.readByte()&0xff); ins.readByte(); # = new String(__strbuf);",
-            "__strbuf = new char[#.length()]; #.getChars(0, #.length(), __strbuf, 0); outs.writeInt(__strbuf.length+1); for (int _i = 0; _i < __strbuf.length; _i++) outs.write(__strbuf[_i]); outs.writeByte(0);"});
+            "__strbuf = new char[ins.readInt()-1]; for (int _i = 0; _i < __strbuf.length; ++_i) __strbuf[_i] = (char) (ins.readByte()&0xff); ins.readByte(); # = new String(__strbuf);",
+            "__strbuf = new char[#.length()]; #.getChars(0, #.length(), __strbuf, 0); outs.writeInt(__strbuf.length+1); for (int _i = 0; _i < __strbuf.length; ++_i) outs.write(__strbuf[_i]); outs.writeByte(0);"});
 
         tbl.emplace("boolean", PrimInfo{
             "boolean",
@@ -162,20 +162,20 @@ static TypeTable typeTable;
 struct EmitStruct : public Emitter
 {
     ZCMGen& zcm;
-    ZCMStruct& lr;
+    ZCMStruct& zs;
 
-    EmitStruct(ZCMGen& zcm, ZCMStruct& lr, const string& fname):
-        Emitter(fname), zcm(zcm), lr(lr) {}
+    EmitStruct(ZCMGen& zcm, ZCMStruct& zs, const string& fname):
+        Emitter(fname), zcm(zcm), zs(zs) {}
 
-    void encodeRecursive(ZCMMember& lm, PrimInfo* pinfo, const string& accessor, int depth)
+    void encodeRecursive(ZCMMember& zm, PrimInfo* pinfo, const string& accessor, int depth)
     {
-        int ndims = (int)lm.dimensions.size();
+        int ndims = (int)zm.dimensions.size();
 
         // base case: primitive array
         if (depth+1 == ndims && pinfo != nullptr) {
-            string accessorArray = makeAccessorArray(lm, "");
+            string accessorArray = makeAccessorArray(zm, "");
             if (pinfo->storage == "byte") {
-                auto& dim = lm.dimensions[depth];
+                auto& dim = zm.dimensions[depth];
                 if (dim.mode == ZCM_VAR) {
                     emit(2+depth, "if (this.%s > 0)", dim.size.c_str());
                     emit(3+depth, "outs.write(this.%s, 0, %s);", accessorArray.c_str(), dim.size.c_str());
@@ -198,26 +198,26 @@ struct EmitStruct : public Emitter
             return;
         }
 
-        auto& dim = lm.dimensions[depth];
-        emit(2+depth, "for (int %c = 0; %c < %s%s; %c++) {",
+        auto& dim = zm.dimensions[depth];
+        emit(2+depth, "for (int %c = 0; %c < %s%s; ++%c) {",
              'a'+depth, 'a'+depth, dimSizePrefix(dim.size).c_str(), dim.size.c_str(), 'a'+depth);
 
-        encodeRecursive(lm, pinfo, accessor, depth+1);
+        encodeRecursive(zm, pinfo, accessor, depth+1);
 
         emit(2+depth, "}");
     }
 
-    void decodeRecursive(ZCMMember& lm, PrimInfo* pinfo, const string& accessor, int depth)
+    void decodeRecursive(ZCMMember& zm, PrimInfo* pinfo, const string& accessor, int depth)
     {
-        int ndims = (int)lm.dimensions.size();
+        int ndims = (int)zm.dimensions.size();
 
         // base case: primitive array
         if (depth+1 == ndims && pinfo != nullptr) {
-            string accessorArray = makeAccessorArray(lm, "");
+            string accessorArray = makeAccessorArray(zm, "");
 
             // byte array
             if (pinfo->storage == "byte") {
-                auto& dim = lm.dimensions[depth];
+                auto& dim = zm.dimensions[depth];
                 emitStart(2+depth, "ins.readFully(this.%s, 0, %s);", accessorArray.c_str(), dim.size.c_str());
                 return;
             }
@@ -229,31 +229,31 @@ struct EmitStruct : public Emitter
             if (pinfo)
                 emitContinue("%s", specialReplace(pinfo->decode, accessor).c_str());
             else {
-                emitContinue("%s = %s._decodeRecursiveFactory(ins);", accessor.c_str(), makeFqn(zcm, lm.type.fullname).c_str());
+                emitContinue("%s = %s._decodeRecursiveFactory(ins);", accessor.c_str(), makeFqn(zcm, zm.type.fullname).c_str());
             }
             emitEnd("");
             return;
         }
 
-        auto& dim = lm.dimensions[depth];
-        emit(2+depth, "for (int %c = 0; %c < %s%s; %c++) {",
+        auto& dim = zm.dimensions[depth];
+        emit(2+depth, "for (int %c = 0; %c < %s%s; ++%c) {",
              'a'+depth, 'a'+depth, dimSizePrefix(dim.size).c_str(), dim.size.c_str(), 'a'+depth);
 
-        decodeRecursive(lm, pinfo, accessor, depth+1);
+        decodeRecursive(zm, pinfo, accessor, depth+1);
 
         emit(2+depth, "}");
     }
 
-    void copyRecursive(ZCMMember& lm, PrimInfo* pinfo, const string& accessor, int depth)
+    void copyRecursive(ZCMMember& zm, PrimInfo* pinfo, const string& accessor, int depth)
     {
-        int ndims = (int)lm.dimensions.size();
+        int ndims = (int)zm.dimensions.size();
 
         // base case: primitive array
         if (depth+1 == ndims && pinfo != nullptr) {
-            string accessorArray = makeAccessorArray(lm, "");
+            string accessorArray = makeAccessorArray(zm, "");
 
             // one method works for all primitive types, yay!
-            auto& dim = lm.dimensions[depth];
+            auto& dim = zm.dimensions[depth];
 
             if (dim.mode == ZCM_VAR) {
                 emit(2+depth, "if (this.%s > 0)", dim.size.c_str());
@@ -277,12 +277,12 @@ struct EmitStruct : public Emitter
         if (depth == ndims) {
             if (pinfo) {
 
-                emitStart(2+ndims, "outobj.%s", lm.membername.c_str());
-                for (int i = 0; i < ndims; i++)
+                emitStart(2+ndims, "outobj.%s", zm.membername.c_str());
+                for (int i = 0; i < ndims; ++i)
                     emitContinue("[%c]", 'a'+i);
 
-                emitContinue(" = this.%s", lm.membername.c_str());
-                for (int i = 0; i < ndims; i++)
+                emitContinue(" = this.%s", zm.membername.c_str());
+                for (int i = 0; i < ndims; ++i)
                     emitContinue("[%c]", 'a'+i);
 
                 emitEnd(";");
@@ -294,11 +294,11 @@ struct EmitStruct : public Emitter
             return;
         }
 
-        auto& dim = lm.dimensions[depth];
-        emit(2+depth, "for (int %c = 0; %c < %s%s; %c++) {",
+        auto& dim = zm.dimensions[depth];
+        emit(2+depth, "for (int %c = 0; %c < %s%s; ++%c) {",
              'a'+depth, 'a'+depth, dimSizePrefix(dim.size).c_str(), dim.size.c_str(), 'a'+depth);
 
-        copyRecursive(lm, pinfo, accessor, depth+1);
+        copyRecursive(zm, pinfo, accessor, depth+1);
 
         emit(2+depth, "}");
     }
@@ -314,10 +314,10 @@ struct EmitStruct : public Emitter
         string package = "";
         if (zcm.gopt->wasSpecified("jdefaultpkg"))
             package += zcm.gopt->getString("jdefaultpkg");
-        if (lr.structname.package.size() > 0)
+        if (zs.structname.package.size() > 0)
         {
             if (package != "") package += ".";
-            package += lr.structname.package;
+            package += zs.structname.package;
         }
 
         emit(0, "package %s;", package.c_str());
@@ -326,44 +326,44 @@ struct EmitStruct : public Emitter
         emit(0, "import java.util.*;");
         emit(0, "import zcm.zcm.*;");
         emit(0, " ");
-        emit(0, "public final class %s %s", lr.structname.shortname.c_str(), zcm.gopt->getString("jdecl").c_str());
+        emit(0, "public final class %s %s", zs.structname.shortname.c_str(), zcm.gopt->getString("jdecl").c_str());
         emit(0, "{");
 
-        for (auto& lm : lr.members) {
-            PrimInfo* pinfo = typeTable.find(lm.type.fullname);
+        for (auto& zm : zs.members) {
+            PrimInfo* pinfo = typeTable.find(zm.type.fullname);
             emitStart(1, "public ");
 
             if (pinfo)  {
                 emitContinue("%s", pinfo->storage.c_str());
             } else {
-                emitContinue("%s", makeFqn(zcm, lm.type.fullname).c_str());
+                emitContinue("%s", makeFqn(zcm, zm.type.fullname).c_str());
             }
-            emitContinue(" %s", lm.membername.c_str());
-            for (size_t i = 0; i < lm.dimensions.size(); i++)
+            emitContinue(" %s", zm.membername.c_str());
+            for (size_t i = 0; i < zm.dimensions.size(); ++i)
                 emitContinue("[]");
             emitEnd(";");
         }
         emit(0," ");
 
         // public constructor
-        emit(1,"public %s()", lr.structname.shortname.c_str());
+        emit(1,"public %s()", zs.structname.shortname.c_str());
         emit(1,"{");
 
         // pre-allocate any fixed-size arrays.
-        for (auto& lm : lr.members) {
-            PrimInfo* pinfo = typeTable.find(lm.type.fullname);
+        for (auto& zm : zs.members) {
+            PrimInfo* pinfo = typeTable.find(zm.type.fullname);
 
-            int ndims = (int)lm.dimensions.size();
-            if (ndims == 0 || !lm.isConstantSizeArray())
+            int ndims = (int)zm.dimensions.size();
+            if (ndims == 0 || !zm.isConstantSizeArray())
                 continue;
 
-            emitStart(2, "%s = new ", lm.membername.c_str());
+            emitStart(2, "%s = new ", zm.membername.c_str());
             if (pinfo)
                 emitContinue("%s", pinfo->storage.c_str());
             else
-                emitContinue("%s", makeFqn(zcm, lm.type.fullname).c_str());
+                emitContinue("%s", makeFqn(zcm, zm.type.fullname).c_str());
 
-            for (auto& dim : lm.dimensions)
+            for (auto& dim : zm.dimensions)
                 emitContinue("[%s]", dim.size.c_str());
             emitEnd(";");
         }
@@ -371,17 +371,17 @@ struct EmitStruct : public Emitter
         emit(0," ");
 
         emit(1, "public static final long ZCM_FINGERPRINT;");
-        emit(1, "public static final long ZCM_FINGERPRINT_BASE = 0x%016" PRIx64 "L;", lr.hash);
+        emit(1, "public static final long ZCM_FINGERPRINT_BASE = 0x%016" PRIx64 "L;", zs.hash);
         emit(0," ");
 
         //////////////////////////////////////////////////////////////
         // CONSTANTS
-        for (auto& lc : lr.constants) {
-            assert(ZCMGen::isLegalConstType(lc.type));
+        for (auto& zc : zs.constants) {
+            assert(ZCMGen::isLegalConstType(zc.type));
 
-            auto& tn = lc.type;
-            auto* name = lc.membername.c_str();
-            auto* value = lc.valstr.c_str();
+            auto& tn = zc.type;
+            auto* name = zc.membername.c_str();
+            auto* value = zc.valstr.c_str();
 
             if (tn == "int8_t") {
                 emit(1, "public static final byte %s = (byte) %s;", name, value);
@@ -399,7 +399,7 @@ struct EmitStruct : public Emitter
                 assert(0);
             }
         }
-        if (lr.constants.size() > 0)
+        if (zs.constants.size() > 0)
             emit(0, "");
 
         ///////////////// compute fingerprint //////////////////
@@ -410,17 +410,17 @@ struct EmitStruct : public Emitter
 
         emit(1, "public static long _hashRecursive(ArrayList<Class<?>> classes)");
         emit(1, "{");
-        emit(2, "if (classes.contains(%s.class))", makeFqn(zcm, lr.structname.fullname).c_str());
+        emit(2, "if (classes.contains(%s.class))", makeFqn(zcm, zs.structname.fullname).c_str());
         emit(3,     "return 0L;");
         emit(0, " ");
-        emit(2, "classes.add(%s.class);", makeFqn(zcm, lr.structname.fullname).c_str());
+        emit(2, "classes.add(%s.class);", makeFqn(zcm, zs.structname.fullname).c_str());
 
         emit(2, "long hash = ZCM_FINGERPRINT_BASE");
-        for (auto& lm : lr.members) {
-            PrimInfo* pinfo = typeTable.find(lm.type.fullname);
+        for (auto& zm : zs.members) {
+            PrimInfo* pinfo = typeTable.find(zm.type.fullname);
             if (pinfo)
                 continue;
-            emit(3, " + %s._hashRecursive(classes)", makeFqn(zcm, lm.type.fullname).c_str());
+            emit(3, " + %s._hashRecursive(classes)", makeFqn(zcm, zm.type.fullname).c_str());
         }
         emit(3,";");
 
@@ -441,21 +441,21 @@ struct EmitStruct : public Emitter
 
         emit(1,"public void _encodeRecursive(DataOutput outs) throws IOException");
         emit(1,"{");
-        if (structHasStringMember(lr))
+        if (structHasStringMember(zs))
             emit(2, "char[] __strbuf = null;");
 
-        for (auto& lm : lr.members) {
-            PrimInfo* pinfo = typeTable.find(lm.type.fullname);
-            string accessor = makeAccessor(lm, "this");
-            encodeRecursive(lm, pinfo, accessor, 0);
+        for (auto& zm : zs.members) {
+            PrimInfo* pinfo = typeTable.find(zm.type.fullname);
+            string accessor = makeAccessor(zm, "this");
+            encodeRecursive(zm, pinfo, accessor, 0);
             emit(0," ");
         }
         emit(1,"}");
         emit(0," ");
 
         ///////////////// decode //////////////////
-        auto* sn = lr.structname.shortname.c_str();
-        auto fqn_ = makeFqn(zcm, lr.structname.fullname);
+        auto* sn = zs.structname.shortname.c_str();
+        auto fqn_ = makeFqn(zcm, zs.structname.fullname);
         auto* fqn = fqn_.c_str();
 
         // decoding constructors
@@ -483,29 +483,29 @@ struct EmitStruct : public Emitter
 
         emit(1,"public void _decodeRecursive(DataInput ins) throws IOException");
         emit(1,"{");
-        if (structHasStringMember(lr))
+        if (structHasStringMember(zs))
             emit(2, "char[] __strbuf = null;");
 
-        for (auto& lm : lr.members) {
-            PrimInfo* pinfo = typeTable.find(lm.type.fullname);
-            string accessor = makeAccessor(lm, "this");
+        for (auto& zm : zs.members) {
+            PrimInfo* pinfo = typeTable.find(zm.type.fullname);
+            string accessor = makeAccessor(zm, "this");
 
             // allocate an array if necessary
-            if (lm.dimensions.size() > 0) {
+            if (zm.dimensions.size() > 0) {
 
-                emitStart(2, "this.%s = new ", lm.membername.c_str());
+                emitStart(2, "this.%s = new ", zm.membername.c_str());
 
                 if (pinfo)
                     emitContinue("%s", pinfo->storage.c_str());
                 else
-                    emitContinue("%s", makeFqn(zcm, lm.type.fullname).c_str());
+                    emitContinue("%s", makeFqn(zcm, zm.type.fullname).c_str());
 
-                for (auto& dim : lm.dimensions)
+                for (auto& dim : zm.dimensions)
                     emitContinue("[(int) %s]", dim.size.c_str());
                 emitEnd(";");
             }
 
-            decodeRecursive(lm, pinfo, accessor, 0);
+            decodeRecursive(zm, pinfo, accessor, 0);
             emit(0," ");
         }
 
@@ -514,31 +514,31 @@ struct EmitStruct : public Emitter
 
 
         ///////////////// copy //////////////////
-        string classname = makeFqn(zcm, lr.structname.fullname);
+        string classname = makeFqn(zcm, zs.structname.fullname);
         emit(1,"public %s copy()", classname.c_str());
         emit(1,"{");
         emit(2,"%s outobj = new %s();", classname.c_str(), classname.c_str());
 
-        for (auto& lm : lr.members) {
-            PrimInfo* pinfo = typeTable.find(lm.type.fullname);
-            string accessor = makeAccessor(lm, "");
+        for (auto& zm : zs.members) {
+            PrimInfo* pinfo = typeTable.find(zm.type.fullname);
+            string accessor = makeAccessor(zm, "");
 
             // allocate an array if necessary
-            if (lm.dimensions.size() > 0) {
+            if (zm.dimensions.size() > 0) {
 
-                emitStart(2, "outobj.%s = new ", lm.membername.c_str());
+                emitStart(2, "outobj.%s = new ", zm.membername.c_str());
 
                 if (pinfo)
                     emitContinue("%s", pinfo->storage.c_str());
                 else
-                    emitContinue("%s", makeFqn(zcm, lm.type.fullname).c_str());
+                    emitContinue("%s", makeFqn(zcm, zm.type.fullname).c_str());
 
-                for (auto& dim : lm.dimensions)
+                for (auto& dim : zm.dimensions)
                     emitContinue("[(int) %s]", dim.size.c_str());
                 emitEnd(";");
             }
 
-            copyRecursive(lm, pinfo, accessor, 0);
+            copyRecursive(zm, pinfo, accessor, 0);
             emit(0," ");
         }
 
@@ -564,24 +564,24 @@ int emitJava(ZCMGen& zcm)
 
     //////////////////////////////////////////////////////////////
     // STRUCTS
-    for (auto& lr : zcm.structs) {
+    for (auto& zs : zcm.structs) {
         if (!zcm.gopt->wasSpecified("jdefaultpkg") &&
-            lr.structname.fullname.find('.') == string::npos) {
+            zs.structname.fullname.find('.') == string::npos) {
             fprintf(stderr, "Please provide a java package for the output java classes -- "
                             "either via the \"--jdefaultpkg\" flag or inside the type itself\n");
             return -2;
         }
 
-        string classname = makeFqn(zcm, lr.structname.fullname);
+        string classname = makeFqn(zcm, zs.structname.fullname);
         string path = jpathPrefix + dotsToSlashes(classname) + ".java";
 
-        if (!zcm.needsGeneration(lr.zcmfile, path))
+        if (!zcm.needsGeneration(zs.zcmfile, path))
             continue;
 
         if (jmkdir)
             FileUtil::makeDirsForFile(path);
 
-        EmitStruct E{zcm, lr, path};
+        EmitStruct E{zcm, zs, path};
         if (!E.good()) {
             printf("E.good() failed!\n");
             return -1;
