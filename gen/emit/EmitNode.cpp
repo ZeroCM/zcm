@@ -59,6 +59,21 @@ static string getWriterFunc(const string& type)
     }
 }
 
+static string getZeroInit(const ZCMMember& lm)
+{
+    auto& tn = lm.type.fullname;
+    if (tn == "byte")    return "0";
+    if (tn == "boolean") return "false";
+    if (tn == "string")  return "\"\"";
+    if (tn == "int8_t")  return "0";
+    if (tn == "int16_t") return "0";
+    if (tn == "int32_t") return "0";
+    if (tn == "int64_t") return "0";
+    if (tn == "float")   return "0.0";
+    if (tn == "double")  return "0.0";
+    return "new " + lm.type.nameUnderscore() + "()";
+}
+
 struct EmitModule : public Emitter
 {
     ZCMGen& zcm;
@@ -508,9 +523,11 @@ struct EmitModule : public Emitter
         emit(1,     "if (%s.__hash != null) return %s.__hash", sn, sn);
         emit(1,     "if (!parents) parents = [];");
         emit(1,     "if (parents.indexOf('%s') != -1) return 0;", ls.structname.fullname.c_str());
+        // If any nonPrimitive members, push yourself into the list so you aren't double counted
         for (auto& lm : ls.members) {
             if (!ZCMGen::isPrimitiveType(lm.type.fullname)) {
-                emit(1, "newparents = parents.push('%s')", lm.type.fullname.c_str());
+                emit(1, "newparents = parents.slice(0, parents.length);");
+                emit(1, "newparents.push('%s')", ls.structname.fullname.c_str());
                 break;
             }
         }
@@ -535,8 +552,8 @@ struct EmitModule : public Emitter
 
         emit(0, "function %s()", sn);
         emit(0, "{");
-        for (size_t i = 0; i < ls.members.size(); ++i)
-            emit(1, "this.%s = null;", ls.members[i].membername.c_str());
+        for (auto& lm : ls.members)
+            emit(1, "this.%s = %s;", lm.membername.c_str(), getZeroInit(lm).c_str());
         emit(0, "");
         for (size_t i = 0; i < ls.constants.size(); ++i) {
             static string hexPrefix = "0x";
