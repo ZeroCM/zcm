@@ -165,6 +165,33 @@ is fairly simple. The algorithm proceeds as follows:
         return ROTL(hash, 1); // rotate left by 1
     }
 
+## Packages
+
+Zcmgen allows the user to specify the package of the zcmtype which will then be used on a
+language-by-language bases to group types into namespaces, modules, etc. The semantics for
+specifying the package are as shown in the example below, which constructs a type `bar`
+within the package `foo`. Note that the specified package can actually be multiple nested
+packages, ie replacing `foo` with `foo1.foo2` would instead place the type `bar` within
+the package `foo2` which itself is within the package `foo1`.
+
+    package foo;
+    struct bar {
+        baz  b;
+        .qux q;
+    };
+
+When a type belongs to a package, all nonprimitive types within that type are assumed to
+also be from that package. In the example above, the zcmtype `foo.bar` contains a member
+`b` of type `foo.baz` (ie the package `foo` is automatically prepended to the specified
+type `baz` because the zcmtype `bar` is from the package `foo`). Should the user wish
+to specify a type that does not belong to the same package as the containing type, they
+can prepend the type with a `.` as in the case of the member `q` from the example, which
+will not belong to any package. This also allows the user to specify a member type from a
+completely separate package by prepending a leading `.` before the package. For instance,
+if the zcmtype `qux` actually belonged to a package `quuz` (that is not part of `foo`),
+replacing `.qux` with `.quuz.qux` would properly specify the desired type.
+
+
 <hr>
  <a style="margin-right: 1rem;" href="javascript:history.go(-1)">Back</a>
 [Home](../README.md)
