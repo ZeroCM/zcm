@@ -95,7 +95,12 @@ size_t ZCMGen::getPrimitiveTypeSize(const string& tn)
 
 static bool isLegalMemberName(const string& t)
 {
-    return isalpha(t[0]) || t[0] == '_' || t[0] == '.';
+    return isalpha(t[0]) || t[0] == '_';
+}
+
+static bool isLegalTypeName(const string& t)
+{
+    return isLegalMemberName(t) || t[0] == '.';
 }
 
 static u64 signExtendedRightShift(u64 val, size_t nShift)
@@ -427,7 +432,7 @@ static int parseMember(ZCMGen& zcmgen, ZCMStruct& zs, tokenize_t* t)
     parseTryConsumeComment(t);
     tokenizeNextOrFail(t, "type identifier");
 
-    if (!isLegalMemberName(t->token))
+    if (!isLegalTypeName(t->token))
         parse_error(t, "invalid type name");
 
     // A common mistake is use 'int' as a type instead of 'intN_t'
@@ -435,7 +440,6 @@ static int parseMember(ZCMGen& zcmgen, ZCMStruct& zs, tokenize_t* t)
     if (type == "int")
         semantic_error(t, "int type must be int8_t, int16_t, int32_t, or int64_t");
 
-    // RRR: double check this can't be size 0
     if (!zcmgen.isPrimitiveType(type)) {
         if (type[0] != '.') {
             if (!zs.structname.package.empty()) {
@@ -454,7 +458,7 @@ static int parseMember(ZCMGen& zcmgen, ZCMStruct& zs, tokenize_t* t)
         tokenizeNextOrFail(t, "name identifier");
 
         if (!isLegalMemberName(t->token))
-            parse_error(t, "Invalid member name: must start with [a-zA-Z_].");
+            parse_error(t, "Invalid member name: must start with [a-zA-Z_]");
 
         // make sure this name isn't already taken.
         if (zs.findMember(t->token))
