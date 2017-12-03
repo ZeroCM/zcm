@@ -618,8 +618,8 @@ struct JlEmitPack : public Emitter
         } else {
             pdname = "";
         }
-        auto& ppath = zcm.gopt->getString("ppath");
-        string packageDirPrefix = ppath + ((ppath.size() > 0) ? "/" : "");
+        auto& juliapath = zcm.gopt->getString("julia-path");
+        string packageDirPrefix = juliapath + ((juliapath.size() > 0) ? "/" : "");
         string packageDir = packageDirPrefix + pdname + (havePackage ? "/" : "");
 
         if (packageDir != "") {
