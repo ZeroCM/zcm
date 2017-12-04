@@ -300,9 +300,10 @@ struct EmitJulia : public Emitter
         emitStart(1, "hash::UInt64 = 0x%" PRIx64, ls.hash);
         for (auto &lm : ls.members) {
             if (!ZCMGen::isPrimitiveType(lm.type.fullname)) {
-                auto *mtn = lm.type.nameUnderscoreCStr();
-                emitContinue("+ reinterpret(UInt64,"
-                                           "ZCM._get_hash_recursive(%s, newparents))", mtn);
+                string mtn = lm.type.package.empty() ? lm.type.shortname
+                                                     : lm.type.package + "." + lm.type.shortname;
+                emitContinue("+ reinterpret(UInt64, ZCM._get_hash_recursive(%s, newparents))",
+                             mtn.c_str());
             }
         }
         emitEnd("");
