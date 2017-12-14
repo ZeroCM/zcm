@@ -9,7 +9,7 @@
 extern "C" {
 #endif
 
-static inline void *zcm_malloc(size_t sz)
+static inline void *zcm_malloc(uint32_t sz)
 {
     if (sz) return malloc(sz);
     return NULL;
@@ -45,16 +45,15 @@ struct ___zcm_hash_ptr
 #define __byte_hash_recursive(p) 0
 #define __byte_decode_array_cleanup(p, sz) {}
 
-static inline int __byte_encoded_array_size(const uint8_t *p, int elements)
+static inline uint32_t __byte_encoded_array_size(const uint8_t *p, uint32_t elements)
 {
     (void)p;
     return sizeof(uint8_t) * elements;
 }
 
-static inline int __byte_encode_array(void *_buf, int offset, int maxlen, const uint8_t *p, int elements)
+static inline int __byte_encode_array(void *_buf, uint32_t offset, uint32_t maxlen, const uint8_t *p, uint32_t elements)
 {
-    if (maxlen < elements)
-        return -1;
+    if (maxlen < elements) return -1;
 
     uint8_t *buf = (uint8_t*) _buf;
     memcpy(&buf[offset], p, elements);
@@ -62,10 +61,9 @@ static inline int __byte_encode_array(void *_buf, int offset, int maxlen, const 
     return elements;
 }
 
-static inline int __byte_decode_array(const void *_buf, int offset, int maxlen, uint8_t *p, int elements)
+static inline int __byte_decode_array(const void *_buf, uint32_t offset, uint32_t maxlen, uint8_t *p, uint32_t elements)
 {
-    if (maxlen < elements)
-        return -1;
+    if (maxlen < elements) return -1;
 
     uint8_t *buf = (uint8_t*) _buf;
     memcpy(p, &buf[offset], elements);
@@ -73,19 +71,19 @@ static inline int __byte_decode_array(const void *_buf, int offset, int maxlen, 
     return elements;
 }
 
-static inline int __byte_encode_little_endian_array(void *_buf, int offset, int maxlen, const uint8_t *p, int elements)
+static inline int __byte_encode_little_endian_array(void *_buf, uint32_t offset, uint32_t maxlen, const uint8_t *p, uint32_t elements)
 {
     return __byte_encode_array(_buf, offset, maxlen, p, elements);
 }
 
-static inline int __byte_decode_little_endian_array(const void *_buf, int offset, int maxlen, uint8_t *p, int elements)
+static inline int __byte_decode_little_endian_array(const void *_buf, uint32_t offset, uint32_t maxlen, uint8_t *p, uint32_t elements)
 {
     return __byte_decode_array(_buf, offset, maxlen, p, elements);
 }
 
-static inline int __byte_clone_array(const uint8_t *p, uint8_t *q, int elements)
+static inline uint32_t __byte_clone_array(const uint8_t *p, uint8_t *q, uint32_t elements)
 {
-    int n = elements * sizeof(uint8_t);
+    uint32_t n = elements * sizeof(uint8_t);
     memcpy(q, p, n);
     return n;
 }
@@ -95,16 +93,15 @@ static inline int __byte_clone_array(const uint8_t *p, uint8_t *q, int elements)
 #define __int8_t_hash_recursive(p) 0
 #define __int8_t_decode_array_cleanup(p, sz) {}
 
-static inline int __int8_t_encoded_array_size(const int8_t *p, int elements)
+static inline uint32_t __int8_t_encoded_array_size(const int8_t *p, uint32_t elements)
 {
     (void)p;
     return sizeof(int8_t) * elements;
 }
 
-static inline int __int8_t_encode_array(void *_buf, int offset, int maxlen, const int8_t *p, int elements)
+static inline int __int8_t_encode_array(void *_buf, uint32_t offset, uint32_t maxlen, const int8_t *p, uint32_t elements)
 {
-    if (maxlen < elements)
-        return -1;
+    if (maxlen < elements) return -1;
 
     int8_t *buf = (int8_t*) _buf;
     memcpy(&buf[offset], p, elements);
@@ -112,10 +109,9 @@ static inline int __int8_t_encode_array(void *_buf, int offset, int maxlen, cons
     return elements;
 }
 
-static inline int __int8_t_decode_array(const void *_buf, int offset, int maxlen, int8_t *p, int elements)
+static inline int __int8_t_decode_array(const void *_buf, uint32_t offset, uint32_t maxlen, int8_t *p, uint32_t elements)
 {
-    if (maxlen < elements)
-        return -1;
+    if (maxlen < elements) return -1;
 
     int8_t *buf = (int8_t*) _buf;
     memcpy(p, &buf[offset], elements);
@@ -123,19 +119,19 @@ static inline int __int8_t_decode_array(const void *_buf, int offset, int maxlen
     return elements;
 }
 
-static inline int __int8_t_encode_little_endian_array(void *_buf, int offset, int maxlen, const int8_t *p, int elements)
+static inline int __int8_t_encode_little_endian_array(void *_buf, uint32_t offset, uint32_t maxlen, const int8_t *p, uint32_t elements)
 {
     return __int8_t_encode_array(_buf, offset, maxlen, p, elements);
 }
 
-static inline int __int8_t_decode_little_endian_array(const void *_buf, int offset, int maxlen, int8_t *p, int elements)
+static inline int __int8_t_decode_little_endian_array(const void *_buf, uint32_t offset, uint32_t maxlen, int8_t *p, uint32_t elements)
 {
     return __int8_t_decode_array(_buf, offset, maxlen, p, elements);
 }
 
-static inline int __int8_t_clone_array(const int8_t *p, int8_t *q, int elements)
+static inline uint32_t __int8_t_clone_array(const int8_t *p, int8_t *q, uint32_t elements)
 {
-    int n = elements * sizeof(int8_t);
+    uint32_t n = elements * sizeof(int8_t);
     memcpy(q, p, n);
     return n;
 }
@@ -146,24 +142,23 @@ static inline int __int8_t_clone_array(const int8_t *p, int8_t *q, int elements)
 #define __int16_t_hash_recursive(p) 0
 #define __int16_t_decode_array_cleanup(p, sz) {}
 
-static inline int __int16_t_encoded_array_size(const int16_t *p, int elements)
+static inline uint32_t __int16_t_encoded_array_size(const int16_t *p, uint32_t elements)
 {
     (void)p;
     return sizeof(int16_t) * elements;
 }
 
-static inline int __int16_t_encode_array(void *_buf, int offset, int maxlen, const int16_t *p, int elements)
+static inline int __int16_t_encode_array(void *_buf, uint32_t offset, uint32_t maxlen, const int16_t *p, uint32_t elements)
 {
-    int total_size = sizeof(int16_t) * elements;
+    uint32_t total_size = sizeof(int16_t) * elements;
     uint8_t *buf = (uint8_t*) _buf;
-    int pos = offset;
-    int element;
+    uint32_t pos = offset;
+    uint32_t element;
 
-    if (maxlen < total_size)
-        return -1;
+    if (maxlen < total_size) return -1;
 
     const uint16_t *unsigned_p = (uint16_t*)p;
-    for (element = 0; element < elements; element++) {
+    for (element = 0; element < elements; ++element) {
         uint16_t v = unsigned_p[element];
         buf[pos++] = (v>>8) & 0xff;
         buf[pos++] = (v & 0xff);
@@ -172,17 +167,16 @@ static inline int __int16_t_encode_array(void *_buf, int offset, int maxlen, con
     return total_size;
 }
 
-static inline int __int16_t_decode_array(const void *_buf, int offset, int maxlen, int16_t *p, int elements)
+static inline int __int16_t_decode_array(const void *_buf, uint32_t offset, uint32_t maxlen, int16_t *p, uint32_t elements)
 {
-    int total_size = sizeof(int16_t) * elements;
+    uint32_t total_size = sizeof(int16_t) * elements;
     uint8_t *buf = (uint8_t*) _buf;
-    int pos = offset;
-    int element;
+    uint32_t pos = offset;
+    uint32_t element;
 
-    if (maxlen < total_size)
-        return -1;
+    if (maxlen < total_size) return -1;
 
-    for (element = 0; element < elements; element++) {
+    for (element = 0; element < elements; ++element) {
         p[element] = (buf[pos]<<8) + buf[pos+1];
         pos+=2;
     }
@@ -190,18 +184,17 @@ static inline int __int16_t_decode_array(const void *_buf, int offset, int maxle
     return total_size;
 }
 
-static inline int __int16_t_encode_little_endian_array(void *_buf, int offset, int maxlen, const int16_t *p, int elements)
+static inline int __int16_t_encode_little_endian_array(void *_buf, uint32_t offset, uint32_t maxlen, const int16_t *p, uint32_t elements)
 {
-    int total_size = sizeof(int16_t) * elements;
+    uint32_t total_size = sizeof(int16_t) * elements;
     uint8_t *buf = (uint8_t*) _buf;
-    int pos = offset;
-    int element;
+    uint32_t pos = offset;
+    uint32_t element;
 
-    if (maxlen < total_size)
-        return -1;
+    if (maxlen < total_size) return -1;
 
     const uint16_t *unsigned_p = (uint16_t*)p;
-    for (element = 0; element < elements; element++) {
+    for (element = 0; element < elements; ++element) {
         uint16_t v = unsigned_p[element];
         buf[pos++] = (v & 0xff);
         buf[pos++] = (v>>8) & 0xff;
@@ -210,17 +203,16 @@ static inline int __int16_t_encode_little_endian_array(void *_buf, int offset, i
     return total_size;
 }
 
-static inline int __int16_t_decode_little_endian_array(const void *_buf, int offset, int maxlen, int16_t *p, int elements)
+static inline int __int16_t_decode_little_endian_array(const void *_buf, uint32_t offset, uint32_t maxlen, int16_t *p, uint32_t elements)
 {
-    int total_size = sizeof(int16_t) * elements;
+    uint32_t total_size = sizeof(int16_t) * elements;
     uint8_t *buf = (uint8_t*) _buf;
-    int pos = offset;
-    int element;
+    uint32_t pos = offset;
+    uint32_t element;
 
-    if (maxlen < total_size)
-        return -1;
+    if (maxlen < total_size) return -1;
 
-    for (element = 0; element < elements; element++) {
+    for (element = 0; element < elements; ++element) {
         p[element] = (buf[pos+1]<<8) + buf[pos];
         pos+=2;
     }
@@ -228,9 +220,9 @@ static inline int __int16_t_decode_little_endian_array(const void *_buf, int off
     return total_size;
 }
 
-static inline int __int16_t_clone_array(const int16_t *p, int16_t *q, int elements)
+static inline uint32_t __int16_t_clone_array(const int16_t *p, int16_t *q, uint32_t elements)
 {
-    int n = elements * sizeof(int16_t);
+    uint32_t n = elements * sizeof(int16_t);
     memcpy(q, p, n);
     return n;
 }
@@ -241,24 +233,23 @@ static inline int __int16_t_clone_array(const int16_t *p, int16_t *q, int elemen
 #define __int32_t_hash_recursive(p) 0
 #define __int32_t_decode_array_cleanup(p, sz) {}
 
-static inline int __int32_t_encoded_array_size(const int32_t *p, int elements)
+static inline uint32_t __int32_t_encoded_array_size(const int32_t *p, uint32_t elements)
 {
     (void)p;
     return sizeof(int32_t) * elements;
 }
 
-static inline int __int32_t_encode_array(void *_buf, int offset, int maxlen, const int32_t *p, int elements)
+static inline int __int32_t_encode_array(void *_buf, uint32_t offset, uint32_t maxlen, const int32_t *p, uint32_t elements)
 {
-    int total_size = sizeof(int32_t) * elements;
+    uint32_t total_size = sizeof(int32_t) * elements;
     uint8_t *buf = (uint8_t*) _buf;
-    int pos = offset;
-    int element;
+    uint32_t pos = offset;
+    uint32_t element;
 
-    if (maxlen < total_size)
-        return -1;
+    if (maxlen < total_size) return -1;
 
     const uint32_t* unsigned_p = (uint32_t*)p;
-    for (element = 0; element < elements; element++) {
+    for (element = 0; element < elements; ++element) {
         uint32_t v = unsigned_p[element];
         buf[pos++] = (v>>24)&0xff;
         buf[pos++] = (v>>16)&0xff;
@@ -269,17 +260,16 @@ static inline int __int32_t_encode_array(void *_buf, int offset, int maxlen, con
     return total_size;
 }
 
-static inline int __int32_t_decode_array(const void *_buf, int offset, int maxlen, int32_t *p, int elements)
+static inline int __int32_t_decode_array(const void *_buf, uint32_t offset, uint32_t maxlen, int32_t *p, uint32_t elements)
 {
-    int total_size = sizeof(int32_t) * elements;
+    uint32_t total_size = sizeof(int32_t) * elements;
     uint8_t *buf = (uint8_t*) _buf;
-    int pos = offset;
-    int element;
+    uint32_t pos = offset;
+    uint32_t element;
 
-    if (maxlen < total_size)
-        return -1;
+    if (maxlen < total_size) return -1;
 
-    for (element = 0; element < elements; element++) {
+    for (element = 0; element < elements; ++element) {
         p[element] = (((uint32_t)buf[pos+0])<<24) +
                      (((uint32_t)buf[pos+1])<<16) +
                      (((uint32_t)buf[pos+2])<<8) +
@@ -290,18 +280,17 @@ static inline int __int32_t_decode_array(const void *_buf, int offset, int maxle
     return total_size;
 }
 
-static inline int __int32_t_encode_little_endian_array(void *_buf, int offset, int maxlen, const int32_t *p, int elements)
+static inline int __int32_t_encode_little_endian_array(void *_buf, uint32_t offset, uint32_t maxlen, const int32_t *p, uint32_t elements)
 {
-    int total_size = sizeof(int32_t) * elements;
+    uint32_t total_size = sizeof(int32_t) * elements;
     uint8_t *buf = (uint8_t*) _buf;
-    int pos = offset;
-    int element;
+    uint32_t pos = offset;
+    uint32_t element;
 
-    if (maxlen < total_size)
-        return -1;
+    if (maxlen < total_size) return -1;
 
     const uint32_t* unsigned_p = (uint32_t*)p;
-    for (element = 0; element < elements; element++) {
+    for (element = 0; element < elements; ++element) {
         uint32_t v = unsigned_p[element];
         buf[pos++] = (v & 0xff);
         buf[pos++] = (v>>8)&0xff;
@@ -312,17 +301,16 @@ static inline int __int32_t_encode_little_endian_array(void *_buf, int offset, i
     return total_size;
 }
 
-static inline int __int32_t_decode_little_endian_array(const void *_buf, int offset, int maxlen, int32_t *p, int elements)
+static inline int __int32_t_decode_little_endian_array(const void *_buf, uint32_t offset, uint32_t maxlen, int32_t *p, uint32_t elements)
 {
-    int total_size = sizeof(int32_t) * elements;
+    uint32_t total_size = sizeof(int32_t) * elements;
     uint8_t *buf = (uint8_t*) _buf;
-    int pos = offset;
-    int element;
+    uint32_t pos = offset;
+    uint32_t element;
 
-    if (maxlen < total_size)
-        return -1;
+    if (maxlen < total_size) return -1;
 
-    for (element = 0; element < elements; element++) {
+    for (element = 0; element < elements; ++element) {
         p[element] = (((uint32_t)buf[pos+3])<<24) +
                       (((uint32_t)buf[pos+2])<<16) +
                       (((uint32_t)buf[pos+1])<<8) +
@@ -333,9 +321,9 @@ static inline int __int32_t_decode_little_endian_array(const void *_buf, int off
     return total_size;
 }
 
-static inline int __int32_t_clone_array(const int32_t *p, int32_t *q, int elements)
+static inline uint32_t __int32_t_clone_array(const int32_t *p, int32_t *q, uint32_t elements)
 {
-    int n = elements * sizeof(int32_t);
+    uint32_t n = elements * sizeof(int32_t);
     memcpy(q, p, n);
     return n;
 }
@@ -346,24 +334,23 @@ static inline int __int32_t_clone_array(const int32_t *p, int32_t *q, int elemen
 #define __int64_t_hash_recursive(p) 0
 #define __int64_t_decode_array_cleanup(p, sz) {}
 
-static inline int __int64_t_encoded_array_size(const int64_t *p, int elements)
+static inline uint32_t __int64_t_encoded_array_size(const int64_t *p, uint32_t elements)
 {
     (void)p;
     return sizeof(int64_t) * elements;
 }
 
-static inline int __int64_t_encode_array(void *_buf, int offset, int maxlen, const int64_t *p, int elements)
+static inline int __int64_t_encode_array(void *_buf, uint32_t offset, uint32_t maxlen, const int64_t *p, uint32_t elements)
 {
-    int total_size = sizeof(int64_t) * elements;
+    uint32_t total_size = sizeof(int64_t) * elements;
     uint8_t *buf = (uint8_t*) _buf;
-    int pos = offset;
-    int element;
+    uint32_t pos = offset;
+    uint32_t element;
 
-    if (maxlen < total_size)
-        return -1;
+    if (maxlen < total_size) return -1;
 
     const uint64_t* unsigned_p = (uint64_t*)p;
-    for (element = 0; element < elements; element++) {
+    for (element = 0; element < elements; ++element) {
         uint64_t v = unsigned_p[element];
         buf[pos++] = (v>>56)&0xff;
         buf[pos++] = (v>>48)&0xff;
@@ -378,17 +365,16 @@ static inline int __int64_t_encode_array(void *_buf, int offset, int maxlen, con
     return total_size;
 }
 
-static inline int __int64_t_decode_array(const void *_buf, int offset, int maxlen, int64_t *p, int elements)
+static inline int __int64_t_decode_array(const void *_buf, uint32_t offset, uint32_t maxlen, int64_t *p, uint32_t elements)
 {
-    int total_size = sizeof(int64_t) * elements;
+    uint32_t total_size = sizeof(int64_t) * elements;
     uint8_t *buf = (uint8_t*) _buf;
-    int pos = offset;
-    int element;
+    uint32_t pos = offset;
+    uint32_t element;
 
-    if (maxlen < total_size)
-        return -1;
+    if (maxlen < total_size) return -1;
 
-    for (element = 0; element < elements; element++) {
+    for (element = 0; element < elements; ++element) {
         uint64_t a = (((uint32_t)buf[pos+0])<<24) +
                      (((uint32_t)buf[pos+1])<<16) +
                      (((uint32_t)buf[pos+2])<<8) +
@@ -405,18 +391,17 @@ static inline int __int64_t_decode_array(const void *_buf, int offset, int maxle
     return total_size;
 }
 
-static inline int __int64_t_encode_little_endian_array(void *_buf, int offset, int maxlen, const int64_t *p, int elements)
+static inline int __int64_t_encode_little_endian_array(void *_buf, uint32_t offset, uint32_t maxlen, const int64_t *p, uint32_t elements)
 {
-    int total_size = sizeof(int64_t) * elements;
+    uint32_t total_size = sizeof(int64_t) * elements;
     uint8_t *buf = (uint8_t*) _buf;
-    int pos = offset;
-    int element;
+    uint32_t pos = offset;
+    uint32_t element;
 
-    if (maxlen < total_size)
-        return -1;
+    if (maxlen < total_size) return -1;
 
     const uint64_t* unsigned_p = (uint64_t*)p;
-    for (element = 0; element < elements; element++) {
+    for (element = 0; element < elements; ++element) {
         uint64_t v = unsigned_p[element];
         buf[pos++] = (v & 0xff);
         buf[pos++] = (v>>8)&0xff;
@@ -431,17 +416,16 @@ static inline int __int64_t_encode_little_endian_array(void *_buf, int offset, i
     return total_size;
 }
 
-static inline int __int64_t_decode_little_endian_array(const void *_buf, int offset, int maxlen, int64_t *p, int elements)
+static inline int __int64_t_decode_little_endian_array(const void *_buf, uint32_t offset, uint32_t maxlen, int64_t *p, uint32_t elements)
 {
-    int total_size = sizeof(int64_t) * elements;
+    uint32_t total_size = sizeof(int64_t) * elements;
     uint8_t *buf = (uint8_t*) _buf;
-    int pos = offset;
-    int element;
+    uint32_t pos = offset;
+    uint32_t element;
 
-    if (maxlen < total_size)
-        return -1;
+    if (maxlen < total_size) return -1;
 
-    for (element = 0; element < elements; element++) {
+    for (element = 0; element < elements; ++element) {
         uint64_t b = (((uint32_t)buf[pos+3])<<24) +
                      (((uint32_t)buf[pos+2])<<16) +
                      (((uint32_t)buf[pos+1])<<8) +
@@ -458,9 +442,9 @@ static inline int __int64_t_decode_little_endian_array(const void *_buf, int off
     return total_size;
 }
 
-static inline int __int64_t_clone_array(const int64_t *p, int64_t *q, int elements)
+static inline uint32_t __int64_t_clone_array(const int64_t *p, int64_t *q, uint32_t elements)
 {
-    int n = elements * sizeof(int64_t);
+    uint32_t n = elements * sizeof(int64_t);
     memcpy(q, p, n);
     return n;
 }
@@ -476,22 +460,21 @@ typedef union __zcm__float_uint32_t {
 #define __float_hash_recursive(p) 0
 #define __float_decode_array_cleanup(p, sz) {}
 
-static inline int __float_encoded_array_size(const float *p, int elements)
+static inline uint32_t __float_encoded_array_size(const float *p, uint32_t elements)
 {
     (void)p;
     return sizeof(float) * elements;
 }
 
-static inline int __float_encode_array(void *_buf, int offset, int maxlen, const float *p, int elements)
+static inline int __float_encode_array(void *_buf, uint32_t offset, uint32_t maxlen, const float *p, uint32_t elements)
 {
-    int total_size = sizeof(float) * elements;
+    uint32_t total_size = sizeof(float) * elements;
     uint8_t *buf = (uint8_t*) _buf;
-    int pos = offset;
-    int element;
+    uint32_t pos = offset;
+    uint32_t element;
     __zcm__float_uint32_t tmp;
 
-    if (maxlen < total_size)
-        return -1;
+    if (maxlen < total_size) return -1;
 
     for (element = 0; element < elements; ++element) {
         tmp.flt = p[element];
@@ -504,16 +487,15 @@ static inline int __float_encode_array(void *_buf, int offset, int maxlen, const
     return total_size;
 }
 
-static inline int __float_decode_array(const void *_buf, int offset, int maxlen, float *p, int elements)
+static inline int __float_decode_array(const void *_buf, uint32_t offset, uint32_t maxlen, float *p, uint32_t elements)
 {
-    int total_size = sizeof(float) * elements;
+    uint32_t total_size = sizeof(float) * elements;
     uint8_t *buf = (uint8_t*) _buf;
-    int pos = offset;
-    int element;
+    uint32_t pos = offset;
+    uint32_t element;
     __zcm__float_uint32_t tmp;
 
-    if (maxlen < total_size)
-        return -1;
+    if (maxlen < total_size) return -1;
 
     for (element = 0; element < elements; ++element) {
         tmp.uint = (((uint32_t)buf[pos + 0]) << 24) |
@@ -527,16 +509,15 @@ static inline int __float_decode_array(const void *_buf, int offset, int maxlen,
     return total_size;
 }
 
-static inline int __float_encode_little_endian_array(void *_buf, int offset, int maxlen, const float *p, int elements)
+static inline int __float_encode_little_endian_array(void *_buf, uint32_t offset, uint32_t maxlen, const float *p, uint32_t elements)
 {
-    int total_size = sizeof(float) * elements;
+    uint32_t total_size = sizeof(float) * elements;
     uint8_t *buf = (uint8_t*) _buf;
-    int pos = offset;
-    int element;
+    uint32_t pos = offset;
+    uint32_t element;
     __zcm__float_uint32_t tmp;
 
-    if (maxlen < total_size)
-        return -1;
+    if (maxlen < total_size) return -1;
 
     for (element = 0; element < elements; ++element) {
         tmp.flt = p[element];
@@ -549,16 +530,15 @@ static inline int __float_encode_little_endian_array(void *_buf, int offset, int
     return total_size;
 }
 
-static inline int __float_decode_little_endian_array(const void *_buf, int offset, int maxlen, float *p, int elements)
+static inline int __float_decode_little_endian_array(const void *_buf, uint32_t offset, uint32_t maxlen, float *p, uint32_t elements)
 {
-    int total_size = sizeof(float) * elements;
+    uint32_t total_size = sizeof(float) * elements;
     uint8_t *buf = (uint8_t*) _buf;
-    int pos = offset;
-    int element;
+    uint32_t pos = offset;
+    uint32_t element;
     __zcm__float_uint32_t tmp;
 
-    if (maxlen < total_size)
-        return -1;
+    if (maxlen < total_size) return -1;
 
     for (element = 0; element < elements; ++element) {
         tmp.uint = (((uint32_t)buf[pos + 3]) << 24) |
@@ -572,9 +552,9 @@ static inline int __float_decode_little_endian_array(const void *_buf, int offse
     return total_size;
 }
 
-static inline int __float_clone_array(const float *p, float *q, int elements)
+static inline uint32_t __float_clone_array(const float *p, float *q, uint32_t elements)
 {
-    int n = elements * sizeof(float);
+    uint32_t n = elements * sizeof(float);
     memcpy(q, p, n);
     return n;
 }
@@ -590,22 +570,21 @@ typedef union __zcm__double_uint64_t {
 #define __double_hash_recursive(p) 0
 #define __double_decode_array_cleanup(p, sz) {}
 
-static inline int __double_encoded_array_size(const double *p, int elements)
+static inline uint32_t __double_encoded_array_size(const double *p, uint32_t elements)
 {
     (void)p;
     return sizeof(double) * elements;
 }
 
-static inline int __double_encode_array(void *_buf, int offset, int maxlen, const double *p, int elements)
+static inline int __double_encode_array(void *_buf, uint32_t offset, uint32_t maxlen, const double *p, uint32_t elements)
 {
-    int total_size = sizeof(double) * elements;
+    uint32_t total_size = sizeof(double) * elements;
     uint8_t *buf = (uint8_t*) _buf;
-    int pos = offset;
-    int element;
+    uint32_t pos = offset;
+    uint32_t element;
     __zcm__double_uint64_t tmp;
 
-    if (maxlen < total_size)
-        return -1;
+    if (maxlen < total_size) return -1;
 
     for (element = 0; element < elements; ++element) {
         tmp.dbl = p[element];
@@ -622,16 +601,15 @@ static inline int __double_encode_array(void *_buf, int offset, int maxlen, cons
     return total_size;
 }
 
-static inline int __double_decode_array(const void *_buf, int offset, int maxlen, double *p, int elements)
+static inline int __double_decode_array(const void *_buf, uint32_t offset, uint32_t maxlen, double *p, uint32_t elements)
 {
-    int total_size = sizeof(double) * elements;
+    uint32_t total_size = sizeof(double) * elements;
     uint8_t *buf = (uint8_t*) _buf;
-    int pos = offset;
-    int element;
+    uint32_t pos = offset;
+    uint32_t element;
     __zcm__double_uint64_t tmp;
 
-    if (maxlen < total_size)
-        return -1;
+    if (maxlen < total_size) return -1;
 
     for (element = 0; element < elements; ++element) {
         uint64_t a = (((uint32_t) buf[pos + 0]) << 24) +
@@ -651,16 +629,15 @@ static inline int __double_decode_array(const void *_buf, int offset, int maxlen
     return total_size;
 }
 
-static inline int __double_encode_little_endian_array(void *_buf, int offset, int maxlen, const double *p, int elements)
+static inline int __double_encode_little_endian_array(void *_buf, uint32_t offset, uint32_t maxlen, const double *p, uint32_t elements)
 {
-    int total_size = sizeof(double) * elements;
+    uint32_t total_size = sizeof(double) * elements;
     uint8_t *buf = (uint8_t*) _buf;
-    int pos = offset;
-    int element;
+    uint32_t pos = offset;
+    uint32_t element;
     __zcm__double_uint64_t tmp;
 
-    if (maxlen < total_size)
-        return -1;
+    if (maxlen < total_size) return -1;
 
     for (element = 0; element < elements; ++element) {
         tmp.dbl = p[element];
@@ -677,16 +654,15 @@ static inline int __double_encode_little_endian_array(void *_buf, int offset, in
     return total_size;
 }
 
-static inline int __double_decode_little_endian_array(const void *_buf, int offset, int maxlen, double *p, int elements)
+static inline int __double_decode_little_endian_array(const void *_buf, uint32_t offset, uint32_t maxlen, double *p, uint32_t elements)
 {
-    int total_size = sizeof(double) * elements;
+    uint32_t total_size = sizeof(double) * elements;
     uint8_t *buf = (uint8_t*) _buf;
-    int pos = offset;
-    int element;
+    uint32_t pos = offset;
+    uint32_t element;
     __zcm__double_uint64_t tmp;
 
-    if (maxlen < total_size)
-        return -1;
+    if (maxlen < total_size) return -1;
 
     for (element = 0; element < elements; ++element) {
         uint64_t b = (((uint32_t)buf[pos + 3]) << 24) +
@@ -706,9 +682,9 @@ static inline int __double_decode_little_endian_array(const void *_buf, int offs
     return total_size;
 }
 
-static inline int __double_clone_array(const double *p, double *q, int elements)
+static inline uint32_t __double_clone_array(const double *p, double *q, uint32_t elements)
 {
-    int n = elements * sizeof(double);
+    uint32_t n = elements * sizeof(double);
     memcpy(q, p, n);
     return n;
 }
@@ -718,32 +694,31 @@ static inline int __double_clone_array(const double *p, double *q, int elements)
  */
 #define __string_hash_recursive(p) 0
 
-static inline int __string_decode_array_cleanup(char **s, int elements)
+static inline int __string_decode_array_cleanup(char **s, uint32_t elements)
 {
-    int element;
-    for (element = 0; element < elements; element++)
+    uint32_t element;
+    for (element = 0; element < elements; ++element)
         free(s[element]);
     return 0;
 }
 
 // TODO: Figure out why "const char * const * p" doesn't work
-static inline int __string_encoded_array_size(char * const *s, int elements)
+static inline uint32_t __string_encoded_array_size(char * const *s, uint32_t elements)
 {
-    int size = 0;
-    int element;
-    for (element = 0; element < elements; element++)
+    uint32_t size = 0, element;
+    for (element = 0; element < elements; ++element)
         size += 4 + strlen(s[element]) + 1;
 
     return size;
 }
 
 // TODO: Figure out why "const char * const * p" doesn't work
-static inline int __string_encode_array(void *_buf, int offset, int maxlen, char * const *p, int elements)
+static inline int __string_encode_array(void *_buf, uint32_t offset, uint32_t maxlen, char * const *p, uint32_t elements)
 {
-    int pos = 0, thislen;
-    int element;
+    uint32_t pos = 0, element;
+    int thislen;
 
-    for (element = 0; element < elements; element++) {
+    for (element = 0; element < elements; ++element) {
         int32_t length = strlen(p[element]) + 1; // length includes \0
 
         thislen = __int32_t_encode_array(_buf, offset + pos, maxlen - pos, &length, 1);
@@ -756,12 +731,12 @@ static inline int __string_encode_array(void *_buf, int offset, int maxlen, char
     return pos;
 }
 
-static inline int __string_decode_array(const void *_buf, int offset, int maxlen, char **p, int elements)
+static inline int __string_decode_array(const void *_buf, uint32_t offset, uint32_t maxlen, char **p, uint32_t elements)
 {
-    int pos = 0, thislen;
-    int element;
+    uint32_t pos = 0, element;
+    int thislen;
 
-    for (element = 0; element < elements; element++) {
+    for (element = 0; element < elements; ++element) {
         int32_t length;
 
         // read length including \0
@@ -777,12 +752,12 @@ static inline int __string_decode_array(const void *_buf, int offset, int maxlen
 }
 
 // TODO: Figure out why "const char * const * p" doesn't work
-static inline int __string_encode_little_endian_array(void *_buf, int offset, int maxlen, char * const *p, int elements)
+static inline int __string_encode_little_endian_array(void *_buf, uint32_t offset, uint32_t maxlen, char * const *p, uint32_t elements)
 {
-    int pos = 0, thislen;
-    int element;
+    uint32_t pos = 0, element;
+    int thislen;
 
-    for (element = 0; element < elements; element++) {
+    for (element = 0; element < elements; ++element) {
         int32_t length = strlen(p[element]) + 1; // length includes \0
 
         thislen = __int32_t_encode_little_endian_array(_buf, offset + pos, maxlen - pos, &length, 1);
@@ -795,12 +770,12 @@ static inline int __string_encode_little_endian_array(void *_buf, int offset, in
     return pos;
 }
 
-static inline int __string_decode_little_endian_array(const void *_buf, int offset, int maxlen, char **p, int elements)
+static inline int __string_decode_little_endian_array(const void *_buf, uint32_t offset, uint32_t maxlen, char **p, uint32_t elements)
 {
-    int pos = 0, thislen;
-    int element;
+    uint32_t pos = 0, element;
+    int thislen;
 
-    for (element = 0; element < elements; element++) {
+    for (element = 0; element < elements; ++element) {
         int32_t length;
 
         // read length including \0
@@ -816,13 +791,12 @@ static inline int __string_decode_little_endian_array(const void *_buf, int offs
 }
 
 // TODO: Figure out why "const char * const * p" doesn't work
-static inline int __string_clone_array(char * const *p, char **q, int elements)
+static inline uint32_t __string_clone_array(char * const *p, char **q, uint32_t elements)
 {
-    int ret = 0;
-    int element;
-    for (element = 0; element < elements; element++) {
+    uint32_t ret = 0, element;
+    for (element = 0; element < elements; ++element) {
         // because strdup is not C99
-        size_t len = strlen(p[element]) + 1;
+        uint32_t len = strlen(p[element]) + 1;
         ret += len;
         q[element] = (char*) zcm_malloc (len);
         memcpy (q[element], p[element], len);
@@ -893,14 +867,14 @@ struct _zcm_field_t
     void *data;
 };
 
-typedef int     (*zcm_encode_t)(void *buf, int offset, int maxlen, const void *p);
-typedef int     (*zcm_decode_t)(const void *buf, int offset, int maxlen, void *p);
-typedef int     (*zcm_decode_cleanup_t)(void *p);
-typedef int     (*zcm_encoded_size_t)(const void *p);
-typedef int     (*zcm_struct_size_t)(void);
-typedef int     (*zcm_num_fields_t)(void);
-typedef int     (*zcm_get_field_t)(const void *p, int i, zcm_field_t *f);
-typedef int64_t (*zcm_get_hash_t)(void);
+typedef int        (*zcm_encode_t)(void *buf, uint32_t offset, uint32_t maxlen, const void *p);
+typedef int        (*zcm_decode_t)(const void *buf, uint32_t offset, uint32_t maxlen, void *p);
+typedef int        (*zcm_decode_cleanup_t)(void *p);
+typedef uint32_t   (*zcm_encoded_size_t)(const void *p);
+typedef uint32_t   (*zcm_struct_size_t)(void);
+typedef uint32_t   (*zcm_num_fields_t)(void);
+typedef int        (*zcm_get_field_t)(const void *p, uint32_t i, zcm_field_t *f);
+typedef int64_t    (*zcm_get_hash_t)(void);
 
 /**
  * Describes an zcmtype info, enabling introspection
