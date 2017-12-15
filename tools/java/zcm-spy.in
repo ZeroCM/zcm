@@ -1,3 +1,4 @@
 #!/bin/sh
-jars=/usr/local/share/java/zcm.jar:/usr/local/share/java/zcm-tools.jar
+prefix=@prefix@
+jars=$prefix/share/java/zcm.jar:$prefix/share/java/zcm-tools.jar
 exec java -server -Xincgc -Xmx128m -Xms64m -ea -cp $jars zcm.spy.Spy $*

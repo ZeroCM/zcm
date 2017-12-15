@@ -5,6 +5,8 @@
 #include "util/StringUtil.hpp"
 #include "util/FileUtil.hpp"
 
+#include <inttypes.h>
+
 #define FLAG_NONE 0
 
 // flags for emit_c_array_loops_start
@@ -286,7 +288,7 @@ struct EmitHeader : public Emit
         emit(0, " * @param msg The message to encode.");
         emit(0, " * @return The number of bytes encoded, or <0 if an error occured.");
         emit(0, " */");
-        emit(0,"int %s_encode(void* buf, int offset, int maxlen, const %s* p);", tn_, tn_);
+        emit(0,"int %s_encode(void* buf, uint32_t offset, uint32_t maxlen, const %s* p);", tn_, tn_);
         emit(0, "");
         emit(0, "/**");
         emit(0, " * Decode a message of type %s from binary form.", tn_);
@@ -300,7 +302,7 @@ struct EmitHeader : public Emit
         emit(0, " * @param msg Output parameter where the decoded message is stored");
         emit(0, " * @return The number of bytes decoded, or <0 if an error occured.");
         emit(0, " */");
-        emit(0,"int %s_decode(const void* buf, int offset, int maxlen, %s* msg);", tn_, tn_);
+        emit(0,"int %s_decode(const void* buf, uint32_t offset, uint32_t maxlen, %s* msg);", tn_, tn_);
         emit(0, "");
         emit(0, "/**");
         emit(0, " * Release resources allocated by %s_decode()", tn_);
@@ -311,23 +313,23 @@ struct EmitHeader : public Emit
         emit(0, "/**");
         emit(0, " * Check how many bytes are required to encode a message of type %s", tn_);
         emit(0, " */");
-        emit(0,"int %s_encoded_size(const %s* p);", tn_, tn_);
+        emit(0,"uint32_t %s_encoded_size(const %s* p);", tn_, tn_);
         if(zcm.gopt->getBool("c-typeinfo")) {
-            emit(0,"size_t %s_struct_size(void);", tn_);
-            emit(0,"int  %s_num_fields(void);", tn_);
-            emit(0,"int  %s_get_field(const %s* p, int i, zcm_field_t* f);", tn_, tn_);
+            emit(0,"uint32_t %s_struct_size(void);", tn_);
+            emit(0,"uint32_t %s_num_fields(void);", tn_);
+            emit(0,"int      %s_get_field(const %s* p, uint32_t i, zcm_field_t* f);", tn_, tn_);
             emit(0,"const zcm_type_info_t* %s_get_type_info(void);", tn_);
         }
         emit(0,"");
 
         emit(0,"// ZCM support functions. Users should not call these");
-        emit(0,"int64_t __%s_get_hash(void);", tn_);
+        emit(0,"int64_t  __%s_get_hash(void);", tn_);
         emit(0,"uint64_t __%s_hash_recursive(const __zcm_hash_ptr* p);", tn_);
-        emit(0,"int     __%s_encode_array(void* buf, int offset, int maxlen, const %s* p, int elements);", tn_, tn_);
-        emit(0,"int     __%s_decode_array(const void* buf, int offset, int maxlen, %s* p, int elements);", tn_, tn_);
-        emit(0,"int     __%s_decode_array_cleanup(%s* p, int elements);", tn_, tn_);
-        emit(0,"int     __%s_encoded_array_size(const %s* p, int elements);", tn_, tn_);
-        emit(0,"int     __%s_clone_array(const %s* p, %s* q, int elements);", tn_, tn_, tn_);
+        emit(0,"int      __%s_encode_array(void* buf, uint32_t offset, uint32_t maxlen, const %s* p, uint32_t elements);", tn_, tn_);
+        emit(0,"int      __%s_decode_array(const void* buf, uint32_t offset, uint32_t maxlen, %s* p, uint32_t elements);", tn_, tn_);
+        emit(0,"int      __%s_decode_array_cleanup(%s* p, uint32_t elements);", tn_, tn_);
+        emit(0,"uint32_t __%s_encoded_array_size(const %s* p, uint32_t elements);", tn_, tn_);
+        emit(0,"uint32_t __%s_clone_array(const %s* p, %s* q, uint32_t elements);", tn_, tn_, tn_);
         emit(0,"");
     }
 };
@@ -452,9 +454,9 @@ struct EmitSource : public Emit
     {
         const char* tn_ = zs.structname.nameUnderscoreCStr();
 
-        emit(0,"int __%s_encode_array(void* buf, int offset, int maxlen, const %s* p, int elements)", tn_, tn_);
+        emit(0,"int __%s_encode_array(void* buf, uint32_t offset, uint32_t maxlen, const %s* p, uint32_t elements)", tn_, tn_);
         emit(0,"{");
-        emit(1,    "int pos = 0, element;");
+        emit(1,    "uint32_t pos = 0, element;");
         if (zs.members.size() > 0) {
             emit(1, "int thislen;");
         }
@@ -485,9 +487,10 @@ struct EmitSource : public Emit
     {
         const char* tn_ = zs.structname.nameUnderscoreCStr();
 
-        emit(0,"int %s_encode(void* buf, int offset, int maxlen, const %s* p)", tn_, tn_);
+        emit(0,"int %s_encode(void* buf, uint32_t offset, uint32_t maxlen, const %s* p)", tn_, tn_);
         emit(0,"{");
-        emit(1,    "int pos = 0, thislen;");
+        emit(1,    "uint32_t pos = 0;");
+        emit(1,    "int thislen;");
         emit(1,    "int64_t hash = __%s_get_hash();", tn_);
         emit(0,"");
         emit(1,    "thislen = __int64_t_encode_%sarray(buf, offset + pos, maxlen - pos, &hash, 1);",
@@ -506,9 +509,10 @@ struct EmitSource : public Emit
     {
         const char* tn_ = zs.structname.nameUnderscoreCStr();
 
-        emit(0,"int __%s_decode_array(const void* buf, int offset, int maxlen, %s* p, int elements)", tn_, tn_);
+        emit(0,"int __%s_decode_array(const void* buf, uint32_t offset, uint32_t maxlen, %s* p, uint32_t elements)", tn_, tn_);
         emit(0,"{");
-        emit(1,    "int pos = 0, thislen, element;");
+        emit(1,    "uint32_t pos = 0, element;");
+        emit(1,    "int thislen;");
         emit(0,"");
         emit(1,    "for (element = 0; element < elements; ++element) {");
         emit(0,"");
@@ -536,9 +540,9 @@ struct EmitSource : public Emit
     {
         const char* tn_ = zs.structname.nameUnderscoreCStr();
 
-        emit(0,"int __%s_decode_array_cleanup(%s* p, int elements)", tn_, tn_);
+        emit(0,"int __%s_decode_array_cleanup(%s* p, uint32_t elements)", tn_, tn_);
         emit(0,"{");
-        emit(1,    "int element;");
+        emit(1,    "uint32_t element;");
         emit(1,    "for (element = 0; element < elements; ++element) {");
         emit(0,"");
         for (auto& zm : zs.members) {
@@ -563,9 +567,10 @@ struct EmitSource : public Emit
     {
         const char* tn_ = zs.structname.nameUnderscoreCStr();
 
-        emit(0,"int %s_decode(const void* buf, int offset, int maxlen, %s* p)", tn_, tn_);
+        emit(0,"int %s_decode(const void* buf, uint32_t offset, uint32_t maxlen, %s* p)", tn_, tn_);
         emit(0,"{");
-        emit(1,    "int pos = 0, thislen;");
+        emit(1,    "uint32_t pos = 0;");
+        emit(1,    "int thislen;");
         emit(1,    "int64_t hash = __%s_get_hash();", tn_);
         emit(0,"");
         emit(1,    "int64_t this_hash;");
@@ -597,9 +602,9 @@ struct EmitSource : public Emit
     {
         const char* tn_ = zs.structname.nameUnderscoreCStr();
 
-        emit(0,"int __%s_encoded_array_size(const %s* p, int elements)", tn_, tn_);
+        emit(0,"uint32_t __%s_encoded_array_size(const %s* p, uint32_t elements)", tn_, tn_);
         emit(0,"{");
-        emit(1,"int size = 0, element;");
+        emit(1,"uint32_t size = 0, element;");
         emit(1,    "for (element = 0; element < elements; ++element) {");
         emit(0,"");
         for (auto& zm : zs.members) {
@@ -624,7 +629,7 @@ struct EmitSource : public Emit
     {
         const char* tn_ = zs.structname.nameUnderscoreCStr();
 
-        emit(0,"int %s_encoded_size(const %s* p)", tn_, tn_);
+        emit(0,"uint32_t %s_encoded_size(const %s* p)", tn_, tn_);
         emit(0,"{");
         emit(1, "return 8 + __%s_encoded_array_size(p, 1);", tn_);
         emit(0,"}");
@@ -635,9 +640,9 @@ struct EmitSource : public Emit
     {
         const char* tn_ = zs.structname.nameUnderscoreCStr();
 
-        emit(0,"int %s_num_fields(void)", tn_);
+        emit(0,"uint32_t %s_num_fields(void)", tn_);
         emit(0,"{");
-        emit(1, "return %d;", (int)zs.members.size());
+        emit(1, "return %" PRIu32 ";", (uint32_t) zs.members.size());
         emit(0,"}");
         emit(0,"");
     }
@@ -646,7 +651,7 @@ struct EmitSource : public Emit
     {
         const char* tn_ = zs.structname.nameUnderscoreCStr();
 
-        emit(0,"size_t %s_struct_size(void)", tn_);
+        emit(0,"uint32_t %s_struct_size(void)", tn_);
         emit(0,"{");
         emit(1, "return sizeof(%s);", tn_);
         emit(0,"}");
@@ -657,9 +662,9 @@ struct EmitSource : public Emit
     {
         const char* tn_ = zs.structname.nameUnderscoreCStr();
 
-        emit(0,"int %s_get_field(const %s* p, int i, zcm_field_t* f)", tn_, tn_);
+        emit(0,"int %s_get_field(const %s* p, uint32_t i, zcm_field_t* f)", tn_, tn_);
         emit(0,"{");
-        emit(1,"if (0 > i || i >= %s_num_fields())", tn_);
+        emit(1,"if (i >= %s_num_fields())", tn_);
         emit(2,"return 1;");
         emit(1,"");
 
@@ -744,9 +749,9 @@ struct EmitSource : public Emit
     {
         const char* tn_ = zs.structname.nameUnderscoreCStr();
 
-        emit(0,"int __%s_clone_array(const %s* p, %s* q, int elements)", tn_, tn_, tn_);
+        emit(0,"uint32_t __%s_clone_array(const %s* p, %s* q, uint32_t elements)", tn_, tn_, tn_);
         emit(0,"{");
-        emit(1,    "int element;");
+        emit(1,    "uint32_t n = 0, element;");
         emit(1,    "for (element = 0; element < elements; ++element) {");
         emit(0,"");
         for (auto& zm : zs.members) {
@@ -754,7 +759,7 @@ struct EmitSource : public Emit
             emitCArrayLoopsStart(zm, "q", zm.isConstantSizeArray() ? FLAG_NONE : FLAG_EMIT_MALLOCS);
 
             int indent = 2+std::max(0, (int)zm.dimensions.size() - 1);
-            emit(indent, "__%s_clone_array(%s, %s, %s);",
+            emit(indent, "n += __%s_clone_array(%s, %s, %s);",
                  zm.type.nameUnderscoreCStr(),
                  makeAccessor(zm, "p", (int)zm.dimensions.size()-1).c_str(),
                  makeAccessor(zm, "q", (int)zm.dimensions.size()-1).c_str(),
@@ -764,7 +769,7 @@ struct EmitSource : public Emit
             emit(0,"");
         }
         emit(1,   "}");
-        emit(1,   "return 0;");
+        emit(1,   "return n;");
         emit(0,"}");
         emit(0,"");
     }
@@ -800,7 +805,7 @@ struct EmitSource : public Emit
 
         emit(0, "int %s_publish(zcm_t* zcm, const char* channel, const %s* p)", tn_, tn_);
         emit(0, "{");
-        emit(0, "      int max_data_size = %s_encoded_size (p);", tn_);
+        emit(0, "      uint32_t max_data_size = %s_encoded_size (p);", tn_);
         emit(0, "      uint8_t* buf = (uint8_t*) malloc (max_data_size);");
         emit(0, "      if (!buf) return -1;");
         emit(0, "      int data_size = %s_encode (buf, 0, max_data_size, p);", tn_);
@@ -808,7 +813,7 @@ struct EmitSource : public Emit
         emit(0, "          free (buf);");
         emit(0, "          return data_size;");
         emit(0, "      }");
-        emit(0, "      int status = zcm_publish (zcm, channel, buf, (size_t)data_size);");
+        emit(0, "      int status = zcm_publish (zcm, channel, buf, (uint32_t)data_size);");
         emit(0, "      free (buf);");
         emit(0, "      return status;");
         emit(0, "}");

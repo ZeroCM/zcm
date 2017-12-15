@@ -240,12 +240,12 @@ struct Emit : public Emitter
         emit(2, " *  equal to getEncodedSize().");
         emit(2, " * @return The number of bytes encoded, or <0 on error.");
         emit(2, " */");
-        emit(2, "inline int encode(void* buf, int offset, int maxlen) const;");
+        emit(2, "inline int encode(void* buf, uint32_t offset, uint32_t maxlen) const;");
         emit(0, "");
         emit(2, "/**");
         emit(2, " * Check how many bytes are required to encode this message.");
         emit(2, " */");
-        emit(2, "inline int getEncodedSize() const;");
+        emit(2, "inline uint32_t getEncodedSize() const;");
         emit(0, "");
         emit(2, "/**");
         emit(2, " * Decode a message from binary form into this instance.");
@@ -255,7 +255,7 @@ struct Emit : public Emitter
         emit(2, " * @param maxlen The maximum number of bytes to reqad while decoding.");
         emit(2, " * @return The number of bytes decoded, or <0 if an error occured.");
         emit(2, " */");
-        emit(2, "inline int decode(const void* buf, int offset, int maxlen);");
+        emit(2, "inline int decode(const void* buf, uint32_t offset, uint32_t maxlen);");
         emit(0, "");
         emit(2, "/**");
         emit(2, " * Retrieve the 64-bit fingerprint identifying the structure of the message.");
@@ -272,9 +272,9 @@ struct Emit : public Emitter
 
         emit(0, "");
         emit(2, "// ZCM support functions. Users should not call these");
-        emit(2, "inline int _encodeNoHash(void* buf, int offset, int maxlen) const;");
-        emit(2, "inline int _getEncodedSizeNoHash() const;");
-        emit(2, "inline int _decodeNoHash(const void* buf, int offset, int maxlen);");
+        emit(2, "inline int      _encodeNoHash(void* buf, uint32_t offset, uint32_t maxlen) const;");
+        emit(2, "inline uint32_t _getEncodedSizeNoHash() const;");
+        emit(2, "inline int      _decodeNoHash(const void* buf, uint32_t offset, uint32_t maxlen);");
         emit(2, "inline static uint64_t _computeHash(const __zcm_hash_ptr* p);");
         emit(0, "};");
         emit(0, "");
@@ -289,17 +289,18 @@ struct Emit : public Emitter
     void emitEncode()
     {
         const char* sn = zs.structname.shortname.c_str();
-        emit(0, "int %s::encode(void* buf, int offset, int maxlen) const", sn);
+        emit(0, "int %s::encode(void* buf, uint32_t offset, uint32_t maxlen) const", sn);
         emit(0, "{");
-        emit(1,     "int pos = 0, tlen;");
+        emit(1,     "uint32_t pos = 0;");
+        emit(1,     "int thislen;");
         emit(1,     "int64_t hash = (int64_t)getHash();");
         emit(0, "");
-        emit(1,     "tlen = __int64_t_encode_%sarray(buf, offset + pos, maxlen - pos, &hash, 1);",
+        emit(1,     "thislen = __int64_t_encode_%sarray(buf, offset + pos, maxlen - pos, &hash, 1);",
                     zcm.gopt->getBool("little-endian-encoding") ? "little_endian_" : "");
-        emit(1,     "if(tlen < 0) return tlen; else pos += tlen;");
+        emit(1,     "if(thislen < 0) return thislen; else pos += thislen;");
         emit(0, "");
-        emit(1,     "tlen = this->_encodeNoHash(buf, offset + pos, maxlen - pos);");
-        emit(1,     "if (tlen < 0) return tlen; else pos += tlen;");
+        emit(1,     "thislen = this->_encodeNoHash(buf, offset + pos, maxlen - pos);");
+        emit(1,     "if (thislen < 0) return thislen; else pos += thislen;");
         emit(0, "");
         emit(1,     "return pos;");
         emit(0, "}");
@@ -309,7 +310,7 @@ struct Emit : public Emitter
     void emitEncodedSize()
     {
         const char* sn = zs.structname.shortname.c_str();
-        emit(0,"int %s::getEncodedSize() const", sn);
+        emit(0,"uint32_t %s::getEncodedSize() const", sn);
         emit(0,"{");
         emit(1, "return 8 + _getEncodedSizeNoHash();");
         emit(0,"}");
@@ -319,9 +320,10 @@ struct Emit : public Emitter
     void emitDecode()
     {
         const char* sn = zs.structname.shortname.c_str();
-        emit(0, "int %s::decode(const void* buf, int offset, int maxlen)", sn);
+        emit(0, "int %s::decode(const void* buf, uint32_t offset, uint32_t maxlen)", sn);
         emit(0, "{");
-        emit(1,     "int pos = 0, thislen;");
+        emit(1,     "uint32_t pos = 0;");
+        emit(1,     "int thislen;");
         emit(0, "");
         emit(1,     "int64_t msg_hash;");
         emit(1,     "thislen = __int64_t_decode_%sarray(buf, offset + pos, maxlen - pos, &msg_hash, 1);",
@@ -413,7 +415,7 @@ struct Emit : public Emitter
             ZCMGen::isPrimitiveType(mtn) && mtn != "string") {
 
             auto& dim = zm.dimensions[depth];
-            emitStart(indent, "tlen = __%s_encode_%sarray(buf, offset + pos, maxlen - pos, &this->%s",
+            emitStart(indent, "thislen = __%s_encode_%sarray(buf, offset + pos, maxlen - pos, &this->%s",
                       mtn.c_str(),
                       zcm.gopt->getBool("little-endian-encoding") ? "little_endian_" : "",
                       zm.membername.c_str());
@@ -421,7 +423,7 @@ struct Emit : public Emitter
                 emitContinue("[a%d]", i);
             emitEnd("[0], %s%s);", dimSizePrefix(dim.size).c_str(), dim.size.c_str());
 
-            emit(indent, "if(tlen < 0) return tlen; else pos += tlen;");
+            emit(indent, "if(thislen < 0) return thislen; else pos += thislen;");
             return;
         }
         if(depth == ndims) {
@@ -430,15 +432,15 @@ struct Emit : public Emitter
                 for(int i = 0; i < depth; ++i)
                     emitContinue("[a%d]", i);
                 emitEnd(".c_str();");
-                emit(indent, "tlen = __string_encode_%sarray(buf, offset + pos, maxlen - pos, &__cstr, 1);",
+                emit(indent, "thislen = __string_encode_%sarray(buf, offset + pos, maxlen - pos, &__cstr, 1);",
                              zcm.gopt->getBool("little-endian-encoding") ? "little_endian_" : "");
             } else {
-                emitStart(indent, "tlen = this->%s", zm.membername.c_str());
+                emitStart(indent, "thislen = this->%s", zm.membername.c_str());
                 for(int i = 0; i < depth; ++i)
                     emitContinue("[a%d]", i);
                 emitEnd("._encodeNoHash(buf, offset + pos, maxlen - pos);");
             }
-            emit(indent, "if(tlen < 0) return tlen; else pos += tlen;");
+            emit(indent, "if(thislen < 0) return thislen; else pos += thislen;");
             return;
         }
 
@@ -455,16 +457,17 @@ struct Emit : public Emitter
     {
         const char* sn = zs.structname.shortname.c_str();
         if(zs.members.size() == 0) {
-            emit(0, "int %s::_encodeNoHash(void*, int, int) const", sn);
+            emit(0, "int %s::_encodeNoHash(void* , uint32_t, uint32_t) const", sn);
             emit(0, "{");
             emit(1,     "return 0;");
             emit(0, "}");
             emit(0, "");
             return;
         }
-        emit(0, "int %s::_encodeNoHash(void* buf, int offset, int maxlen) const", sn);
+        emit(0, "int %s::_encodeNoHash(void* buf, uint32_t offset, uint32_t maxlen) const", sn);
         emit(0, "{");
-        emit(1,     "int pos = 0, tlen;");
+        emit(1,     "uint32_t pos = 0;");
+        emit(1,     "int thislen;");
         emit(0, "");
         for (auto& zm : zs.members) {
 
@@ -476,16 +479,16 @@ struct Emit : public Emitter
                 if (ZCMGen::isPrimitiveType(mtn)) {
                     if(mtn == "string") {
                         emit(1, "char* %s_cstr = (char*) this->%s.c_str();", mn, mn);
-                        emit(1, "tlen = __string_encode_%sarray(buf, offset + pos, maxlen - pos, &%s_cstr, 1);",
+                        emit(1, "thislen = __string_encode_%sarray(buf, offset + pos, maxlen - pos, &%s_cstr, 1);",
                                 zcm.gopt->getBool("little-endian-encoding") ? "little_endian_" : "",
                                 mn);
                     } else {
-                        emit(1, "tlen = __%s_encode_%sarray(buf, offset + pos, maxlen - pos, &this->%s, 1);",
+                        emit(1, "thislen = __%s_encode_%sarray(buf, offset + pos, maxlen - pos, &this->%s, 1);",
                              mtn.c_str(),
                              zcm.gopt->getBool("little-endian-encoding") ? "little_endian_" : "",
                              mn);
                     }
-                    emit(1, "if(tlen < 0) return tlen; else pos += tlen;");
+                    emit(1, "if(thislen < 0) return thislen; else pos += thislen;");
                 } else {
                     _encodeRecursive(zm, 0, 0);
                 }
@@ -514,7 +517,7 @@ struct Emit : public Emitter
     void emitEncodedSizeNohash()
     {
         const char* sn = zs.structname.shortname.c_str();
-        emit(0, "int %s::_getEncodedSizeNoHash() const", sn);
+        emit(0, "uint32_t %s::_getEncodedSizeNoHash() const", sn);
         emit(0, "{");
         if(zs.members.size() == 0) {
             emit(1,     "return 0;");
@@ -522,7 +525,7 @@ struct Emit : public Emitter
             emit(0,"");
             return;
         }
-        emit(1,     "int enc_size = 0;");
+        emit(1,     "uint32_t enc_size = 0;");
         for (auto& zm : zs.members) {
             auto& mtn = zm.type.fullname;
             auto* mn = zm.membername.c_str();
@@ -586,35 +589,35 @@ struct Emit : public Emitter
                 ++decodeIndent;
             }
 
-            emitStart(decodeIndent, "tlen = __%s_decode_%sarray(buf, offset + pos, maxlen - pos, &this->%s",
+            emitStart(decodeIndent, "thislen = __%s_decode_%sarray(buf, offset + pos, maxlen - pos, &this->%s",
                                     mtn.c_str(),
                                     zcm.gopt->getBool("little-endian-encoding") ? "little_endian_" : "",
                                     mn);
             for(int i = 0; i < depth; ++i)
                 emitContinue("[a%d]", i);
             emitEnd("[0], %s);", dimSizeAccessor(dim.size).c_str());
-            emit(decodeIndent, "if(tlen < 0) return tlen; else pos += tlen;");
+            emit(decodeIndent, "if(thislen < 0) return thislen; else pos += thislen;");
             if (!zm.isConstantSizeArray()) {
                 emit(1 + depth, "}");
             }
         } else if(depth == ndims) {
             if (mtn == "string") {
                 emit(1 + depth, "int32_t __elem_len;");
-                emit(1 + depth, "tlen = __int32_t_decode_%sarray(buf, offset + pos, maxlen - pos, &__elem_len, 1);",
+                emit(1 + depth, "thislen = __int32_t_decode_%sarray(buf, offset + pos, maxlen - pos, &__elem_len, 1);",
                                 zcm.gopt->getBool("little-endian-encoding") ? "little_endian_" : "");
-                emit(1 + depth, "if(tlen < 0) return tlen; else pos += tlen;");
-                emit(1 + depth, "if(__elem_len > maxlen - pos) return -1;");
+                emit(1 + depth, "if(thislen < 0) return thislen; else pos += thislen;");
+                emit(1 + depth, "if((uint32_t)__elem_len > maxlen - pos) return -1;");
                 emitStart(1 + depth, "this->%s", mn);
                 for(int i = 0; i < depth; ++i)
                     emitContinue("[a%d]", i);
                 emitEnd(".assign(((const char*)buf) + offset + pos, __elem_len -  1);");
                 emit(1 + depth, "pos += __elem_len;");
             } else {
-                emitStart(1 + depth, "tlen = this->%s", mn);
+                emitStart(1 + depth, "thislen = this->%s", mn);
                 for(int i = 0; i < depth; ++i)
                     emitContinue("[a%d]", i);
                 emitEnd("._decodeNoHash(buf, offset + pos, maxlen - pos);");
-                emit(1 + depth, "if(tlen < 0) return tlen; else pos += tlen;");
+                emit(1 + depth, "if(thislen < 0) return thislen; else pos += thislen;");
             }
         } else {
             auto& dim = zm.dimensions[depth];
@@ -638,16 +641,17 @@ struct Emit : public Emitter
     {
         const char* sn = zs.structname.shortname.c_str();
         if (zs.members.size() == 0) {
-            emit(0, "int %s::_decodeNoHash(const void*, int, int)", sn);
+            emit(0, "int %s::_decodeNoHash(const void* , uint32_t, uint32_t)", sn);
             emit(0, "{");
             emit(1,     "return 0;");
             emit(0, "}");
             emit(0, "");
             return;
         }
-        emit(0, "int %s::_decodeNoHash(const void* buf, int offset, int maxlen)", sn);
+        emit(0, "int %s::_decodeNoHash(const void* buf, uint32_t offset, uint32_t maxlen)", sn);
         emit(0, "{");
-        emit(1,     "int pos = 0, tlen;");
+        emit(1,     "uint32_t pos = 0;");
+        emit(1,     "int thislen;");
         emit(0, "");
         for (auto& zm : zs.members) {
             auto& mtn = zm.type.fullname;
@@ -657,19 +661,19 @@ struct Emit : public Emitter
             if (ndims == 0 && ZCMGen::isPrimitiveType(mtn)) {
                 if(mtn == "string") {
                     emit(1, "int32_t __%s_len__;", mn);
-                    emit(1, "tlen = __int32_t_decode_%sarray(buf, offset + pos, maxlen - pos, &__%s_len__, 1);",
+                    emit(1, "thislen = __int32_t_decode_%sarray(buf, offset + pos, maxlen - pos, &__%s_len__, 1);",
                             zcm.gopt->getBool("little-endian-encoding") ? "little_endian_" : "",
                             mn);
-                    emit(1, "if(tlen < 0) return tlen; else pos += tlen;");
-                    emit(1, "if(__%s_len__ > maxlen - pos) return -1;", mn);
+                    emit(1, "if(thislen < 0) return thislen; else pos += thislen;");
+                    emit(1, "if((uint32_t)__%s_len__ > maxlen - pos) return -1;", mn);
                     emit(1, "this->%s.assign(((const char*)buf) + offset + pos, __%s_len__ - 1);", mn, mn);
                     emit(1, "pos += __%s_len__;", mn);
                 } else {
-                    emit(1, "tlen = __%s_decode_%sarray(buf, offset + pos, maxlen - pos, &this->%s, 1);",
+                    emit(1, "thislen = __%s_decode_%sarray(buf, offset + pos, maxlen - pos, &this->%s, 1);",
                             mtn.c_str(),
                             zcm.gopt->getBool("little-endian-encoding") ? "little_endian_" : "",
                             mn);
-                    emit(1, "if(tlen < 0) return tlen; else pos += tlen;");
+                    emit(1, "if(thislen < 0) return thislen; else pos += thislen;");
                 }
             } else {
                 _decodeRecursive(zm, 0);
