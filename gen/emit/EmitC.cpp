@@ -664,7 +664,7 @@ struct EmitSource : public Emit
 
         emit(0,"int %s_get_field(const %s* p, uint32_t i, zcm_field_t* f)", tn_, tn_);
         emit(0,"{");
-        emit(1,"if (0 > i || i >= %s_num_fields())", tn_);
+        emit(1,"if (i >= %s_num_fields())", tn_);
         emit(2,"return 1;");
         emit(1,"");
 
