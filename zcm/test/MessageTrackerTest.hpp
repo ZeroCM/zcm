@@ -39,7 +39,7 @@ class MessageTrackerTest : public CxxTest::TestSuite
         for (size_t i = 0; i < numMsgs; ++i) {
             example_t tmp = {};
             tmp.utime = i * 1e4;
-            mt.newMsg(&tmp, tmp.utime + 1);
+            mt.newMsg(tmp, tmp.utime + 1);
             TS_ASSERT_EQUALS(mt.lastMsgHostUtime(), tmp.utime + 1);
         }
         TS_ASSERT_DELTA(mt.getHz(), 100, 1e-5);
@@ -53,7 +53,7 @@ class MessageTrackerTest : public CxxTest::TestSuite
         for (size_t i = 0; i < numMsgs; ++i) {
             example_t tmp = {};
             tmp.utime = i + 101;
-            mt.newMsg(&tmp);
+            mt.newMsg(tmp);
         }
 
         vector<example_t*> gotRange = mt.getRange(101, 105);
@@ -115,7 +115,7 @@ class MessageTrackerTest : public CxxTest::TestSuite
             d.utime = 123456780 + (uint64_t)i;
             d.offset = 100 + i;
             d.bufInd = i;
-            mt.newMsg(&d, 0);
+            mt.newMsg(d, 0);
         }
         data_t* out = mt.get((uint64_t)123456785);
         TS_ASSERT(out != nullptr);
@@ -140,7 +140,7 @@ class MessageTrackerTest : public CxxTest::TestSuite
             d.utime = 1234567810 + (uint64_t)i;
             d.offset = 100 + i;
             d.bufInd = i;
-            mt.newMsg(&d);
+            mt.newMsg(d);
         }
         data_t* out = mt.get((uint64_t)1234567815);
         TS_ASSERT(out != nullptr);
@@ -194,15 +194,15 @@ class MessageTrackerTest : public CxxTest::TestSuite
          }
     }
 
-    void testNoUtime()
-    {
-        struct test_t {
-            int test;
-            virtual ~test_t() {}
-        };
-        // This would not compile if it were broken
-        zcm::Tracker<test_t> mt(0.25, 1);
-    }
+    //void testNoUtime()
+    //{
+        //struct test_t {
+            //int test;
+            //virtual ~test_t() {}
+        //};
+        //// This should not compile
+        //zcm::Tracker<test_t> mt(0.25, 1);
+    //}
 
     void testSynchronizedMessageDispatcher()
     {
@@ -236,7 +236,7 @@ class MessageTrackerTest : public CxxTest::TestSuite
         };
 
         zcm::SynchronizedMessageDispatcher <zcm::MessageTracker<example_t>, tracker>::callback cb =
-        [&] (const example_t *a, example_t *b, void *usr) {
+        [&] (example_t *a, example_t *b, void *usr) {
             TS_ASSERT(a); TS_ASSERT(b);
             if (pairDetected == 0) {
                 TS_ASSERT_EQUALS(a->utime, 3);
@@ -245,7 +245,7 @@ class MessageTrackerTest : public CxxTest::TestSuite
             }
             TS_ASSERT_EQUALS(b->utime, 10);
             ++pairDetected;
-            delete b;
+            delete a; delete b;
         };
 
         zcm::ZCM zcmL;
@@ -260,26 +260,73 @@ class MessageTrackerTest : public CxxTest::TestSuite
 
         // Message type 2
         ss << "New message b: " << e1.utime; TS_TRACE(ss.str()); ss.str("");
-        smt.t2.newMsg(&e1, 0);
+        smt.t2.handle(&e1);
         ss << "New message b: " << e2.utime; TS_TRACE(ss.str()); ss.str("");
-        smt.t2.newMsg(&e2, 0);
+        smt.t2.handle(&e2);
 
         // Message type 1
         ss << "New message a: " << e3.utime; TS_TRACE(ss.str()); ss.str("");
-        smt.t1.newMsg(&e3, 0);
+        smt.t1.handle(&e3);
 
         // Message type 2
         ss << "New message b: " << e5.utime; TS_TRACE(ss.str()); ss.str("");
-        smt.t2.newMsg(&e5, 0);
+        smt.t2.handle(&e5);
         ss << "New message b: " << e6.utime; TS_TRACE(ss.str()); ss.str("");
-        smt.t2.newMsg(&e6, 0);
+        smt.t2.handle(&e6);
 
         // Message type 1
         ss << "New message a: " << e4.utime; TS_TRACE(ss.str()); ss.str("");
-        smt.t1.newMsg(&e4, 0);
-        ss << "New message a: " << e7.utime; TS_TRACE(ss.str()); ss.str("");
-        smt.t2.newMsg(&e7, 0);
+        smt.t1.handle(&e4);
+        ss << "New message b: " << e7.utime; TS_TRACE(ss.str()); ss.str("");
+        smt.t2.handle(&e7);
 
         TS_ASSERT_EQUALS(pairDetected, 2);
+    }
+
+    void testSynchronizedMessageWithModifiedData()
+    {
+        int pairDetected = 0;
+
+        example_t e1 = {}; e1.utime = 1; e1.data = 0;
+        example_t e2 = {}; e2.utime = 2; e2.data = 2;
+
+        class tracker : public zcm::MessageTracker<example_t> {
+          public:
+            tracker(zcm::ZCM* zcmLocal, std::string channel,
+                    double maxTimeErr, size_t maxMsgs) :
+                zcm::Tracker<example_t>(maxTimeErr, maxMsgs),
+                zcm::MessageTracker<example_t>(zcmLocal, channel, maxTimeErr, maxMsgs) {}
+
+            uint64_t newMsg(const example_t& msg, uint64_t hostUtime = UINT64_MAX) override
+            {
+                example_t newMsg = msg;
+                newMsg.data = 1;
+                return Tracker<example_t>::newMsg(newMsg, hostUtime);
+            }
+        };
+
+        zcm::SynchronizedMessageDispatcher <tracker, zcm::MessageTracker<example_t>>::callback
+            cb = [&] (example_t *a, example_t *b, void *usr) {
+                     TS_ASSERT(a); TS_ASSERT(b);
+                     TS_ASSERT_EQUALS(a->data, 1);
+                     ++pairDetected;
+                     delete a; delete b;
+                 };
+
+        zcm::ZCM zcmL;
+
+        zcm::SynchronizedMessageDispatcher<tracker, zcm::MessageTracker<example_t>>
+            smt(&zcmL,
+                "",    10,
+                "", 1, 10,
+                cb);
+
+        std::stringstream ss;
+
+        // Message type 2
+        smt.t2.handle(&e2);
+        smt.t1.handle(&e1);
+
+        TS_ASSERT_EQUALS(pairDetected, 1);
     }
 };

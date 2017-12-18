@@ -53,6 +53,7 @@ def add_zcm_configure_options(ctx):
                   type='choice', choices=['true', 'false'],
                   action='store', help='Include the zcmtype name in the hash generation')
 
+    add_use_option('dev',         'Enable all dev tools')
     add_use_option('clang',       'Enable build using clang sanitizers')
     add_use_option('cxxtest',     'Enable build of cxxtests')
 
@@ -122,6 +123,8 @@ def process_zcm_configure_options(ctx):
     env = ctx.env
     def hasopt(key):
         return opt.use_all or getattr(opt, key)
+    def hasoptDev(key):
+        return opt.use_dev or getattr(opt, key)
 
     env.USING_CPP         = True
     env.USING_JAVA        = hasopt('use_java') and attempt_use_java(ctx)
@@ -139,8 +142,8 @@ def process_zcm_configure_options(ctx):
     env.HASH_TYPENAME      = getattr(opt, 'hash_typename')
     env.HASH_MEMBER_NAMES  = getattr(opt, 'hash_member_names')
 
-    env.USING_CLANG        = getattr(opt, 'use_clang')  and attempt_use_clang(ctx)
-    env.USING_CXXTEST      = getattr(opt, 'use_cxxtest') and attempt_use_cxxtest(ctx)
+    env.USING_CLANG        = hasoptDev('use_clang')  and attempt_use_clang(ctx)
+    env.USING_CXXTEST      = hasoptDev('use_cxxtest') and attempt_use_cxxtest(ctx)
 
     ZMQ_REQUIRED = env.USING_TRANS_IPC or env.USING_TRANS_INPROC
     if ZMQ_REQUIRED and not env.USING_ZMQ:

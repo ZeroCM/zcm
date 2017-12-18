@@ -141,6 +141,9 @@ class Tracker
     //// Iterator Defn and Ops ////
     ///////////////////////////////
 
+    // Note: Be careful of asynchronous iterator invalidation if using a tracker
+    //       subscribed to a running zcm thread.
+
     typedef typename ContainerType::              iterator               iterator;
     typedef typename ContainerType::        const_iterator         const_iterator;
     typedef typename ContainerType::      reverse_iterator       reverse_iterator;
@@ -158,6 +161,8 @@ class Tracker
 
     template <typename IterType>
     inline IterType erase(IterType iter) { return buf.erase(iter); }
+
+    ///////////////////////////////
 
     uint64_t getMsgUtime(const MsgType* msg) const
     {
@@ -224,7 +229,7 @@ class Tracker
     }
 
     // Same semantics as get()
-    T* get(uint64_t utime) const
+    virtual T* get(uint64_t utime) const
     {
         std::unique_lock<BufLockType> lk(bufLock);
         return get(utime, buf.begin(), buf.end(), &lk);
@@ -238,15 +243,11 @@ class Tracker
     T* get(uint64_t utime, InputIter first, InputIter last,
            std::unique_lock<lockType>* lk = nullptr) const
     {
-        static_assert(hasUtime<typename std::remove_pointer<typename
-                      std::iterator_traits<InputIter>::value_type>::type>::present,
-                      "Cannot call get with iterators that contain types without a utime field");
-
-        MsgType *m0 = nullptr, *m1 = nullptr; // two poses bracketing the desired utime
+        T *m0 = nullptr, *m1 = nullptr; // two poses bracketing the desired utime
         uint64_t m0Utime = 0, m1Utime = UINT64_MAX;
 
-        const MsgType* _m0 = nullptr;
-        const MsgType* _m1 = nullptr;
+        const T* _m0 = nullptr;
+        const T* _m1 = nullptr;
 
         // The reason why we do a linear search is to support the ability
         // to skip around in logs. We want to support messages with
@@ -255,8 +256,9 @@ class Tracker
         for (auto iter = first; iter != last; ++iter) {
             // Note: This is unsafe unless we rely on the static assert at the beginning of
             //       the function
-            const MsgType* m = (const MsgType*) *iter;
+            auto* m = *iter;
             uint64_t mUtime = getMsgUtime(m);
+            if (mUtime == UINT64_MAX) mUtime = m->utime;
 
             if (mUtime <= utime && (_m0 == nullptr || mUtime > m0Utime)) {
                 _m0 = m;
@@ -269,8 +271,8 @@ class Tracker
             }
         }
 
-        if (_m0 != nullptr) m0 = new MsgType(*_m0);
-        if (_m1 != nullptr) m1 = new MsgType(*_m1);
+        if (_m0 != nullptr) m0 = new T(*_m0);
+        if (_m1 != nullptr) m1 = new T(*_m1);
 
         if (lk && lk->owns_lock()) lk->unlock();
 
@@ -305,7 +307,7 @@ class Tracker
     }
 
     // This search is inclusive and can't return a message outside [A,B]
-    std::vector<T*> getRange(uint64_t utimeA, uint64_t utimeB) const
+    virtual std::vector<T*> getRange(uint64_t utimeA, uint64_t utimeB) const
     {
         std::unique_lock<BufLockType> lk(bufLock);
 
@@ -348,9 +350,9 @@ class Tracker
     // hostUtime is only used and required when _msg does not have an
     // internal utime field
     // Returns utime of message
-    virtual uint64_t newMsg(const T* _msg, uint64_t hostUtime = UINT64_MAX)
+    virtual uint64_t newMsg(const T& _msg, uint64_t hostUtime = UINT64_MAX)
     {
-        MsgType* tmp = new MsgType(*_msg, hostUtime);
+        MsgType* tmp = new MsgType(_msg, hostUtime);
         uint64_t tmpUtime = getMsgUtime(tmp);
 
         {
@@ -392,7 +394,7 @@ class Tracker
         if (thr) {
             if (callbackLock.try_lock()) {
                 if (callbackMsg) delete callbackMsg;
-                callbackMsg = new MsgType(*_msg, hostUtime);
+                callbackMsg = new MsgType(_msg, hostUtime);
                 callbackLock.unlock();
                 callbackCv.notify_all();
             }
@@ -461,13 +463,11 @@ class MessageTracker : public virtual Tracker<T>
     MessageTracker() {}
 
     void _handle(const zcm::ReceiveBuffer* rbuf, const std::string& chan, const T* _msg)
-    { this->handle(rbuf, chan, _msg); }
+    { this->handle(_msg, rbuf->recv_utime); }
 
   protected:
-    virtual uint64_t handle(const zcm::ReceiveBuffer* rbuf,
-                            const std::string& chan,
-                            const T* _msg)
-    { return Tracker<T>::newMsg(_msg, rbuf->recv_utime); }
+    virtual uint64_t handle(const T* _msg, uint64_t hostUtime = UINT64_MAX)
+    { return this->newMsg(*_msg, hostUtime); }
 
   public:
     MessageTracker(zcm::ZCM* zcmLocal, const std::string& channel,
@@ -489,11 +489,11 @@ class MessageTracker : public virtual Tracker<T>
 // This class will attempt to synchronize messages of type Type1Tracker::ZcmType to
 // messages of type Type2Tracker::ZcmType.
 //
-// If you're interested in the details, here they are:
+// details:
 //
 // Whenever a Synchronizer receives a message of Type1Tracker::ZcmType
 // it checks to see if there is a message of type Type2Tracker::ZcmType that has a utime no
-// earlier than than the received message of ZcmType1. If there is a message of
+// earlier than the received message of ZcmType1. If there is a message of
 // type Type2Tracker::ZcmType that satisfies this criteria, then `get` will return a valid pair
 // with the original message and the result of `t2.get(msg1.utime)`. If there is
 // not a later message, this class will wait until a message of type Type2Tracker::ZcmType is
@@ -506,9 +506,9 @@ template <typename Type1Tracker, typename Type2Tracker>
 class SynchronizedMessageDispatcher
 {
   public:
-    typedef std::function<void(const typename Type1Tracker::ZcmType*,
-                                     typename Type2Tracker::ZcmType*,
-                                     void*)> callback;
+    typedef std::function<void(typename Type1Tracker::ZcmType*,
+                               typename Type2Tracker::ZcmType*,
+                               void*)> callback;
 
   private:
     class TrackerOverride1 : public Type1Tracker
@@ -517,11 +517,13 @@ class SynchronizedMessageDispatcher
         SynchronizedMessageDispatcher* smt;
 
       public:
-        uint64_t handle(const zcm::ReceiveBuffer* rbuf, const std::string& chan,
-                        const typename Type1Tracker::ZcmType* _msg) override
+        uint64_t handle(const typename Type1Tracker::ZcmType* _msg,
+                        uint64_t hostUtime = UINT64_MAX) override
         {
-            uint64_t utime = Type1Tracker::handle(rbuf, chan, _msg);
-            smt->process1(_msg, utime);
+            uint64_t utime = Type1Tracker::handle(_msg, hostUtime);
+            if (this->begin() == this->end()) return utime;
+            auto last = std::prev(this->end());
+            smt->process(last);
             return utime;
         }
 
@@ -539,11 +541,11 @@ class SynchronizedMessageDispatcher
         SynchronizedMessageDispatcher* smt;
 
       public:
-        uint64_t handle(const zcm::ReceiveBuffer* rbuf, const std::string& chan,
-                        const typename Type2Tracker::ZcmType* _msg) override
+        uint64_t handle(const typename Type2Tracker::ZcmType* _msg,
+                        uint64_t hostUtime = UINT64_MAX) override
         {
-            uint64_t utime = Type2Tracker::handle(rbuf, chan, _msg);
-            smt->process2(utime);
+            uint64_t utime = Type2Tracker::handle(_msg, hostUtime);
+            smt->process(smt->t1.begin());
             return utime;
         }
 
@@ -554,28 +556,22 @@ class SynchronizedMessageDispatcher
             Type2Tracker(zcmLocal, channel, maxTimeErr, maxMsgs), smt(smt) {}
     };
 
-    void process1(const typename Type1Tracker::ZcmType* msg, uint64_t utime)
+    void process(typename Type1Tracker::iterator t1Begin)
     {
         auto it = t2.crbegin();
         if (it == t2.crend()) return;
-        if (t2.getMsgUtime(*it) >= utime) {
-            auto msg2 = t2.get(utime);
-            if (msg2) {
-                onSynchronizedMsg(msg, msg2, usr);
-                delete *t1.rbegin();
-                t1.erase(t1.rbegin().base());
-            }
-        }
-    }
 
-    void process2(uint64_t utime)
-    {
-        for (auto it = t1.begin(); it != t1.end();) {
-            if (t1.getMsgUtime(*it) < utime) {
-                auto msg2 = t2.get(t1.getMsgUtime(*it));
+        uint64_t t2Utime = t2.getMsgUtime(*it);
+
+        for (auto it = t1Begin; it != t1.end();) {
+            uint64_t t1Utime = t1.getMsgUtime(*it);
+            if (t1Utime <= t2Utime) {
+                auto msg2 = t2.get(t1Utime);
                 if (msg2) {
                     onSynchronizedMsg(*it, msg2, usr);
-                    delete *it;
+                    // Note that we intentionally DO NOT delete *it since we
+                    // forfeit this memory to the callback
+                    // delete *it;
                     it = t1.erase(it);
                     continue;
                 }
@@ -605,6 +601,19 @@ class SynchronizedMessageDispatcher
         t1(zcmLocal, channel_1,            0, maxMsgs_1, this),
         t2(zcmLocal, channel_2, maxTimeErr_2, maxMsgs_2, this),
         onSynchronizedMsg(onSynchronizedMsg), usr(usr) {}
+
+    void newType1Msg(const typename Type1Tracker::ZcmType* msg)
+    {
+        t1.handle(msg);
+    }
+
+    void newType2Msg(const typename Type2Tracker::ZcmType* msg)
+    {
+        t2.handle(msg);
+    }
+
+    Type1Tracker* getType1Ptr() { return &t1; }
+    Type2Tracker* getType2Ptr() { return &t2; }
 
     friend class ::MessageTrackerTest;
 };

@@ -14,6 +14,7 @@ atomic_bool done {false};
 static void callback(example_t* msg, uint64_t utime, void* usr)
 {
     done = true;
+    delete msg;
 }
 
 int main(int argc, char *argv[])
