@@ -502,15 +502,37 @@ class MessageTracker : public virtual Tracker<T>
 // TODO: Make a SynchronizedTracker class that this class uses.
 //       Similar to MessageTracker and Tracker above
 //
+
 template <typename Type1Tracker, typename Type2Tracker>
 class SynchronizedMessageDispatcher
 {
+
   public:
     typedef std::function<void(typename Type1Tracker::ZcmType*,
                                typename Type2Tracker::ZcmType*,
                                void*)> callback;
-
   private:
+    template <std::size_t... Is>
+    struct indices {};
+
+    template <std::size_t N, std::size_t... Is>
+    struct build_indices : build_indices<N-1, N-1, Is...> {};
+
+    template <std::size_t... Is>
+    struct build_indices<0, Is...> : indices<Is...> {};
+
+    template <typename... Args1, std::size_t... Is1,
+              typename... Args2, std::size_t... Is2>
+    SynchronizedMessageDispatcher(zcm::ZCM* zcmLocal,
+                                  const std::string& channel1,                     size_t maxMsgs1,
+                                  const std::string& channel2, double maxTimeErr2, size_t maxMsgs2,
+                                  callback onSynchronizedMsg, void* usr,
+                                  std::tuple<Args1...> args1, indices<Is1...> idc1,
+                                  std::tuple<Args2...> args2, indices<Is2...> idc2) :
+        t1(zcmLocal, channel1,           0, maxMsgs1, this, std::get<Is1>(args1)...),
+        t2(zcmLocal, channel2, maxTimeErr2, maxMsgs2, this, std::get<Is2>(args2)...),
+        onSynchronizedMsg(onSynchronizedMsg), usr(usr) {}
+
     class TrackerOverride1 : public Type1Tracker
     {
       private:
@@ -527,11 +549,14 @@ class SynchronizedMessageDispatcher
             return utime;
         }
 
+        template <typename... Args>
         TrackerOverride1(zcm::ZCM* zcmLocal, const std::string& channel,
                          double maxTimeErr, size_t maxMsgs,
-                         SynchronizedMessageDispatcher* smt) :
+                         SynchronizedMessageDispatcher* smt,
+                         Args&&... args) :
             Tracker<typename Type1Tracker::ZcmType>(maxTimeErr, maxMsgs),
-            Type1Tracker(zcmLocal, channel, maxTimeErr, maxMsgs), smt(smt)
+            Type1Tracker(zcmLocal, channel, maxTimeErr, maxMsgs, std::forward<Args>(args)...),
+            smt(smt)
         {}
     };
 
@@ -549,11 +574,14 @@ class SynchronizedMessageDispatcher
             return utime;
         }
 
+        template <typename... Args>
         TrackerOverride2(zcm::ZCM* zcmLocal, const std::string& channel,
                          double maxTimeErr, size_t maxMsgs,
-                         SynchronizedMessageDispatcher* smt) :
+                         SynchronizedMessageDispatcher* smt,
+                         Args&&... args) :
             Tracker<typename Type2Tracker::ZcmType>(maxTimeErr, maxMsgs),
-            Type2Tracker(zcmLocal, channel, maxTimeErr, maxMsgs), smt(smt) {}
+            Type2Tracker(zcmLocal, channel, maxTimeErr, maxMsgs, std::forward<Args>(args)...),
+            smt(smt) {}
     };
 
     void process(typename Type1Tracker::iterator t1Begin)
@@ -594,13 +622,20 @@ class SynchronizedMessageDispatcher
                   "Tracker type2 must be an extension of MessageTracker<type2>");
 
   public:
+    template <typename... Args1, std::size_t... Is1,
+              typename... Args2, std::size_t... Is2>
     SynchronizedMessageDispatcher(zcm::ZCM* zcmLocal,
-                                  const std::string& channel_1,                      size_t maxMsgs_1,
-                                  const std::string& channel_2, double maxTimeErr_2, size_t maxMsgs_2,
-                                  callback onSynchronizedMsg, void* usr = nullptr) :
-        t1(zcmLocal, channel_1,            0, maxMsgs_1, this),
-        t2(zcmLocal, channel_2, maxTimeErr_2, maxMsgs_2, this),
-        onSynchronizedMsg(onSynchronizedMsg), usr(usr) {}
+                                  const std::string& channel1,                     size_t maxMsgs1,
+                                  const std::string& channel2, double maxTimeErr2, size_t maxMsgs2,
+                                  callback onSynchronizedMsg, void* usr = nullptr,
+                                  std::tuple<Args1...> args1 = {},
+                                  std::tuple<Args2...> args2 = {}) :
+        SynchronizedMessageDispatcher(zcmLocal,
+                                      channel1,              maxMsgs1,
+                                      channel2, maxTimeErr2, maxMsgs2,
+                                      onSynchronizedMsg, usr,
+                                      args1, build_indices<sizeof...(Args1)>{},
+                                      args2, build_indices<sizeof...(Args2)>{}) {}
 
     void newType1Msg(const typename Type1Tracker::ZcmType* msg)
     {
