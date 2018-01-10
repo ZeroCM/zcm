@@ -527,8 +527,8 @@ class SynchronizedMessageDispatcher
                                   const std::string& channel1,                     size_t maxMsgs1,
                                   const std::string& channel2, double maxTimeErr2, size_t maxMsgs2,
                                   callback onSynchronizedMsg, void* usr,
-                                  std::tuple<Args1...> args1, indices<Is1...> idc1,
-                                  std::tuple<Args2...> args2, indices<Is2...> idc2) :
+                                  const std::tuple<Args1...>& args1, const indices<Is1...>& idc1,
+                                  const std::tuple<Args2...>& args2, const indices<Is2...>& idc2) :
         t1(zcmLocal, channel1,           0, maxMsgs1, this, std::get<Is1>(args1)...),
         t2(zcmLocal, channel2, maxTimeErr2, maxMsgs2, this, std::get<Is2>(args2)...),
         onSynchronizedMsg(onSynchronizedMsg), usr(usr) {}
@@ -628,8 +628,8 @@ class SynchronizedMessageDispatcher
                                   const std::string& channel1,                     size_t maxMsgs1,
                                   const std::string& channel2, double maxTimeErr2, size_t maxMsgs2,
                                   callback onSynchronizedMsg, void* usr = nullptr,
-                                  std::tuple<Args1...> args1 = {},
-                                  std::tuple<Args2...> args2 = {}) :
+                                  const std::tuple<Args1...>& args1 = {},
+                                  const std::tuple<Args2...>& args2 = {}) :
         SynchronizedMessageDispatcher(zcmLocal,
                                       channel1,              maxMsgs1,
                                       channel2, maxTimeErr2, maxMsgs2,
