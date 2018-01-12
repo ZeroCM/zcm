@@ -159,6 +159,7 @@ class Tracker
     inline       reverse_iterator    rend()       { return buf.   rend(); }
     inline const_reverse_iterator   crend() const { return buf.  crend(); }
 
+    // Note: you probably want to `delete *iter` before calling erase on it
     template <typename IterType>
     inline IterType erase(IterType iter) { return buf.erase(iter); }
 
