@@ -140,8 +140,8 @@ license you like.
 
 // If non-zero, the library uses exceptions to report bad input instead of C
 // assertion macros. The default is to use exceptions.
-#ifndef JSON_USE_EXCEPTION
-#define JSON_USE_EXCEPTION 1
+#ifndef ZCM_JSON_USE_EXCEPTION
+#define ZCM_JSON_USE_EXCEPTION 0
 #endif
 
 /// If defined, indicates that the source file is amalgated
@@ -2106,7 +2106,7 @@ JSON_API JSONCPP_OSTREAM& operator<<(JSONCPP_OSTREAM&, const Value& root);
  *  cause an abort() or seg-fault, so these macros are used only
  *  for pre-condition violations and internal logic errors.
  */
-#if JSON_USE_EXCEPTION
+#if ZCM_JSON_USE_EXCEPTION
 
 // @todo <= add detail about condition in exception
 # define JSON_ASSERT(condition)                                                \
@@ -2119,7 +2119,7 @@ JSON_API JSONCPP_OSTREAM& operator<<(JSONCPP_OSTREAM&, const Value& root);
     abort();                                                                   \
   }
 
-#else // JSON_USE_EXCEPTION
+#else // ZCM_JSON_USE_EXCEPTION
 
 # define JSON_ASSERT(condition) assert(condition)
 
