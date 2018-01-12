@@ -107,8 +107,8 @@ license you like.
 
 // If non-zero, the library uses exceptions to report bad input instead of C
 // assertion macros. The default is to use exceptions.
-#ifndef JSON_USE_EXCEPTION
-#define JSON_USE_EXCEPTION 1
+#ifndef ZCM_JSON_USE_EXCEPTION
+#define ZCM_JSON_USE_EXCEPTION 0
 #endif
 
 /// If defined, indicates that the source file is amalgated
