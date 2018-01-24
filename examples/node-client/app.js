@@ -30,7 +30,9 @@ function recursiveExample()
 {
     setInterval(function() {
         var msg = new zcmtypes.example_t();
-        msg.timestamp   = 0;
+        // Test both methods of accessing consts
+        msg.timestamp   = zcmtypes.example_t.test_const_32_max_hex;
+        msg.timestamp   = msg.test_const_32_max_hex;
         msg.position    = [2, 4, 6];
         msg.orientation = [0, 2, 4, 6];
         msg.num_ranges  = 2;
@@ -88,7 +90,8 @@ packageExample();
 var typedSub = null;
 z.subscribe("RECURSIVE_EXAMPLE", zcmtypes.recursive_t, function(channel, msg) {
     console.log("Typed message received on channel " + channel);
-    assert('e' in msg && 'timestamp' in msg.e && msg.e.timestamp == 0, "Wrong msg received");
+    assert('e' in msg && 'timestamp' in msg.e &&
+           msg.e.timestamp == zcmtypes.example_t.test_const_32_max_hex, "Wrong msg received");
 }, function successCb (_sub) {
     typedSub = _sub;
 });

@@ -555,24 +555,32 @@ struct EmitModule : public Emitter
         for (auto& zm : zs.members)
             emit(1, "this.%s = %s;", zm.membername.c_str(), getZeroInit(zm).c_str());
         emit(0, "");
+        emitConstants(zs, "this", 1);
+        emit(0, "");
+        emit(1, "this.__hash = %s.__get_hash_recursive().toString();", sn);
+        emit(0, "}");
+    }
+
+    void emitConstants(const ZCMStruct& zs, const string& prefix, size_t indent = 0)
+    {
         for (size_t i = 0; i < zs.constants.size(); ++i) {
             static string hexPrefix = "0x";
             if (zs.constants[i].type == "int64_t") {
                 if (zs.constants[i].valstr.size() > 2 &&
                     zs.constants[i].valstr.compare(0, hexPrefix.length(), hexPrefix) == 0)
-                    emit(1, "this.%s = bigint(\"%s\", 16).toString();",
-                            zs.constants[i].membername.c_str(),
-                            zs.constants[i].valstr.c_str() + 2);
+                    emit(indent, "%s.%s = bigint(\"%s\", 16).toString();", prefix.c_str(),
+                                 zs.constants[i].membername.c_str(),
+                                 zs.constants[i].valstr.c_str() + 2);
                 else
-                    emit(1, "this.%s = bigint(\"%s\").toString();",
-                            zs.constants[i].membername.c_str(), zs.constants[i].valstr.c_str());
+                    emit(indent, "%s.%s = bigint(\"%s\").toString();", prefix.c_str(),
+                                 zs.constants[i].membername.c_str(),
+                                 zs.constants[i].valstr.c_str());
             } else {
-                emit(1, "this.%s = %s;",
-                        zs.constants[i].membername.c_str(), zs.constants[i].valstr.c_str());
+                emit(indent, "%s.%s = %s;", prefix.c_str(),
+                             zs.constants[i].membername.c_str(),
+                             zs.constants[i].valstr.c_str());
             }
         }
-        emit(1, "this.__hash = %s.__get_hash_recursive().toString();", sn);
-        emit(0, "}");
     }
 
     void emitStruct(ZCMStruct& zs)
@@ -590,6 +598,7 @@ struct EmitModule : public Emitter
         emitEncode(zs);
         emitDecodeOne(zs);
         emitDecode(zs);
+        emitConstants(zs, sn);
 
         emit(0, "exports.%s = %s;", fn, sn);
         emit(0, "");
