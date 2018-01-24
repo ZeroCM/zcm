@@ -19,15 +19,10 @@ var zcm = (function(){
                 subscriptions[subId].callback(data.channel, data.msg);
         });
 
-        socket.on('zcmtypes', function (data) {
-            zcmtypes = data;
-            Object.keys(zcmtypes).forEach(function(key) {
-                var tmp = zcmtypes[key];
-                zcmtypes[key] = function() { return JSON.parse(JSON.stringify(tmp)); };
-            });
-        });
+        socket.on('zcmtypes', function (data) { zcmtypes = data; });
 
-        function getZcmtypes() { return zcmtypes; }
+        function getZcmtypes(key)
+        { return JSON.parse(JSON.stringify(zcmtypes[key])); }
 
         /**
          * Publishes a message on the given channel of the specified zcmtype

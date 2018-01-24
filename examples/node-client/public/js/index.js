@@ -8,7 +8,7 @@ var subscriptions = [];
 
 function subscribe(successCb) {
     console.log('Subscribing to BASIC_EXAMPLE');
-    z.subscribe('BASIC_EXAMPLE', z.getZcmtypes()['example_t'](), handle,
+    z.subscribe('BASIC_EXAMPLE', z.getZcmtypes('example_t'), handle,
                 function _successCb (sub) {
                     console.log('Subscribed to BASIC_EXAMPLE. Sub id:', sub);
                     subscriptions.push({channel      : 'BASIC_EXAMPLE',
@@ -42,7 +42,7 @@ function subscribe_all(successCb) {
 }
 
 function publish() {
-    var msg = z.getZcmtypes()['example_t']();
+    var msg = z.getZcmtypes('example_t');
     msg.timestamp = 1;
     msg.position = [2, 4, 6];
     msg.orientation = [0, 2, 4, 6];
@@ -54,7 +54,7 @@ function publish() {
 }
 
 function publish2() {
-    var msg = z.getZcmtypes()['example_t']();
+    var msg = z.getZcmtypes('example_t');
     msg.timestamp = 2;
     z.publish('FOOBAR', msg);
 }
