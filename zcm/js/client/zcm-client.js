@@ -21,6 +21,10 @@ var zcm = (function(){
 
         socket.on('zcmtypes', function (data) {
             zcmtypes = data;
+            Object.keys(zcmtypes).forEach(function(key) {
+                var tmp = zcmtypes[key];
+                zcmtypes[key] = function() { return JSON.parse(JSON.stringify(tmp)); };
+            });
         });
 
         function getZcmtypes() { return zcmtypes; }
