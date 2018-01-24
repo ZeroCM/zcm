@@ -22,7 +22,7 @@ var zcm = (function(){
         socket.on('zcmtypes', function (data) { zcmtypes = data; });
 
         function getZcmtypes(key)
-        { return JSON.parse(JSON.stringify(zcmtypes[key])); }
+        { return key ? JSON.parse(JSON.stringify(zcmtypes[key])) : zcmtypes; }
 
         /**
          * Publishes a message on the given channel of the specified zcmtype
