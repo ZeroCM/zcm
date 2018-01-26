@@ -449,7 +449,7 @@ struct EmitJulia : public Emitter
             emit(indent, "%s%s(reinterpret(%s, read(buf, %u))[1])%s",
                          accessor, ntoh.c_str(), mappedTypename.c_str(), typeSize, sfx);
         } else {
-            emit(indent, "%sZCM._decode_one(msg.%s,buf)%s", accessor, mn.c_str(), sfx);
+            emit(indent, "%sZCM._decode_one(typeof(msg.%s),buf)%s", accessor, mn.c_str(), sfx);
         }
     }
 

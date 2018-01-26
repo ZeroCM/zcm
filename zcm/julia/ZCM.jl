@@ -113,6 +113,7 @@ type Zcm
     end
 end
 
+# RRR: this isn't allowed
 function close(zcm::Zcm)
     if zcm.zcm != C_NULL
         ccall(("zcm_destroy", "libzcm"), Void,

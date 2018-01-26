@@ -1,7 +1,8 @@
-#!/usr/bin/python
+unshift!(LOAD_PATH, "../build/types")
 
-include("../build/types/encoded_t.jl");
-include("../build/types/example_t.jl");
+using ZCM
+using _example_t
+using _encoded_t
 
 # declare a new msg and populate it
 msg = example_t()
