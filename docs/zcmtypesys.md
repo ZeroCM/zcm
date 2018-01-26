@@ -191,6 +191,22 @@ completely separate package by prepending a leading `.` before the package. For 
 if the zcmtype `qux` actually belonged to a package `quuz` (that is not part of `foo`),
 replacing `.qux` with `.quuz.qux` would properly specify the desired type.
 
+Note also that although some languages (like C++) allow unqualified access to types from
+parent packages (namespaces in the case of C++), the zcmtype specification does not.
+Speciically, for the following 2 types, note that `t2` must specify its `t1` member as
+existing withing the package `.foo` even though `t2` itself exists within a child
+package of `foo`.
+
+    package foo;
+    struct t1 {
+        int8_t a;
+    };
+
+    package foo.bar;
+    struct t2 {
+        .foo.t1 b;
+    };
+
 
 <hr>
  <a style="margin-right: 1rem;" href="javascript:history.go(-1)">Back</a>
