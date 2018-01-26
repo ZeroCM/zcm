@@ -1,6 +1,7 @@
-include("../build/types/little_endian_t.jl");
+unshift!(LOAD_PATH, "../build/types")
 
-using ZCM;
+using ZCM
+using _little_endian_t
 
 numReceived = 0
 function handler(rbuf, channel::String, msg::little_endian_t)

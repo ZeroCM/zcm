@@ -1,7 +1,7 @@
-include("../build/types/example_t.jl")
+unshift!(LOAD_PATH, "../build/types")
 
 using ZCM
-
+using _example_t
 
 zcm = Zcm("inproc")
 if (!good(zcm))

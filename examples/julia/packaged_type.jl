@@ -1,8 +1,9 @@
 push!(LOAD_PATH, "../build/types")
-import test_package: packaged_t, packaged_recursive_t
-import other_package: other_recursive_t
 
-using ZCM;
+using ZCM
+# RRR: I had to manually ensure that the order of the imports in build/types/test_package.jl
+#      followed the dependency tree to prevent this test from breaking.
+import test_package: packaged_t
 
 numReceived = 0
 function handler(rbuf, channel::String, msg::packaged_t)
@@ -11,11 +12,6 @@ function handler(rbuf, channel::String, msg::packaged_t)
     @assert (((numReceived % 2) == 0) == msg.packaged) "Received message with incorrect packaged flag"
     numReceived = numReceived + 1
 end
-
-msg = other_recursive_t()
-msg.child = packaged_recursive_t()
-msg.child.child = packaged_t()
-@assert msg.child.child.packaged == false
 
 zcm = Zcm("inproc")
 if (!good(zcm))
