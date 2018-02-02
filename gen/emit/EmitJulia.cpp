@@ -201,7 +201,7 @@ struct EmitJulia : public Emitter
         emit(0, "");
         emit(1, "function %s()", sn);
         emit(0, "");
-        emit(2, "self = new();");
+        emit(2, "self = new()");
         emit(0, "");
 
         // data members
