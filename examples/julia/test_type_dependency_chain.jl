@@ -2,6 +2,8 @@ module DepChain
 
 import ZCM
 
+## Option 1 ####################################################################
+
 type _t1_base{t2 <: ZCM.AbstractZCMType} <: ZCM.AbstractZCMType
     x::t2
     function _t1_base()
@@ -38,6 +40,8 @@ export t2
 t3 = _t3_base
 export t3
 
+## Option 2 ####################################################################
+
 # RRR: note this is only 0.5 syntax
 abstract _t4 <: ZCM.AbstractZCMType
 abstract _t5 <: ZCM.AbstractZCMType
@@ -51,7 +55,7 @@ type t4 <: _t4
         return self
     end
 end
-# RRR: a base abstract creator would be put within ZCM.jl (like decode) and then we'd just extend it
+# Note: a base abstract creator would be put within ZCM.jl (like decode) and then we'd just extend it
 function _createAbstractZCMType(::Type{_t4})
     return t4()
 end
@@ -83,5 +87,38 @@ function _createAbstractZCMType(::Type{_t6})
 end
 export t6
 
+## Option 3 ####################################################################
+
+type t7 <: ZCM.AbstractZCMType
+    x::ZCM.AbstractZCMType # t8
+    function t7()
+        self = new()
+        self.x = t8()
+        return self
+    end
+end
+export t7
+
+type t8 <: ZCM.AbstractZCMType
+    y::ZCM.AbstractZCMType # t9
+    function t8()
+        self = new()
+        self.y = t9()
+        return self
+    end
+end
+export t8
+
+type t9 <: ZCM.AbstractZCMType
+    z::Int
+    function t9()
+        self = new()
+        self.z = 0
+        return self
+    end
+end
+export t9
+
+# Then do type checking during encode functions to ensure user didn't mess it up
 
 end

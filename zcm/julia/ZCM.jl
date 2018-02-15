@@ -12,7 +12,7 @@ export Zcm,
        stop,
        handle,
        handle_nonblock,
-       close,
+       destroy,
        LogEvent,
        LogFile,
        read_next_event,
@@ -48,6 +48,7 @@ function getHash end
 function _get_hash_recursive end
 function _encode_one end
 function _decode_one end
+function _create_abstract_zcmtype end
 
 
 # RRR / Note: Julia requires that the memory layout of the C structs is consistent
@@ -108,13 +109,12 @@ type Zcm
     function Zcm(url::AbstractString = "")
         pointer = ccall(("zcm_create", "libzcm"), Ptr{Native.Zcm}, (Cstring,), url);
         instance = new(pointer, Subscription[])
-        finalizer(instance, close)
+        finalizer(instance, destroy)
         return instance
     end
 end
 
-# RRR: this isn't allowed
-function close(zcm::Zcm)
+function destroy(zcm::Zcm)
     if zcm.zcm != C_NULL
         ccall(("zcm_destroy", "libzcm"), Void,
               (Ptr{Native.Zcm},), zcm)

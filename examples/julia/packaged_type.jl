@@ -3,6 +3,11 @@ push!(LOAD_PATH, "../build/types")
 using ZCM
 # RRR: I had to manually ensure that the order of the imports in build/types/test_package.jl
 #      followed the dependency tree to prevent this test from breaking.
+#      correct order is :
+#        import _test_package_example3_t
+#        import _test_package_packaged2_t
+#        import _test_package_packaged_t
+#
 import test_package: packaged_t
 
 numReceived = 0
