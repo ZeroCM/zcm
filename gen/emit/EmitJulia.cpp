@@ -263,9 +263,6 @@ struct EmitJulia : public Emitter
 
     void emitMemberInitializer(ZCMMember& zm)
     {
-        auto& mtn = zm.type.fullname;
-        string mappedTypename = mapTypeName(mtn);
-
         auto& tn = zm.type.fullname;
         string initializer;
         if      (tn == "byte")    initializer = "0";
@@ -364,7 +361,7 @@ struct EmitJulia : public Emitter
             tn == "int16_t" || tn == "int32_t" || tn == "int64_t" ||
             tn == "float"  || tn == "double") {
             if (tn != "boolean")
-                emit(indent, "for i in range(1,%s%s) %s[i] = %s(%s[i]) end",
+                emit(indent, "for i=1:%s%s %s[i] = %s(%s[i]) end",
                              (fixedLen ? "" : "msg."), len, accessor, hton.c_str(), accessor);
             emit(indent, "write(buf, %s[1:%s%s])",
                  accessor, (fixedLen ? "" : "msg."), len);
@@ -388,44 +385,62 @@ struct EmitJulia : public Emitter
 
         for (auto& zm : zs.members) {
             auto& mtn = zm.type.fullname;
+            string mappedTypename = mapTypeName(mtn);
 
             if (zm.dimensions.size() == 0) {
                 if (enableRuntimeAssertions && !zcm.isPrimitiveType(mtn))
                     emit(1, "@assert isa(msg.%s, %s) "
                             "\"Msg of type `%s` requires field `%s` to be of type `%s`\"",
-                            zm.membername.c_str(), mtn.c_str(),
+                            zm.membername.c_str(), mappedTypename.c_str(),
                             fn, zm.membername.c_str(), mtn.c_str());
 
                 emitEncodeSingleMember(zm, "msg." + zm.membername, 1);
             } else {
                 string accessor = "msg." + zm.membername;
-                unsigned int n;
 
+                size_t n;
                 if (enableRuntimeAssertions) {
                     for (n = 0; n < zm.dimensions.size(); ++n) {
                         auto& dim = zm.dimensions[n];
-                        emit(1, "@assert size(msg.%s, %d)==%s "
+
+                        string sz;
+                        if (dim.mode == ZCM_CONST) sz = dim.size;
+                        else                       sz = "msg." + dim.size;
+
+                        emit(1, "@assert size(msg.%s,%d)==%s "
                                 "\"Msg of type `%s` requires field `%s` dimension `%d` "
                                 "to be size `%s`\"",
-                                zm.membername.c_str(), n + 1, dim.size.c_str(),
+                                zm.membername.c_str(), n + 1, sz.c_str(),
                                 fn, zm.membername.c_str(), n + 1,
-                                dim.size.c_str());
+                                sz.c_str());
                     }
                 }
 
-                for (n = 0; n < zm.dimensions.size() - 1; ++n) {
+                accessor += "[";
+                for (n = 0; n < zm.dimensions.size(); ++n) {
                     auto& dim = zm.dimensions[n];
 
-                    // RRR: this is just not right
-                    accessor += "[i" + to_string(n) + "]";
+                    if (dim.mode == ZCM_CONST) emit(n + 1, "for i%d=1:%s",     n, dim.size.c_str());
+                    else                       emit(n + 1, "for i%d=1:msg.%s", n, dim.size.c_str());
 
-                    if (dim.mode == ZCM_CONST) {
-                        emit(n + 1, "for i%d in range(1,%s)", n, dim.size.c_str());
-                    } else {
-                        emit(n + 1, "for i%d in range(1,msg.%s)", n, dim.size.c_str());
-                    }
+                    if (n > 0) accessor += ",";
+                    accessor += "i" + to_string(n);
+                }
+                accessor += "]";
+
+                if (enableRuntimeAssertions && !zcm.isPrimitiveType(mtn)) {
+                    emit(n + 1, "@assert isa(%s, %s) "
+                                "\"Msg of type `%s` requires field `%s` to be of type `%s`\"",
+                                accessor.c_str(), mappedTypename.c_str(),
+                                fn, accessor.c_str(), mtn.c_str());
                 }
 
+                emitEncodeSingleMember(zm, accessor, n + 1);
+
+                for (n = 0; n < zm.dimensions.size(); ++n)
+                    emit(zm.dimensions.size() - n, "end");
+
+                /* RRR: probably can make use of encoding more than 1 element at once for prims
                 // last dimension.
                 auto& lastDim = zm.dimensions[zm.dimensions.size() - 1];
                 bool lastDimFixedLen = (lastDim.mode == ZCM_CONST);
@@ -433,26 +448,8 @@ struct EmitJulia : public Emitter
                 if (ZCMGen::isPrimitiveType(zm.type.fullname) &&
                     zm.type.fullname != "string") {
                     emitEncodeListMember(zm, accessor, n + 1, lastDim.size, lastDimFixedLen);
-                } else {
-                    if (lastDimFixedLen) {
-                        emit(n + 1, "for i%d in range(1,%s)", n, lastDim.size.c_str());
-                    } else {
-                        emit(n + 1, "for i%d in range(1,msg.%s)", n, lastDim.size.c_str());
-                    }
-                    accessor += "[i" + to_string(n) + "]";
-
-                    if (enableRuntimeAssertions) {
-                        emit(n + 2, "@assert isa(%s, %s) "
-                                    "\"Msg of type `%s` requires field `%s` to be of type `%s`\"",
-                                    accessor.c_str(), mtn.c_str(),
-                                    fn, accessor.c_str(), mtn.c_str());
-                    }
-
-                    emitEncodeSingleMember(zm, accessor, n + 2);
-                    emit(n + 1, "end");
                 }
-                for (int i = n - 1; i >= 0; --i)
-                    emit(i + 1, "end");
+                */
             }
         }
 
@@ -563,11 +560,8 @@ struct EmitJulia : public Emitter
                 for (n = 0; n < zm.dimensions.size(); ++n) {
                     auto& dim = zm.dimensions[n];
 
-                    if (dim.mode == ZCM_CONST) {
-                        emit(n + 1, "for i%d in range(1,%s)", n, dim.size.c_str());
-                    } else {
-                        emit(n + 1, "for i%d in range(1,msg.%s)", n, dim.size.c_str());
-                    }
+                    if (dim.mode == ZCM_CONST) emit(n + 1, "for i%d=1:%s",     n, dim.size.c_str());
+                    else                       emit(n + 1, "for i%d=1:msg.%s", n, dim.size.c_str());
 
                     if (n > 0) accessor += ",";
                     accessor += "i" + to_string(n);
@@ -595,7 +589,6 @@ struct EmitJulia : public Emitter
                         accessor += ".append(";
                     }
 
-                    // RRR: make sure this still works
                     emitDecodeListMember(zm, accessor, n + 1, n==0,
                                          lastDim.size, lastDimFixedLen);
                 }
@@ -721,8 +714,6 @@ struct JlEmitPack : public Emitter
                                words[3] == ":(module" &&
                                words[5] == ";" &&
                                words[6] == "end))\n") {
-                        // RRR: don't cout
-                        cout << "match: " << words[1] << " " << words[4] << endl;
                         // Otherwise, if the line matches:
                         // @eval foo module bar.baz ; end
                         // then store foo.bar.baz in the submodules set
