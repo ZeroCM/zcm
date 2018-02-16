@@ -1,0 +1,19 @@
+struct arrays_t
+{
+    int8_t m;
+    int8_t n;
+
+    boolean prim_onedim_static[3];
+    int16_t prim_onedim_dynamic[n];
+    int32_t prim_twodim_static_static[3][3];
+    int64_t prim_twodim_static_dynamic[3][n];
+    float   prim_twodim_dynamic_static[n][3];
+    double  prim_twodim_dynamic_dynamic[m][n];
+
+    example_t nonprim_onedim_static[3];
+    example_t nonprim_onedim_dynamic[n];
+    example_t nonprim_twodim_static_static[3][3];
+    example_t nonprim_twodim_static_dynamic[3][n];
+    example_t nonprim_twodim_dynamic_static[n][3];
+    example_t nonprim_twodim_dynamic_dynamic[m][n];
+}
