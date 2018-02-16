@@ -230,7 +230,7 @@ struct EmitJulia : public Emitter
             for (size_t i = 0; i < zs.members.size(); ++i) {
                 auto& zm = zs.members[i];
                 emitStart(2, "self.%s = ", zm.membername.c_str());
-                emitMemberInitializer(zm, 0);
+                emitMemberInitializer(zm);
                 emitEnd("");
             }
             emit(0, "");
@@ -261,45 +261,38 @@ struct EmitJulia : public Emitter
         emit(0, "");
     }
 
-    void emitMemberInitializer(ZCMMember& zm, int dimNum)
+    void emitMemberInitializer(ZCMMember& zm)
     {
         auto& mtn = zm.type.fullname;
         string mappedTypename = mapTypeName(mtn);
 
-        if ((size_t)dimNum == zm.dimensions.size()) {
-            auto& tn = zm.type.fullname;
-            const char* initializer = nullptr;
-            if (tn == "byte") initializer = "0";
-            else if (tn == "boolean") initializer = "false";
-            else if (tn == "int8_t")  initializer = "0";
-            else if (tn == "int16_t") initializer = "0";
-            else if (tn == "int32_t") initializer = "0";
-            else if (tn == "int64_t") initializer = "0";
-            else if (tn == "float")   initializer = "0.0";
-            else if (tn == "double")  initializer = "0.0";
-            else if (tn == "string")  initializer = "\"\"";
+        auto& tn = zm.type.fullname;
+        string initializer;
+        if      (tn == "byte")    initializer = "0";
+        else if (tn == "boolean") initializer = "false";
+        else if (tn == "int8_t")  initializer = "0";
+        else if (tn == "int16_t") initializer = "0";
+        else if (tn == "int32_t") initializer = "0";
+        else if (tn == "int64_t") initializer = "0";
+        else if (tn == "float")   initializer = "0.0";
+        else if (tn == "double")  initializer = "0.0";
+        else if (tn == "string")  initializer = "\"\"";
+        else                      initializer = tn + "()";
 
-            if (initializer) {
-                emitContinue("%s", initializer);
-            } else {
-                emitContinue("%s()", tn.c_str());
-            }
-            return;
-        }
-        auto& dim = zm.dimensions[dimNum];
-        if (dim.mode == ZCM_VAR) {
-            size_t dimLeft = zm.dimensions.size() - dimNum;
-            emitContinue("Array{%s,%lu}(0", mappedTypename.c_str(), dimLeft);
-            for (size_t i = dimNum + 1; i < zm.dimensions.size(); ++i) {
-                dim = zm.dimensions[i];
-                if (dim.mode == ZCM_VAR) emitContinue(",0");
-                else                     emitContinue(",%s", dim.size.c_str());
-            }
-            emitContinue(")");
+        if (zm.dimensions.size() == 0) {
+            emitContinue("%s", initializer.c_str());
         } else {
-            emitContinue("[ ");
-            emitMemberInitializer(zm, dimNum + 1);
-            emitContinue(" for dim%d in range(1,%s) ]", dimNum, dim.size.c_str());
+            emitContinue("[ %s for", initializer.c_str());
+            for (size_t i = 0; i < zm.dimensions.size(); ++i) {
+                auto& dim = zm.dimensions[i];
+                if (i == 0) emitContinue(" ");
+                else        emitContinue(", ");
+
+                emitContinue("dim%d=1:", i);
+                if (dim.mode == ZCM_CONST) emitContinue("%s",      dim.size.c_str());
+                else                       emitContinue("self.%s", dim.size.c_str());
+            }
+            emitContinue(" ]");
         }
     }
 
@@ -562,33 +555,13 @@ struct EmitJulia : public Emitter
                 emitDecodeSingleMember(zm, accessor.c_str(), 1, "");
             } else {
                 string accessor = "msg." + zm.membername;
-                auto& dim = zm.dimensions[0];
-
-                emitStart(1, "%s = Array{%s, %d}(",
-                             accessor.c_str(), mappedTypename.c_str(), zm.dimensions.size());
-                // RRR: running into a problem here -- seems like for multidim arrays we're
-                //      getting incorrect outputs of the size
-                size_t i;
-                for (i = 0; i < zm.dimensions.size() - 1; ++i) {
-                    dim = zm.dimensions[i];
-                    if (dim.mode == ZCM_CONST) emitContinue("%s,",     dim.size.c_str());
-                    else                       emitContinue("msg.%s,", dim.size.c_str());
-                }
-                dim = zm.dimensions[i];
-                if (dim.mode == ZCM_CONST) emitEnd("%s)",     dim.size.c_str());
-                else                       emitEnd("msg.%s)", dim.size.c_str());
 
                 // iterate through the dimensions of the member, building up
                 // an accessor string, and emitting for loops
+                accessor += "[";
                 size_t n = 0;
-                for (n = 0; n < zm.dimensions.size() - 1; ++n) {
-                    dim = zm.dimensions[n];
-
-                    if(n == 0) {
-                        emit(1, "%s = []", accessor.c_str());
-                    } else {
-                        emit(n + 1, "%s.append([])", accessor.c_str());
-                    }
+                for (n = 0; n < zm.dimensions.size(); ++n) {
+                    auto& dim = zm.dimensions[n];
 
                     if (dim.mode == ZCM_CONST) {
                         emit(n + 1, "for i%d in range(1,%s)", n, dim.size.c_str());
@@ -596,14 +569,21 @@ struct EmitJulia : public Emitter
                         emit(n + 1, "for i%d in range(1,msg.%s)", n, dim.size.c_str());
                     }
 
-                    if(n > 0 && n < zm.dimensions.size()-1) {
-                        accessor += "[i" + to_string(n - 1) + "]";
-                    }
+                    if (n > 0) accessor += ",";
+                    accessor += "i" + to_string(n);
                 }
+                accessor += "] = ";
 
+                emitDecodeSingleMember(zm, accessor, n + 1, "");
+
+                for (n = 0; n < zm.dimensions.size(); ++n)
+                    emit(zm.dimensions.size() - n, "end");
+
+
+                /* RRR: probably can make use of decoding more than 1 element at once for prims
                 // last dimension.
-                dim = zm.dimensions[zm.dimensions.size()-1];
-                bool lastDimFixedLen = (dim.mode == ZCM_CONST);
+                auto& lastDim = zm.dimensions[zm.dimensions.size()-1];
+                bool lastDimFixedLen = (lastDim.mode == ZCM_CONST);
 
                 if (ZCMGen::isPrimitiveType(zm.type.fullname) &&
                     zm.type.fullname != "string") {
@@ -617,27 +597,9 @@ struct EmitJulia : public Emitter
 
                     // RRR: make sure this still works
                     emitDecodeListMember(zm, accessor, n + 1, n==0,
-                                         dim.size, lastDimFixedLen);
-                } else {
-                    // member is either a string type or an inner ZCM type.  Each
-                    // array element must be decoded individually
-                    if(n == 0) {
-                        emit(1, "%s = []", accessor.c_str());
-                    } else {
-                        emit(n + 1, "%s.append([])", accessor.c_str());
-                        accessor += "[i" + to_string(n-1) + "]";
-                    }
-                    if (lastDimFixedLen) {
-                        emit(n + 1, "for i%d in range(1,%s)", n, dim.size.c_str());
-                    } else {
-                        emit(n + 1, "for i%d in range(1,msg.%s)", n, dim.size.c_str());
-                    }
-                    accessor += ".append(";
-                    emitDecodeSingleMember(zm, accessor, n + 4, ")");
-                    emit(n + 1, "end");
+                                         lastDim.size, lastDimFixedLen);
                 }
-                for (int i = n - 1; i >= 0; --i)
-                    emit(i + 1, "end");
+                */
             }
         }
         emit(1, "return msg");
