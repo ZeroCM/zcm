@@ -44,11 +44,12 @@ end
 # with new methods.
 function encode end
 function decode end
+# RRR: could build in ability to store calculated hash and only have to calculate it once per run
 function getHash end
 function _get_hash_recursive end
 function _encode_one end
 function _decode_one end
-function _create_abstract_zcmtype end
+# RRR: would be nice to have getEncodedSize() and _getEncodedSizeNoHash()
 
 
 # RRR / Note: Julia requires that the memory layout of the C structs is consistent

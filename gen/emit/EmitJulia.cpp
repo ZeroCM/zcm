@@ -480,7 +480,7 @@ struct EmitJulia : public Emitter
         auto* sfx = sfx_.c_str();
 
         if (tn == "string") {
-            emit(indent, "%sString(read(buf, %s(reinterpret(UInt32, read(buf, 4))[1])))%s",
+            emit(indent, "%sString(read(buf, %s(reinterpret(UInt32, read(buf, 4))[1])))[1:end-1]%s",
                          accessor, ntoh.c_str(), sfx);
         } else if (tn == "byte"    || tn == "boolean" || tn == "int8_t") {
             auto typeSize = ZCMGen::getPrimitiveTypeSize(tn);
