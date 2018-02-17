@@ -475,7 +475,6 @@ struct EmitJulia : public Emitter
     {
         auto& tn = zm.type.fullname;
         string mappedTypename = mapTypeName(tn);
-        auto& mn = zm.membername;
 
         auto* accessor = accessor_.c_str();
         auto* sfx = sfx_.c_str();
@@ -493,7 +492,7 @@ struct EmitJulia : public Emitter
             emit(indent, "%s%s(reinterpret(%s, read(buf, %u))[1])%s",
                          accessor, ntoh.c_str(), mappedTypename.c_str(), typeSize, sfx);
         } else {
-            emit(indent, "%sZCM._decode_one(typeof(msg.%s),buf)%s", accessor, mn.c_str(), sfx);
+            emit(indent, "%sZCM._decode_one(%s,buf)%s", accessor, mappedTypename.c_str(), sfx);
         }
     }
 
