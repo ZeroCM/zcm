@@ -9,16 +9,16 @@ function handler(rbuf, channel::String, msg::arrays_t)
     println("Received message on channel: ", channel)
     global numReceived
 
+    #@assert (numReceived == msg.m) "Wrong data"
     @assert (numReceived == msg.n) "Wrong data"
-    @assert (numReceived == msg.m) "Wrong data"
 
     for i=1:3
         @assert (msg.prim_onedim_static[i] == true) "Wrong data"
         @assert (msg.nonprim_onedim_static[i].timestamp == numReceived) "Wrong data"
 
         for j=1:3
-            @assert (msg.prim_twodim_static_static[i][j] == i * j) "Wrong data"
-            @assert (msg.nonprim_twodim_static_static[i][j].timestamp == numReceived) "Wrong data"
+            @assert (msg.prim_twodim_static_static[i,j] == i * j) "Wrong data"
+            @assert (msg.nonprim_twodim_static_static[i,j].timestamp == numReceived) "Wrong data"
         end
     end
 
@@ -27,15 +27,15 @@ function handler(rbuf, channel::String, msg::arrays_t)
         @assert (msg.nonprim_onedim_dynamic[i].timestamp == numReceived) "Wrong data"
 
         for j=1:3
-            @assert (msg.prim_twodim_static_dynamic[j][i]  == i * j) "Wrong data"
-            @assert (msg.prim_twodim_dynamic_static[i][j]  == i * j) "Wrong data"
-            @assert (msg.nonprim_twodim_static_dynamic[j][i].timestamp == numReceived) "Wrong data"
-            @assert (msg.nonprim_twodim_dynamic_static[i][j].timestamp == numReceived) "Wrong data"
+            @assert (msg.prim_twodim_static_dynamic[j,i]  == i * j) "Wrong data"
+            @assert (msg.prim_twodim_dynamic_static[i,j]  == i * j) "Wrong data"
+            @assert (msg.nonprim_twodim_static_dynamic[j,i].timestamp == numReceived) "Wrong data"
+            @assert (msg.nonprim_twodim_dynamic_static[i,j].timestamp == numReceived) "Wrong data"
         end
 
         for j=1:msg.m
-            @assert (msg.prim_twodim_dynamic_dynamic[j][i] == i * j) "Wrong data"
-            @assert (msg.nonprim_twodim_dynamic_dynamic[j][i].timestamp == numReceived) "Wrong data"
+            @assert (msg.prim_twodim_dynamic_dynamic[j,i] == i * j) "Wrong data"
+            @assert (msg.nonprim_twodim_dynamic_dynamic[j,i].timestamp == numReceived) "Wrong data"
         end
     end
 
@@ -48,14 +48,13 @@ function untyped_handler(rbuf, channel::String, msgdata::Vector{UInt8})
     decode(arrays_t, msgdata)
 end
 
-#zcm = Zcm("inproc")
-zcm = Zcm("ipc")
+zcm = Zcm("inproc")
 if (!good(zcm))
     error("Unable to initialize zcm")
 end
 
-#sub = subscribe(zcm, "EXAMPLE", handler, arrays_t)
-#sub2 = subscribe(zcm, "EXAMPLE", untyped_handler)
+sub = subscribe(zcm, "EXAMPLE", handler, arrays_t)
+sub2 = subscribe(zcm, "EXAMPLE", untyped_handler)
 
 function populate!(msg::arrays_t, ex::example_t, num::Int64)
 
@@ -67,22 +66,22 @@ function populate!(msg::arrays_t, ex::example_t, num::Int64)
     ex.enabled = true
 
     ex.timestamp = num
-    #msg.m = num
+    msg.m = num
     msg.n = num
 
-    #msg.prim_onedim_static             = [ true  for i=1:3            ]
-    #msg.prim_onedim_dynamic            = [ i     for i=1:num          ]
-    #msg.prim_twodim_static_static      = [ (i*j) for i=1:3,   j=1:3   ]
-    #msg.prim_twodim_static_dynamic     = [ (i*j) for i=1:3,   j=1:num ]
-    #msg.prim_twodim_dynamic_static     = [ (i*j) for i=1:num, j=1:3   ]
-    #msg.prim_twodim_dynamic_dynamic    = [ (i*j) for i=1:num, j=1:num ]
+    msg.prim_onedim_static             = [ true  for i=1:3            ]
+    msg.prim_onedim_dynamic            = [ i     for i=1:num          ]
+    msg.prim_twodim_static_static      = [ (i*j) for i=1:3,   j=1:3   ]
+    msg.prim_twodim_static_dynamic     = [ (i*j) for i=1:3,   j=1:num ]
+    msg.prim_twodim_dynamic_static     = [ (i*j) for i=1:num, j=1:3   ]
+    msg.prim_twodim_dynamic_dynamic    = [ (i*j) for i=1:num, j=1:num ]
 
     msg.nonprim_onedim_static          = [ ex    for i=1:3            ]
     msg.nonprim_onedim_dynamic         = [ ex    for i=1:num          ]
-    #msg.nonprim_twodim_static_static   = [ ex    for i=1:3,   j=1:3   ]
-    #msg.nonprim_twodim_static_dynamic  = [ ex    for i=1:3,   j=1:num ]
-    #msg.nonprim_twodim_dynamic_static  = [ ex    for i=1:num, j=1:3   ]
-    #msg.nonprim_twodim_dynamic_dynamic = [ ex    for i=1:num, j=1:num ]
+    msg.nonprim_twodim_static_static   = [ ex    for i=1:3,   j=1:3   ]
+    msg.nonprim_twodim_static_dynamic  = [ ex    for i=1:3,   j=1:num ]
+    msg.nonprim_twodim_dynamic_static  = [ ex    for i=1:num, j=1:3   ]
+    msg.nonprim_twodim_dynamic_dynamic = [ ex    for i=1:num, j=1:num ]
 end
 
 ex  = example_t()
@@ -111,19 +110,20 @@ publish(zcm, "EXAMPLE", msg)
 sleep(0.5)
 stop(zcm)
 
-#unsubscribe(zcm, sub)
-#unsubscribe(zcm, sub2)
+unsubscribe(zcm, sub)
+unsubscribe(zcm, sub2)
 
-#@assert (numReceived == 6) "Didn't receive proper number of messages"
+@assert (numReceived == 6) "Didn't receive proper number of messages"
 
 println("Success!")
 
+#=
 buf = encode(msg)
 exSize = size(encode(ex), 1) - 8
 for i=(1+8+1):exSize:size(buf,1)
     t = ntoh(reinterpret(Int64, buf[i:i+7])[1])
     println(t)
-    # RRR: this isn't working properly -- the boolean is coming out false when it should be true
     exam = ZCM._decode_one(example_t, IOBuffer(buf[i:i+exSize-1]))
     println(exam)
 end
+=#
