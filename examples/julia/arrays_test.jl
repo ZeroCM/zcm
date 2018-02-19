@@ -58,8 +58,15 @@ end
 #sub2 = subscribe(zcm, "EXAMPLE", untyped_handler)
 
 function populate!(msg::arrays_t, ex::example_t, num::Int64)
-    ex.timestamp = num
+
+    ex.position = [ 1.0, 2.0, 3.0 ];
+    ex.orientation = [ 1.0, 2.0, 3.0, 4.0 ];
+    ex.num_ranges = 3;
+    ex.ranges = [1, 2, 3];
+    ex.name = "example";
     ex.enabled = true
+
+    ex.timestamp = num
     #msg.m = num
     msg.n = num
 

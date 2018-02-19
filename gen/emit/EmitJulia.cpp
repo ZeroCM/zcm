@@ -338,7 +338,7 @@ struct EmitJulia : public Emitter
         if (tn == "string") {
             emit(indent, "write(buf, %s(UInt32(length(%s) + 1)))", hton.c_str(), accessor);
             emit(indent, "write(buf, %s)", accessor);
-            emit(indent, "write(buf, 0)");
+            emit(indent, "write(buf, UInt8(0))");
         } else if (tn == "boolean") {
             emit(indent, "write(buf, %s)", accessor);
         } else if (tn == "byte"    || tn == "int8_t"  ||
@@ -543,19 +543,33 @@ struct EmitJulia : public Emitter
         emit(1,     "msg = %s();", sn);
 
         for (auto& zm : zs.members) {
-            auto& mtn = zm.type.fullname;
-            string mappedTypename = mapTypeName(mtn);
-
             if (zm.dimensions.size() == 0) {
                 string accessor = "msg." + zm.membername + " = ";
                 emitDecodeSingleMember(zm, accessor.c_str(), 1, "");
             } else {
                 string accessor = "msg." + zm.membername;
+                size_t n = 0;
+
+                auto& mtn = zm.type.fullname;
+                string mappedTypename;
+                if (zcm.isPrimitiveType(mtn)) mappedTypename = mapTypeName(mtn);
+                else                          mappedTypename = "ZCM.AbstractZCMType";
+
+                // emit array initializer for sizing
+                emitStart(1, "%s = Array{%s, %d}(",
+                             accessor.c_str(), mappedTypename.c_str(), zm.dimensions.size());
+                for (n = 0; n < zm.dimensions.size(); ++n) {
+                    auto& dim = zm.dimensions[n];
+
+                    if (n > 0) emitContinue(",");
+                    if (dim.mode == ZCM_CONST) emitContinue("%s",     dim.size.c_str());
+                    else                       emitContinue("msg.%s", dim.size.c_str());
+                }
+                emitEnd(")");
 
                 // iterate through the dimensions of the member, building up
                 // an accessor string, and emitting for loops
                 accessor += "[";
-                size_t n = 0;
                 for (n = 0; n < zm.dimensions.size(); ++n) {
                     auto& dim = zm.dimensions[n];
 
