@@ -17,11 +17,15 @@ void setupOptionsJulia(GetOpt& gopt)
     gopt.addString(0, "julia-path", ".",
                       "Julia destination directory");
 
-    gopt.addString(0, "julia-default-pkg", "zcmtypes",
+    gopt.addString(0, "julia-default-pkg", "",
                       "Julia default package, all types/packages will be inside default");
 
     gopt.addBool(  0, "julia-disable-runtime-assertions", false,
                       "Disable runtime assertions (in encode) for type/size checking in Julia");
+
+    gopt.addBool(  0, "julia-generate-pkg-file", false,
+                      "Disables generates the pkg files instead of the zcmtype files. "
+                      "MUST HAVE ALL ZCMTYPES FROM PACKAGE INCLUDED IN COMMAND");
 }
 
 // Some types do not have a 1:1 mapping from zcm types to native Julia storage types.
@@ -645,6 +649,7 @@ struct JlEmitPack : public Emitter
 {
     ZCMGen& zcm;
 
+    // RRR: this fname is not correct (that's why the class uses fprintf instead of emit)
     JlEmitPack(ZCMGen& zcm, const string& fname):
         Emitter(fname), zcm(zcm) {}
 
@@ -786,12 +791,11 @@ struct JlEmitPack : public Emitter
 
             // If we're in a package, then add an appropriate import statement
             // to ensure that this struct is added to the Julia module
-            if(moduleJlFp) {
+            if (moduleJlFp) {
                 fprintf(moduleJlFp, "import _%s\n", zs.structname.nameUnderscoreCStr());
             }
 
-            if (!zcm.needsGeneration(zs.zcmfile, path))
-                continue;
+            if (!zcm.needsGeneration(zs.zcmfile, path)) continue;
 
             EmitJulia E{zcm, zs, path};
             if (!E.good()) return -1;
@@ -811,10 +815,18 @@ struct JlEmitPack : public Emitter
     }
 };
 
+struct EmitJuliaPackage : public Emitter
+{
+    ZCMGen& zcm;
+
+    EmitJuliaPackage(ZCMGen& zcm)
+};
+
 int emitJulia(ZCMGen& zcm)
 {
-    cout << "Checking default package : " << zcm.gopt->wasSpecified("julia-default-pkg")
-         << " " << zcm.gopt->getString("julia-default-pkg") << endl;
+    string defaultPkg = "";
+    if (zcm.gopt->wasSpecified("julia-default-pkg"))
+        defaultPkg = zcm.gopt->getString("julia-default-pkg") + ".";
 
     // Copied wholesale from EmitPython.cpp
     unordered_map<string, vector<ZCMStruct*> > packages;
@@ -824,9 +836,18 @@ int emitJulia(ZCMGen& zcm)
         packages[zs.structname.package].push_back(&zs);
 
     for (auto& kv : packages) {
-        auto& name = kv.first;
-        auto& pack = kv.second;
-        int ret = JlEmitPack{zcm, name}.emitPackage(name, pack);
+        auto& package = kv.first;
+        auto& structs = kv.second;
+        // RRR: feed in the defaultPkg here somehow. Can't just add it to all the structs
+        //      because that would mess up includes.
+        int ret = JlEmitPack{zcm, package}.emitPackage(package, structs);
+        if (ret != 0) return ret;
+    }
+
+    for (auto& kv : packages) {
+        auto& package = kv.first;
+        auto& structs = kv.second;
+        int ret = EmitJuliaPackage{zcm, package}.emitPackage(package, structs);
         if (ret != 0) return ret;
     }
 
