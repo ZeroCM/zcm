@@ -48,6 +48,9 @@ def configure(ctx):
 #   javapkg:      name of the java package
 #                 default = 'zcmtypes' (though it is encouraged to name it something more unique
 #                                       to avoid library naming conflicts)
+#   juliapkg:     default julia package that all types will be generated into. If left empty,
+#                 types without packages will be generated into a package that is the typename
+#                 prefixed by '_'
 #
 #   TODO: add support for changing c/c++ include directory. Currently defaults so that the
 #         description below works
@@ -88,7 +91,7 @@ def configure(ctx):
 #   Julia:         types will be compiled into .jl files. Simply `include()` them
 #                  into the final julia script
 #     wscript:     add '${name}_julia' to the list of "use" dependencies
-#     julia files: target import directives at "${dir}/type_name_t"
+#     julia files: target import directives at "${dir}/package : type_name_t"
 #
 # Note on running the output java classes:
 #   Because of the way that java's CLASSPATH works, even though waf will link the appropriate jar
