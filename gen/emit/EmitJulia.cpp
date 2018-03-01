@@ -817,9 +817,45 @@ struct JlEmitPack : public Emitter
 
 struct EmitJuliaPackage : public Emitter
 {
+  private:
     ZCMGen& zcm;
+    string  pkg;
 
-    EmitJuliaPackage(ZCMGen& zcm)
+  public:
+    EmitJuliaPackage(ZCMGen& zcm, const string& pkg, bool isDefaultPkg = false) :
+        Emitter(getFileNameAndEnsureDirectoryExists(zcm, pkg, isDefaultPkg)),
+        zcm(zcm), pkg(pkg) {}
+
+    static string getFileNameAndEnsureDirectoryExists(const ZCMGen& zcm, const string& pkg,
+                                                      bool isDefaultPkg)
+    {
+        // create the package directory, if necessary
+        vector<string> dirs = StringUtil::split(pkg, '.');
+        int havePackage = dirs.size() > 0;
+        string pdname;
+        if (havePackage) {
+            pdname = dirs.at(0);
+        } else {
+            pdname = "";
+        }
+        auto& juliapath = zcm.gopt->getString("julia-path");
+        string packageDirPrefix = juliapath + ((juliapath.size() > 0) ? "/" : "");
+        string packageDir = packageDirPrefix + pdname + (havePackage ? "/" : "");
+
+        /*
+        if (packageDir != "") {
+            if (!FileUtil::exists(packageDir)) {
+                FileUtil::mkdirWithParents(packageDir, 0755);
+            }
+            if (!FileUtil::dirExists(packageDir)) {
+                cerr << "Could not create directory " << packageDir << "\n";
+                return "";
+            }
+        }
+        */
+
+        return packageDir;
+    }
 };
 
 int emitJulia(ZCMGen& zcm)
@@ -847,8 +883,15 @@ int emitJulia(ZCMGen& zcm)
     for (auto& kv : packages) {
         auto& package = kv.first;
         auto& structs = kv.second;
-        int ret = EmitJuliaPackage{zcm, package}.emitPackage(package, structs);
-        if (ret != 0) return ret;
+
+        (void) package;
+        (void) structs;
+
+        //auto EmitJuliaPackage ejpkg {zcm, package, false};
+
+        auto s = EmitJuliaPackage::getFileNameAndEnsureDirectoryExists(zcm, package, false);
+
+        cout << "Package " << package << " : " << s << endl;
     }
 
     return 0;
