@@ -2,6 +2,7 @@
 
 Emitter::Emitter(const string& fname)
 {
+    filename = fname;
     f = fopen(fname.c_str(), "w");
 }
 
@@ -62,4 +63,9 @@ void Emitter::fprintfPass(const char* msg, ...)
     va_start(va, msg);
     vfprintf(f, msg, va);
     va_end(va);
+}
+
+const string& Emitter::getFilename()
+{
+    return filename;
 }

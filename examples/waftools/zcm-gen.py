@@ -220,16 +220,14 @@ def zcmgen(ctx, **kw):
     if 'littleEndian' in kw:
         littleEndian = kw['littleEndian']
 
-    if 'lang' not in kw:
-        if juliagenpkgs:
-            return
-        else:
-            # TODO: this should probably be a more specific error type
-            raise WafError('zcmgen requires keword argument: "lang"')
-
-    lang = kw['lang']
-    if isinstance(kw['lang'], str):
-        lang = kw['lang'].split(' ')
+    lang = []
+    if 'lang' in kw:
+        lang = kw['lang']
+        if isinstance(kw['lang'], basestring):
+            lang = kw['lang'].split(' ')
+    elif not juliagenpkgs:
+        # TODO: this should probably be a more specific error type
+        raise WafError('zcmgen requires keword argument: "lang"')
 
     if 'source' not in kw:
         # TODO: this should probably be a more specific error type

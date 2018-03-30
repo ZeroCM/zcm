@@ -127,11 +127,11 @@ struct ZCMStruct
 
 struct ZCMGen
 {
-    string             package;
-
     GetOpt*            gopt = nullptr;
     vector<ZCMStruct>  structs;
 
+    // Semi-temporary variables used while parsing, not used once structs are parsed
+    string             package;
     string             comment;
 
     // create a new parsing context.

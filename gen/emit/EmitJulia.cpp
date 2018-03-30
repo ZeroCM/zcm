@@ -1,6 +1,10 @@
+#include <algorithm>
 #include <iostream>
 #include <sstream>
 #include <set>
+#include <unordered_map>
+#include <unordered_set>
+#include <utility>
 
 #include "Common.hpp"
 #include "Emitter.hpp"
@@ -17,6 +21,7 @@ void setupOptionsJulia(GetOpt& gopt)
     gopt.addString(0, "julia-path", ".",
                       "Julia destination directory");
 
+    // RRR: not handling default package everywhere yet
     gopt.addString(0, "julia-pkg-prefix", "",
                       "Julia package prefix, all types/packages will be inside this. "
                       "Comes *before* global pkg-prefix if both specified.");
@@ -830,31 +835,35 @@ struct JlEmitPack : public Emitter
 struct EmitJuliaPackage : public Emitter
 {
   private:
-    ZCMGen& zcm;
-    string  pkg;
+    string  pkg; // RRR: this needs to just be the last package
 
   public:
-    EmitJuliaPackage(ZCMGen& zcm, const string& pkg) :
-        Emitter(getFileNameAndEnsureDirectoryExists(zcm, pkg)),
-        zcm(zcm), pkg(pkg)
-    {}
-
-    static string getFileNameAndEnsureDirectoryExists(const ZCMGen& zcm, const string& pkg)
+    EmitJuliaPackage(const string& pkg, const string& pathPrefix="") :
+        Emitter(getFileNameAndEnsureDirectoryExists(pkg, pathPrefix))
     {
-        assert(!pkg.empty());
+        vector<string> pkgs = StringUtil::split(pkg, '.');
+        this->pkg = pkgs.empty() ? "" : pkgs.back();
+    }
 
+    static string getFileNameAndEnsureDirectoryExists(const string& pkg, const string& pathPrefix)
+    {
         // create the package directory, if necessary
-        vector<string> dirs = StringUtil::split(pkg, '.');
-        string pkgDirs = "";
-        for (int i = 0; i < (int)dirs.size() - 1; ++i) {
-            pkgDirs += dirs[i] + "/";
+        vector<string> pkgs = StringUtil::split(pkg, '.');
+
+        if (pkgs.empty()) {
+            // RRR: remove when not testing
+            return "/tmp/workspace/invalid.jl";
+            return (pathPrefix == "" ? pathPrefix : pathPrefix + "/") + "invalid.jl";
         }
 
-        auto& juliapath = zcm.gopt->getString("julia-path");
-        string pkgPathPrefix = juliapath + ((juliapath.size() > 0) ? "/" : "");
+        string filename = pkgs.back() + ".jl";
+        pkgs.pop_back();
+        string pkgDirs = StringUtil::join(pkgs, '/');;
+        string pkgPath = (pathPrefix == "" ? pathPrefix : pathPrefix + "/") +
+                         (   pkgDirs == "" ?    pkgDirs :    pkgDirs + "/");
         // RRR: remove when not testing
-        pkgPathPrefix = "/tmp/workspace/";
-        string pkgPath = pkgPathPrefix + pkgDirs;
+        pkgPath = "/tmp/workspace/" +
+                         (   pkgDirs == "" ?    pkgDirs :    pkgDirs + "/");
 
         if (pkgPath != "") {
             if (!FileUtil::exists(pkgPath)) {
@@ -865,8 +874,6 @@ struct EmitJuliaPackage : public Emitter
                 return "";
             }
         }
-
-        string filename = dirs.empty() ? "invalid.jl" : dirs.back() + ".jl";
 
         return pkgPath + filename;
     }
@@ -879,34 +886,40 @@ struct EmitJuliaPackage : public Emitter
         emit(0, "module %s", pkg.c_str());
         emit(0, "unshift!(LOAD_PATH, joinpath(dirname(@__FILE__), \"%s\"))", pkg.c_str());
         emit(0, "try");
-        emit(0, "");
     }
 
     void emitModuleEnd()
     {
-        emit(0, "");
         emit(0, "finally");
         emit(1, "shift!(LOAD_PATH)");
         emit(0, "end");
         emit(0, "end # module %s;", pkg.c_str());
     }
 
-    void emitSubmodules()
+    void emitSubmodules(const vector<string>& pkgSubmods)
     {
-
+        emit(1, "# Submodules");
+        for (auto& s : pkgSubmods) {
+            emit(1, "import %s", s.c_str());
+        }
+        emit(0, "");
     }
 
     void emitTypes(const vector<ZCMStruct*>& pkgStructs)
     {
+        emit(1, "# Types");
         for (auto& s : pkgStructs) {
             emit(1, "import _%s", s->structname.nameUnderscoreCStr());
         }
+        emit(0, "");
     }
 
-    int emitPackage(const vector<ZCMStruct*>& pkgStructs)
+    int emitPackage(const vector<string>& pkgSubmods, const vector<ZCMStruct*>& pkgStructs)
     {
+        if (pkg.empty()) return 0;
+
         emitModuleStart();
-        emitSubmodules();
+        emitSubmodules(pkgSubmods);
         emitTypes(pkgStructs);
         emitModuleEnd();
         return 0;
@@ -915,42 +928,78 @@ struct EmitJuliaPackage : public Emitter
 
 int emitJulia(ZCMGen& zcm)
 {
-    string defaultPkg = "";
-    // RRR: not handling default package anywhere yet
+    string pathPrefix = "";
+    if (zcm.gopt->wasSpecified("julia-path"))
+        pathPrefix = zcm.gopt->getString("julia-path");
+
+    string pkgPrefix = "";
     if (zcm.gopt->wasSpecified("julia-pkg-prefix"))
-        defaultPkg = zcm.gopt->getString("julia-pkg-prefix") + ".";
+        pkgPrefix = zcm.gopt->getString("julia-pkg-prefix");
 
-    // Copied wholesale from EmitPython.cpp
-    unordered_map<string, vector<ZCMStruct*> > packages;
+    bool genPkgFiles = zcm.gopt->getBool("julia-generate-pkg-files");
 
-    // group the structs by package
-    for (auto& zs : zcm.structs)
-        packages[zs.structname.package].push_back(&zs);
+    // Map of packages to their submodules and structs
+    unordered_map<string, std::pair<vector<string>, vector<ZCMStruct*>>> packages;
+    // Add all stucts
+    for (auto& zs : zcm.structs) {
+        auto package = (pkgPrefix == "" || zs.structname.package == "")
+                         ? pkgPrefix + zs.structname.package
+                         : pkgPrefix + "." + zs.structname.package;
 
-    if (zcm.gopt->wasSpecified("julia-generate-pkg-files")) {
-        for (auto& kv : packages) {
-            auto& package = kv.first;
-            auto& structs = kv.second;
+        // Ensure whole package tree
+        auto parents = StringUtil::split(package, '.');
+        while (parents.size() > 1) {
+            auto thispkg = parents.back();
+            parents.pop_back();
+            auto parent = StringUtil::join(parents, '.');
+            packages[parent].first.push_back(thispkg);
+        }
 
-            (void) package;
-            (void) structs;
+        packages[package].second.push_back(&zs);
+    }
+    // Ensure uniqueness of submodules and structs
+    for (auto& kv : packages) {
+        {
+            auto& submodules = kv.second.first;
+            sort(submodules.begin(), submodules.end());
+            auto last = unique(submodules.begin(), submodules.end());
+            submodules.erase(last, submodules.end());
+        }
 
+        {
+            auto& structs    = kv.second.second;
+            sort(structs.begin(), structs.end());
+            auto last = unique(structs.begin(), structs.end());
+            structs.erase(last, structs.end());
+        }
+    }
+
+    // RRR: New Version
+    for (auto& kv : packages) {
+        auto& package = kv.first;
+        auto& submodules_structs = kv.second;
+
+        if (!genPkgFiles) {
             if (!package.empty()) {
-                EmitJuliaPackage ejpkg {zcm, package};
-                int ret = ejpkg.emitPackage(structs);
+                EmitJuliaPackage ejpkg {package, pathPrefix};
+                int ret = ejpkg.emitPackage(submodules_structs.first, submodules_structs.second);
                 if (ret != 0) return ret;
+            }
+        } else {
+            for (auto* zs : submodules_structs.second) {
+                (void) zs;
             }
         }
     }
 
     // RRR: Old Version
-    for (auto& kv : packages) {
-        auto& package = kv.first;
-        auto& structs = kv.second;
-        // RRR: feed in the defaultPkg here somehow. Can't just add it to all the structs
-        //      because that would mess up includes.
-        int ret = JlEmitPack{zcm, package}.emitPackage(package, structs);
-        if (ret != 0) return ret;
+    if (!genPkgFiles) {
+        for (auto& kv : packages) {
+            auto& package = kv.first;
+            auto& structs = kv.second.second;
+            int ret = JlEmitPack{zcm, package}.emitPackage(package, structs);
+            if (ret != 0) return ret;
+        }
     }
 
     return 0;
