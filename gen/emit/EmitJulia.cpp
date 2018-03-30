@@ -17,14 +17,15 @@ void setupOptionsJulia(GetOpt& gopt)
     gopt.addString(0, "julia-path", ".",
                       "Julia destination directory");
 
-    gopt.addString(0, "julia-default-pkg", "",
-                      "Julia default package, all types/packages will be inside default");
+    gopt.addString(0, "julia-pkg-prefix", "",
+                      "Julia package prefix, all types/packages will be inside this. "
+                      "Comes *before* global pkg-prefix if both specified.");
 
     gopt.addBool(  0, "julia-disable-runtime-assertions", false,
                       "Disable runtime assertions (in encode) for type/size checking in Julia");
 
-    // RRR: I think I want to make this a requirement for julia zcmgen always because if you
-    //      ever have all the types in one command, why not just do all the work.
+    // Note: The reason we DON'T generate the actual zcmtype files during this call is that
+    //       the types themselves may have differing options (such as endian-ness).
     gopt.addBool(  0, "julia-generate-pkg-files", false,
                       "Generates the pkg file(s) instead of the zcmtype files. "
                       "MUST HAVE ALL ZCMTYPES FROM PACKAGE(S) INCLUDED IN COMMAND");
@@ -898,7 +899,7 @@ struct EmitJuliaPackage : public Emitter
     void emitTypes(const vector<ZCMStruct*>& pkgStructs)
     {
         for (auto& s : pkgStructs) {
-            emit(1, "# %s", s->structname.fullname.c_str());
+            emit(1, "import _%s", s->structname.nameUnderscoreCStr());
         }
     }
 
@@ -916,8 +917,8 @@ int emitJulia(ZCMGen& zcm)
 {
     string defaultPkg = "";
     // RRR: not handling default package anywhere yet
-    if (zcm.gopt->wasSpecified("julia-default-pkg"))
-        defaultPkg = zcm.gopt->getString("julia-default-pkg") + ".";
+    if (zcm.gopt->wasSpecified("julia-pkg-prefix"))
+        defaultPkg = zcm.gopt->getString("julia-pkg-prefix") + ".";
 
     // Copied wholesale from EmitPython.cpp
     unordered_map<string, vector<ZCMStruct*> > packages;
