@@ -31,78 +31,6 @@ def configure(ctx):
         ctx.find_program('zcm-gen', var='ZCMGEN', mandatory=True)
         ctx.env.ZCMGEN = ctx.env.ZCMGEN[0]
 
-# Context method used to set up proper include paths and simplify user code for zcmtype builds
-# keywords:
-#   name:         identifier for uselib linking (e.g. c/c++ builds may simply add 'name'
-#                 to their 'use' list to get proper include path and library linking)
-#                 default = 'zcmtypes' (though it is encouraged to name it something more unique
-#                                       to avoid library naming conflicts)
-#   source:       list of zcmtype source files to be interpreted
-#   build:        False if only zcmtype generation (no compiling or linking) is desired
-#                 Defaults to true.
-#   lang:         list of languages for which zcmtypes should be generated, options are:
-#                 ['c_stlib', 'c_shlib', 'cpp', 'java', 'python', 'nodejs', 'julia'].
-#                 Can also be a space separated string.
-#   littleEndian: True or false based on desired endianess of output. Should almost always
-#                 be false. Don't use this option unless you really know what you're doing
-#   javapkg:      name of the java package
-#                 default = 'zcmtypes' (though it is encouraged to name it something more unique
-#                                       to avoid library naming conflicts)
-#   juliapkg:     default julia package that all types will be generated into. If left empty,
-#                 types without packages will be generated into a package that is the typename
-#                 prefixed by '_'
-#
-#   TODO: add support for changing c/c++ include directory. Currently defaults so that the
-#         description below works
-#
-# Using the output zcmtypes:
-#   For the following explanations, assume:
-#     ${name} = value entered for the "name" keyword,
-#     ${dir}  = dir containing the zcmtypes (eg for ~/zcm/examples/types/*.zcm, ${dir} = "types")
-#     ${pkg}  = value entered for the "javapkg" keyword
-#
-#   C:             types will be compiled into a static library and linked into targets
-#     wscript:     add '${name}_c' to the list of "use" dependencies
-#     c files:     target include directives at "${dir}/type_name_t.h"
-#
-#   C++:           types are header only and will be included directly in source
-#     wscript:     add '${name}_cpp' to the list of "use" dependencies
-#     cpp files:   target include directives at "${dir}/type_name_t.hpp"
-#
-#   Java:          types will be compiled into a .jar, see details below on execution
-#     wscript:     add '${name}_java' to the list of "use" dependencies
-#     java files:  target import directives at "$pkg/type_name_t"
-#
-#   Python:        types will be compiled into .py python files and are imported
-#                  into final python script.
-#     wscript:     add '${name}_python' to the list of "use" dependencies if you
-#                  have any build time dependencies (most python dependencies,
-#                  however, are runtime so this will often, if not always, go unused).
-#     py files:    add directory containing .py files to your sys path and target
-#                  import directives at "$pkg/type_name_t"
-#
-#   NodeJS:        types will be compiled into a zcmtypes.js file which is
-#                  'require'd in your nodejs main app.js file and passed into
-#                  nodes zcm constructor
-#     wscript:     add '${name}_nodejs to the list of "use" dependencies if you
-#                  have any build time dependencies (most nodejs dependencies,
-#                  however, are runtime so this will often, if not always, go unused).
-#
-#   Julia:         types will be compiled into .jl files. Simply `include()` them
-#                  into the final julia script
-#     wscript:     add '${name}_julia' to the list of "use" dependencies
-#     julia files: target import directives at "${dir}/package : type_name_t"
-#
-# Note on running the output java classes:
-#   Because of the way that java's CLASSPATH works, even though waf will link the appropriate jar
-#   files for the build, their location is not maintained in the output jar. This means that to
-#   run a java program compiled in this manner, the final output jar AND the zcmtype jar MUST be
-#   in the CLASSPATH. Indeed, this waf build system will even be able to find the primary zcm.jar
-#   if it is not in the CLASSPATH and will be able to build without issue, but any attempt to run
-#   the output java classes without having zcm.jar in the CLASSPATH will fail. The zcmtype jar
-#   will be called ${name}.jar and will be located in the mirrored build path to wherever the
-#   waf zcmgen tool was invoked.
-
 def outFileName(ctx, inp, lang, absPath=False):
     fileparts = getFileParts(ctx, inp)
 
@@ -153,6 +81,12 @@ def outFileName(ctx, inp, lang, absPath=False):
 
 
 def getFileParts(ctx, path):
+    # RRR: It'd be really nice if the waftool didn't have to understand which files
+    #      zcm-gen was going to produce. We should probably make a "--output-files"
+    #      option for zcm-gen that just prints the output file paths. Additionally,
+    #      to speed this up, we could reduce the amount of parsing that is actually
+    #      triggered when using those options (you only need to parse the package
+    #      and the struct name, not the entire file).
     package = ctx.cmd_and_log('zcm-gen --package %s' % (path),
                               output=waflib.Context.STDOUT,
                               quiet=waflib.Context.BOTH).strip()
@@ -163,6 +97,100 @@ def getFileParts(ctx, path):
     return [reldirparts, package, nameparts, absdirparts]
 
 
+def genJuliaPkgFiles(task):
+    gen = task.generator
+
+    zcmgen    = task.env['ZCMGEN']
+    bld       = gen.path.get_bld().abspath()
+
+    options = '--julia --julia-path %s --julia-generate-pkg-files' % (bld)
+    if (gen.juliapkg):
+        options += ' --julia-pkg-prefix %s' % (gen.juliapkg)
+
+    inputs   = ' '.join([ i.abspath() for i in task.inputs ])
+
+    cmd = '%s %s %s && touch %s' % (zcmgen, options, inputs, task.outputs[0].abspath())
+
+    task.exec_command(cmd)
+
+# Context method used to set up proper include paths and simplify user code for zcmtype builds
+# keywords:
+#   name:         identifier for uselib linking (e.g. c/c++ builds may simply add 'name'
+#                 to their 'use' list to get proper include path and library linking)
+#                 default = 'zcmtypes' (though it is encouraged to name it something more unique
+#                                       to avoid library naming conflicts)
+#   source:       list of zcmtype source files to be interpreted
+#   build:        False if only zcmtype generation (no compiling or linking) is desired
+#                 Defaults to true.
+#   lang:         list of languages for which zcmtypes should be generated, options are:
+#                 ['c_stlib', 'c_shlib', 'cpp', 'java', 'python', 'nodejs', 'julia'].
+#                 Can also be a space separated string.
+#   littleEndian: True or false based on desired endianess of output. Should almost always
+#                 be false. Don't use this option unless you really know what you're doing
+#   javapkg:      name of the java package
+#                 default = 'zcmtypes' (though it is encouraged to name it something more unique
+#                                       to avoid library naming conflicts)
+#   juliapkg:     julia package prefix that all types will be generated into. If left empty,
+#                 types without packages will be generated into a package that is the typename
+#                 prefixed by '_'
+#   juliagenpkgs: If True, generate julia module files for all packages. ALL ZCMTYPES MUST BE
+#                 INCLUDED IN SOURCE FOR THIS COMMAND! Types are NOT generated themselves
+#                 unless the user specifies 'julia' in the `lang` list. This allows users
+#                 to split up type generation and apply options like `littleEndian` to only
+#                 a subset of their types. However, It is required that the `juliapkg` option
+#                 be identical on this command to the commands that generate the individual
+#                 types.
+#
+#   TODO: add support for changing c/c++ include directory. Currently defaults so that the
+#         description below works
+#
+# Using the output zcmtypes:
+#   For the following explanations, assume:
+#     ${name} = value entered for the "name" keyword,
+#     ${dir}  = dir containing the zcmtypes (eg for ~/zcm/examples/types/*.zcm, ${dir} = "types")
+#     ${pkg}  = value entered for the "javapkg" keyword
+#
+#   C:             types will be compiled into a static library and linked into targets
+#     wscript:     add '${name}_c' to the list of "use" dependencies
+#     c files:     target include directives at "${dir}/type_name_t.h"
+#
+#   C++:           types are header only and will be included directly in source
+#     wscript:     add '${name}_cpp' to the list of "use" dependencies
+#     cpp files:   target include directives at "${dir}/type_name_t.hpp"
+#
+#   Java:          types will be compiled into a .jar, see details below on execution
+#     wscript:     add '${name}_java' to the list of "use" dependencies
+#     java files:  target import directives at "$pkg/type_name_t"
+#
+#   Python:        types will be compiled into .py python files and are imported
+#                  into final python script.
+#     wscript:     add '${name}_python' to the list of "use" dependencies if you
+#                  have any build time dependencies (most python dependencies,
+#                  however, are runtime so this will often, if not always, go unused).
+#     py files:    add directory containing .py files to your sys path and target
+#                  import directives at "$pkg/type_name_t"
+#
+#   NodeJS:        types will be compiled into a zcmtypes.js file which is
+#                  'require'd in your nodejs main app.js file and passed into
+#                  nodes zcm constructor
+#     wscript:     add '${name}_nodejs to the list of "use" dependencies if you
+#                  have any build time dependencies (most nodejs dependencies,
+#                  however, are runtime so this will often, if not always, go unused).
+#
+#   Julia:         types will be compiled into .jl files. Simply `import` them
+#                  into the final julia script
+#     wscript:     add '${name}_julia' to the list of "use" dependencies
+#     julia files: target import directives at "${dir}/package : type_name_t"
+#
+# Note on running the output java classes:
+#   Because of the way that java's CLASSPATH works, even though waf will link the appropriate jar
+#   files for the build, their location is not maintained in the output jar. This means that to
+#   run a java program compiled in this manner, the final output jar AND the zcmtype jar MUST be
+#   in the CLASSPATH. Indeed, this waf build system will even be able to find the primary zcm.jar
+#   if it is not in the CLASSPATH and will be able to build without issue, but any attempt to run
+#   the output java classes without having zcm.jar in the CLASSPATH will fail. The zcmtype jar
+#   will be called ${name}.jar and will be located in the mirrored build path to wherever the
+#   waf zcmgen tool was invoked.
 @conf
 def zcmgen(ctx, **kw):
     if not getattr(ctx.env, 'ZCMGEN', []):
@@ -176,6 +204,14 @@ def zcmgen(ctx, **kw):
     if 'javapkg' in kw:
         javapkg_name = kw['javapkg']
 
+    juliapkg_name = ''
+    if 'juliapkg' in kw:
+        juliapkg_name = kw['juliapkg']
+
+    juliagenpkgs = False
+    if 'juliagenpkgs' in kw :
+        juliagenpkgs = kw['juliagenpkgs']
+
     building = True
     if 'build' in kw:
         building = kw['build']
@@ -185,8 +221,11 @@ def zcmgen(ctx, **kw):
         littleEndian = kw['littleEndian']
 
     if 'lang' not in kw:
-        # TODO: this should probably be a more specific error type
-        raise WafError('zcmgen requires keword argument: "lang"')
+        if juliagenpkgs:
+            return
+        else:
+            # TODO: this should probably be a more specific error type
+            raise WafError('zcmgen requires keword argument: "lang"')
 
     lang = kw['lang']
     if isinstance(kw['lang'], basestring):
@@ -212,6 +251,12 @@ def zcmgen(ctx, **kw):
             source = kw['source'],
             rule   = bldcmd + '${SRC}')
 
+    if juliagenpkgs:
+        ctx(target   = uselib_name + '_juliapkgs',
+            rule     = genJuliaPkgFiles,
+            source   = kw['source'],
+            juliapkg = juliapkg_name)
+
     # Add .zcm files to build so the process_zcmtypes rule picks them up
     if len(lang) == 0 or ('nodejs' in lang and len(lang) == 1):
         return
@@ -221,6 +266,7 @@ def zcmgen(ctx, **kw):
              source       = kw['source'],
              lang         = lang,
              littleEndian = littleEndian,
+             juliapkg     = juliapkg_name,
              javapkg      = javapkg_name)
     for s in tg.source:
         ctx.add_manual_dependency(s, zcmgen)
@@ -257,13 +303,13 @@ def zcmgen(ctx, **kw):
             export_includes = inc)
 
     if 'java' in lang:
-        ctx(name       = uselib_name + '_java',
-            features   = 'javac jar',
-            use        = ['zcmjar', genfiles_name],
-            srcdir     = ctx.path.find_or_declare('java/' + javapkg_name.split('.')[0]),
-            outdir     = 'java/classes',  # path to output (for .class)
-            basedir    = 'java/classes',  # basedir for jar
-            destfile   = uselib_name + '.jar')
+        ctx(name     = uselib_name + '_java',
+            features = 'javac jar',
+            use      = ['zcmjar', genfiles_name],
+            srcdir   = ctx.path.find_or_declare('java/' + javapkg_name.split('.')[0]),
+            outdir   = 'java/classes',  # path to output (for .class)
+            basedir  = 'java/classes',  # basedir for jar
+            destfile = uselib_name + '.jar')
 
     if 'python' in lang:
         ctx(target = uselib_name + '_python',
@@ -273,6 +319,7 @@ def zcmgen(ctx, **kw):
         ctx(target = uselib_name + '_julia',
             rule   = 'touch ${TGT}')
 
+
 @extension('.zcm')
 def process_zcmtypes(self, node):
     tsk = self.create_task('zcmgen', node)
@@ -281,7 +328,7 @@ class zcmgen(Task.Task):
     color   = 'PINK'
     quiet   = False
     ext_in  = ['.zcm']
-    ext_out = ['.c', '.h', '.hpp', '.java', '.py']
+    ext_out = ['.c', '.h', '.hpp', '.java', '.py', '.jl']
 
     ## This method processes the inputs and determines the outputs that will be generated
     ## when the zcm-gen program is run
@@ -355,6 +402,8 @@ class zcmgen(Task.Task):
             langs['python'] = '--python --ppath %s' % (bld)
         if 'julia' in gen.lang:
             langs['julia'] = '--julia --julia-path %s' % (bld)
+            if (gen.juliapkg):
+                langs['julia'] += ' --julia-pkg-prefix %s' % (gen.juliapkg)
 
         if gen.littleEndian:
             langs['endian'] = ' --little-endian-encoding '
