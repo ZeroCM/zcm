@@ -55,14 +55,14 @@ static string mapTypeName(const string& t)
 
 struct EmitJulia : public Emitter
 {
-    ZCMGen& zcm;
+    const ZCMGen& zcm;
     ZCMStruct& zs;
 
     string hton, ntoh;
 
     bool enableRuntimeAssertions;
 
-    EmitJulia(ZCMGen& zcm, ZCMStruct& zs, const string& fname):
+    EmitJulia(const ZCMGen& zcm, ZCMStruct& zs, const string& fname):
         Emitter(fname), zcm(zcm), zs(zs),
         hton(zcm.gopt->getBool("little-endian-encoding") ? "htol" : "hton"),
         ntoh(zcm.gopt->getBool("little-endian-encoding") ? "ltoh" : "ntoh"),
@@ -834,12 +834,12 @@ struct JlEmitPack : public Emitter
 
 struct EmitJuliaPackage : public Emitter
 {
-  private:
-    string  pkg; // RRR: this needs to just be the last package
+    const ZCMGen& zcm;
+    string pkg;
 
-  public:
-    EmitJuliaPackage(const string& pkg, const string& pathPrefix="") :
-        Emitter(getFileNameAndEnsureDirectoryExists(pkg, pathPrefix))
+    EmitJuliaPackage(const ZCMGen& zcm, const string& pkg) :
+        Emitter(getFileNameAndEnsureDirectoryExists(pkg, zcm.gopt->getString("julia-path"))),
+        zcm(zcm)
     {
         vector<string> pkgs = StringUtil::split(pkg, '.');
         this->pkg = pkgs.empty() ? "" : pkgs.back();
@@ -847,14 +847,10 @@ struct EmitJuliaPackage : public Emitter
 
     static string getFileNameAndEnsureDirectoryExists(const string& pkg, const string& pathPrefix)
     {
+        assert(!pkg.empty());
+
         // create the package directory, if necessary
         vector<string> pkgs = StringUtil::split(pkg, '.');
-
-        if (pkgs.empty()) {
-            // RRR: remove when not testing
-            return "/tmp/workspace/invalid.jl";
-            return (pathPrefix == "" ? pathPrefix : pathPrefix + "/") + "invalid.jl";
-        }
 
         string filename = pkgs.back() + ".jl";
         pkgs.pop_back();
@@ -928,10 +924,6 @@ struct EmitJuliaPackage : public Emitter
 
 int emitJulia(ZCMGen& zcm)
 {
-    string pathPrefix = "";
-    if (zcm.gopt->wasSpecified("julia-path"))
-        pathPrefix = zcm.gopt->getString("julia-path");
-
     string pkgPrefix = "";
     if (zcm.gopt->wasSpecified("julia-pkg-prefix"))
         pkgPrefix = zcm.gopt->getString("julia-pkg-prefix");
@@ -940,6 +932,8 @@ int emitJulia(ZCMGen& zcm)
 
     // Map of packages to their submodules and structs
     unordered_map<string, std::pair<vector<string>, vector<ZCMStruct*>>> packages;
+    // RRR: only used for now to surpress waf warnings
+    unordered_map<string, std::pair<vector<string>, vector<ZCMStruct*>>> packagesNoPrefix;
     // Add all stucts
     for (auto& zs : zcm.structs) {
         auto package = (pkgPrefix == "" || zs.structname.package == "")
@@ -956,6 +950,18 @@ int emitJulia(ZCMGen& zcm)
         }
 
         packages[package].second.push_back(&zs);
+
+        // RRR: creating noPrefix mapping, delete once we fix waftool
+        package = zs.structname.package;
+        parents = StringUtil::split(package, '.');
+        while (parents.size() > 1) {
+            auto thispkg = parents.back();
+            parents.pop_back();
+            auto parent = StringUtil::join(parents, '.');
+            packagesNoPrefix[parent].first.push_back(thispkg);
+        }
+
+        packagesNoPrefix[package].second.push_back(&zs);
     }
     // Ensure uniqueness of submodules and structs
     for (auto& kv : packages) {
@@ -979,9 +985,9 @@ int emitJulia(ZCMGen& zcm)
         auto& package = kv.first;
         auto& submodules_structs = kv.second;
 
-        if (!genPkgFiles) {
+        if (genPkgFiles) {
             if (!package.empty()) {
-                EmitJuliaPackage ejpkg {package, pathPrefix};
+                EmitJuliaPackage ejpkg {zcm, package};
                 int ret = ejpkg.emitPackage(submodules_structs.first, submodules_structs.second);
                 if (ret != 0) return ret;
             }
@@ -992,9 +998,9 @@ int emitJulia(ZCMGen& zcm)
         }
     }
 
-    // RRR: Old Version
+    // RRR: Old Version (using noPrefix packages)
     if (!genPkgFiles) {
-        for (auto& kv : packages) {
+        for (auto& kv : packagesNoPrefix) {
             auto& package = kv.first;
             auto& structs = kv.second.second;
             int ret = JlEmitPack{zcm, package}.emitPackage(package, structs);
