@@ -92,7 +92,7 @@ struct ZCMConstant
     // attached to the constant.
     string comment;
 
-    bool isFixedPoint();
+    bool isFixedPoint() const;
 
     ZCMConstant(const string& type, const string& name, const string& valstr);
 };

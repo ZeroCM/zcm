@@ -172,7 +172,7 @@ ZCMConstant::ZCMConstant(const string& type, const string& name, const string& v
     type(type), membername(name), valstr(valstr)
 {}
 
-bool ZCMConstant::isFixedPoint() { return inArray(fixedPointTypes, type); }
+bool ZCMConstant::isFixedPoint() const { return inArray(fixedPointTypes, type); }
 
 u64 ZCMStruct::computeHash()
 {
