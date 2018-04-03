@@ -6,6 +6,8 @@
 #include "util/FileUtil.hpp"
 
 #include <inttypes.h>
+#include <iostream>
+#include <string>
 
 #define FLAG_NONE 0
 
@@ -960,6 +962,8 @@ void setupOptionsC(GetOpt& gopt)
 
 int emitC(ZCMGen& zcm)
 {
+    bool printOutputFiles = zcm.gopt->getBool("output-files");
+
     for (auto& zs : zcm.structs) {
         string package = dotsToSlashes(zs.structname.package);
         if (package != "") package = "/" + package;
@@ -969,6 +973,11 @@ int emitC(ZCMGen& zcm)
 
         string hName = hpath + "/" + zs.structname.nameUnderscore() + ".h";
         string cName = hpath + "/" + zs.structname.nameUnderscore() + ".c";
+
+        if (printOutputFiles) {
+            std::cout << hName << std::endl << cName << std::endl;
+            continue;
+        }
 
         // STRUCT H file
         if (zcm.needsGeneration(zs.zcmfile, hName)) {

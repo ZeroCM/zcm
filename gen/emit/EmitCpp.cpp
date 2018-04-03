@@ -5,6 +5,8 @@
 #include "util/StringUtil.hpp"
 #include "util/FileUtil.hpp"
 
+#include <iostream>
+
 static string dotsToUnderscores(const string& s)
 {
     return StringUtil::replace(s, '.', '_');
@@ -704,6 +706,8 @@ struct Emit : public Emitter
 
 int emitCpp(ZCMGen& zcm)
 {
+    bool printOutputFiles = zcm.gopt->getBool("output-files");
+
     // iterate through all defined message types
     for (auto& zs : zcm.structs) {
         string tn = dotsToSlashes(zs.structname.fullname);
@@ -711,6 +715,11 @@ int emitCpp(ZCMGen& zcm)
         // compute the target filename
         string hpath = zcm.gopt->getString("cpp-hpath");
         string headerName = hpath + (hpath.size() > 0 ? "/" : ":") + tn +".hpp";
+
+        if (printOutputFiles) {
+            std::cout << headerName << std::endl;
+            continue;
+        }
 
         // generate code if needed
         if (zcm.needsGeneration(zs.zcmfile, headerName)) {

@@ -699,6 +699,8 @@ int emitPython(ZCMGen& zcm)
         return -1;
     }
 
+    bool printOutputFiles = zcm.gopt->getBool("output-files");
+
     unordered_map<string, vector<ZCMStruct*> > packages;
 
     // group the structs by package
