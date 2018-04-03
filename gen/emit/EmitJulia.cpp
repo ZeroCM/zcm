@@ -82,8 +82,8 @@ struct EmitJulia : public Emitter
         string filename = "_" + type + ".jl";
 
         string pkgDirs = StringUtil::join(pkgs, '/');;
-        string pkgPath = (pathPrefix == "" ? pathPrefix : pathPrefix + "/") +
-                         (   pkgDirs == "" ?    pkgDirs :    pkgDirs + "/");
+        string pkgPath = (pathPrefix.empty() ? pathPrefix : pathPrefix + "/") +
+                         (   pkgDirs.empty() ?    pkgDirs :    pkgDirs + "/");
 
         if (ensureDirectoryExists && pkgPath != "") {
             if (!FileUtil::exists(pkgPath)) {
@@ -889,8 +889,8 @@ struct EmitJuliaPackage : public Emitter
         pkgs.pop_back();
 
         string pkgDirs = StringUtil::join(pkgs, '/');;
-        string pkgPath = (pathPrefix == "" ? pathPrefix : pathPrefix + "/") +
-                         (   pkgDirs == "" ?    pkgDirs :    pkgDirs + "/");
+        string pkgPath = (pathPrefix.empty() ? pathPrefix : pathPrefix + "/") +
+                         (   pkgDirs.empty() ?    pkgDirs :    pkgDirs + "/");
 
         if (ensureDirectoryExists && pkgPath != "") {
             if (!FileUtil::exists(pkgPath)) {

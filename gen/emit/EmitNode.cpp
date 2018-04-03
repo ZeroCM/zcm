@@ -643,7 +643,7 @@ int emitNode(ZCMGen& zcm)
     string fileName = npath + "/zcmtypes.js";
 
     if (printOutputFiles) {
-        cout << npath << endl;
+        cout << fileName << endl;
         return 0;
     }
 

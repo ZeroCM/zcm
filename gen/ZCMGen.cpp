@@ -174,7 +174,7 @@ ZCMConstant::ZCMConstant(const string& type, const string& name, const string& v
 
 bool ZCMConstant::isFixedPoint() const { return inArray(fixedPointTypes, type); }
 
-u64 ZCMStruct::computeHash()
+u64 ZCMStruct::computeHash() const
 {
     u64 v = 0x12345678;
 
@@ -649,12 +649,12 @@ int ZCMGen::handleFile(const string& path)
         return res;
 }
 
-void ZCMTypename::dump()
+void ZCMTypename::dump() const
 {
     printf("\t%-20s", fullname.c_str());
 }
 
-void ZCMMember::dump()
+void ZCMMember::dump() const
 {
     type.dump();
 
@@ -679,14 +679,14 @@ void ZCMMember::dump()
     printf("\n");
 }
 
-void ZCMStruct::dump()
+void ZCMStruct::dump() const
 {
     printf("struct %s [hash=0x%16" PRId64 "]\n", structname.fullname.c_str(), hash);
     for (auto& zm : members)
         zm.dump();
 }
 
-void ZCMGen::dump()
+void ZCMGen::dump() const
 {
     for (auto& zs : structs)
         zs.dump();
@@ -711,7 +711,7 @@ ZCMConstant* ZCMStruct::findConst(const string& name)
     return nullptr;
 }
 
-bool ZCMGen::needsGeneration(const string& declaringfile, const string& outfile)
+bool ZCMGen::needsGeneration(const string& declaringfile, const string& outfile) const
 {
     struct stat instat, outstat;
     int res;
@@ -734,7 +734,7 @@ bool ZCMGen::needsGeneration(const string& declaringfile, const string& outfile)
 }
 
 /** Is the member an array of constant size? If it is not an array, it returns zero. **/
-bool ZCMMember::isConstantSizeArray()
+bool ZCMMember::isConstantSizeArray() const
 {
     if (dimensions.size() == 0)
         return true;

@@ -13,6 +13,8 @@ int main(int argc, char* argv[])
     GetOpt gopt;
     gopt.addBool('h', "help",                   0,  "Show this help");
     gopt.addBool('t', "tokenize",               0,  "Show tokenization");
+    // RRR: it'd be really cool if it only did a limited amount of file parsing for the
+    //      package and output-files options
     gopt.addBool(0,   "package",                0,  "Show only package");
     gopt.addBool(0,   "output-files",           0,  "Show output filenames only");
     gopt.addBool('d', "debug",                  0,  "Show parsed file");
