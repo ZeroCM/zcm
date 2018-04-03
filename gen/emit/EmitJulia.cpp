@@ -26,14 +26,14 @@ void setupOptionsJulia(GetOpt& gopt)
                       "Julia package prefix, all types/packages will be inside this. "
                       "Comes *before* global pkg-prefix if both specified.");
 
-    gopt.addBool(  0, "julia-disable-runtime-assertions", false,
-                      "Disable runtime assertions (in encode) for type/size checking in Julia");
-
     // Note: The reason we DON'T generate the actual zcmtype files during this call is that
     //       the types themselves may have differing options (such as endian-ness).
     gopt.addBool(  0, "julia-generate-pkg-files", false,
                       "Generates the pkg file(s) instead of the zcmtype files. "
                       "MUST HAVE ALL ZCMTYPES FROM PACKAGE(S) INCLUDED IN COMMAND");
+
+    gopt.addBool(  0, "julia-disable-runtime-assertions", false,
+                      "Disable runtime assertions (in encode) for type/size checking in Julia");
 }
 
 // Some types do not have a 1:1 mapping from zcm types to native Julia storage types.
@@ -69,22 +69,23 @@ struct EmitJulia : public Emitter
         enableRuntimeAssertions(!zcm.gopt->getBool("julia-disable-runtime-assertions"))
     {}
 
-    static string getFileNameAndEnsureDirectoryExists(const string& type, const string& pkg,
-                                                      const string& pathPrefix)
+    static string getFilename(const ZCMGen& zcm, const string& type, const string& pkg,
+                              bool ensureDirectoryExists = false)
     {
         assert(!type.empty());
-        string filename = "_" + type + ".jl";
 
         // create the package directory, if necessary
+        string pathPrefix = zcm.gopt->getString("julia-path");
+        // RRR: remove when not testing
+        //pathPrefix = "/tmp/workspace/";
         vector<string> pkgs = StringUtil::split(pkg, '.');
+        string filename = "_" + type + ".jl";
+
         string pkgDirs = StringUtil::join(pkgs, '/');;
         string pkgPath = (pathPrefix == "" ? pathPrefix : pathPrefix + "/") +
                          (   pkgDirs == "" ?    pkgDirs :    pkgDirs + "/");
-        // RRR: remove when not testing
-        pkgPath = "/tmp/workspace/" +
-                         (   pkgDirs == "" ?    pkgDirs :    pkgDirs + "/");
 
-        if (pkgPath != "") {
+        if (ensureDirectoryExists && pkgPath != "") {
             if (!FileUtil::exists(pkgPath)) {
                 FileUtil::mkdirWithParents(pkgPath, 0755);
             }
@@ -867,30 +868,31 @@ struct EmitJuliaPackage : public Emitter
     string pkg;
 
     EmitJuliaPackage(const ZCMGen& zcm, const string& pkg) :
-        Emitter(getFileNameAndEnsureDirectoryExists(pkg, zcm.gopt->getString("julia-path"))),
+        Emitter(getFilename(zcm, pkg, true)),
         zcm(zcm)
     {
         vector<string> pkgs = StringUtil::split(pkg, '.');
         this->pkg = pkgs.empty() ? "" : pkgs.back();
     }
 
-    static string getFileNameAndEnsureDirectoryExists(const string& pkg, const string& pathPrefix)
+    static string getFilename(const ZCMGen& zcm, const string& pkg,
+                              bool ensureDirectoryExists = false)
     {
         assert(!pkg.empty());
 
         // create the package directory, if necessary
+        string pathPrefix = zcm.gopt->getString("julia-path");
+        // RRR: remove when not testing
+        //pathPrefix = "/tmp/workspace/";
         vector<string> pkgs = StringUtil::split(pkg, '.');
-
         string filename = pkgs.back() + ".jl";
         pkgs.pop_back();
+
         string pkgDirs = StringUtil::join(pkgs, '/');;
         string pkgPath = (pathPrefix == "" ? pathPrefix : pathPrefix + "/") +
                          (   pkgDirs == "" ?    pkgDirs :    pkgDirs + "/");
-        // RRR: remove when not testing
-        pkgPath = "/tmp/workspace/" +
-                         (   pkgDirs == "" ?    pkgDirs :    pkgDirs + "/");
 
-        if (pkgPath != "") {
+        if (ensureDirectoryExists && pkgPath != "") {
             if (!FileUtil::exists(pkgPath)) {
                 FileUtil::mkdirWithParents(pkgPath, 0755);
             }
@@ -956,6 +958,7 @@ int emitJulia(ZCMGen& zcm)
         pkgPrefix = zcm.gopt->getString("julia-pkg-prefix");
 
     bool genPkgFiles = zcm.gopt->getBool("julia-generate-pkg-files");
+    bool printOutputFiles = zcm.gopt->getBool("output-files");
 
     // Map of packages to their submodules and structs
     unordered_map<string, std::pair<vector<string>, vector<ZCMStruct*>>> packages;
@@ -1014,26 +1017,34 @@ int emitJulia(ZCMGen& zcm)
 
         if (genPkgFiles) {
             if (!package.empty()) {
-                EmitJuliaPackage ejPkg {zcm, package};
-                int ret = ejPkg.emitPackage(submodules_structs.first, submodules_structs.second);
-                if (ret != 0) return ret;
+                if (printOutputFiles) {
+                    cout << EmitJuliaPackage::getFilename(zcm, package) << endl;
+                } else {
+                    EmitJuliaPackage ejPkg {zcm, package};
+                    int ret = ejPkg.emitPackage(submodules_structs.first,
+                                                submodules_structs.second);
+                    if (ret != 0) return ret;
+                }
             }
         } else {
             for (auto* zs : submodules_structs.second) {
-                (void) zs;
 
-                // RRR: move the static function call within the constructor
-                EmitJulia ejType {zcm, *zs, EmitJulia::getFileNameAndEnsureDirectoryExists(
-                                                zs->structname.shortname,
-                                                package, zcm.gopt->getString("julia-path")) };
-                int ret = ejType.emitType();
-                if (ret != 0) return ret;
+                if (printOutputFiles) {
+                    cout << EmitJulia::getFilename(zcm, zs->structname.shortname, package) << endl;
+                } else {
+                    // RRR: move the static function call within the constructor
+                    EmitJulia ejType {zcm, *zs,
+                                      EmitJulia::getFilename(zcm, zs->structname.shortname,
+                                                             package, true) };
+                    int ret = ejType.emitType();
+                    if (ret != 0) return ret;
+                }
             }
         }
     }
 
     // RRR: Old Version (using noPrefix packages)
-    if (!genPkgFiles) {
+    if (!genPkgFiles && !printOutputFiles) {
         for (auto& kv : packagesNoPrefix) {
             auto& package = kv.first;
             auto& structs = kv.second.second;
