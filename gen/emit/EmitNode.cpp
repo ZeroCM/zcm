@@ -6,6 +6,8 @@
 #include "ZCMGen.hpp"
 #include "Emitter.hpp"
 
+#include <iostream>
+
 using namespace std;
 
 void setupOptionsNode(GetOpt& gopt)
@@ -679,8 +681,16 @@ int emitNode(ZCMGen& zcm)
         return -1;
     }
 
+    bool printOutputFiles = zcm.gopt->getBool("output-files");
+
     string npath = zcm.gopt->getString("npath");
     string fileName = npath + "/zcmtypes.js";
+
+    if (printOutputFiles) {
+        cout << npath << endl;
+        return 0;
+    }
+
     EmitModule E{zcm, fileName};
     if (!E.good())
         return -1;

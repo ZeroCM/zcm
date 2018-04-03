@@ -5,6 +5,8 @@
 #include "util/StringUtil.hpp"
 #include "util/FileUtil.hpp"
 
+#include <iostream>
+
 static string dotsToSlashes(const string& s)
 {
     return StringUtil::replace(s, '.', '/');
@@ -558,6 +560,8 @@ int emitJava(ZCMGen& zcm)
         return -1;
     }
 
+    bool printOutputFiles = zcm.gopt->getBool("output-files");
+
     string jpath = zcm.gopt->getString("jpath");
     string jpathPrefix = jpath + (jpath.size() > 0 ? "/" : "");
     bool jmkdir = zcm.gopt->getBool("jmkdir");
@@ -574,6 +578,11 @@ int emitJava(ZCMGen& zcm)
 
         string classname = makeFqn(zcm, zs.structname.fullname);
         string path = jpathPrefix + dotsToSlashes(classname) + ".java";
+
+        if (printOutputFiles) {
+            std::cout << path << std::endl;
+            continue;
+        }
 
         if (!zcm.needsGeneration(zs.zcmfile, path))
             continue;

@@ -960,6 +960,8 @@ int emitJulia(ZCMGen& zcm)
     bool genPkgFiles = zcm.gopt->getBool("julia-generate-pkg-files");
     bool printOutputFiles = zcm.gopt->getBool("output-files");
 
+    // RRR: should use zcm.needsGeneration to selectively regenerate files
+
     // Map of packages to their submodules and structs
     unordered_map<string, std::pair<vector<string>, vector<ZCMStruct*>>> packages;
     // RRR: only used for now to surpress waf warnings
