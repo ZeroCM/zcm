@@ -31,6 +31,11 @@ def configure(ctx):
         ctx.find_program('zcm-gen', var='ZCMGEN', mandatory=True)
         ctx.env.ZCMGEN = ctx.env.ZCMGEN[0]
 
+# RRR: new version using zcm-gen --output-files
+def outFileNameNew(ctx, ing, **kw):
+    pass
+
+
 def outFileName(ctx, inp, lang, absPath=False):
     fileparts = getFileParts(ctx, inp)
 
@@ -66,6 +71,11 @@ def outFileName(ctx, inp, lang, absPath=False):
     if lang == 'python':
         return defaultOutFileName(fileparts, absPath).replace('.zcm', '.py')
     if lang == 'julia':
+        files = ctx.cmd_and_log('zcm-gen --output-files --julia %s' % (inp),
+                                output=waflib.Context.STDOUT,
+                                quiet=waflib.Context.BOTH).strip().split()
+        print(files)
+
         folder, package, zcmfile, sourcedir = fileparts
         jlfile = zcmfile.replace('.zcm', '.jl')
         if package != "":
@@ -196,36 +206,18 @@ def zcmgen(ctx, **kw):
     if not getattr(ctx.env, 'ZCMGEN', []):
         raise WafError('zcmgen requires ctx.env.ZCMGEN set to the zcm-gen executable')
 
-    uselib_name = 'zcmtypes'
-    if 'name' in kw:
-        uselib_name = kw['name']
+    uselib_name   = kw.get('name',         'zcmtypes')
+    javapkg_name  = kw.get('javapkg',      'zcmtypes')
+    juliapkg_name = kw.get('juliapkg',     '')
+    juliagenpkgs  = kw.get('juliagenpkgs', False)
+    building      = kw.get('build',        True)
+    littleEndian  = kw.get('littleEndian', False)
 
-    javapkg_name = 'zcmtypes'
-    if 'javapkg' in kw:
-        javapkg_name = kw['javapkg']
+    lang = kw.get('lang', [])
+    if isinstance(lang, basestring):
+        lang = lang.split(' ')
 
-    juliapkg_name = ''
-    if 'juliapkg' in kw:
-        juliapkg_name = kw['juliapkg']
-
-    juliagenpkgs = False
-    if 'juliagenpkgs' in kw :
-        juliagenpkgs = kw['juliagenpkgs']
-
-    building = True
-    if 'build' in kw:
-        building = kw['build']
-
-    littleEndian = False
-    if 'littleEndian' in kw:
-        littleEndian = kw['littleEndian']
-
-    lang = []
-    if 'lang' in kw:
-        lang = kw['lang']
-        if isinstance(kw['lang'], basestring):
-            lang = kw['lang'].split(' ')
-    elif not juliagenpkgs:
+    if ((not lang) and (not juliagenpkgs)):
         # TODO: this should probably be a more specific error type
         raise WafError('zcmgen requires keword argument: "lang"')
 
