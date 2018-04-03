@@ -31,10 +31,9 @@ def configure(ctx):
         ctx.find_program('zcm-gen', var='ZCMGEN', mandatory=True)
         ctx.env.ZCMGEN = ctx.env.ZCMGEN[0]
 
-# RRR: new version using zcm-gen --output-files
-def outFileNameNew(ctx, inp, **kw):
+# returns filenames as an array of paths relative to the bldpath
+def outFileNames(ctx, bldpath, inFile, **kw):
     zcmgen = ctx.env['ZCMGEN']
-    bld = ctx.path.get_bld().abspath()
 
     javapkg      = kw.get('javapkg',      'zcmtypes')
     juliapkg     = kw.get('juliapkg',     '')
@@ -50,92 +49,33 @@ def outFileNameNew(ctx, inp, **kw):
 
     cmd = {}
     if ('c_stlib' in lang) or ('c_shlib' in lang):
-        cmd['c'] = '--c --c-cpath %s --c-hpath %s' % (bld, bld)
+        cmd['c'] = '--c --c-cpath %s --c-hpath %s' % (bldpath, bldpath)
     if 'cpp' in lang:
-        cmd['cpp'] = '--cpp --cpp-hpath %s' % (bld)
+        cmd['cpp'] = '--cpp --cpp-hpath %s' % (bldpath)
     if 'java' in lang:
-        cmd['java'] = '--java --jpath %s --jdefaultpkg %s' % (bld + '/java', javapkg)
+        cmd['java'] = '--java --jpath %s --jdefaultpkg %s' % (bldpath + '/java', javapkg)
     if 'python' in lang:
-        cmd['python'] = '--python --ppath %s' % (bld)
+        cmd['python'] = '--python --ppath %s' % (bldpath)
     if 'julia' in lang:
-        cmd['julia'] = '--julia --julia-path %s' % (bld)
+        cmd['julia'] = '--julia --julia-path %s' % (bldpath)
         if (juliapkg):
             cmd['julia'] += ' --julia-pkg-prefix %s' % (juliapkg)
         if (juliagenpkgs):
             cmd['julia'] += ' --julia-generate-pkg-files'
     if 'nodejs' in lang:
-        cmd['nodejs'] = '--node --npath %s' % (bld)
+        cmd['nodejs'] = '--node --npath %s' % (bldpath)
 
-    return ctx.cmd_and_log('zcm-gen --output-files %s %s' % (' '.join(cmd.values()), inp),
-                           output=waflib.Context.STDOUT,
-                           quiet=waflib.Context.BOTH).strip().split()
+    files = ctx.cmd_and_log('zcm-gen --output-files %s %s' % (' '.join(cmd.values()), inFile),
+                            output=waflib.Context.STDOUT,
+                            quiet=waflib.Context.BOTH).strip().split()
 
+    for i in range(len(files)):
+        if files[i].startswith(bldpath):
+            files[i] = files[i][len(bldpath):]
+        else:
+            raise WafError('ZCMtypes output not in the build path : ', files[i])
 
-def outFileName(ctx, inp, lang, absPath=False):
-    fileparts = getFileParts(ctx, inp)
-
-    def defaultOutFileName(fileparts, absPath):
-        ret = ""
-        if absPath:
-            if fileparts[3] != "":
-                ret = fileparts[3]
-        if fileparts[1] != "":
-            if ret != "":
-                ret = ret + "/"
-            ret = ret + '/'.join(fileparts[1].split('.'))
-        if fileparts[2] != "":
-            if ret != "":
-                ret = ret + "/"
-            ret = ret + fileparts[2]
-        return ret
-
-    if lang == 'zcm':
-        return defaultOutFileName(fileparts, absPath)
-    if lang == 'c':
-        hfileparts = fileparts[:]
-        cfileparts = fileparts[:]
-        hfileparts[2] = fileparts[2].replace('.zcm', '.h')
-        cfileparts[2] = fileparts[2].replace('.zcm', '.c')
-        if fileparts[1] != "":
-            hfileparts[2] = '_'.join(fileparts[1].split('.')) + "_" + hfileparts[2]
-            cfileparts[2] = '_'.join(fileparts[1].split('.')) + "_" + cfileparts[2]
-        return [defaultOutFileName(hfileparts, absPath).replace('.zcm', '.h'),
-                defaultOutFileName(cfileparts, absPath).replace('.zcm', '.c')]
-    if lang == 'cpp':
-        return defaultOutFileName(fileparts, absPath).replace('.zcm', '.hpp')
-    if lang == 'python':
-        return defaultOutFileName(fileparts, absPath).replace('.zcm', '.py')
-    if lang == 'julia':
-        folder, package, zcmfile, sourcedir = fileparts
-        jlfile = zcmfile.replace('.zcm', '.jl')
-        if package != "":
-            jlfile = '_'.join(package.split('.')) + '_' + jlfile
-        # prepend an underscore to distinguish the type from the module
-        jlfile = '_' + jlfile
-        # Only the top-level package corresponds to a subfolder
-        package = "".join(package.split('.')[:1])
-        fileparts = [folder, package, jlfile, sourcedir]
-        return defaultOutFileName(fileparts, absPath)
-
-    raise WafError('This should not be possible')
-
-
-def getFileParts(ctx, path):
-    # RRR: It'd be really nice if the waftool didn't have to understand which files
-    #      zcm-gen was going to produce. We should probably make a "--output-files"
-    #      option for zcm-gen that just prints the output file paths. Additionally,
-    #      to speed this up, we could reduce the amount of parsing that is actually
-    #      triggered when using those options (you only need to parse the package
-    #      and the struct name, not the entire file).
-    package = ctx.cmd_and_log('zcm-gen --package %s' % (path),
-                              output=waflib.Context.STDOUT,
-                              quiet=waflib.Context.BOTH).strip()
-    pathparts = path.split('/')
-    absdirparts = '/'.join(pathparts[:-1])
-    nameparts = '/'.join(pathparts[-1:])
-    reldirparts = absdirparts.replace(ctx.path.abspath() + '/', '')
-    return [reldirparts, package, nameparts, absdirparts]
-
+    return files
 
 def genJuliaPkgFiles(task):
     gen = task.generator
@@ -298,9 +238,12 @@ def zcmgen(ctx, **kw):
     if 'c_stlib' in lang or 'c_shlib' in lang:
         csrc = []
         for src in tg.source:
-            outfile = outFileName(ctx, src.abspath(), 'c')
-            outnode = ctx.path.find_or_declare(outfile[1])
-            csrc.append(outnode)
+            files = outFileNames(ctx, ctx.path.get_bld().abspath(), src.abspath(),
+                                 lang = [ 'c_stlib', 'c_shlib' ])
+            for f in files:
+                if f.endswith('.c'):
+                    outnode = ctx.path.find_or_declare(f)
+                    csrc.append(outnode)
 
     if 'c_stlib' in lang:
         ctx.stlib(name            = uselib_name + '_c_stlib',
@@ -357,50 +300,14 @@ class zcmgen(Task.Task):
         gen = self.generator
         inp = self.inputs[0]
 
-        files = outFileNameNew(gen.bld, inp,
-                               javapkg      = gen.javapkg,
-                               juliapkg     = gen.juliapkg,
-                               lang         = gen.lang)
-        print(files)
+        files = outFileNames(gen.bld, gen.path.get_bld().abspath(), inp,
+                             javapkg  = gen.javapkg,
+                             juliapkg = gen.juliapkg,
+                             lang     = gen.lang)
 
-        if ('c_stlib' in gen.lang) or ('c_shlib' in gen.lang):
-            filenames = outFileName(gen.bld, inp.abspath(), 'c')
-            outh_node = gen.path.find_or_declare(filenames[0])
-            outc_node = gen.path.find_or_declare(filenames[1])
-            self.outputs.append(outh_node)
-            self.outputs.append(outc_node)
-        if 'cpp' in gen.lang:
-            filename = outFileName(gen.bld, inp.abspath(), 'cpp')
-            node = gen.path.find_or_declare(filename)
-            self.outputs.append(node)
-        if 'java' in gen.lang:
-            fileparts = getFileParts(gen.bld, inp.abspath())
-            fileparts[2] = fileparts[2].replace('.zcm', '.java')
-            if fileparts[1] == "":
-                if not getattr(gen, 'javapkg', None):
-                    raise WafError('No package specified for java zcmtype ' \
-                                   'generation. Specify package with a ' \
-                                   '"package <pkg>;" statement at the top of ' \
-                                   'the type or with the "javapkg" build keyword')
-                else:
-                    fileparts[1] = gen.javapkg.replace('.', '/')
-            else:
-                if getattr(gen, 'javapkg', None):
-                    fileparts[1] = (gen.javapkg + "/" + fileparts[1]).replace('.', '/')
-                else:
-                    fileparts[1] = fileparts[1].replace('.', '/')
-
-            outp = '/'.join(['java', fileparts[1], fileparts[2]])
-            outp_node = gen.path.get_bld().make_node(outp)
-            self.outputs.append(outp_node)
-        if 'python' in gen.lang:
-            filename = outFileName(gen.bld, inp.abspath(), 'python')
-            node = gen.path.find_or_declare(filename)
-            self.outputs.append(node)
-        if 'julia' in gen.lang:
-            filename = outFileName(gen.bld, inp.abspath(), 'julia')
-            node = gen.path.find_or_declare(filename)
-            self.outputs.append(node)
+        for f in files:
+            out_node = gen.path.find_or_declare(f)
+            self.outputs.append(out_node)
 
         if not self.outputs:
             raise WafError('No ZCMtypes generated, ensure a valid lang is specified')

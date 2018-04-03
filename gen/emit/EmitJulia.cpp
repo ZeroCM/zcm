@@ -1046,14 +1046,14 @@ int emitJulia(ZCMGen& zcm)
     }
 
     // RRR: Old Version (using noPrefix packages)
-    if (!genPkgFiles && !printOutputFiles) {
-        for (auto& kv : packagesNoPrefix) {
-            auto& package = kv.first;
-            auto& structs = kv.second.second;
-            int ret = JlEmitPack{zcm, package}.emitPackage(package, structs);
-            if (ret != 0) return ret;
-        }
-    }
+    //if (!genPkgFiles && !printOutputFiles) {
+        //for (auto& kv : packagesNoPrefix) {
+            //auto& package = kv.first;
+            //auto& structs = kv.second.second;
+            //int ret = JlEmitPack{zcm, package}.emitPackage(package, structs);
+            //if (ret != 0) return ret;
+        //}
+    //}
 
     return 0;
 }
