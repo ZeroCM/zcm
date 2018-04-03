@@ -50,11 +50,11 @@ def outFileNameNew(ctx, inp, **kw):
 
     cmd = {}
     if ('c_stlib' in lang) or ('c_shlib' in lang):
-        cmd['c'] = '--c --c-path %s --c-hpath %s' % (bld, bld)
+        cmd['c'] = '--c --c-cpath %s --c-hpath %s' % (bld, bld)
     if 'cpp' in lang:
         cmd['cpp'] = '--cpp --cpp-hpath %s' % (bld)
     if 'java' in lang:
-        cmd['java'] = '--java -jpath %s --jdefaultpkg %s' % (bld + '/java', javapkg)
+        cmd['java'] = '--java --jpath %s --jdefaultpkg %s' % (bld + '/java', javapkg)
     if 'python' in lang:
         cmd['python'] = '--python --ppath %s' % (bld)
     if 'julia' in lang:
@@ -64,7 +64,7 @@ def outFileNameNew(ctx, inp, **kw):
         if (juliagenpkgs):
             cmd['julia'] += ' --julia-generate-pkg-files'
     if 'nodejs' in lang:
-        cmd['nodejs'] = '--node --npath %s ' % (bld)
+        cmd['nodejs'] = '--node --npath %s' % (bld)
 
     return ctx.cmd_and_log('zcm-gen --output-files %s %s' % (' '.join(cmd.values()), inp),
                            output=waflib.Context.STDOUT,
@@ -106,11 +106,6 @@ def outFileName(ctx, inp, lang, absPath=False):
     if lang == 'python':
         return defaultOutFileName(fileparts, absPath).replace('.zcm', '.py')
     if lang == 'julia':
-        files = ctx.cmd_and_log('zcm-gen --output-files --julia %s' % (inp),
-                                output=waflib.Context.STDOUT,
-                                quiet=waflib.Context.BOTH).strip().split()
-        print(files)
-
         folder, package, zcmfile, sourcedir = fileparts
         jlfile = zcmfile.replace('.zcm', '.jl')
         if package != "":
@@ -275,6 +270,7 @@ def zcmgen(ctx, **kw):
             target = 'zcmtypes.js',
             source = kw['source'],
             rule   = bldcmd + '${SRC}')
+        lang.remove('nodejs') # Done with nodejs, remove so we don't try to gen node files below
 
     if juliagenpkgs:
         ctx(target   = uselib_name + '_juliapkgs',
@@ -282,10 +278,10 @@ def zcmgen(ctx, **kw):
             source   = kw['source'],
             juliapkg = juliapkg)
 
-    # Add .zcm files to build so the process_zcmtypes rule picks them up
-    if len(lang) == 0 or ('nodejs' in lang and len(lang) == 1):
+    if len(lang) == 0:
         return
 
+    # Add .zcm files to build so the process_zcmtypes rule picks them up
     genfiles_name = uselib_name + '_genfiles'
     tg = ctx(name         = genfiles_name,
              source       = kw['source'],
@@ -361,12 +357,11 @@ class zcmgen(Task.Task):
         gen = self.generator
         inp = self.inputs[0]
 
-        #files = outFileNameNew(gen.bld, inp,
-                               #javapkg      = gen.javapkg,
-                               #juliapkg     = gen.juliapkg,
-                               #juliagenpkgs = gen.juliagenpkgs,
-                               #lang         = gen.lang)
-        #print(files)
+        files = outFileNameNew(gen.bld, inp,
+                               javapkg      = gen.javapkg,
+                               juliapkg     = gen.juliapkg,
+                               lang         = gen.lang)
+        print(files)
 
         if ('c_stlib' in gen.lang) or ('c_shlib' in gen.lang):
             filenames = outFileName(gen.bld, inp.abspath(), 'c')

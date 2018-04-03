@@ -17,7 +17,7 @@ void setupOptionsPython(GetOpt& gopt)
     gopt.addString(0, "ppath", "", "Python destination directory");
 }
 
-static char getStructFormat(ZCMMember& zm)
+static char getStructFormat(const ZCMMember& zm)
 {
     auto& tn = zm.type.fullname;
     if (tn == "byte")    return 'B';
@@ -33,10 +33,10 @@ static char getStructFormat(ZCMMember& zm)
 
 struct PyEmitStruct : public Emitter
 {
-    ZCMGen& zcm;
-    ZCMStruct& zs;
+    const ZCMGen& zcm;
+    const ZCMStruct& zs;
 
-    PyEmitStruct(ZCMGen& zcm, ZCMStruct& zs, const string& fname):
+    PyEmitStruct(const ZCMGen& zcm, const ZCMStruct& zs, const string& fname):
         Emitter(fname), zcm(zcm), zs(zs) {}
 
     void emitStruct()
@@ -83,7 +83,7 @@ struct PyEmitStruct : public Emitter
         emitPythonFingerprint();
     }
 
-    void emitDecodeOne(ZCMMember& zm, const string& accessor_, int indent, const string& sfx_)
+    void emitDecodeOne(const ZCMMember& zm, const string& accessor_, int indent, const string& sfx_)
     {
         auto& tn = zm.type.fullname;
         auto& mn = zm.membername;
@@ -122,7 +122,7 @@ struct PyEmitStruct : public Emitter
         }
     }
 
-    void emitDecodeList(ZCMMember& zm, const string& accessor_, int indent, bool isFirst,
+    void emitDecodeList(const ZCMMember& zm, const string& accessor_, int indent, bool isFirst,
                         const string& len_, bool fixedLen)
     {
         auto& tn = zm.type.fullname;
@@ -166,7 +166,7 @@ struct PyEmitStruct : public Emitter
         }
     }
 
-    void flushReadStructFmt(std::queue<int>& formats, std::queue<ZCMMember*>& members)
+    void flushReadStructFmt(std::queue<int>& formats, std::queue<const ZCMMember*>& members)
     {
         size_t nfmts = formats.size();
         assert(nfmts == members.size());
@@ -196,7 +196,7 @@ struct PyEmitStruct : public Emitter
         emit(2, "self = %s()", zs.structname.shortname.c_str());
 
         std::queue<int> structFmt;
-        std::queue<ZCMMember*> structMembers;
+        std::queue<const ZCMMember*> structMembers;
 
         for (auto& zm : zs.members) {
             char fmt = getStructFormat(zm);
@@ -293,7 +293,7 @@ struct PyEmitStruct : public Emitter
         emit(0, "");
     }
 
-    void emitEncodeOne(ZCMMember& zm, const string& accessor_, int indent)
+    void emitEncodeOne(const ZCMMember& zm, const string& accessor_, int indent)
     {
         const string& tn = zm.type.fullname;
         const string& mn = zm.membername;
@@ -331,7 +331,7 @@ struct PyEmitStruct : public Emitter
         }
     }
 
-    void emitEncodeList(ZCMMember& zm, const string& accessor_, int indent,
+    void emitEncodeList(const ZCMMember& zm, const string& accessor_, int indent,
                         const string& len_, int fixedLen)
     {
         auto& tn = zm.type.fullname;
@@ -356,7 +356,7 @@ struct PyEmitStruct : public Emitter
         }
     }
 
-    void flushWriteStructFmt(std::queue<int>& formats, std::queue<ZCMMember*>& members)
+    void flushWriteStructFmt(std::queue<int>& formats, std::queue<const ZCMMember*>& members)
     {
         size_t nfmts = formats.size();
         assert(nfmts == members.size());
@@ -387,7 +387,7 @@ struct PyEmitStruct : public Emitter
         }
 
         std::queue<int> structFmt;
-        std::queue<ZCMMember*> structMembers;
+        std::queue<const ZCMMember*> structMembers;
 
         for (auto& zm : zs.members) {
             char fmt = getStructFormat(zm);
@@ -446,7 +446,7 @@ struct PyEmitStruct : public Emitter
         emit(0, "");
     }
 
-    void emitMemberInitializer(ZCMMember& zm, int dimNum)
+    void emitMemberInitializer(const ZCMMember& zm, int dimNum)
     {
         if((size_t)dimNum == zm.dimensions.size()) {
             auto& tn = zm.type.fullname;
@@ -572,12 +572,13 @@ struct PyEmitStruct : public Emitter
     }
 };
 
-struct PyEmitPack : public Emitter
+// RRR: this file should really be updated to work more like the julia version
+struct PyEmitPack
 {
-    ZCMGen& zcm;
+    const ZCMGen& zcm;
 
-    PyEmitPack(ZCMGen& zcm, const string& fname):
-        Emitter(fname), zcm(zcm) {}
+    PyEmitPack(const ZCMGen& zcm):
+        zcm(zcm) {}
 
     int emitPackage(const string& packName, vector<ZCMStruct*>& packStructs)
     {
@@ -669,8 +670,8 @@ struct PyEmitPack : public Emitter
 
         ////////////////////////////////////////////////////////////
         // STRUCTS
-        for (auto* ls_ : packStructs) {
-            auto& zs = *ls_;
+        for (auto* zs_ : packStructs) {
+            auto& zs = *zs_;
             auto& sn_ = zs.structname.shortname;
             auto* sn = sn_.c_str();
             string path = packageDir + sn_ + ".py";
@@ -703,6 +704,7 @@ int emitPython(ZCMGen& zcm)
 
     unordered_map<string, vector<ZCMStruct*> > packages;
 
+
     // group the structs by package
     for (auto& zs : zcm.structs)
         packages[zs.structname.package].push_back(&zs);
@@ -710,7 +712,25 @@ int emitPython(ZCMGen& zcm)
     for (auto& kv : packages) {
         auto& name = kv.first;
         auto& pack = kv.second;
-        int ret = PyEmitPack{zcm, name}.emitPackage(name, pack);
+
+        // RRR: doing this ugly for now ...
+        if (printOutputFiles) {
+            vector<string> dirs = StringUtil::split(name, '.');
+            string pdname = StringUtil::join(dirs, '/');
+            int havePackage = dirs.size() > 0;
+
+            auto& ppath = zcm.gopt->getString("ppath");
+            string packageDirPrefix = ppath + ((ppath.size() > 0) ? "/" : "");
+            string packageDir = packageDirPrefix + pdname + (havePackage ? "/" : "");
+
+            for (auto* zs : pack) {
+                string path = packageDir + zs->structname.shortname + ".py";
+                std::cout << path << std::endl;
+            }
+            continue;
+        }
+
+        int ret = PyEmitPack{zcm}.emitPackage(name, pack);
         if (ret != 0) return ret;
     }
 
