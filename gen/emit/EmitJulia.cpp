@@ -53,7 +53,7 @@ static string mapTypeName(const string& t)
     }
 }
 
-struct EmitJulia : public Emitter
+struct EmitJuliaType : public Emitter
 {
     const ZCMGen& zcm;
     const ZCMStruct& zs;
@@ -62,22 +62,21 @@ struct EmitJulia : public Emitter
 
     bool enableRuntimeAssertions;
 
-    EmitJulia(const ZCMGen& zcm, const ZCMStruct& zs, const string& fname):
-        Emitter(fname), zcm(zcm), zs(zs),
+    EmitJuliaType(const ZCMGen& zcm, const string& pkg, const ZCMStruct& zs):
+        Emitter(getFilename(zcm, pkg, zs.structname.shortname, true)),
+        zcm(zcm), zs(zs),
         hton(zcm.gopt->getBool("little-endian-encoding") ? "htol" : "hton"),
         ntoh(zcm.gopt->getBool("little-endian-encoding") ? "ltoh" : "ntoh"),
         enableRuntimeAssertions(!zcm.gopt->getBool("julia-disable-runtime-assertions"))
     {}
 
-    static string getFilename(const ZCMGen& zcm, const string& type, const string& pkg,
+    static string getFilename(const ZCMGen& zcm, const string& pkg, const string& type,
                               bool ensureDirectoryExists = false)
     {
         assert(!type.empty());
 
         // create the package directory, if necessary
         string pathPrefix = zcm.gopt->getString("julia-path");
-        // RRR: remove when not testing
-        //pathPrefix = "/tmp/workspace/";
         vector<string> pkgs = StringUtil::split(pkg, '.');
         string filename = "_" + type + ".jl";
 
@@ -692,176 +691,6 @@ struct EmitJulia : public Emitter
     }
 };
 
-struct JlEmitPack : public Emitter
-{
-    ZCMGen& zcm;
-
-    // RRR: this fname is not correct (that's why the class uses fprintf instead of emit)
-    JlEmitPack(ZCMGen& zcm, const string& fname):
-        Emitter(fname), zcm(zcm) {}
-
-    int emitPackage(const string& packName, vector<ZCMStruct*>& packStructs)
-    {
-        // create the package directory, if necessary
-        vector<string> dirs = StringUtil::split(packName, '.');
-        int havePackage = dirs.size() > 0;
-        string pdname;
-        if (havePackage) {
-            pdname = dirs.at(0);
-        } else {
-            pdname = "";
-        }
-        auto& juliapath = zcm.gopt->getString("julia-path");
-        string packageDirPrefix = juliapath + ((juliapath.size() > 0) ? "/" : "");
-        string packageDir = packageDirPrefix + pdname + (havePackage ? "/" : "");
-
-        if (packageDir != "") {
-            if (!FileUtil::exists(packageDir)) {
-                FileUtil::mkdirWithParents(packageDir, 0755);
-            }
-            if (!FileUtil::dirExists(packageDir)) {
-                cerr << "Could not create directory " << packageDir << "\n";
-                return -1;
-            }
-        }
-
-        // write the main package module, if any
-
-        // Keep track of which types were already imported into the module
-        unordered_set<string> moduleJlImports;
-
-        // Keep track of which submodules were already defined. Note that this
-        // set is sorted because we always have to define foo.bar before we
-        // can define foo.bar.baz
-        set<string> moduleJlSubmodules;
-        moduleJlSubmodules.insert(packName);
-
-        FILE* moduleJlFp = nullptr;
-        if (havePackage) {
-            // If we are inside a package, then we need to generate a single
-            // Julia file containing the top-level module and any submodules
-
-            // For a type foo.bar.baz.t1, we will put the module file in
-            // foo.jl
-            vector<string> moduleJlFnameParts;
-            moduleJlFnameParts.push_back(packageDirPrefix);
-            moduleJlFnameParts.push_back(pdname + ".jl");
-            string moduleJlFname = StringUtil::join(moduleJlFnameParts, '/');
-            if (moduleJlFp) {
-                fclose(moduleJlFp);
-                moduleJlFp = nullptr;
-            }
-            if (FileUtil::exists(moduleJlFname)) {
-                // If the module exists already, then we need to parse it and
-                // extract any existing sub-modules and types contained in the
-                // module. We'll include those entries in the final generated
-                // module file.
-                moduleJlFp = fopen(moduleJlFname.c_str(), "r");
-                if (!moduleJlFp) {
-                    perror("fopen");
-                    return -1;
-                }
-                // Read chunks of the existing file line by line
-                while(!feof(moduleJlFp)) {
-                    char buf[4096];
-                    memset(buf, 0, sizeof(buf));
-                    char* result = fgets(buf, sizeof(buf)-1, moduleJlFp);
-                    if (!result) break;
-
-                    auto words = StringUtil::split(StringUtil::strip(buf), ' ');
-                    if (words.size() >= 2 && words[0] == "import") {
-                        // If this line matches "import foo", then store "foo" in
-                        // the set of imports
-                        moduleJlImports.insert(words[1]);
-                    } else if (words.size() >= 7 &&
-                               words[0] == "eval(" &&
-                               words[2] == "," &&
-                               words[3] == ":(module" &&
-                               words[5] == ";" &&
-                               words[6] == "end))\n") {
-                        // Otherwise, if the line matches:
-                        // @eval foo module bar.baz ; end
-                        // then store foo.bar.baz in the submodules set
-                        moduleJlSubmodules.insert(words[1] + "." + words[4]);
-                    }
-                }
-                fclose(moduleJlFp);
-                moduleJlFp = nullptr;
-            }
-            // Regardless of whether the module existed, we'll create a new file
-            moduleJlFp = fopen(moduleJlFname.c_str(), "w");
-            if (!moduleJlFp) {
-                perror("fopen");
-                return -1;
-            }
-            fprintf(moduleJlFp, "\"\"\"ZCM package %s.jl file\n"
-                     "This file automatically generated by zcm-gen.\n"
-                     "DO NOT MODIFY BY HAND!!!!\n"
-                     "\"\"\"\n\n"
-                     "module %s; end\n\n",
-                     pdname.c_str(), pdname.c_str());
-            for (auto& submod : moduleJlSubmodules) {
-                auto parts = StringUtil::split(submod, '.');
-                if (parts.size() >= 2) {
-                    // Restore each of the submodules we parsed from the
-                    // existing file (if any), and also generate the submodule
-                    // corresponding to the current package (if necessary)
-                    vector<string> parentParts(parts.begin(), parts.end() - 1);
-                    auto parent = StringUtil::join(parentParts, '.');
-                    auto module = parts.at(parts.size() - 1);
-                    fprintf(moduleJlFp, "eval( %s , :(module %s ; end))\n", parent.c_str(), module.c_str());
-                }
-            }
-            // LOAD_PATH controls where Julia looks for files you `import`.
-            // We're going to tell Julia that if we're in a package foo.bar.baz,
-            // it should first look in the `foo/` folder for any types it imports.
-            // unshift!(x, y) in Julia prepends y to the vector x. Its opposite
-            // is shift!(x) which removes the first element of x. We'll put that
-            // shift!(LOAD_PATH) in a `finally` block to ensure that the
-            // LOAD_PATH is restored even if something goes wrong with the
-            // imports
-            fprintf(moduleJlFp, "\nunshift!(LOAD_PATH, joinpath(dirname(@__FILE__), \"%s\"))\n", pdname.c_str());
-            fprintf(moduleJlFp, "try\n");
-            for (auto& import : moduleJlImports) {
-                // Restore each of the existing imports. Each import defines a
-                // single ZCM type somewhere in the package or one of its
-                // submodule
-                fprintf(moduleJlFp, "import %s", import.c_str());
-            }
-        }
-
-        ////////////////////////////////////////////////////////////
-        // STRUCTS
-        for (auto* zs_ : packStructs) {
-            auto& zs = *zs_;
-            string path = packageDir + "_" + zs.structname.nameUnderscore() + ".jl";
-
-            // If we're in a package, then add an appropriate import statement
-            // to ensure that this struct is added to the Julia module
-            if (moduleJlFp) {
-                fprintf(moduleJlFp, "import _%s\n", zs.structname.nameUnderscoreCStr());
-            }
-
-            if (!zcm.needsGeneration(zs.zcmfile, path)) continue;
-
-            EmitJulia E{zcm, zs, path};
-            if (!E.good()) return -1;
-            E.emitType();
-        }
-
-        if(moduleJlFp) {
-            // Restore LOAD_PATH no matter what
-            fprintf(moduleJlFp, "finally\n");
-            fprintf(moduleJlFp, "    shift!(LOAD_PATH)\n");
-            fprintf(moduleJlFp, "end\n");
-            fclose(moduleJlFp);
-            moduleJlFp = nullptr;
-        }
-
-        return 0;
-    }
-};
-
 struct EmitJuliaPackage : public Emitter
 {
     const ZCMGen& zcm;
@@ -882,8 +711,6 @@ struct EmitJuliaPackage : public Emitter
 
         // create the package directory, if necessary
         string pathPrefix = zcm.gopt->getString("julia-path");
-        // RRR: remove when not testing
-        //pathPrefix = "/tmp/workspace/";
         vector<string> pkgs = StringUtil::split(pkg, '.');
         string filename = pkgs.back() + ".jl";
         pkgs.pop_back();
@@ -953,9 +780,8 @@ struct EmitJuliaPackage : public Emitter
 
 int emitJulia(ZCMGen& zcm)
 {
-    string pkgPrefix = "";
-    if (zcm.gopt->wasSpecified("julia-pkg-prefix"))
-        pkgPrefix = zcm.gopt->getString("julia-pkg-prefix");
+    // RRR: be sure to test waf with the global prefix as well as the julia specific prefix
+    string pkgPrefix = zcm.gopt->getString("julia-pkg-prefix");
 
     bool genPkgFiles = zcm.gopt->getBool("julia-generate-pkg-files");
     bool printOutputFiles = zcm.gopt->getBool("output-files");
@@ -964,8 +790,6 @@ int emitJulia(ZCMGen& zcm)
 
     // Map of packages to their submodules and structs
     unordered_map<string, std::pair<vector<string>, vector<ZCMStruct*>>> packages;
-    // RRR: only used for now to surpress waf warnings
-    unordered_map<string, std::pair<vector<string>, vector<ZCMStruct*>>> packagesNoPrefix;
     // Add all stucts
     for (auto& zs : zcm.structs) {
         auto package = (pkgPrefix == "" || zs.structname.package == "")
@@ -982,18 +806,6 @@ int emitJulia(ZCMGen& zcm)
         }
 
         packages[package].second.push_back(&zs);
-
-        // RRR: creating noPrefix mapping, delete once we fix waftool
-        package = zs.structname.package;
-        parents = StringUtil::split(package, '.');
-        while (parents.size() > 1) {
-            auto thispkg = parents.back();
-            parents.pop_back();
-            auto parent = StringUtil::join(parents, '.');
-            packagesNoPrefix[parent].first.push_back(thispkg);
-        }
-
-        packagesNoPrefix[package].second.push_back(&zs);
     }
     // Ensure uniqueness of submodules and structs
     for (auto& kv : packages) {
@@ -1012,7 +824,6 @@ int emitJulia(ZCMGen& zcm)
         }
     }
 
-    // RRR: New Version
     for (auto& kv : packages) {
         auto& package = kv.first;
         auto& submodules_structs = kv.second;
@@ -1030,30 +841,17 @@ int emitJulia(ZCMGen& zcm)
             }
         } else {
             for (auto* zs : submodules_structs.second) {
-
                 if (printOutputFiles) {
-                    cout << EmitJulia::getFilename(zcm, zs->structname.shortname, package) << endl;
+                    cout << EmitJuliaType::getFilename(zcm, package, zs->structname.shortname)
+                         << endl;
                 } else {
-                    // RRR: move the static function call within the constructor
-                    EmitJulia ejType {zcm, *zs,
-                                      EmitJulia::getFilename(zcm, zs->structname.shortname,
-                                                             package, true) };
+                    EmitJuliaType ejType {zcm, package, *zs};
                     int ret = ejType.emitType();
                     if (ret != 0) return ret;
                 }
             }
         }
     }
-
-    // RRR: Old Version (using noPrefix packages)
-    //if (!genPkgFiles && !printOutputFiles) {
-        //for (auto& kv : packagesNoPrefix) {
-            //auto& package = kv.first;
-            //auto& structs = kv.second.second;
-            //int ret = JlEmitPack{zcm, package}.emitPackage(package, structs);
-            //if (ret != 0) return ret;
-        //}
-    //}
 
     return 0;
 }
