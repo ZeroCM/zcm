@@ -17,7 +17,7 @@ struct ZCMTypename
     string package;   // package name, e.g., "com.foo.prj"
     string shortname; // e.g., "laser"
 
-    ZCMTypename(ZCMGen& zcmgen, const string& lctypename);
+    ZCMTypename(ZCMGen& zcmgen, const string& name, bool skipPrefix = false);
     void dump() const;
 
     static bool isSame(const ZCMTypename& a, const ZCMTypename& b)
