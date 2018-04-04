@@ -131,11 +131,11 @@ ZCMGen::ZCMGen()
 {}
 
 // Parse a type into package and class name.
-ZCMTypename::ZCMTypename(ZCMGen& zcmgen, const string& name)
+ZCMTypename::ZCMTypename(ZCMGen& zcmgen, const string& name, bool skipPrefix)
 {
     ZCMTypename& t = *this;
 
-    const string& packagePrefix = zcmgen.gopt->getString("package-prefix");
+    const string& packagePrefix = skipPrefix ? "" : zcmgen.gopt->getString("package-prefix");
 
     t.fullname = name;
 
@@ -446,11 +446,12 @@ static int parseMember(ZCMGen& zcmgen, ZCMStruct& zs, tokenize_t* t)
                 type = zs.structname.package + "." + type;
             }
         } else {
-            type = type.substr(1);
+            const string& packagePrefix = zcmgen.gopt->getString("package-prefix");
+            type = packagePrefix.empty() ? type.substr(1) : packagePrefix + "." + type.substr(1);
         }
     }
 
-    ZCMTypename zt {zcmgen, type};
+    ZCMTypename zt {zcmgen, type, true};
 
     do {
         // get the zcm type name
