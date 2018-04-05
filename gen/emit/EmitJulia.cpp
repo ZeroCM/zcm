@@ -724,11 +724,15 @@ struct EmitJuliaPackage : public Emitter
         emit(0, "module %s", pkg.c_str());
         emit(0, "unshift!(LOAD_PATH, joinpath(dirname(@__FILE__), \"%s\"))", pkg.c_str());
 
-        if (pkgs.size() == 1) {
-            emit(0, "__basemodule = module_parent(%s)", pkg.c_str());
-        } else {
-            emit(0, "__basemodule = module_parent(%s).__basemodule", pkg.c_str());
+        emitStart(0, "__basemodule = ");
+        for (size_t i = 0; i < pkgs.size(); ++i) {
+            emitContinue("module_parent(");
         }
+        emitContinue("%s", pkg.c_str());
+        for (size_t i = 0; i < pkgs.size(); ++i) {
+            emitContinue(")");
+        }
+        emitEnd("");
 
         emit(0, "try");
     }
