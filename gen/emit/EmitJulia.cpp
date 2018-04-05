@@ -714,6 +714,9 @@ struct EmitJuliaPackage : public Emitter
 
         if (pkgs.size() == 1) {
             emit(0, "This module intended to be imported by the user");
+            emit(0, "after setting up their LOAD_PATH:");
+            emit(0, "    unshift!(LOAD_PATH, \"path/to/dir/containing/this/file\")");
+            emit(0, "    import %s", pkg.c_str());
         } else {
             emit(0, "This module should only be imported by it's parent, %s",
                     pkgs[pkgs.size() - 2].c_str());
@@ -721,6 +724,7 @@ struct EmitJuliaPackage : public Emitter
 
         emit(0, "\n\"\"\"");
         emit(0, "module %s", pkg.c_str());
+        emit(0, "");
 
         emitStart(0, "__basemodule = ");
         for (size_t i = 0; i < pkgs.size(); ++i) {
@@ -731,10 +735,9 @@ struct EmitJuliaPackage : public Emitter
             emitContinue(")");
         }
         emitEnd("");
-
         emit(0, "__modulepath = joinpath(dirname(@__FILE__), \"%s\")", pkg.c_str());
-
         emit(0, "unshift!(LOAD_PATH, __modulepath)");
+        emit(0, "");
 
         emit(0, "try");
     }
@@ -744,6 +747,7 @@ struct EmitJuliaPackage : public Emitter
         emit(0, "finally");
         emit(1, "shift!(LOAD_PATH)");
         emit(0, "end");
+        emit(0, "");
         emit(0, "end # module %s;", pkg.c_str());
         if (pkgs.size() != 1) {
             emit(0, "export %s", pkg.c_str());
