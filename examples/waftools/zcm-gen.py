@@ -105,14 +105,17 @@ def genJuliaPkgFiles(task):
 #   lang:         list of languages for which zcmtypes should be generated, options are:
 #                 ['c_stlib', 'c_shlib', 'cpp', 'java', 'python', 'nodejs', 'julia'].
 #                 Can also be a space separated string.
+#   pkgPrefix:    Optional package prefix that will be prepended to the packages of all zcmtypes
+#                 default = ''
 #   littleEndian: True or false based on desired endianess of output. Should almost always
 #                 be false. Don't use this option unless you really know what you're doing
 #   javapkg:      name of the java package
 #                 default = 'zcmtypes' (though it is encouraged to name it something more unique
 #                                       to avoid library naming conflicts)
-#   juliapkg:     julia package prefix that all types will be generated into. If left empty,
-#                 types without packages will be generated into a package that is the typename
-#                 prefixed by '_'
+#   juliapkg:     Julia package prefix that all types will be generated into. This prefix also
+#                 prefixes the global pkgPrefix if one is set. If neither pkgPrefix nor juliapkg
+#                 are set, types without packages will be generated into a package that is the
+#                 typename prefixed by '_'
 #   juliagenpkgs: If True, generate julia module files for all packages. ALL ZCMTYPES MUST BE
 #                 INCLUDED IN SOURCE FOR THIS COMMAND! Types are NOT generated themselves
 #                 unless the user specifies 'julia' in the `lang` list. This allows users
@@ -158,9 +161,17 @@ def genJuliaPkgFiles(task):
 #                  however, are runtime so this will often, if not always, go unused).
 #
 #   Julia:         types will be compiled into .jl files. Simply `import` them
-#                  into the final julia script
+#                  into the final julia script. Types with packages should be imported
+#                  by importing their base level package. Types without packages should
+#                  be imported by importing the package "_" + "type_name_t"
 #     wscript:     add '${name}_julia' to the list of "use" dependencies
-#     julia files: target import directives at "${dir}/package : type_name_t"
+#     julia files: Add ${dir} to your LOAD_PATH : "unshift!(LOAD_PATH, ${dir})"
+#                  Import packaged type :         "import pkg_name"
+#                  Import a non-packaged type :   "import _type_name_t: type_name_t"
+#                    (Note, for non-packaged types it is important to import the actual
+#                     type rather than the wrapping package so that dependencies are
+#                     handled correctly)
+#                    RRR: I think it would be relatively easy to remove this ^ requirement
 #
 # Note on running the output java classes:
 #   Because of the way that java's CLASSPATH works, even though waf will link the appropriate jar

@@ -5,11 +5,26 @@ using ZCM
 import test_package: packaged_t
 import _example_t: example_t
 
+function prepMsg!(m::packaged_t, tf::Bool)
+    msg.packaged = tf;
+    msg.a.packaged = tf;
+    msg.a.e.timestamp = (tf ? 1 : 0);
+    msg.a.e.p.packaged = tf;
+end
+
+function checkMsg(m::packaged_t, tf::Bool)
+    @assert (msg.packaged       == tf)           "Received msg with incorrect packaged flag"
+    @assert (msg.a.packaged     == tf)           "Received msg with incorrect a.packaged flag"
+    @assert (msg.a.e.timestamp  == (tf ? 1 : 0)) "Received msg with incorrect a.e.timestamp"
+    @assert (msg.a.e.p.packaged == tf)           "Received msg with incorrect a.e.p.packaged flag"
+end
+
 numReceived = 0
 function handler(rbuf, channel::String, msg::packaged_t)
     println("Received message on channel: ", channel)
     global numReceived
-    @assert (((numReceived % 2) == 0) == msg.packaged) "Received msg with incorrect packaged flag"
+    #checkMsg(msg, (numReceived % 2) == 0)
+    println(msg)
     numReceived = numReceived + 1
 end
 
@@ -25,11 +40,11 @@ msg = packaged_t()
 
 start(zcm)
 
-msg.packaged = true;
+prepMsg!(msg, true);
 publish(zcm, "EXAMPLE", msg)
-msg.packaged = false;
+prepMsg!(msg, false);
 publish(zcm, "EXAMPLE", msg)
-msg.packaged = true;
+prepMsg!(msg, true);
 publish(zcm, "EXAMPLE", msg)
 
 # This *should* assert
