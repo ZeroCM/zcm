@@ -356,17 +356,15 @@ struct EmitJuliaType : public Emitter
     void emitGetHash()
     {
         auto* sn = zs.structname.shortname.c_str();
+        auto* fn = zs.structname.nameUnderscoreCStr();
 
-        emit(0, "const __%s_hash = Ref(Int64(0))", sn);
-
-        // RRR: not sure you can use shortname here?
-        //      Double check this carefully with other languages
+        emit(0, "const __%s_hash = Ref(Int64(0))", fn);
         emit(0, "function ZCM._get_hash_recursive(::Type{%s}, parents::Array{String})", sn);
-        emit(1,     "if __%s_hash[] != 0; return __%s_hash[]; end", sn, sn);
-        emit(1,     "if \"%s\" in parents; return 0; end", sn);
+        emit(1,     "if __%s_hash[] != 0; return __%s_hash[]; end", fn, fn);
+        emit(1,     "if \"%s\" in parents; return 0; end", fn);
         for (auto& zm : zs.members) {
             if (!ZCMGen::isPrimitiveType(zm.type.fullname)) {
-                emit(1, "newparents::Array{String} = [parents[:]; \"%s\"::String];", sn);
+                emit(1, "newparents::Array{String} = [parents[:]; \"%s\"::String];", fn);
                 break;
             }
         }
@@ -374,15 +372,15 @@ struct EmitJuliaType : public Emitter
         for (auto &zm : zs.members) {
             if (!ZCMGen::isPrimitiveType(zm.type.fullname)) {
                 string mtn = "__basemodule." + pkgPrefix + zm.type.fullname;
-                emitContinue("+ reinterpret(UInt64, ZCM._get_hash_recursive(%s, newparents))",
+                emitContinue(" + reinterpret(UInt64, ZCM._get_hash_recursive(%s, newparents))",
                              mtn.c_str());
             }
         }
         emitEnd("");
 
         emit(1,     "hash = (hash << 1) + ((hash >>> 63) & 0x01)");
-        emit(1,     "__%s_hash[] = reinterpret(Int64, hash)", sn);
-        emit(1,     "return __%s_hash[]", sn);
+        emit(1,     "__%s_hash[] = reinterpret(Int64, hash)", fn);
+        emit(1,     "return __%s_hash[]", fn);
         emit(0, "end");
         emit(0, "");
         emit(0, "function ZCM.getHash(::Type{%s})", sn);
@@ -422,6 +420,7 @@ struct EmitJuliaType : public Emitter
             tn == "int16_t" || tn == "int32_t" || tn == "int64_t" ||
             tn == "float"  || tn == "double") {
             if (tn != "boolean")
+                // RRR: seems like this is actually changing the value in the msg?
                 emit(indent, "for i=1:%s%s %s[i] = %s(%s[i]) end",
                              (fixedLen ? "" : "msg."), len, accessor, hton.c_str(), accessor);
             emit(indent, "write(buf, %s[1:%s%s])",
@@ -847,8 +846,6 @@ int emitJulia(ZCMGen& zcm)
     bool genPkgFiles = zcm.gopt->getBool("julia-generate-pkg-files");
     bool printOutputFiles = zcm.gopt->getBool("output-files");
 
-    // RRR: should use zcm.needsGeneration to selectively regenerate files
-
     // Map of packages to their submodules and structs
     unordered_map<string, std::pair<vector<string>, vector<ZCMStruct*>>> packages;
     // Add all stucts
@@ -891,6 +888,8 @@ int emitJulia(ZCMGen& zcm)
 
         if (genPkgFiles) {
             if (!package.empty()) {
+                // TODO: outfile checking here is a bit tougher because you need to check all
+                //       files beneath the package to see if they've changed.
                 if (printOutputFiles) {
                     cout << EmitJuliaPackage::getFilename(zcm, package) << endl;
                 } else {
@@ -902,10 +901,10 @@ int emitJulia(ZCMGen& zcm)
             }
         } else {
             for (auto* zs : submodules_structs.second) {
+                auto outFile = EmitJuliaType::getFilename(zcm, package, zs->structname.shortname);
                 if (printOutputFiles) {
-                    cout << EmitJuliaType::getFilename(zcm, package, zs->structname.shortname)
-                         << endl;
-                } else {
+                    cout << outFile << endl;
+                } else if (zcm.needsGeneration(zs->zcmfile, outFile)) {
                     EmitJuliaType ejType {zcm, package, *zs};
                     int ret = ejType.emitType();
                     if (ret != 0) return ret;
