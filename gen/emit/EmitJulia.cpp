@@ -70,6 +70,7 @@ struct EmitJuliaType : public Emitter
     string pkg;
 
     string hton, ntoh;
+    string pkgPrefix;
 
     bool enableRuntimeAssertions;
 
@@ -78,8 +79,11 @@ struct EmitJuliaType : public Emitter
         zcm(zcm), zs(zs), pkg(pkg),
         hton(zcm.gopt->getBool("little-endian-encoding") ? "htol" : "hton"),
         ntoh(zcm.gopt->getBool("little-endian-encoding") ? "ltoh" : "ntoh"),
+        pkgPrefix(zcm.gopt->getString("julia-pkg-prefix")),
         enableRuntimeAssertions(!zcm.gopt->getBool("julia-disable-runtime-assertions"))
-    {}
+    {
+        if (!pkgPrefix.empty()) pkgPrefix += ".";
+    }
 
     static string getFilename(const ZCMGen& zcm, const string& pkg, const string& type,
                               bool ensureDirectoryExists = false)
@@ -112,13 +116,14 @@ struct EmitJuliaType : public Emitter
     {
         set<string> deps {};
 
+        string pkgPrefix = zcm.gopt->getString("julia-pkg-prefix");
         auto topLvlPkg = topLevelPackage(pkg);
         for (auto& zm : zs.members) {
             if (zcm.isPrimitiveType(zm.type.fullname)) continue;
             if (zm.type.fullname == zs.structname.fullname) continue;
 
-            // RRR: would have to add julia prefix here
-            auto memberPkg = zm.type.package;
+            string joiner = (pkgPrefix.empty() || zm.type.package.empty()) ? "" : ".";
+            auto memberPkg = pkgPrefix + joiner + zm.type.package;
             if (memberPkg.empty()) {
                 deps.insert("_" + zm.type.shortname + ": " + zm.type.shortname);
             } else {
@@ -162,18 +167,6 @@ struct EmitJuliaType : public Emitter
 
     void emitPreDependencies()
     {
-        // RRR: I cannot figure out how to allow a julia module to import a
-        //      module that is not already loaded by being part of its package
-        //      tree. Ideally, you'd be able to force the base module to load
-        //      the desired out-of-tree module, but I don't think that's possible.
-        //      Might need to go the route of digging through all members and
-        //      forming a list of dependencies for every base-level module, then
-        //      importing them *before* starting the module.
-        // RRR: actually, we might not need to construct the whole dep graph, just
-        //      rely on the fact that things you depend on will themselves be
-        //      taking care of their out-of-package dependencies. It'll get weird
-        //      with circular dependencies on a base package level though.
-
         emit(0, "import ZCM");
     }
 
@@ -260,7 +253,7 @@ struct EmitJuliaType : public Emitter
                 }
 
                 if (!zcm.isPrimitiveType(mtn)) {
-                    emitContinue(" # %s", mtn.c_str());
+                    emitContinue(" # %s", (pkgPrefix + mtn).c_str());
                 }
 
                 emitEnd("");
@@ -341,7 +334,7 @@ struct EmitJuliaType : public Emitter
         else if (tn == "float")   initializer = "0.0";
         else if (tn == "double")  initializer = "0.0";
         else if (tn == "string")  initializer = "\"\"";
-        else                      initializer = "__basemodule." + tn + "()";
+        else                      initializer = "__basemodule." + pkgPrefix + tn + "()";
 
         if (zm.dimensions.size() == 0) {
             emitContinue("%s", initializer.c_str());
@@ -366,6 +359,8 @@ struct EmitJuliaType : public Emitter
 
         emit(0, "const __%s_hash = Ref(Int64(0))", sn);
 
+        // RRR: not sure you can use shortname here?
+        //      Double check this carefully with other languages
         emit(0, "function ZCM._get_hash_recursive(::Type{%s}, parents::Array{String})", sn);
         emit(1,     "if __%s_hash[] != 0; return __%s_hash[]; end", sn, sn);
         emit(1,     "if \"%s\" in parents; return 0; end", sn);
@@ -378,7 +373,7 @@ struct EmitJuliaType : public Emitter
         emitStart(1, "hash::UInt64 = 0x%" PRIx64, zs.hash);
         for (auto &zm : zs.members) {
             if (!ZCMGen::isPrimitiveType(zm.type.fullname)) {
-                string mtn = "__basemodule." + zm.type.fullname;
+                string mtn = "__basemodule." + pkgPrefix + zm.type.fullname;
                 emitContinue("+ reinterpret(UInt64, ZCM._get_hash_recursive(%s, newparents))",
                              mtn.c_str());
             }
@@ -452,7 +447,8 @@ struct EmitJuliaType : public Emitter
         for (auto& zm : zs.members) {
             auto& mtn = zm.type.fullname;
             string mappedTypename = mapTypeName(mtn);
-            if (!ZCMGen::isPrimitiveType(mtn)) mappedTypename = "__basemodule." + mappedTypename;
+            if (!ZCMGen::isPrimitiveType(mtn))
+                mappedTypename = "__basemodule." + pkgPrefix + mappedTypename;
 
             if (zm.dimensions.size() == 0) {
                 if (enableRuntimeAssertions && !zcm.isPrimitiveType(mtn))
@@ -542,7 +538,8 @@ struct EmitJuliaType : public Emitter
     {
         auto& tn = zm.type.fullname;
         string mappedTypename = mapTypeName(tn);
-        if (!ZCMGen::isPrimitiveType(tn)) mappedTypename = "__basemodule." + mappedTypename;
+        if (!ZCMGen::isPrimitiveType(tn))
+            mappedTypename = "__basemodule." + pkgPrefix + mappedTypename;
 
         auto* accessor = accessor_.c_str();
         auto* sfx = sfx_.c_str();
