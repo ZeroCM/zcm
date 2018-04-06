@@ -35,6 +35,7 @@ def configure(ctx):
 def outFileNames(ctx, bldpath, inFile, **kw):
     zcmgen = ctx.env['ZCMGEN']
 
+    pkgPrefix    = kw.get('pkgPrefix',    '')
     javapkg      = kw.get('javapkg',      'zcmtypes')
     juliapkg     = kw.get('juliapkg',     '')
     juliagenpkgs = kw.get('juliagenpkgs', False)
@@ -48,6 +49,8 @@ def outFileNames(ctx, bldpath, inFile, **kw):
         raise WafError('zcmgen requires keword argument: "lang"')
 
     cmd = {}
+    if (pkgPrefix):
+        cmd['prefix'] = '--package-prefix %s' % pkgPrefix
     if ('c_stlib' in lang) or ('c_shlib' in lang):
         cmd['c'] = '--c --c-cpath %s --c-hpath %s' % (bldpath, bldpath)
     if 'cpp' in lang:
@@ -72,6 +75,8 @@ def outFileNames(ctx, bldpath, inFile, **kw):
     for i in range(len(files)):
         if files[i].startswith(bldpath):
             files[i] = files[i][len(bldpath):]
+            while (files[i].startswith('/')):
+                files[i] = files[i][1:]
         else:
             raise WafError('ZCMtypes output not in the build path : ', files[i])
 
@@ -188,11 +193,12 @@ def zcmgen(ctx, **kw):
         raise WafError('zcmgen requires ctx.env.ZCMGEN set to the zcm-gen executable')
 
     uselib_name   = kw.get('name',         'zcmtypes')
+    building      = kw.get('build',        True)
+    pkgPrefix     = kw.get('pkgPrefix',    '')
+    littleEndian  = kw.get('littleEndian', False)
     javapkg       = kw.get('javapkg',      'zcmtypes')
     juliapkg      = kw.get('juliapkg',     '')
     juliagenpkgs  = kw.get('juliagenpkgs', False)
-    building      = kw.get('build',        True)
-    littleEndian  = kw.get('littleEndian', False)
 
     lang = kw.get('lang', [])
     if isinstance(lang, basestring):
@@ -217,6 +223,9 @@ def zcmgen(ctx, **kw):
 
     if 'nodejs' in lang:
         bldcmd = '%s --node --npath %s ' % (ctx.env['ZCMGEN'], bld)
+        if (pkgPrefix):
+            bldcmd += '--package-prefix %s ' % pkgPrefix
+
         ctx(name   = uselib_name + '_nodejs',
             target = 'zcmtypes.js',
             source = kw['source'],
@@ -224,10 +233,11 @@ def zcmgen(ctx, **kw):
         lang.remove('nodejs') # Done with nodejs, remove so we don't try to gen node files below
 
     if juliagenpkgs:
-        ctx(target   = uselib_name + '_juliapkgs',
-            rule     = genJuliaPkgFiles,
-            source   = kw['source'],
-            juliapkg = juliapkg)
+        ctx(target    = uselib_name + '_juliapkgs',
+            rule      = genJuliaPkgFiles,
+            source    = kw['source'],
+            pkgPrefix = pkgPrefix,
+            juliapkg  = juliapkg)
 
     if len(lang) == 0:
         return
@@ -237,6 +247,7 @@ def zcmgen(ctx, **kw):
     tg = ctx(name         = genfiles_name,
              source       = kw['source'],
              lang         = lang,
+             pkgPrefix    = pkgPrefix,
              littleEndian = littleEndian,
              juliapkg     = juliapkg,
              javapkg      = javapkg)
@@ -250,7 +261,7 @@ def zcmgen(ctx, **kw):
         csrc = []
         for src in tg.source:
             files = outFileNames(ctx, ctx.path.get_bld().abspath(), src.abspath(),
-                                 lang = [ 'c_stlib', 'c_shlib' ])
+                                 lang = [ 'c_stlib', 'c_shlib' ], pkgPrefix = pkgPrefix)
             for f in files:
                 if f.endswith('.c'):
                     outnode = ctx.path.find_or_declare(f)
@@ -310,11 +321,13 @@ class zcmgen(Task.Task):
     def runnable_status(self):
         gen = self.generator
         inp = self.inputs[0]
+        bldpath = gen.path.get_bld().abspath()
 
-        files = outFileNames(gen.bld, gen.path.get_bld().abspath(), inp,
-                             javapkg  = gen.javapkg,
-                             juliapkg = gen.juliapkg,
-                             lang     = gen.lang)
+        files = outFileNames(gen.bld, bldpath, inp,
+                             pkgPrefix = gen.pkgPrefix,
+                             javapkg   = gen.javapkg,
+                             juliapkg  = gen.juliapkg,
+                             lang      = gen.lang)
 
         for f in files:
             out_node = gen.path.find_or_declare(f)
@@ -336,6 +349,10 @@ class zcmgen(Task.Task):
         inc = bld.split('/')[-1]
 
         cmd = {}
+        if gen.pkgPrefix:
+            cmd['prefix'] = '--package-prefix %s' % gen.pkgPrefix
+        if gen.littleEndian:
+            cmd['endian'] = '--little-endian-encoding'
         if ('c_stlib' in gen.lang) or ('c_shlib' in gen.lang):
             cmd['c'] = '--c --c-typeinfo --c-cpath %s --c-hpath %s --c-include %s' % \
                          (bld, bld, inc)
@@ -349,9 +366,6 @@ class zcmgen(Task.Task):
             cmd['julia'] = '--julia --julia-path %s' % (bld)
             if (gen.juliapkg):
                 cmd['julia'] += ' --julia-pkg-prefix %s' % (gen.juliapkg)
-
-        if gen.littleEndian:
-            cmd['endian'] = ' --little-endian-encoding '
 
         # no need to check if cmd is empty here, already handled in runnable_status()
         return self.exec_command('%s %s %s' % (zcmgen, zcmfile, ' '.join(cmd.values())))

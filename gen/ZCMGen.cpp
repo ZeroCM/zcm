@@ -153,8 +153,8 @@ ZCMTypename::ZCMTypename(ZCMGen& zcmgen, const string& name, bool skipPrefix)
         t.shortname = name.substr(dot + 1);
     }
 
-    if (packagePrefix.size() > 0 && !ZCMGen::isPrimitiveType(t.shortname)) {
-        if (t.package.size() > 0) {
+    if (!packagePrefix.empty() && !ZCMGen::isPrimitiveType(t.shortname)) {
+        if (!t.package.empty()) {
             t.package = packagePrefix + "." + t.package;
         } else {
             t.package = packagePrefix;
