@@ -120,7 +120,7 @@ struct EmitJuliaType : public Emitter
             // RRR: would have to add julia prefix here
             auto memberPkg = zm.type.package;
             if (memberPkg.empty()) {
-                deps.insert("_" + zm.type.shortname + " : " + zm.type.shortname);
+                deps.insert("_" + zm.type.shortname + ": " + zm.type.shortname);
             } else {
                 auto memberTopLvlPkg = topLevelPackage(memberPkg);
                 if (topLvlPkg != memberTopLvlPkg) {
@@ -175,18 +175,20 @@ struct EmitJuliaType : public Emitter
         //      with circular dependencies on a base package level though.
 
         emit(0, "import ZCM");
-        emit(0, "");
     }
 
-    void emitPostDependencies()
+    void emitModuleInit()
     {
         if (!pkg.empty()) return;
 
+        emit(0, "function __init__()");
+
         auto deps = getDependencies(zcm, pkg, zs);
-        cout << zs.structname.fullname << " : ";
         for (auto& dep : deps) {
-            emit(0, "import %s", dep.c_str());
+            emit(1, "eval(__basemodule, parse(\"import %s\"))", dep.c_str());
         }
+
+        emit(0, "end");
     }
 
     void emitModuleStart()
@@ -208,8 +210,10 @@ struct EmitJuliaType : public Emitter
             // RRR: could actually put an assert in here to force this
         }
         emit(0, "");
-
         emitPreDependencies();
+        emit(0, "");
+        emitModuleInit();
+        emit(0, "");
     }
 
     void emitModuleEnd()
@@ -219,9 +223,6 @@ struct EmitJuliaType : public Emitter
         } else {
             emit(0, "end # `begin` block");
         }
-        emit(0, "");
-
-        emitPostDependencies();
     }
 
     void emitInstance()
@@ -751,7 +752,7 @@ struct EmitJuliaPackage : public Emitter
         return pkgPath + filename;
     }
 
-    void emitModuleStart()
+    void emitModuleStart(const vector<ZCMStruct*>& pkgStructs)
     {
         emit(0, "\"\"\"");
         emit(0, "THIS IS AN AUTOMATICALLY GENERATED FILE.");
@@ -785,7 +786,19 @@ struct EmitJuliaPackage : public Emitter
         emit(0, "__modulepath = joinpath(dirname(@__FILE__), \"%s\")", pkg.c_str());
         emit(0, "unshift!(LOAD_PATH, __modulepath)");
         emit(0, "");
+        emit(0, "function __init__()");
 
+        set<string> allDeps {};
+        for (auto* zs : pkgStructs) {
+            auto deps = EmitJuliaType::getDependencies(zcm, StringUtil::join(pkgs, "."), *zs);
+            allDeps.insert(deps.begin(), deps.end());
+        }
+        for (auto& dep : allDeps) {
+            emit(1, "eval(__basemodule, parse(\"import %s\"))", dep.c_str());
+        }
+
+        emit(0, "end");
+        emit(0, "");
         emit(0, "try");
     }
 
@@ -821,7 +834,7 @@ struct EmitJuliaPackage : public Emitter
 
     int emitPackage(const vector<string>& pkgSubmods, const vector<ZCMStruct*>& pkgStructs)
     {
-        emitModuleStart();
+        emitModuleStart(pkgStructs);
         emitSubmodules(pkgSubmods);
         emitTypes(pkgStructs);
         emitModuleEnd();
