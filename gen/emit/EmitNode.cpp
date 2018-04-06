@@ -59,21 +59,6 @@ static string getWriterFunc(const string& type)
     }
 }
 
-static string getZeroInit(const ZCMMember& zm)
-{
-    auto& tn = zm.type.fullname;
-    if (tn == "byte")    return "0";
-    if (tn == "boolean") return "false";
-    if (tn == "string")  return "\"\"";
-    if (tn == "int8_t")  return "0";
-    if (tn == "int16_t") return "0";
-    if (tn == "int32_t") return "0";
-    if (tn == "int64_t") return "0";
-    if (tn == "float")   return "0.0";
-    if (tn == "double")  return "0.0";
-    return "new " + zm.type.nameUnderscore() + "()";
-}
-
 struct EmitModule : public Emitter
 {
     ZCMGen& zcm;
@@ -546,14 +531,49 @@ struct EmitModule : public Emitter
         emit(0, "};");
     }
 
+    void emitMemberInitializer(const ZCMMember& zm, int dimNum)
+    {
+        if((size_t)dimNum == zm.dimensions.size()) {
+            auto& tn = zm.type.fullname;
+            const char* initializer = nullptr;
+            if      (tn == "byte")    initializer = "0";
+            else if (tn == "boolean") initializer = "false";
+            else if (tn == "int8_t")  initializer = "0";
+            else if (tn == "int16_t") initializer = "0";
+            else if (tn == "int32_t") initializer = "0";
+            else if (tn == "int64_t") initializer = "0";
+            else if (tn == "float")   initializer = "0.0";
+            else if (tn == "double")  initializer = "0.0";
+            else if (tn == "string")  initializer = "\"\"";
+
+            if (initializer) {
+                fprintfPass("%s", initializer);
+            } else {
+                fprintfPass("new %s()", zm.type.nameUnderscoreCStr());
+            }
+            return;
+        }
+        auto& dim = zm.dimensions[dimNum];
+        if (dim.mode == ZCM_VAR) {
+            fprintfPass("[]");
+        } else {
+            fprintfPass("new Array(%s).fill(", dim.size.c_str());
+            emitMemberInitializer(zm, dimNum+1);
+            fprintfPass(")");
+        }
+    }
+
     void emitConstructor(const ZCMStruct& zs)
     {
         auto* sn = zs.structname.nameUnderscoreCStr();
 
         emit(0, "function %s()", sn);
         emit(0, "{");
-        for (auto& zm : zs.members)
-            emit(1, "this.%s = %s;", zm.membername.c_str(), getZeroInit(zm).c_str());
+        for (auto& zm : zs.members) {
+            emitStart(1, "this.%s = ", zm.membername.c_str());
+            emitMemberInitializer(zm, 0);
+            emitEnd(";");
+        }
         emit(0, "");
         emitConstants(zs, "this", 1);
         emit(0, "");
