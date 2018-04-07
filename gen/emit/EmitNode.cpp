@@ -312,7 +312,7 @@ struct EmitModule : public Emitter
 
         emit(0, "%s.encode = function(msg)", sn);
         emit(0, "{");
-        emit(0, "    var size = %s.encodedSize(msg);", sn);
+        emit(0, "    var size = %s.getEncodedSize(msg);", sn);
         emit(0, "    var W = createWriter(size);");
         emit(0, "    W.writeU64(%s.__get_hash_recursive());", sn);
         emit(0, "    %s_encode_one(msg, W);", sn);
@@ -327,43 +327,66 @@ struct EmitModule : public Emitter
     void emitEncodedSize(const ZCMStruct& zs)
     {
         auto* sn = zs.structname.nameUnderscoreCStr();
-
-        emit(0, "%s.encodedSize = function(msg)", sn);
+        emit(0, "%s.getEncodedSize = function(msg)", sn);
         emit(0, "{");
-        emit(1, "var size = 8;");
-        emit(1, "var tmp = 1;");
+        emit(1, "return 8 + %s.getEncodedSizeNoHash(msg);", sn);
+        emit(0, "}");
+    }
+
+    void emitEncodedSizeNoHash(const ZCMStruct& zs)
+    {
+        auto* sn = zs.structname.nameUnderscoreCStr();
+
+        emit(0, "%s.getEncodedSizeNoHash = function(msg)", sn);
+        emit(0, "{");
+        if (zs.members.size() == 0) {
+            emit(1,     "return 0;");
+            emit(0, "}");
+            return;
+        }
+        emit(1, "var size = 0;");
         for (auto& zm : zs.members) {
             auto& mtn = zm.type.nameUnderscore();
             auto& mn = zm.membername;
+            int ndim = (int)zm.dimensions.size();
 
-            if (!ZCMGen::isPrimitiveType(mtn)) {
-                emit(1, "size += %s.encodedSize(msg.%s);", mtn.c_str(), mn.c_str());
-            } else if (mtn != "string") {
-                int ndims = (int)zm.dimensions.size();
-                if (ndims == 0) {
-                    emit(1, "size += %d; \t//%s",
-                                 ZCMGen::getPrimitiveTypeSize(mtn), mn.c_str());
+            if (ZCMGen::isPrimitiveType(mtn) && mtn != "string") {
+                emitStart(1, "size += ");
+                for (int i = 0; i < ndim-1; ++i) {
+                    auto& dim = zm.dimensions[i];
+                    emitContinue("%s%s * ",
+                                 (dim.mode != ZCM_CONST) ? "msg." : "",
+                                 dim.size.c_str());
+                }
+                if (ndim > 0) {
+                    auto& dim = zm.dimensions[ndim - 1];
+                    emitEnd("%s%s * %d; \t//%s",
+                            (dim.mode != ZCM_CONST) ? "msg." : "",
+                            dim.size.c_str(),
+                            ZCMGen::getPrimitiveTypeSize(mtn), mn.c_str());
                 } else {
-                    emit(1, "tmp = 1;");
-                    for (int i = 0; i < ndims; ++i) {
-                        emit(1, "tmp *= %s%s;",
-                                (zm.dimensions[i].mode != ZCM_CONST) ? "msg." : "",
-                                zm.dimensions[i].size.c_str());
-                    }
-                    emit(1, "size += tmp * %d; \t//%s",
-                                 ZCMGen::getPrimitiveTypeSize(mtn), mn.c_str());
+                    emitEnd("%d; \t//%s", ZCMGen::getPrimitiveTypeSize(mtn), mn.c_str());
                 }
             } else {
-                int ndims = (int)zm.dimensions.size();
-                if (ndims == 0) {
-                    // The +1 and +4 below are to account for the null character
-                    // and the writing of the length respectively
-                    emit(1, "size += msg.%s.length + 1 + 4;", mn.c_str());
-                } else {
-                    emit(1, "for (var i = 0; i < msg.%s.length; ++i) {", mn.c_str());
-                    emit(1 + 1, "size += msg.%s[i].length + 1 + 4;", mn.c_str());
-                    emit(1, "}");
+                for (int i = 0; i < ndim; ++i) {
+                    auto& dim = zm.dimensions[i];
+                    emit(1 + i, "for (var a%d = 0; a%d < %s%s; ++a%d) {", i, i,
+                                (dim.mode != ZCM_CONST) ? "msg." : "",
+                                dim.size.c_str(), i);
                 }
+                emitStart(ndim + 1, "size += ");
+                if (mtn != "string")
+                    emitContinue("%s.getEncodedSizeNoHash(", mtn.c_str());
+                emitContinue("msg.%s", mn.c_str());
+                for (int i = 0; i < ndim; ++i)
+                    emitContinue("[a%d]", i);
+                if (mtn == "string") {
+                    emitEnd(".length + 4 + 1;");
+                } else {
+                    emitEnd(");");
+                }
+                for (int i = ndim - 1; i >= 0; --i)
+                    emit(1 + i, "}");
             }
         }
         emit(1, "return size;");
@@ -614,6 +637,7 @@ struct EmitModule : public Emitter
         emitConstructor(zs);
         emitGetHash(zs);
         emitEncodedSize(zs);
+        emitEncodedSizeNoHash(zs);
         emitEncodeOne(zs);
         emitEncode(zs);
         emitDecodeOne(zs);

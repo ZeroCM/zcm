@@ -8,8 +8,10 @@ struct example_t
     string   name;
     boolean  enabled;
 
-    int32_t nExamples;
-    example_t subExamples[nExamples];
+    int32_t nExamples1;
+    int32_t nExamples2;
+    example_t subExamples[nExamples1][nExamples2];
+    string subStrings[nExamples1][nExamples2];
 
     const int8_t  test_const_8_max_hex  = 0xff;
     const int16_t test_const_16_max_hex = 0xffff;
