@@ -56,7 +56,7 @@ def outFileNames(ctx, bldpath, inFile, **kw):
     if 'cpp' in lang:
         cmd['cpp'] = '--cpp --cpp-hpath %s' % (bldpath)
     if 'java' in lang:
-        cmd['java'] = '--java --jpath %s --jdefaultpkg %s' % (bldpath + '/java', javapkg)
+        cmd['java'] = '--java --jpath %s --jpkgprefix %s' % (bldpath + '/java', javapkg)
     if 'python' in lang:
         cmd['python'] = '--python --ppath %s' % (bldpath)
     if 'julia' in lang:
@@ -362,7 +362,7 @@ class zcmgen(Task.Task):
         if 'cpp' in gen.lang:
             cmd['cpp'] = '--cpp --cpp-hpath %s --cpp-include %s' % (bld, inc)
         if 'java' in gen.lang:
-            cmd['java'] = '--java --jpath %s --jdefaultpkg %s' % (bld + '/java', gen.javapkg)
+            cmd['java'] = '--java --jpath %s --jpkgprefix %s' % (bld + '/java', gen.javapkg)
         if 'python' in gen.lang:
             cmd['python'] = '--python --ppath %s' % (bld)
         if 'julia' in gen.lang:
