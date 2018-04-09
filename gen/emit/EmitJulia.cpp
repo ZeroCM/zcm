@@ -35,8 +35,8 @@ void setupOptionsJulia(GetOpt& gopt)
                       "Disable runtime assertions (in encode) for type/size checking in Julia");
 }
 
-// Some types do not have a 1:1 mapping from zcm types to native Julia storage types.
-static string mapTypeName(const string& t)
+// Converts zcm type names into their julia equivalent, accounting for packaging for nonprimatives
+static string mapTypeName(const string& t, const string& pkgPrefix = "")
 {
     if      (t == "int8_t")   return "Int8";
     else if (t == "int16_t")  return "Int16";
@@ -47,8 +47,10 @@ static string mapTypeName(const string& t)
     else if (t == "double")   return "Float64";
     else if (t == "string")   return "String";
     else if (t == "boolean")  return "Bool";
-    else {
-        return t;
+    else if (pkgPrefix.empty() && StringUtil::split(t, '.').size() == 1) {
+        return "__basemodule._" + t + "." + t;
+    } else {
+        return "__basemodule." + pkgPrefix + t;
     }
 }
 
@@ -333,7 +335,11 @@ struct EmitJuliaType : public Emitter
         else if (tn == "float")   initializer = "0.0";
         else if (tn == "double")  initializer = "0.0";
         else if (tn == "string")  initializer = "\"\"";
-        else                      initializer = "__basemodule." + pkgPrefix + tn + "()";
+        else if (pkgPrefix.empty() && zm.type.package.empty()) {
+            initializer = "__basemodule._" + tn + "." + tn + "()";
+        } else {
+            initializer = "__basemodule." + pkgPrefix + tn + "()";
+        }
 
         if (zm.dimensions.size() == 0) {
             emitContinue("%s", initializer.c_str());
@@ -371,6 +377,8 @@ struct EmitJuliaType : public Emitter
         for (auto &zm : zs.members) {
             if (!ZCMGen::isPrimitiveType(zm.type.fullname)) {
                 string mtn = "__basemodule." + pkgPrefix + zm.type.fullname;
+                if (pkgPrefix.empty() && zm.type.package.empty())
+                    mtn = "__basemodule._" + zm.type.fullname + "." + zm.type.fullname;
                 emitContinue(" + reinterpret(UInt64, ZCM._get_hash_recursive(%s, newparents))",
                              mtn.c_str());
             }
@@ -444,9 +452,7 @@ struct EmitJuliaType : public Emitter
 
         for (auto& zm : zs.members) {
             auto& mtn = zm.type.fullname;
-            string mappedTypename = mapTypeName(mtn);
-            if (!ZCMGen::isPrimitiveType(mtn))
-                mappedTypename = "__basemodule." + pkgPrefix + mappedTypename;
+            string mappedTypename = mapTypeName(mtn, pkgPrefix);
 
             if (zm.dimensions.size() == 0) {
                 if (enableRuntimeAssertions && !zcm.isPrimitiveType(mtn))
@@ -535,9 +541,7 @@ struct EmitJuliaType : public Emitter
                                 int indent, const string& sfx_)
     {
         auto& tn = zm.type.fullname;
-        string mappedTypename = mapTypeName(tn);
-        if (!ZCMGen::isPrimitiveType(tn))
-            mappedTypename = "__basemodule." + pkgPrefix + mappedTypename;
+        string mappedTypename = mapTypeName(tn, pkgPrefix);
 
         auto* accessor = accessor_.c_str();
         auto* sfx = sfx_.c_str();
@@ -563,7 +567,7 @@ struct EmitJuliaType : public Emitter
                               bool isFirst, const string& len_, bool fixedLen)
     {
         auto& tn = zm.type.fullname;
-        string mappedTypename = mapTypeName(tn);
+        string mappedTypename = mapTypeName(tn, pkgPrefix);
         const char* suffix = isFirst ? "" : ")";
         auto* accessor = accessor_.c_str();
         auto* len = len_.c_str();
