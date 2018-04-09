@@ -176,10 +176,6 @@ def genJuliaPkgFiles(task):
 #     julia files: Add ${dir} to your LOAD_PATH : "unshift!(LOAD_PATH, ${dir})"
 #                  Import packaged type :         "import pkg_name"
 #                  Import a non-packaged type :   "import _type_name_t: type_name_t"
-#                    (Note, for non-packaged types it is important to import the actual
-#                     type rather than the wrapping package so that dependencies are
-#                     handled correctly)
-#                    RRR: I think it would be relatively easy to remove this ^ requirement
 #
 # Note on running the output java classes:
 #   Because of the way that java's CLASSPATH works, even though waf will link the appropriate jar
