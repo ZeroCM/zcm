@@ -137,7 +137,6 @@ def process_zcm_configure_options(ctx):
     env.USING_ZMQ         = hasopt('use_zmq') and attempt_use_zmq(ctx)
     env.USING_ELF         = hasopt('use_elf') and attempt_use_elf(ctx)
     env.USING_THIRD_PARTY = getattr(opt, 'use_third_party') and attempt_use_third_party(ctx)
-    # RRR: need to add waf errors if these things fail
 
     env.USING_TRANS_IPC    = hasopt('use_ipc')
     env.USING_TRANS_INPROC = hasopt('use_inproc')

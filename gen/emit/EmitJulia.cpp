@@ -196,10 +196,10 @@ struct EmitJuliaType : public Emitter
             emit(0, "module _%s", zs.structname.shortname.c_str());
             emit(0, "__basemodule = module_parent(_%s)", zs.structname.shortname.c_str());
         } else {
-            emit(0, "# This file should only be included through importing the module %s",
-                zs.structname.package.c_str());
             emit(0, "begin");
-            // RRR: could actually put an assert in here to force this
+            emitStart(0, "@assert (endswith(string(current_module()), \"%s\"))",
+                         zs.structname.package.c_str());
+            emitEnd(" \"Only import this file through its module\"");
         }
         emit(0, "");
         emitPreDependencies();
@@ -762,11 +762,15 @@ struct EmitJuliaPackage : public Emitter
         } else {
             emit(0, "This module should only be imported by it's parent, %s",
                     pkgs[pkgs.size() - 2].c_str());
-            // RRR: could actually put an assert in here to force this
         }
 
         emit(0, "\n\"\"\"");
         emit(0, "module %s", pkg.c_str());
+        if (pkgs.size() != 1) {
+            emitStart(0, "@assert (endswith(string(current_module()), \"%s\"))",
+                         StringUtil::join(pkgs, '.').c_str());
+            emitEnd(" \"Only import this module through its parent\"");
+        }
         emit(0, "");
 
         emitStart(0, "__basemodule = ");

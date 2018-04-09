@@ -462,9 +462,9 @@ struct PyEmitStruct : public Emitter
             else if (tn == "string")  initializer = "\"\"";
 
             if (initializer) {
-                fprintfPass("%s", initializer);
+                emitContinue("%s", initializer);
             } else {
-                fprintfPass("%s()", zm.type.nameUnderscoreCStr());
+                emitContinue("%s()", zm.type.nameUnderscoreCStr());
             }
             return;
         }
@@ -472,16 +472,16 @@ struct PyEmitStruct : public Emitter
         // efficiently packed and unpacked.
         if ((size_t)dimNum == zm.dimensions.size() - 1 &&
             zm.type.fullname == "byte") {
-            fprintfPass("\"\"");
+            emitContinue("\"\"");
             return;
         }
         auto& dim = zm.dimensions[dimNum];
         if (dim.mode == ZCM_VAR) {
-            fprintfPass("[]");
+            emitContinue("[]");
         } else {
-            fprintfPass("[ ");
+            emitContinue("[ ");
             emitMemberInitializer(zm, dimNum+1);
-            fprintfPass(" for dim%d in range(%s) ]", dimNum, dim.size.c_str());
+            emitContinue(" for dim%d in range(%s) ]", dimNum, dim.size.c_str());
         }
     }
 
@@ -572,7 +572,14 @@ struct PyEmitStruct : public Emitter
     }
 };
 
-// RRR: this file should really be updated to work more like the julia version
+// XXX: this file should really be updated to work more like the julia version
+//      currently, this can technically run into parallelization problems because
+//      multiple threads could be running zcmgen to access the same package.
+//      There is probably some happy medium between how julia is currently doing
+//      it (requiring single call, every type access for generating the package
+//      files) and the way python is doing it (reading in and modifying the
+//      python package files) by using filesystem locks, but that is beyond the
+//      scope of this branch.
 struct PyEmitPack
 {
     const ZCMGen& zcm;
@@ -713,7 +720,7 @@ int emitPython(ZCMGen& zcm)
         auto& name = kv.first;
         auto& pack = kv.second;
 
-        // RRR: doing this ugly for now ...
+        // TODO: definitely should push this into a static funciton once we clean up this file
         if (printOutputFiles) {
             vector<string> dirs = StringUtil::split(name, '.');
             string pdname = StringUtil::join(dirs, '/');

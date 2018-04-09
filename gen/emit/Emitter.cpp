@@ -56,15 +56,6 @@ void Emitter::emitEnd(const char* msg, ...)
     va_end(va);
 }
 
-// RRR: why does this exist
-void Emitter::fprintfPass(const char* msg, ...)
-{
-    va_list va;
-    va_start(va, msg);
-    vfprintf(f, msg, va);
-    va_end(va);
-}
-
 const string& Emitter::getFilename()
 {
     return filename;
