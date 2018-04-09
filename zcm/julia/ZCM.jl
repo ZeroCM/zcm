@@ -44,7 +44,6 @@ end
 # with new methods.
 function encode end
 function decode end
-# RRR: could build in ability to store calculated hash and only have to calculate it once per run
 function getHash end
 function _get_hash_recursive end
 function _encode_one end
@@ -237,6 +236,7 @@ function flush(zcm::Zcm)
     #               Haven't yet figured out how to handle the case where
     #               there is a msg dispatch already in progress awaiting
     #               scheduling. Probably need to do something like a try_flush()
+    # RRR: try_flush now exists within zcm, we can use it here
     # ccall(("zcm_flush", "libzcm"), Void, (Ptr{Native.Zcm},), zcm)
 end
 
@@ -249,6 +249,7 @@ function stop(zcm::Zcm)
     #               Haven't yet figured out how to handle the case where
     #               there is a msg dispatch already in progress awaiting
     #               scheduling. Probably need to do something like a try_stop()
+    # RRR: try_stop now exists within zcm, we can use it here
     # ccall(("zcm_stop", "libzcm"), Void, (Ptr{Native.Zcm},), zcm)
 end
 
