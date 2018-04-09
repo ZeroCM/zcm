@@ -24,7 +24,7 @@ function handler(rbuf, channel::String, msg::packaged_t)
     println("Received message on channel: ", channel)
     global numReceived
     checkMsg(msg, (numReceived % 2) == 0)
-    numReceived = numReceived + 1
+    numReceived += 1
 end
 
 zcm = Zcm("inproc")
