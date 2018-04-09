@@ -262,7 +262,7 @@ struct EmitJuliaType : public Emitter
             emit(0, "");
         }
 
-        // RRR: currently, you need an instance of the type to access the constants
+        // TODO: currently, you need an instance of the type to access the constants
         // constants
         if (zs.constants.size() > 0) {
             emit(0, "");
@@ -427,7 +427,7 @@ struct EmitJuliaType : public Emitter
             tn == "int16_t" || tn == "int32_t" || tn == "int64_t" ||
             tn == "float"  || tn == "double") {
             if (tn != "boolean")
-                // RRR: seems like this is actually changing the value in the msg?
+                // XXX: seems like this is actually changing the value in the msg?
                 emit(indent, "for i=1:%s%s %s[i] = %s(%s[i]) end",
                              (fixedLen ? "" : "msg."), len, accessor, hton.c_str(), accessor);
             emit(indent, "write(buf, %s[1:%s%s])",
@@ -507,7 +507,7 @@ struct EmitJuliaType : public Emitter
                 for (n = 0; n < zm.dimensions.size(); ++n)
                     emit(zm.dimensions.size() - n, "end");
 
-                /* RRR: probably can make use of encoding more than 1 element at once for prims
+                /* TODO: probably can make use of encoding more than 1 element at once for prims
                 // last dimension.
                 auto& lastDim = zm.dimensions[zm.dimensions.size() - 1];
                 bool lastDimFixedLen = (lastDim.mode == ZCM_CONST);
@@ -654,7 +654,7 @@ struct EmitJuliaType : public Emitter
                     emit(zm.dimensions.size() - n, "end");
 
 
-                /* RRR: probably can make use of decoding more than 1 element at once for prims
+                /* TODO: probably can make use of decoding more than 1 element at once for prims
                 // last dimension.
                 auto& lastDim = zm.dimensions[zm.dimensions.size()-1];
                 bool lastDimFixedLen = (lastDim.mode == ZCM_CONST);
