@@ -89,8 +89,11 @@ def genJuliaPkgFiles(task):
     bld       = gen.path.get_bld().abspath()
 
     options = '--julia --julia-path %s --julia-generate-pkg-files' % (bld)
+
     if (gen.juliapkg):
         options += ' --julia-pkg-prefix %s' % (gen.juliapkg)
+    if (gen.pkgPrefix):
+        options += ' --package-prefix %s' % (gen.pkgPrefix)
 
     inputs   = ' '.join([ i.abspath() for i in task.inputs ])
 

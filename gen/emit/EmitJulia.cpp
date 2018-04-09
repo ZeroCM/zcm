@@ -21,7 +21,6 @@ void setupOptionsJulia(GetOpt& gopt)
     gopt.addString(0, "julia-path", ".",
                       "Julia destination directory");
 
-    // RRR: not handling default package everywhere yet
     gopt.addString(0, "julia-pkg-prefix", "",
                       "Julia package prefix, all types/packages will be inside this. "
                       "Comes *before* global pkg-prefix if both specified.");
@@ -840,7 +839,6 @@ struct EmitJuliaPackage : public Emitter
 
 int emitJulia(ZCMGen& zcm)
 {
-    // RRR: be sure to test waf with the global prefix as well as the julia specific prefix
     string pkgPrefix = zcm.gopt->getString("julia-pkg-prefix");
 
     bool genPkgFiles = zcm.gopt->getBool("julia-generate-pkg-files");
