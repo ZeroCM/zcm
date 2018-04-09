@@ -5,6 +5,8 @@
 #include "util/StringUtil.hpp"
 #include "util/FileUtil.hpp"
 
+#include <iostream>
+
 static string dotsToSlashes(const string& s)
 {
     return StringUtil::replace(s, '.', '/');
@@ -12,10 +14,12 @@ static string dotsToSlashes(const string& s)
 
 void setupOptionsJava(GetOpt& gopt)
 {
-    gopt.addString(0,   "jpath",     "",         "Java file destination directory");
-    gopt.addBool(0,    "jmkdir",     1,         "Make java source directories automatically");
-    gopt.addString(0,   "jdecl",      "implements zcm.zcm.ZCMEncodable", "String added to class declarations");
-    gopt.addString(0,   "jdefaultpkg", "zcmtypes", "Default Java package if ZCM type has no package");
+    gopt.addString(0, "jpath",      "",         "Java file destination directory");
+    gopt.addBool(0,   "jmkdir",     1,         "Make java source directories automatically");
+    gopt.addString(0, "jdecl",      "implements zcm.zcm.ZCMEncodable", "String added to class declarations");
+    gopt.addString(0, "jpkgprefix", "zcmtypes",
+                      "Java package prefix, all types/packages will be inside this. "
+                      "Comes *before* global pkg-prefix if both specified.");
 }
 
 struct PrimInfo
@@ -31,8 +35,8 @@ struct PrimInfo
 string makeFqn(ZCMGen& zcm, const string& typeName)
 {
     string ret = "";
-    if (zcm.gopt->wasSpecified("jdefaultpkg"))
-        ret += zcm.gopt->getString("jdefaultpkg") + ".";
+    if (zcm.gopt->wasSpecified("jpkgprefix"))
+        ret += zcm.gopt->getString("jpkgprefix") + ".";
     return ret + typeName;
 }
 
@@ -312,8 +316,8 @@ struct EmitStruct : public Emitter
         emit(0, "");
 
         string package = "";
-        if (zcm.gopt->wasSpecified("jdefaultpkg"))
-            package += zcm.gopt->getString("jdefaultpkg");
+        if (zcm.gopt->wasSpecified("jpkgprefix"))
+            package += zcm.gopt->getString("jpkgprefix");
         if (zs.structname.package.size() > 0)
         {
             if (package != "") package += ".";
@@ -558,6 +562,8 @@ int emitJava(ZCMGen& zcm)
         return -1;
     }
 
+    bool printOutputFiles = zcm.gopt->getBool("output-files");
+
     string jpath = zcm.gopt->getString("jpath");
     string jpathPrefix = jpath + (jpath.size() > 0 ? "/" : "");
     bool jmkdir = zcm.gopt->getBool("jmkdir");
@@ -565,15 +571,20 @@ int emitJava(ZCMGen& zcm)
     //////////////////////////////////////////////////////////////
     // STRUCTS
     for (auto& zs : zcm.structs) {
-        if (!zcm.gopt->wasSpecified("jdefaultpkg") &&
+        if (!zcm.gopt->wasSpecified("jpkgprefix") &&
             zs.structname.fullname.find('.') == string::npos) {
             fprintf(stderr, "Please provide a java package for the output java classes -- "
-                            "either via the \"--jdefaultpkg\" flag or inside the type itself\n");
+                            "either via the \"--jpkgprefix\" flag or inside the type itself\n");
             return -2;
         }
 
         string classname = makeFqn(zcm, zs.structname.fullname);
         string path = jpathPrefix + dotsToSlashes(classname) + ".java";
+
+        if (printOutputFiles) {
+            std::cout << path << std::endl;
+            continue;
+        }
 
         if (!zcm.needsGeneration(zs.zcmfile, path))
             continue;

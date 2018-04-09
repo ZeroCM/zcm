@@ -12,7 +12,7 @@ export Zcm,
        stop,
        handle,
        handle_nonblock,
-       close,
+       destroy,
        LogEvent,
        LogFile,
        read_next_event,
@@ -48,6 +48,7 @@ function getHash end
 function _get_hash_recursive end
 function _encode_one end
 function _decode_one end
+# RRR: would be nice to have getEncodedSize() and _getEncodedSizeNoHash()
 
 
 # RRR / Note: Julia requires that the memory layout of the C structs is consistent
@@ -108,12 +109,12 @@ type Zcm
     function Zcm(url::AbstractString = "")
         pointer = ccall(("zcm_create", "libzcm"), Ptr{Native.Zcm}, (Cstring,), url);
         instance = new(pointer, Subscription[])
-        finalizer(instance, close)
+        finalizer(instance, destroy)
         return instance
     end
 end
 
-function close(zcm::Zcm)
+function destroy(zcm::Zcm)
     if zcm.zcm != C_NULL
         ccall(("zcm_destroy", "libzcm"), Void,
               (Ptr{Native.Zcm},), zcm)
@@ -235,6 +236,7 @@ function flush(zcm::Zcm)
     #               Haven't yet figured out how to handle the case where
     #               there is a msg dispatch already in progress awaiting
     #               scheduling. Probably need to do something like a try_flush()
+    # RRR: try_flush now exists within zcm, we can use it here
     # ccall(("zcm_flush", "libzcm"), Void, (Ptr{Native.Zcm},), zcm)
 end
 
@@ -247,6 +249,7 @@ function stop(zcm::Zcm)
     #               Haven't yet figured out how to handle the case where
     #               there is a msg dispatch already in progress awaiting
     #               scheduling. Probably need to do something like a try_stop()
+    # RRR: try_stop now exists within zcm, we can use it here
     # ccall(("zcm_stop", "libzcm"), Void, (Ptr{Native.Zcm},), zcm)
 end
 

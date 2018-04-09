@@ -1,0 +1,3 @@
+struct unpackaged_t {
+	int64_t x;
+}

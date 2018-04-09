@@ -1,0 +1,4 @@
+package bar;
+struct t4 {
+	.foo.t2 x;
+}

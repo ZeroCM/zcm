@@ -1,6 +1,7 @@
-include("../build/types/example_t.jl");
+unshift!(LOAD_PATH, "../build/types")
 
-using ZCM;
+using ZCM
+using _example_t
 
 numReceived = 0
 function handler(rbuf, channel::String, msg::example_t)
@@ -48,6 +49,7 @@ sleep(0.5)
 stop(zcm)
 
 unsubscribe(zcm, sub)
+unsubscribe(zcm, sub2)
 
 @assert (numReceived == 6) "Didn't receive proper number of messages"
 

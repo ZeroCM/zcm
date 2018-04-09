@@ -31,6 +31,76 @@ def configure(ctx):
         ctx.find_program('zcm-gen', var='ZCMGEN', mandatory=True)
         ctx.env.ZCMGEN = ctx.env.ZCMGEN[0]
 
+# returns filenames as an array of paths relative to the bldpath
+def outFileNames(ctx, bldpath, inFile, **kw):
+    zcmgen = ctx.env['ZCMGEN']
+
+    pkgPrefix    = kw.get('pkgPrefix',    '')
+    javapkg      = kw.get('javapkg',      'zcmtypes')
+    juliapkg     = kw.get('juliapkg',     '')
+    juliagenpkgs = kw.get('juliagenpkgs', False)
+
+    lang = kw.get('lang', [])
+    if isinstance(lang, basestring):
+        lang = lang.split(' ')
+
+    if (not lang) and (not juliagenpkgs):
+        # TODO: this should probably be a more specific error type
+        raise WafError('zcmgen requires keword argument: "lang"')
+
+    cmd = {}
+    if (pkgPrefix):
+        cmd['prefix'] = '--package-prefix %s' % pkgPrefix
+    if ('c_stlib' in lang) or ('c_shlib' in lang):
+        cmd['c'] = '--c --c-cpath %s --c-hpath %s' % (bldpath, bldpath)
+    if 'cpp' in lang:
+        cmd['cpp'] = '--cpp --cpp-hpath %s' % (bldpath)
+    if 'java' in lang:
+        cmd['java'] = '--java --jpath %s --jpkgprefix %s' % (bldpath + '/java', javapkg)
+    if 'python' in lang:
+        cmd['python'] = '--python --ppath %s' % (bldpath)
+    if 'julia' in lang:
+        cmd['julia'] = '--julia --julia-path %s' % (bldpath)
+        if (juliapkg):
+            cmd['julia'] += ' --julia-pkg-prefix %s' % (juliapkg)
+        if (juliagenpkgs):
+            cmd['julia'] += ' --julia-generate-pkg-files'
+    if 'nodejs' in lang:
+        cmd['nodejs'] = '--node --npath %s' % (bldpath)
+
+    files = ctx.cmd_and_log('zcm-gen --output-files %s %s' % (' '.join(cmd.values()), inFile),
+                            output=waflib.Context.STDOUT,
+                            quiet=waflib.Context.BOTH).strip().split()
+
+    for i in range(len(files)):
+        if files[i].startswith(bldpath):
+            files[i] = files[i][len(bldpath):]
+            while (files[i].startswith('/')):
+                files[i] = files[i][1:]
+        else:
+            raise WafError('ZCMtypes output not in the build path : ', files[i])
+
+    return files
+
+def genJuliaPkgFiles(task):
+    gen = task.generator
+
+    zcmgen    = task.env['ZCMGEN']
+    bld       = gen.path.get_bld().abspath()
+
+    options = '--julia --julia-path %s --julia-generate-pkg-files' % (bld)
+
+    if (gen.juliapkg):
+        options += ' --julia-pkg-prefix %s' % (gen.juliapkg)
+    if (gen.pkgPrefix):
+        options += ' --package-prefix %s' % (gen.pkgPrefix)
+
+    inputs   = ' '.join([ i.abspath() for i in task.inputs ])
+
+    cmd = '%s %s %s && touch %s' % (zcmgen, options, inputs, task.outputs[0].abspath())
+
+    task.exec_command(cmd)
+
 # Context method used to set up proper include paths and simplify user code for zcmtype builds
 # keywords:
 #   name:         identifier for uselib linking (e.g. c/c++ builds may simply add 'name'
@@ -43,11 +113,24 @@ def configure(ctx):
 #   lang:         list of languages for which zcmtypes should be generated, options are:
 #                 ['c_stlib', 'c_shlib', 'cpp', 'java', 'python', 'nodejs', 'julia'].
 #                 Can also be a space separated string.
+#   pkgPrefix:    Optional package prefix that will be prepended to the packages of all zcmtypes
+#                 default = ''
 #   littleEndian: True or false based on desired endianess of output. Should almost always
 #                 be false. Don't use this option unless you really know what you're doing
 #   javapkg:      name of the java package
 #                 default = 'zcmtypes' (though it is encouraged to name it something more unique
 #                                       to avoid library naming conflicts)
+#   juliapkg:     Julia package prefix that all types will be generated into. This prefix also
+#                 prefixes the global pkgPrefix if one is set. If neither pkgPrefix nor juliapkg
+#                 are set, types without packages will be generated into a package that is the
+#                 typename prefixed by '_'
+#   juliagenpkgs: If True, generate julia module files for all packages. ALL ZCMTYPES MUST BE
+#                 INCLUDED IN SOURCE FOR THIS COMMAND! Types are NOT generated themselves
+#                 unless the user specifies 'julia' in the `lang` list. This allows users
+#                 to split up type generation and apply options like `littleEndian` to only
+#                 a subset of their types. However, It is required that the `juliapkg` option
+#                 be identical on this command to the commands that generate the individual
+#                 types.
 #
 #   TODO: add support for changing c/c++ include directory. Currently defaults so that the
 #         description below works
@@ -85,10 +168,14 @@ def configure(ctx):
 #                  have any build time dependencies (most nodejs dependencies,
 #                  however, are runtime so this will often, if not always, go unused).
 #
-#   Julia:         types will be compiled into .jl files. Simply `include()` them
-#                  into the final julia script
+#   Julia:         types will be compiled into .jl files. Simply `import` them
+#                  into the final julia script. Types with packages should be imported
+#                  by importing their base level package. Types without packages should
+#                  be imported by importing the package "_" + "type_name_t"
 #     wscript:     add '${name}_julia' to the list of "use" dependencies
-#     julia files: target import directives at "${dir}/type_name_t"
+#     julia files: Add ${dir} to your LOAD_PATH : "unshift!(LOAD_PATH, ${dir})"
+#                  Import packaged type :         "import pkg_name"
+#                  Import a non-packaged type :   "import _type_name_t: type_name_t"
 #
 # Note on running the output java classes:
 #   Because of the way that java's CLASSPATH works, even though waf will link the appropriate jar
@@ -99,89 +186,26 @@ def configure(ctx):
 #   the output java classes without having zcm.jar in the CLASSPATH will fail. The zcmtype jar
 #   will be called ${name}.jar and will be located in the mirrored build path to wherever the
 #   waf zcmgen tool was invoked.
-
-def outFileName(ctx, inp, lang, absPath=False):
-    fileparts = getFileParts(ctx, inp)
-
-    def defaultOutFileName(fileparts, absPath):
-        ret = ""
-        if absPath:
-            if fileparts[3] != "":
-                ret = fileparts[3]
-        if fileparts[1] != "":
-            if ret != "":
-                ret = ret + "/"
-            ret = ret + '/'.join(fileparts[1].split('.'))
-        if fileparts[2] != "":
-            if ret != "":
-                ret = ret + "/"
-            ret = ret + fileparts[2]
-        return ret
-
-    if lang == 'zcm':
-        return defaultOutFileName(fileparts, absPath)
-    if lang == 'c':
-        hfileparts = fileparts[:]
-        cfileparts = fileparts[:]
-        hfileparts[2] = fileparts[2].replace('.zcm', '.h')
-        cfileparts[2] = fileparts[2].replace('.zcm', '.c')
-        if fileparts[1] != "":
-            hfileparts[2] = '_'.join(fileparts[1].split('.')) + "_" + hfileparts[2]
-            cfileparts[2] = '_'.join(fileparts[1].split('.')) + "_" + cfileparts[2]
-        return [defaultOutFileName(hfileparts, absPath).replace('.zcm', '.h'),
-                defaultOutFileName(cfileparts, absPath).replace('.zcm', '.c')]
-    if lang == 'cpp':
-        return defaultOutFileName(fileparts, absPath).replace('.zcm', '.hpp')
-    if lang == 'python':
-        return defaultOutFileName(fileparts, absPath).replace('.zcm', '.py')
-    if lang == 'julia':
-        fileparts[2] = fileparts[2].replace('.zcm.', '.jl')
-        if fileparts[1] != "":
-            fileparts[2] = '_'.join(fileparts[1].split('.')) + "_" + fileparts[2]
-        return defaultOutFileName(fileparts, absPath).replace('.zcm', '.jl')
-
-    raise WafError('This should not be possible')
-
-
-def getFileParts(ctx, path):
-    package = ctx.cmd_and_log('zcm-gen --package %s' % (path),
-                              output=waflib.Context.STDOUT,
-                              quiet=waflib.Context.BOTH).strip()
-    pathparts = path.split('/')
-    absdirparts = '/'.join(pathparts[:-1])
-    nameparts = '/'.join(pathparts[-1:])
-    reldirparts = absdirparts.replace(ctx.path.abspath() + '/', '')
-    return [reldirparts, package, nameparts, absdirparts]
-
-
 @conf
 def zcmgen(ctx, **kw):
     if not getattr(ctx.env, 'ZCMGEN', []):
         raise WafError('zcmgen requires ctx.env.ZCMGEN set to the zcm-gen executable')
 
-    uselib_name = 'zcmtypes'
-    if 'name' in kw:
-        uselib_name = kw['name']
+    uselib_name   = kw.get('name',         'zcmtypes')
+    building      = kw.get('build',        True)
+    pkgPrefix     = kw.get('pkgPrefix',    '')
+    littleEndian  = kw.get('littleEndian', False)
+    javapkg       = kw.get('javapkg',      'zcmtypes')
+    juliapkg      = kw.get('juliapkg',     '')
+    juliagenpkgs  = kw.get('juliagenpkgs', False)
 
-    javapkg_name = 'zcmtypes'
-    if 'javapkg' in kw:
-        javapkg_name = kw['javapkg']
+    lang = kw.get('lang', [])
+    if isinstance(lang, basestring):
+        lang = lang.split(' ')
 
-    building = True
-    if 'build' in kw:
-        building = kw['build']
-
-    littleEndian = False
-    if 'littleEndian' in kw:
-        littleEndian = kw['littleEndian']
-
-    if 'lang' not in kw:
+    if ((not lang) and (not juliagenpkgs)):
         # TODO: this should probably be a more specific error type
         raise WafError('zcmgen requires keword argument: "lang"')
-
-    lang = kw['lang']
-    if isinstance(kw['lang'], str):
-        lang = kw['lang'].split(' ')
 
     if 'source' not in kw:
         # TODO: this should probably be a more specific error type
@@ -198,21 +222,34 @@ def zcmgen(ctx, **kw):
 
     if 'nodejs' in lang:
         bldcmd = '%s --node --npath %s ' % (ctx.env['ZCMGEN'], bld)
+        if (pkgPrefix):
+            bldcmd += '--package-prefix %s ' % pkgPrefix
+
         ctx(name   = uselib_name + '_nodejs',
             target = 'zcmtypes.js',
             source = kw['source'],
             rule   = bldcmd + '${SRC}')
+        lang.remove('nodejs') # Done with nodejs, remove so we don't try to gen node files below
 
-    # Add .zcm files to build so the process_zcmtypes rule picks them up
-    if len(lang) == 0 or ('nodejs' in lang and len(lang) == 1):
+    if juliagenpkgs:
+        ctx(target    = uselib_name + '_juliapkgs',
+            rule      = genJuliaPkgFiles,
+            source    = kw['source'],
+            pkgPrefix = pkgPrefix,
+            juliapkg  = juliapkg)
+
+    if len(lang) == 0:
         return
 
+    # Add .zcm files to build so the process_zcmtypes rule picks them up
     genfiles_name = uselib_name + '_genfiles'
     tg = ctx(name         = genfiles_name,
              source       = kw['source'],
              lang         = lang,
+             pkgPrefix    = pkgPrefix,
              littleEndian = littleEndian,
-             javapkg      = javapkg_name)
+             juliapkg     = juliapkg,
+             javapkg      = javapkg)
     for s in tg.source:
         ctx.add_manual_dependency(s, zcmgen)
 
@@ -222,9 +259,12 @@ def zcmgen(ctx, **kw):
     if 'c_stlib' in lang or 'c_shlib' in lang:
         csrc = []
         for src in tg.source:
-            outfile = outFileName(ctx, src.abspath(), 'c')
-            outnode = ctx.path.find_or_declare(outfile[1])
-            csrc.append(outnode)
+            files = outFileNames(ctx, ctx.path.get_bld().abspath(), src.abspath(),
+                                 lang = [ 'c_stlib', 'c_shlib' ], pkgPrefix = pkgPrefix)
+            for f in files:
+                if f.endswith('.c'):
+                    outnode = ctx.path.find_or_declare(f)
+                    csrc.append(outnode)
 
     if 'c_stlib' in lang:
         ctx.stlib(name            = uselib_name + '_c_stlib',
@@ -248,13 +288,13 @@ def zcmgen(ctx, **kw):
             export_includes = inc)
 
     if 'java' in lang:
-        ctx(name       = uselib_name + '_java',
-            features   = 'javac jar',
-            use        = ['zcmjar', genfiles_name],
-            srcdir     = ctx.path.find_or_declare('java/' + javapkg_name.split('.')[0]),
-            outdir     = 'java/classes',  # path to output (for .class)
-            basedir    = 'java/classes',  # basedir for jar
-            destfile   = uselib_name + '.jar')
+        ctx(name     = uselib_name + '_java',
+            features = 'javac jar',
+            use      = ['zcmjar', genfiles_name],
+            srcdir   = ctx.path.find_or_declare('java/' + javapkg.split('.')[0]),
+            outdir   = 'java/classes',  # path to output (for .class)
+            basedir  = 'java/classes',  # basedir for jar
+            destfile = uselib_name + '.jar')
 
     if 'python' in lang:
         ctx(target = uselib_name + '_python',
@@ -264,6 +304,7 @@ def zcmgen(ctx, **kw):
         ctx(target = uselib_name + '_julia',
             rule   = 'touch ${TGT}')
 
+
 @extension('.zcm')
 def process_zcmtypes(self, node):
     tsk = self.create_task('zcmgen', node)
@@ -272,52 +313,24 @@ class zcmgen(Task.Task):
     color   = 'PINK'
     quiet   = False
     ext_in  = ['.zcm']
-    ext_out = ['.c', '.h', '.hpp', '.java', '.py']
+    ext_out = ['.c', '.h', '.hpp', '.java', '.py', '.jl']
 
     ## This method processes the inputs and determines the outputs that will be generated
     ## when the zcm-gen program is run
     def runnable_status(self):
         gen = self.generator
         inp = self.inputs[0]
+        bldpath = gen.path.get_bld().abspath()
 
-        if ('c_stlib' in gen.lang) or ('c_shlib' in gen.lang):
-            filenames = outFileName(gen.bld, inp.abspath(), 'c')
-            outh_node = gen.path.find_or_declare(filenames[0])
-            outc_node = gen.path.find_or_declare(filenames[1])
-            self.outputs.append(outh_node)
-            self.outputs.append(outc_node)
-        if 'cpp' in gen.lang:
-            filename = outFileName(gen.bld, inp.abspath(), 'cpp')
-            node = gen.path.find_or_declare(filename)
-            self.outputs.append(node)
-        if 'java' in gen.lang:
-            fileparts = getFileParts(gen.bld, inp.abspath())
-            fileparts[2] = fileparts[2].replace('.zcm', '.java')
-            if fileparts[1] == "":
-                if not getattr(gen, 'javapkg', None):
-                    raise WafError('No package specified for java zcmtype ' \
-                                   'generation. Specify package with a ' \
-                                   '"package <pkg>;" statement at the top of ' \
-                                   'the type or with the "javapkg" build keyword')
-                else:
-                    fileparts[1] = gen.javapkg.replace('.', '/')
-            else:
-                if getattr(gen, 'javapkg', None):
-                    fileparts[1] = (gen.javapkg + "/" + fileparts[1]).replace('.', '/')
-                else:
-                    fileparts[1] = fileparts[1].replace('.', '/')
+        files = outFileNames(gen.bld, bldpath, inp,
+                             pkgPrefix = gen.pkgPrefix,
+                             javapkg   = gen.javapkg,
+                             juliapkg  = gen.juliapkg,
+                             lang      = gen.lang)
 
-            outp = '/'.join(['java', fileparts[1], fileparts[2]])
-            outp_node = gen.path.get_bld().make_node(outp)
-            self.outputs.append(outp_node)
-        if 'python' in gen.lang:
-            filename = outFileName(gen.bld, inp.abspath(), 'python')
-            node = gen.path.find_or_declare(filename)
-            self.outputs.append(node)
-        if 'julia' in gen.lang:
-            filename = outFileName(gen.bld, inp.abspath(), 'julia')
-            node = gen.path.find_or_declare(filename)
-            self.outputs.append(node)
+        for f in files:
+            out_node = gen.path.find_or_declare(f)
+            self.outputs.append(out_node)
 
         if not self.outputs:
             raise WafError('No ZCMtypes generated, ensure a valid lang is specified')
@@ -334,21 +347,24 @@ class zcmgen(Task.Task):
         bld = gen.path.get_bld().abspath()
         inc = bld.split('/')[-1]
 
-        langs = {}
+        cmd = {}
+        if gen.pkgPrefix:
+            cmd['prefix'] = '--package-prefix %s' % gen.pkgPrefix
+        if gen.littleEndian:
+            cmd['endian'] = '--little-endian-encoding'
         if ('c_stlib' in gen.lang) or ('c_shlib' in gen.lang):
-            langs['c'] = '--c --c-typeinfo --c-cpath %s --c-hpath %s --c-include %s' % \
+            cmd['c'] = '--c --c-typeinfo --c-cpath %s --c-hpath %s --c-include %s' % \
                          (bld, bld, inc)
         if 'cpp' in gen.lang:
-            langs['cpp'] = '--cpp --cpp-hpath %s --cpp-include %s' % (bld, inc)
+            cmd['cpp'] = '--cpp --cpp-hpath %s --cpp-include %s' % (bld, inc)
         if 'java' in gen.lang:
-            langs['java'] = '--java --jpath %s --jdefaultpkg %s' % (bld + '/java', gen.javapkg)
+            cmd['java'] = '--java --jpath %s --jpkgprefix %s' % (bld + '/java', gen.javapkg)
         if 'python' in gen.lang:
-            langs['python'] = '--python --ppath %s' % (bld)
+            cmd['python'] = '--python --ppath %s' % (bld)
         if 'julia' in gen.lang:
-            langs['julia'] = '--julia --julia-path %s' % (bld)
+            cmd['julia'] = '--julia --julia-path %s' % (bld)
+            if (gen.juliapkg):
+                cmd['julia'] += ' --julia-pkg-prefix %s' % (gen.juliapkg)
 
-        if gen.littleEndian:
-            langs['endian'] = ' --little-endian-encoding '
-
-        # no need to check if langs is empty here, already handled in runnable_status()
-        return self.exec_command('%s %s %s' % (zcmgen, zcmfile, ' '.join(langs.values())))
+        # no need to check if cmd is empty here, already handled in runnable_status()
+        return self.exec_command('%s %s %s' % (zcmgen, zcmfile, ' '.join(cmd.values())))

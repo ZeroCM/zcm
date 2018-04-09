@@ -1,7 +1,8 @@
-include("../build/types/example_t.jl");
-include("../build/types/example2_t.jl");
+unshift!(LOAD_PATH, "../build/types")
 
-using ZCM;
+using ZCM
+using _example_t
+using _example2_t
 
 received_example_t = false
 function handler1(rbuf, channel::String, msg::example_t)

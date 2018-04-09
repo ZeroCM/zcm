@@ -18,6 +18,7 @@ export ASAN_OPTIONS=check_initialization_order=1
 export CLASSPATH=$CLASSPATH:$prefix/share/java/zcm.jar
 export CLASSPATH=$CLASSPATH:$prefix/share/java/zcm-tools.jar
 export CLASSPATH=$CLASSPATH:$DIR/build/types/examplezcmtypes.jar
+export CLASSPATH=$CLASSPATH:$DIR/build/types/examplezcmtypespfx.jar
 export CLASSPATH=$CLASSPATH:$DIR/build/java/example.jar
 export ZCM_SPY_LITE_PATH=$DIR/build/types/libexamplezcmtypes.so
 export ZCM_DEFAULT_URL=ipc

@@ -14,8 +14,9 @@ struct Emitter
     void emitContinue(const char* msg, ...);
     void emitEnd(const char* msg, ...);
 
-    void fprintfPass(const char* msg, ...);
+    const string& getFilename();
 
   private:
     FILE* f = nullptr;
+    string filename = "";
 };

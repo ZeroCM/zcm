@@ -15,7 +15,7 @@ namespace StringUtil
 // This function is very useful for extracting delimited fields
     static vector<string> split(const string& str, char delimiter)
     {
-        // TODO: if this function is ever too slow, it can be rewritten to loop throw
+        // TODO: if this function is ever too slow, it can be rewritten to loop through
         // a c-string and set '\0' at every delimiter, and then .emplace those char*
         // directly into the vector<>
         // Alternatively, a special object could be created to cut down on malloc()
@@ -48,7 +48,7 @@ namespace StringUtil
     static inline string join(const vector<string>& vec, const string& sep)
     {
         string ret;
-        for (size_t i = 0; i < vec.size(); i++) {
+        for (size_t i = 0; i < vec.size(); ++i) {
             ret += vec[i];
             if (i != vec.size()-1)
                 ret += sep;
@@ -73,7 +73,7 @@ namespace StringUtil
     static inline string strip(const string& s)
     {
         size_t start = 0;
-        for (; start < s.size(); start++)
+        for (; start < s.size(); ++start)
             if (s[start] != ' ' && s[start] != '\t')
                 break;
 
@@ -82,7 +82,7 @@ namespace StringUtil
             return "";
 
         size_t end = s.size();
-        for (; end > 0; end--)
+        for (; end > 0; --end)
             if (s[end-1] != ' ' && s[end-1] != '\t')
                 break;
 

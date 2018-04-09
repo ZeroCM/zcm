@@ -11,15 +11,20 @@ extern "C" {
 int main(int argc, char* argv[])
 {
     GetOpt gopt;
-    gopt.addBool('h',  "help",     0,    "Show this help");
-    gopt.addBool('t',  "tokenize", 0,    "Show tokenization");
-    gopt.addBool(0,    "package",  0,    "Show only package");
-    gopt.addBool('d',  "debug",    0,    "Show parsed file");
-    gopt.addBool(0,    "lazy",     0,    "Generate output file only if .zcm is newer");
-    gopt.addString(0,    "package-prefix",     "",
+    gopt.addBool('h', "help",                   0,  "Show this help");
+    gopt.addBool('t', "tokenize",               0,  "Show tokenization");
+    // TODO: it'd be really cool if it only did a limited amount of file parsing for the
+    //       package and output-files options. However, technically, there can be more
+    //       than 1 type per file, so stopping the parsing early isn't easy.
+    gopt.addBool(0,   "package",                0,  "Show only package");
+    gopt.addBool(0,   "output-files",           0,  "Show output filenames only");
+    gopt.addBool('d', "debug",                  0,  "Show parsed file");
+    gopt.addBool(0,   "lazy",                   0,  "Generate output file only if .zcm is newer");
+    gopt.addString(0, "package-prefix",         "",
                       "Add this package name as a prefix to the declared package");
-    gopt.addBool(0,  "little-endian-encoding", 0, "Encode and decode network traffic in little endian format");
-    gopt.addBool(0,  "version",    0,    "Show version information and exit");
+    gopt.addBool(0,   "little-endian-encoding", 0,
+                      "Encode and decode network traffic in little endian format");
+    gopt.addBool(0,   "version",                0,  "Show version information and exit");
 
     gopt.addSpacer("**** C options ****");
     gopt.addBool('c', "c",         0,    "Emit C code");
