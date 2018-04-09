@@ -3,20 +3,14 @@
 def build(ctx):
     ctx.zcmgen(name         = 'examplezcmtype-juliapkgs',
                source       = ctx.path.ant_glob('**/*.zcm'),
-               pkgPrefix    = 'prefix',
-               juliapkg     = 'example.zcmtypes',
                juliagenpkgs = True)
 
-    ctx.zcmgen(name     = 'examplezcmtypes',
-               source   = ctx.path.ant_glob('**/*.zcm', excl='little_endian_t.zcm'),
-               lang     = ['c_stlib', 'c_shlib', 'cpp', 'java', 'python', 'nodejs', 'julia'],
-               pkgPrefix    = 'prefix',
-               juliapkg = 'example.zcmtypes',
-               javapkg  = 'example.zcmtypes')
+    ctx.zcmgen(name         = 'examplezcmtypes',
+               source       = ctx.path.ant_glob('**/*.zcm', excl='little_endian_t.zcm'),
+               lang         = ['c_stlib', 'c_shlib', 'cpp', 'java', 'python', 'nodejs', 'julia'],
+               javapkg      = 'example.zcmtypes')
 
     ctx.zcmgen(name         = 'examplezcmtypes-little-endian',
                source       = ctx.path.ant_glob('little_endian_t.zcm'),
                lang         = ['c_stlib', 'c_shlib', 'cpp', 'julia'],
-               pkgPrefix    = 'prefix',
-               juliapkg     = 'example.zcmtypes',
                littleEndian = True)
