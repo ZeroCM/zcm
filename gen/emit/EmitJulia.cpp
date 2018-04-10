@@ -226,7 +226,7 @@ struct EmitJuliaType : public Emitter
         // define the class
         emitComment(0, zs.comment);
         emit(0, "export %s", sn);
-        emit(0, "type %s <: ZCM.AbstractZCMType", sn);
+        emit(0, "type %s <: ZCM.AbstractZcmType", sn);
         emit(0, "");
 
         // data members
@@ -242,7 +242,7 @@ struct EmitJuliaType : public Emitter
                 if (zcm.isPrimitiveType(mtn)) {
                     mappedTypename = mapTypeName(mtn);
                 } else {
-                    mappedTypename = "ZCM.AbstractZCMType";
+                    mappedTypename = "ZCM.AbstractZcmType";
                 }
 
                 int ndim = (int)zm.dimensions.size();
@@ -620,7 +620,7 @@ struct EmitJuliaType : public Emitter
                 auto& mtn = zm.type.fullname;
                 string mappedTypename;
                 if (zcm.isPrimitiveType(mtn)) mappedTypename = mapTypeName(mtn);
-                else                          mappedTypename = "ZCM.AbstractZCMType";
+                else                          mappedTypename = "ZCM.AbstractZcmType";
 
                 // emit array initializer for sizing
                 emitStart(1, "%s = Array{%s, %d}(",

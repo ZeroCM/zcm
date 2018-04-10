@@ -15,4 +15,4 @@ encoded.n   = length(encoded.msg)
 decoded = ZCM.decode(example_t, encoded.msg)
 @assert (decoded.timestamp == msg.timestamp) "Encode/decode mismatch"
 
-println("Success")
+println("Success!")

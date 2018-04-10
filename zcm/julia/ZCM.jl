@@ -1,18 +1,26 @@
 module ZCM
 
+# AbstractZcmType functions
+export encode,
+       decode,
+       getHash
+# Zcm functions
 export Zcm,
+       destroy,
+       good,
+       errno,
+       strerrno,
        subscribe,
        unsubscribe,
        publish,
-       encode,
-       decode,
-       good,
+       pause,
+       resume,
        flush,
        start,
        stop,
        handle,
        handle_nonblock,
-       destroy,
+       set_queue_size,
        LogEvent,
        LogFile,
        read_next_event,
@@ -30,12 +38,12 @@ import Base: flush,
     # to be wrapped in an include_string to avoid throwing deprecation
     # warnings on v0.6. This can be eliminated when v0.5 support is
     # dropped.
-    include_string("abstract AbstractZCMType")
+    include_string("abstract AbstractZcmType")
 
     # takebuf_array was deprecated in favor of take! in v0.6
     _takebuf_array(buf) = takebuf_array(buf)
 else
-    include_string("abstract type AbstractZCMType end")
+    include_string("abstract type AbstractZcmType end")
 
     _takebuf_array(buf) = take!(buf)
 end
@@ -48,11 +56,11 @@ function getHash end
 function _get_hash_recursive end
 function _encode_one end
 function _decode_one end
-# RRR: would be nice to have getEncodedSize() and _getEncodedSizeNoHash()
+# TODO: would be nice to have getEncodedSize() and _getEncodedSizeNoHash()
 
 
-# RRR / Note: Julia requires that the memory layout of the C structs is consistent
-#             between their definitions in zcm headers and this file
+# Note: Julia requires that the memory layout of the C structs is consistent
+#       between their definitions in zcm headers and this file
 
 # C ptr types for types that we don't need the internals of
 module Native
@@ -149,7 +157,7 @@ function handler_wrapper(rbuf::Native.RecvBuf, channelbytes::Cstring, handler)
     return nothing
 end
 
-function typed_handler{T <: AbstractZCMType}(handler, msgtype::Type{T}, args...)
+function typed_handler{T <: AbstractZcmType}(handler, msgtype::Type{T}, args...)
     (rbuf, channel, msgdata) -> handler(rbuf, channel, decode(msgtype, msgdata), args...)
 end
 
@@ -227,17 +235,27 @@ function publish(zcm::Zcm, channel::AbstractString, data::Vector{UInt8})
                  zcm, convert(String, channel), data, length(data))
 end
 
-function publish(zcm::Zcm, channel::AbstractString, msg::AbstractZCMType)
+function publish(zcm::Zcm, channel::AbstractString, msg::AbstractZcmType)
     publish(zcm, channel, encode(msg))
 end
 
+function pause(zcm::Zcm)
+    ccall(("zcm_pause", "libzcm"), Void, (Ptr{Native.Zcm},), zcm)
+end
+
+function resume(zcm::Zcm)
+    ccall(("zcm_resume", "libzcm"), Void, (Ptr{Native.Zcm},), zcm)
+end
+
 function flush(zcm::Zcm)
-    # RRR (Bendes): Technically this isn't allowed yet.
-    #               Haven't yet figured out how to handle the case where
-    #               there is a msg dispatch already in progress awaiting
-    #               scheduling. Probably need to do something like a try_flush()
-    # RRR: try_flush now exists within zcm, we can use it here
-    # ccall(("zcm_flush", "libzcm"), Void, (Ptr{Native.Zcm},), zcm)
+    while (true)
+        ret = ccall(("zcm_try_flush", "libzcm"), Cint, (Ptr{Native.Zcm},), zcm)
+        if (ret == Cint(0))
+            break
+        else
+            yield()
+        end
+    end
 end
 
 function start(zcm::Zcm)
@@ -245,12 +263,14 @@ function start(zcm::Zcm)
 end
 
 function stop(zcm::Zcm)
-    # RRR (Bendes): Technically this isn't allowed yet.
-    #               Haven't yet figured out how to handle the case where
-    #               there is a msg dispatch already in progress awaiting
-    #               scheduling. Probably need to do something like a try_stop()
-    # RRR: try_stop now exists within zcm, we can use it here
-    # ccall(("zcm_stop", "libzcm"), Void, (Ptr{Native.Zcm},), zcm)
+    while (true)
+        ret = ccall(("zcm_try_stop", "libzcm"), Cint, (Ptr{Native.Zcm},), zcm)
+        if (ret == Cint(0))
+            break
+        else
+            yield()
+        end
+    end
 end
 
 function handle(zcm::Zcm)
@@ -261,7 +281,18 @@ function handle_nonblock(zcm::Zcm)
     ccall(("zcm_handle_nonblock", "libzcm"), Cint, (Ptr{Native.Zcm},), zcm)
 end
 
-# RRR: go over the signedness of all these types from within zcm ... some of them are dumb
+function set_queue_size(zcm::Zcm, num::Integer)
+    sz = UInt32(num)
+    while (true)
+        ret = ccall(("zcm_try_set_queue_size", "libzcm"), Cint, (Ptr{Native.Zcm}, UInt32), zcm, sz)
+        if (ret == Cint(0))
+            break
+        else
+            yield()
+        end
+    end
+end
+
 type LogEvent
     event   ::Ptr{Native.EventLogEvent}
     num     ::Int64
@@ -307,7 +338,6 @@ type LogFile
     eventLog::Ptr{Native.EventLog}
 
     function LogFile(path::AbstractString, mode::AbstractString)
-        println("Creating zcm eventlog from path : ", path, " with mode ", mode)
         instance = new()
         instance.eventLog = ccall(("zcm_eventlog_create", "libzcm"), Ptr{Native.EventLog},
                                   (Cstring, Cstring), path, mode)
