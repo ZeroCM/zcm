@@ -53,6 +53,7 @@ publish(zcm, "EXAMPLE", msg)
 
 flush(zcm)
 
+# RRR (Bendes) Seems like the wrong error message?
 @assert (numReceived == 6) "Received a message while paused"
 
 resume(zcm)
@@ -70,6 +71,7 @@ stop(zcm)
 unsubscribe(zcm, sub)
 unsubscribe(zcm, sub2)
 
+# RRR (Bendes) Seems like the wrong error message?
 @assert (numReceived == 9) "Received a message while paused"
 
 println("Success!")

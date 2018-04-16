@@ -983,6 +983,12 @@ int emitC(ZCMGen& zcm)
         string hName = hpath + "/" + zs.structname.nameUnderscore() + ".h";
         string cName = hpath + "/" + zs.structname.nameUnderscore() + ".c";
 
+        // RRR (Bendes) It's a bit weird that the emit file is outputting stuff.
+        //              That's typically the job of zcmgen. I would find a way
+        //              to push this out to main. Printing from this deep is
+        //              weird and hard to bypass later if we want to. Could instead
+        //              store a list of filenames inside a type so that zcmgen
+        //              can decide when to access the list
         if (printOutputFiles) {
             std::cout << hName << std::endl << cName << std::endl;
             continue;

@@ -14,7 +14,7 @@ static string dotsToSlashes(const string& s)
 
 void setupOptionsJava(GetOpt& gopt)
 {
-    gopt.addString(0, "jpath",      "",         "Java file destination directory");
+    gopt.addString(0, "jpath",      "",        "Java file destination directory");
     gopt.addBool(0,   "jmkdir",     1,         "Make java source directories automatically");
     gopt.addString(0, "jdecl",      "implements zcm.zcm.ZCMEncodable", "String added to class declarations");
     gopt.addString(0, "jpkgprefix", "zcmtypes",

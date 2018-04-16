@@ -20,6 +20,7 @@ write_event(zlog, LogEvent("EXAMPLE", msg, Int64(2e6)))
 # Note: it's actually important to call finalize here because we need to be sure
 #       the underlying file is closed properly before we open it again
 finalize(zlog)
+# RRR (Bendes) is finalize the same as close? Don't you need to close before opening again?
 zlog = LogFile("/tmp/zcm.log", "a")
 if (!good(zlog))
     error("Unable to initialize zcm log in append mode")

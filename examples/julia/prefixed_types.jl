@@ -34,6 +34,7 @@ function prepExample!(m::example_t, t::Int)
 end
 
 function checkExample(m::example_t, t::Int)
+    # RRR (Bendes) Seriously with this spacing........
     @assert (m.timestamp      == t)            "Received msg with incorrect timestamp"
 end
 

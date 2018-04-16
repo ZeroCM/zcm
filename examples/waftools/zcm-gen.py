@@ -31,6 +31,8 @@ def configure(ctx):
         ctx.find_program('zcm-gen', var='ZCMGEN', mandatory=True)
         ctx.env.ZCMGEN = ctx.env.ZCMGEN[0]
 
+# RRR (Bendes) Why'd you put this up here? I'd definitely move it back to where
+#              it was below the usage
 # returns filenames as an array of paths relative to the bldpath
 def outFileNames(ctx, bldpath, inFile, **kw):
     zcmgen = ctx.env['ZCMGEN']
@@ -78,6 +80,7 @@ def outFileNames(ctx, bldpath, inFile, **kw):
             while (files[i].startswith('/')):
                 files[i] = files[i][1:]
         else:
+            # RRR (Bendes): Why is this the error?
             raise WafError('ZCMtypes output not in the build path : ', files[i])
 
     return files
@@ -124,6 +127,10 @@ def genJuliaPkgFiles(task):
 #                 prefixes the global pkgPrefix if one is set. If neither pkgPrefix nor juliapkg
 #                 are set, types without packages will be generated into a package that is the
 #                 typename prefixed by '_'
+# RRR (Bendes): I don't follow these comments. I'm not even sure what question to ask haha.
+#               Yea I don't get the littleEndian comment nor the last sentence or two of the
+#               below comment. I don't get how to use these two arguments, nor how
+#               littleEndian is related.
 #   juliagenpkgs: If True, generate julia module files for all packages. ALL ZCMTYPES MUST BE
 #                 INCLUDED IN SOURCE FOR THIS COMMAND! Types are NOT generated themselves
 #                 unless the user specifies 'julia' in the `lang` list. This allows users
@@ -259,6 +266,8 @@ def zcmgen(ctx, **kw):
     if 'c_stlib' in lang or 'c_shlib' in lang:
         csrc = []
         for src in tg.source:
+            # RRR (Bendes): Feels like we should only be doing this if we have
+            #               c_stlib in lang, right?
             files = outFileNames(ctx, ctx.path.get_bld().abspath(), src.abspath(),
                                  lang = [ 'c_stlib', 'c_shlib' ], pkgPrefix = pkgPrefix)
             for f in files:

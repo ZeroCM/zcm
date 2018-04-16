@@ -56,6 +56,8 @@ void Emitter::emitEnd(const char* msg, ...)
     va_end(va);
 }
 
+// RRR (Bendes) Why'd you get rid of fprintfPass?
+//              And why is this function here? Doesn't seem to be used anywhere
 const string& Emitter::getFilename()
 {
     return filename;
