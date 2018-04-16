@@ -49,12 +49,13 @@ publish(zcm, "EXAMPLE", msg)
 msg.timestamp = 5;
 publish(zcm, "EXAMPLE", msg)
 
+sleep(0.5)
+
 @assert (numReceived == 3) "Received a message while paused"
 
 flush(zcm)
 
-# RRR (Bendes) Seems like the wrong error message?
-@assert (numReceived == 6) "Received a message while paused"
+@assert (numReceived == 6) "Did not receive all messages after flush"
 
 resume(zcm)
 
@@ -71,7 +72,6 @@ stop(zcm)
 unsubscribe(zcm, sub)
 unsubscribe(zcm, sub2)
 
-# RRR (Bendes) Seems like the wrong error message?
-@assert (numReceived == 9) "Received a message while paused"
+@assert (numReceived == 9) "Did not receive all messages after resume"
 
 println("Success!")

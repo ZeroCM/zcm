@@ -989,6 +989,8 @@ int emitC(ZCMGen& zcm)
         //              weird and hard to bypass later if we want to. Could instead
         //              store a list of filenames inside a type so that zcmgen
         //              can decide when to access the list
+        // RRR (Isaac)  definitely could go that route, there's no existing infrastruct
+        //              for that yet, but shouldn't be too bad to add
         if (printOutputFiles) {
             std::cout << hName << std::endl << cName << std::endl;
             continue;

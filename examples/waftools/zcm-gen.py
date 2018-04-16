@@ -33,6 +33,10 @@ def configure(ctx):
 
 # RRR (Bendes) Why'd you put this up here? I'd definitely move it back to where
 #              it was below the usage
+# RRR (Isaac)  I think we moved it because it has to be defined before we can use it
+#              and it felt weird to have the documentation look like it was documenting this
+#              function instead of the zcmgen function. I agree though, if we can reorder this
+#              file somehow, that'd be great
 # returns filenames as an array of paths relative to the bldpath
 def outFileNames(ctx, bldpath, inFile, **kw):
     zcmgen = ctx.env['ZCMGEN']
@@ -81,6 +85,10 @@ def outFileNames(ctx, bldpath, inFile, **kw):
                 files[i] = files[i][1:]
         else:
             # RRR (Bendes): Why is this the error?
+            # RRR (Isaac) : the way the zcmgen waftool is supposed to work is to always
+            #               generate the files into the build directory. This would
+            #               indicate some error in the output of `zcmgen --output-files`
+            #               in the case where we got an option wrong or forgot one (for example)
             raise WafError('ZCMtypes output not in the build path : ', files[i])
 
     return files
@@ -131,6 +139,52 @@ def genJuliaPkgFiles(task):
 #               Yea I don't get the littleEndian comment nor the last sentence or two of the
 #               below comment. I don't get how to use these two arguments, nor how
 #               littleEndian is related.
+# RRR (Isaac) : not sure exactly how to address your confusion ... maybe an example?
+#               you have 3 types in your repo : { a_t, b_t, c_t } and you want your julia types
+#               to be nicely bundled in a module "zcmtypes". Let's also say that c_t needs to
+#               be little-endian encoded. You'd like to compile them all; however, because c_t
+#               needs to be little-endian encoded, you cannot have them all in the same
+#               invocation of the zcmgen waftool, so you'd end up with something like this:
+#
+#                    ctx.zcmgen(name         = 'types',
+#                               source       = ctx.path.ant_glob('**/*.zcm', excl='c_t.zcm'),
+#                               lang         = ['cpp', 'julia'],
+#                               juliapkg     = 'zcmtypes')
+#
+#                    ctx.zcmgen(name         = 'types-little-endian',
+#                               source       = ctx.path.ant_glob('c_t.zcm'),
+#                               lang         = ['cpp', 'julia'],
+#                               littleEndian = True,
+#                               juliapkg     = 'zcmtypes')
+#
+#               However, there's a problem : the julia emitter for zcmgen needs to see ALL of
+#               the types together in order to generate the package files. To get around this,
+#               you have the `juliagenpkgs` option, which allows you to take all the files
+#               and *only* generate the package files, skipping all type encoding and such.
+#               This means that options such as "littleEndian" don't matter, so it lets you
+#               put all the types in 1 invocation of zcmgen. Your wscript now looks like this:
+#
+#                    ctx.zcmgen(name         = 'types-juliapkgs',
+#                               source       = ctx.path.ant_glob('**/*.zcm'),
+#                               juliagenpkgs = True)
+#
+#                    ctx.zcmgen(name         = 'types',
+#                               source       = ctx.path.ant_glob('**/*.zcm', excl='c_t.zcm'),
+#                               lang         = ['cpp', 'julia'],
+#                               juliapkg     = 'zcmtypes')
+#
+#                    ctx.zcmgen(name         = 'types-little-endian',
+#                               source       = ctx.path.ant_glob('c_t.zcm'),
+#                               lang         = ['cpp', 'julia'],
+#                               littleEndian = True,
+#                               juliapkg     = 'zcmtypes')
+#
+#                 I agree that the hoops kinda suck. There are likely ways to get around this
+#                 without needing to do it this way, but I don't think they are simple. I'd be
+#                 happy to add that as a feature request for the Julia support and work on it
+#                 in the future, I just think that if I try to go down that route right now,
+#                 it'll delay the core julia support even longer.
+#
 #   juliagenpkgs: If True, generate julia module files for all packages. ALL ZCMTYPES MUST BE
 #                 INCLUDED IN SOURCE FOR THIS COMMAND! Types are NOT generated themselves
 #                 unless the user specifies 'julia' in the `lang` list. This allows users
@@ -268,6 +322,7 @@ def zcmgen(ctx, **kw):
         for src in tg.source:
             # RRR (Bendes): Feels like we should only be doing this if we have
             #               c_stlib in lang, right?
+            # RRR (Isaac) : no it gets used in both (search for csrc)
             files = outFileNames(ctx, ctx.path.get_bld().abspath(), src.abspath(),
                                  lang = [ 'c_stlib', 'c_shlib' ], pkgPrefix = pkgPrefix)
             for f in files:

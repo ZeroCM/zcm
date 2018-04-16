@@ -10,6 +10,8 @@ def build(ctx):
     #               into the waftool. Seems like a bandaid (nodejs is a terrible role model)
     # RRR (Bendes): Actually on second reading, this is very confusing how many
     #               different ways there are of doing seemingly the same thing
+    # RRR (Isaac) : happy to chat about how to make this better, but it'll likely
+    #               not be a simple fix
     ctx.zcmgen(name         = 'examplezcmtype-juliapkgs',
                source       = ctx.path.ant_glob('**/*.zcm'),
                juliagenpkgs = True)
