@@ -13,9 +13,9 @@ def handler(channel, msg):
     success = "Success"
 
 # make a new zcm object and launch the handle thread
-zcm = ZCM()
+zcm = ZCM("".encode('utf-8'))
 if not zcm.good():
-    print "Unable to initialize zcm"
+    print("Unable to initialize zcm")
     exit()
 
 # declare a new msg and populate it
@@ -23,16 +23,16 @@ msg = example_t()
 msg.timestamp = 10
 
 # set up a subscription on channel "TEST"
-subs = zcm.subscribe("TEST", example_t, handler)
+subs = zcm.subscribe("TEST".encode('utf-8'), example_t, handler)
 
 # publish a message
-zcm.publish("TEST", msg)
+zcm.publish("TEST".encode('utf-8'), msg)
 
 # wait a second
 time.sleep(1)
 
 # publish another
-zcm.publish("TEST", msg)
+zcm.publish("TEST".encode('utf-8'), msg)
 
 # handle incoming message
 zcm.handle()
@@ -41,4 +41,4 @@ zcm.handle()
 zcm.unsubscribe(subs)
 
 # notify user of success
-print success
+print(success)

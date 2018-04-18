@@ -86,6 +86,8 @@ cdef class ZCM:
         PyEval_InitThreads()
         self.zcm = zcm_create(url)
     def __dealloc__(self):
+        if self.zcm == NULL:
+            return
         self.stop()
         zcm_destroy(self.zcm)
     def good(self):
