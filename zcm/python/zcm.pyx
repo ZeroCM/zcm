@@ -151,7 +151,7 @@ cdef class LogEvent:
         self.timestamp = time
     def getTimestamp(self):
         return self.timestamp
-    def setChannel(self, str chan):
+    def setChannel(self, basestring chan):
         self.channel = chan.encode('utf-8')
     def getChannel(self):
         return self.channel.decode('utf-8')
@@ -187,7 +187,7 @@ cdef class LogFile:
             return None
         cdef LogEvent curEvent = LogEvent()
         curEvent.eventnum = evt.eventnum
-        curEvent.setChannel   (evt.channel[:evt.channellen])
+        curEvent.setChannel   (evt.channel[:evt.channellen].decode('utf-8'))
         curEvent.setTimestamp (evt.timestamp)
         curEvent.setData      ((<uint8_t*>evt.data)[:evt.datalen])
         return curEvent
