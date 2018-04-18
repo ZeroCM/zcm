@@ -16,23 +16,23 @@ lock = threading.Lock()
 done = 0
 def handler(channel, msg):
     global done
-    print "Received message on channel: " + channel
+    print("Received message on channel: " + channel)
     assert msg.timestamp == 10
     lock.acquire()
     done = done + 1
     lock.release()
 
 def publish():
-    print "Publish message on channel: " + "TEST"
+    print("Publish message on channel: " + "TEST")
     zcm.publish("TEST", msg)
-    print "Publish message on channel: " + "TEST_1"
+    print("Publish message on channel: " + "TEST_1")
     zcm.publish("TEST_1", msg)
-    print "Publish message on channel: " + "TEST_2"
+    print("Publish message on channel: " + "TEST_2")
     zcm.publish("TEST_2", msg)
 
 zcm = ZCM("")
 if not zcm.good():
-    print "Unable to initialize zcm"
+    print("Unable to initialize zcm")
     exit()
 zcm.start()
 msg = example_t()
@@ -52,4 +52,4 @@ while True:
 zcm.unsubscribe(subs)
 zcm.stop()
 
-print "Success"
+print("Success")

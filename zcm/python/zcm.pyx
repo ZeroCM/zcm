@@ -78,7 +78,7 @@ cdef class ZCMSubscription:
 cdef void handler_cb(const zcm_recv_buf_t* rbuf, const char* channel, void* usr) with gil:
     subs = (<ZCMSubscription>usr)
     msg = subs.msgtype.decode(rbuf.data[:rbuf.data_size])
-    subs.handler(channel, msg)
+    subs.handler(channel.decode('utf-8'), msg)
 
 cdef class ZCM:
     cdef zcm_t* zcm
