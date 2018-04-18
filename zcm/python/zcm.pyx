@@ -143,6 +143,8 @@ cdef class LogEvent:
     cdef object  data
     def __cinit__(self):
         pass
+    def setEventnum(self, int64_t eventnum):
+        self.eventnum = eventnum
     def getEventnum(self):
         return self.eventnum
     def setTimestamp(self, int64_t time):
@@ -181,11 +183,11 @@ cdef class LogFile:
         if self.lastevent != NULL:
             zcm_eventlog_free_event(self.lastevent)
         self.lastevent = evt
-        cdef LogEvent curEvent = LogEvent()
         if evt == NULL:
             return None
+        cdef LogEvent curEvent = LogEvent()
         curEvent.eventnum = evt.eventnum
-        curEvent.setChannel   (evt.channel[:evt.channellen].decode('utf-8'))
+        curEvent.setChannel   (evt.channel[:evt.channellen])
         curEvent.setTimestamp (evt.timestamp)
         curEvent.setData      ((<uint8_t*>evt.data)[:evt.datalen])
         return curEvent
