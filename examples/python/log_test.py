@@ -35,4 +35,4 @@ log.close()
 from subprocess import call
 call(["rm", "testlog.log"])
 
-print "Success"
+print("Success")

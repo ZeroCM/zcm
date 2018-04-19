@@ -78,14 +78,16 @@ cdef class ZCMSubscription:
 cdef void handler_cb(const zcm_recv_buf_t* rbuf, const char* channel, void* usr) with gil:
     subs = (<ZCMSubscription>usr)
     msg = subs.msgtype.decode(rbuf.data[:rbuf.data_size])
-    subs.handler(channel, msg)
+    subs.handler(channel.decode('utf-8'), msg)
 
 cdef class ZCM:
     cdef zcm_t* zcm
-    def __cinit__(self, bytes url=<bytes>""):
+    def __cinit__(self, str url=""):
         PyEval_InitThreads()
-        self.zcm = zcm_create(url)
+        self.zcm = zcm_create(url.encode('utf-8'))
     def __dealloc__(self):
+        if self.zcm == NULL:
+            return
         self.stop()
         zcm_destroy(self.zcm)
     def good(self):
@@ -93,25 +95,25 @@ cdef class ZCM:
     def err(self):
         return zcm_errno(self.zcm)
     def strerror(self):
-        return <bytes>zcm_strerror(self.zcm)
+        return zcm_strerror(self.zcm).decode('utf-8')
     def strerrno(self, err):
-        return <bytes>zcm_strerrno(err)
-    def subscribe(self, bytes channel, msgtype, handler):
+        return zcm_strerrno(err).decode('utf-8')
+    def subscribe(self, str channel, msgtype, handler):
         cdef ZCMSubscription subs = ZCMSubscription()
         subs.handler = handler
         subs.msgtype = msgtype
         while True:
-            subs.sub = zcm_try_subscribe(self.zcm, channel, handler_cb, <void*> subs)
+            subs.sub = zcm_try_subscribe(self.zcm, channel.encode('utf-8'), handler_cb, <void*> subs)
             if subs.sub != NULL:
                 return subs
             time.sleep(0) # yield the gil
     def unsubscribe(self, ZCMSubscription sub):
         while zcm_try_unsubscribe(self.zcm, sub.sub) != ZCM_EOK:
             time.sleep(0) # yield the gil
-    def publish(self, bytes channel, object msg):
+    def publish(self, str channel, object msg):
         _data = msg.encode()
         cdef const uint8_t* data = _data
-        return zcm_publish(self.zcm, channel, data, len(_data) * sizeof(uint8_t))
+        return zcm_publish(self.zcm, channel.encode('utf-8'), data, len(_data) * sizeof(uint8_t))
     def flush(self):
         while zcm_try_flush(self.zcm) != ZCM_EOK:
             time.sleep(0) # yield the gil
@@ -141,16 +143,18 @@ cdef class LogEvent:
     cdef object  data
     def __cinit__(self):
         pass
+    def setEventnum(self, int64_t eventnum):
+        self.eventnum = eventnum
     def getEventnum(self):
         return self.eventnum
     def setTimestamp(self, int64_t time):
         self.timestamp = time
     def getTimestamp(self):
         return self.timestamp
-    def setChannel(self, bytes chan):
-        self.channel = chan
+    def setChannel(self, basestring chan):
+        self.channel = chan.encode('utf-8')
     def getChannel(self):
-        return self.channel
+        return self.channel.decode('utf-8')
     def setData(self, bytes data):
         self.data = data
     def getData(self):
@@ -159,8 +163,8 @@ cdef class LogEvent:
 cdef class LogFile:
     cdef zcm_eventlog_t* eventlog
     cdef zcm_eventlog_event_t* lastevent
-    def __cinit__(self, bytes path, bytes mode):
-        self.eventlog = zcm_eventlog_create(path, mode)
+    def __cinit__(self, str path, str mode):
+        self.eventlog = zcm_eventlog_create(path.encode('utf-8'), mode.encode('utf-8'))
         self.lastevent = NULL
     def __dealloc__(self):
         self.close()
@@ -179,11 +183,11 @@ cdef class LogFile:
         if self.lastevent != NULL:
             zcm_eventlog_free_event(self.lastevent)
         self.lastevent = evt
-        cdef LogEvent curEvent = LogEvent()
         if evt == NULL:
             return None
+        cdef LogEvent curEvent = LogEvent()
         curEvent.eventnum = evt.eventnum
-        curEvent.setChannel   (evt.channel[:evt.channellen])
+        curEvent.setChannel   (evt.channel[:evt.channellen].decode('utf-8'))
         curEvent.setTimestamp (evt.timestamp)
         curEvent.setData      ((<uint8_t*>evt.data)[:evt.datalen])
         return curEvent

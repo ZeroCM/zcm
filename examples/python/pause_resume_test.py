@@ -14,13 +14,13 @@ signal.signal(signal.SIGINT, signal_handler)
 done = 0
 def handler(channel, msg):
     global done
-    print "Received message on channel: " + channel
+    print("Received message on channel: " + channel)
     assert msg.timestamp == 10
     done = done + 1
 
 z = zcm.ZCM()
 if not z.good():
-    print "Unable to initialize zcm"
+    print("Unable to initialize zcm")
     exit()
 z.start()
 
@@ -41,7 +41,7 @@ while done != 5:
     z.flush()
     time.sleep(0) # yield the gil
     if (time.time() - start > 2):
-        print "Failure"
+        print("Failure")
         sys.exit(1)
 
 z.resume()
@@ -54,4 +54,4 @@ while True:
 z.unsubscribe(subs)
 z.stop()
 
-print "Success"
+print("Success")

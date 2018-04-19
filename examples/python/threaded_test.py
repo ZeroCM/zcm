@@ -14,13 +14,13 @@ signal.signal(signal.SIGINT, signal_handler)
 done = 0
 def handler(channel, msg):
     global done
-    print "Received message on channel: " + channel
+    print("Received message on channel: " + channel)
     assert msg.timestamp == 10
     done = done + 1
 
 zcm = ZCM()
 if not zcm.good():
-    print "Unable to initialize zcm"
+    print("Unable to initialize zcm")
     exit()
 zcm.start()
 
@@ -37,4 +37,4 @@ while True:
 zcm.unsubscribe(subs)
 zcm.stop()
 
-print "Success"
+print("Success")

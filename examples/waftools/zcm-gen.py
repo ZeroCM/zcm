@@ -170,7 +170,7 @@ def zcmgen(ctx, **kw):
         raise WafError('zcmgen requires keword argument: "lang"')
 
     lang = kw['lang']
-    if isinstance(kw['lang'], basestring):
+    if isinstance(kw['lang'], str):
         lang = kw['lang'].split(' ')
 
     if 'source' not in kw:
