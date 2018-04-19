@@ -13,7 +13,12 @@
 #include <errno.h>
 #include <termios.h>
 #include <sys/ioctl.h>
-#include <linux/usbdevice_fs.h>
+
+#if __MACH__
+    #define USBDEVFS_RESET _IO('U', 20)
+#else
+    #include <linux/usbdevice_fs.h>
+#endif
 
 #include <cassert>
 #include <cstring>
