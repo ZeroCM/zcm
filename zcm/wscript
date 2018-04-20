@@ -102,17 +102,15 @@ def package_embedded(tsk):
         src += f.abspath() + ' '
 
     cmd = 'rm -rf %s && mkdir -p %s/zcm && cp %s %s/zcm/ && \
-           %s/scripts/prepend-embed-guards.sh %s/zcm && rm -rf %s/zcm/*.old \
+           %s/scripts/prepend-embed-guards.sh %s/zcm && rm -rf %s/zcm/*.old && \
            tar -czf %s -C %s zcm' % \
-          (outdir, outdir, src, outdir, bld.path, outdir, outdir, outfile, outdir)
-
-    print(cmd)
+          (outdir, outdir, src, outdir, \
+           bld.path, outdir, outdir, \
+           outfile, outdir)
 
     ret = tsk.exec_command(cmd)
     if ret is not 0:
         raise WafError('Unable to package embedded tarball')
-
-    sys.exit(1);
 
     return 0
 
