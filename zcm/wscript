@@ -99,14 +99,11 @@ def package_embedded(tsk):
 
     src = ''
     for f in tsk.inputs:
-        src += f.abspath() + ' '
+        src += os.path.relpath(f.abspath(), bld.path.abspath()) + ' '
 
-    cmd = 'rm -rf %s && mkdir -p %s/zcm && cp %s %s/zcm/ && \
-           %s/scripts/prepend-embed-guards.sh %s/zcm && rm -rf %s/zcm/*.old && \
-           tar -czf %s -C %s zcm' % \
-          (outdir, outdir, src, outdir, \
-           bld.path, outdir, outdir, \
-           outfile, outdir)
+    cmd = 'cd {0} && rm -rf {1} && mkdir -p {1}/zcm && cp --parents {2} {1}/zcm/ && \
+           {0}/scripts/prepend-embed-guards.sh {1}/zcm && rm -rf {1}/zcm/*.old && \
+           tar -czf {3} -C {1} zcm'.format(bld.path.abspath(), outdir, src, outfile)
 
     ret = tsk.exec_command(cmd)
     if ret is not 0:
@@ -117,11 +114,13 @@ def package_embedded(tsk):
 def exec_test_embedded(tsk):
     src = tsk.inputs[0].abspath()
     blddir =  os.path.dirname(src)
-    testdir = blddir+'/test-embed'
-    ret =  tsk.exec_command('rm -rf {0} && mkdir {0} && cd {0} && tar xf {1} && ' \
-                            'cc -std=c89 -I. -DZCM_EMBEDDED -c zcm/*.c && ' \
-                            'echo "embed passed" > {2}' \
-                            .format(testdir, src, tsk.outputs[0].abspath()))
+    testdir = blddir + '/test-embed'
+    cmd = 'rm -rf {0} && mkdir {0} && cd {0} && tar -xf {1} && ' \
+          'cc -std=c89 -I ./zcm -DZCM_EMBEDDED -c zcm/zcm/*.c && ' \
+          'echo "embed passed" > {2}' \
+          .format(testdir, src, tsk.outputs[0].abspath())
+
+    ret = tsk.exec_command(cmd)
     if ret is not 0:
         raise WafError('Embedded build failed, check embedded core files for C89 compliance')
     return ret
