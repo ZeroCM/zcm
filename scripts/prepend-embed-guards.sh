@@ -10,15 +10,15 @@ if [ $ret -ne 0 ]; then
 fi
 
 for file in $files; do
-    sed -i .old '1s;^;#define ZCM_EMBEDDED\
+    sed -i.old '1s;^;#define ZCM_EMBEDDED\
 \
 ;' "$file"
-    sed -i .old '1s;^;#undef ZCM_EMBEDDED\
+    sed -i.old '1s;^;#undef ZCM_EMBEDDED\
 ;' "$file"
-    sed -i .old '1s;^;\ *\/\
+    sed -i.old '1s;^;\ *\/\
 ;' "$file"
-    sed -i .old '1s;^;\ * DO NOT MODIFY THIS FILE BY HAND\
+    sed -i.old '1s;^;\ * DO NOT MODIFY THIS FILE BY HAND\
 ;' "$file"
-    sed -i .old '1s;^;\/*\
+    sed -i.old '1s;^;\/*\
 ;' "$file"
 done
