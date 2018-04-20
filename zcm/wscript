@@ -1,7 +1,8 @@
 #! /usr/bin/env python
 # encoding: utf-8
 
-import os
+import os, sys
+import re
 from waflib.Errors import WafError
 
 def build(ctx):
@@ -39,18 +40,11 @@ def build(ctx):
     embedSource.append(ctx.path.find_or_declare("../zcm.gitid"))
 
     ## Collect files for Embedded
-    ctx(rule   = 'tar czf ${TGT} ${SRC}',
+    ctx(rule   = package_embedded,
         name   = 'embed-tar',
         source = embedSource,
-        target = '.zcm-embed-tmp.tar.gz',
-        color  = "PINK")
-
-    ctx(rule   = package_embedded,
-        name   = 'embed-tar-finish',
-        source = '.zcm-embed-tmp.tar.gz',
         target = 'zcm-embed.tar.gz',
-        color  = "PINK",
-        after  = 'embed-tar')
+        color  = "PINK")
 
     ## Test the embedded export
     ctx(rule   = exec_test_embedded,
@@ -99,25 +93,26 @@ def package_embedded(tsk):
     gen = tsk.generator
     bld = gen.bld
 
-    outputDir = os.path.dirname(tsk.outputs[0].abspath())
 
-    cmd = 'export fldr=' + tsk.outputs[0].relpath() + ' && rm -rf ${fldr%%.*} && ' + \
-          'mkdir -p ${fldr%%.*} && cd ${fldr%%.*} && tar -xaf ' + str(tsk.inputs[0])
+    outfile = bld.path.get_bld().abspath() + '/' + tsk.outputs[0].relpath()
+    outdir = re.sub('\.tar.gz$', '', outfile)
+
+    src = ''
+    for f in tsk.inputs:
+        src += f.abspath() + ' '
+
+    cmd = 'rm -rf %s && mkdir -p %s/zcm && cp %s %s/zcm/ && \
+           %s/scripts/prepend-embed-guards.sh %s/zcm && rm -rf %s/zcm/*.old \
+           tar -czf %s -C %s zcm' % \
+          (outdir, outdir, src, outdir, bld.path, outdir, outdir, outfile, outdir)
+
+    print(cmd)
+
     ret = tsk.exec_command(cmd)
     if ret is not 0:
-        raise WafError('Unable to prep files for zcm-embed tarball generation')
+        raise WafError('Unable to package embedded tarball')
 
-    cmd = 'export fldr=' + tsk.outputs[0].relpath() + ' && ' + \
-          bld.path.abspath() + '/scripts/prepend-embed-guards.sh ${fldr%%.*}'
-    ret = tsk.exec_command(cmd)
-    if ret is not 0:
-        raise WafError('Unable to prepend embed guard in zcm-embed tarball generation')
-
-    cmd = 'export fldr=' + tsk.outputs[0].relpath() + ' && cd ${fldr%%.*} && ' + \
-          'tar czf ' + tsk.outputs[0].abspath() + ' *'
-    ret = tsk.exec_command(cmd)
-    if ret is not 0:
-        raise WafError('Unable to generate zcm-embed tarball')
+    sys.exit(1);
 
     return 0
 
