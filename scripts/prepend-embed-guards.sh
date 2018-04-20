@@ -21,4 +21,5 @@ for file in $files; do
 ;' "$file"
     sed -i.old '1s;^;\/*\
 ;' "$file"
+    rm $file.old
 done

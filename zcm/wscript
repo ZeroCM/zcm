@@ -3,6 +3,8 @@
 
 import os, sys
 import re
+import shutil
+import errno
 from waflib.Errors import WafError
 
 def build(ctx):
@@ -89,6 +91,15 @@ def build(ctx):
     if ctx.env.USING_CXXTEST:
         ctx.cxxtest(use = ['zcm', 'testzcmtypes'])
 
+def mkdir_p(path):
+    try:
+        os.makedirs(path)
+    except OSError as exc:
+        if exc.errno == errno.EEXIST and os.path.isdir(path):
+            pass
+        else:
+            raise
+
 def package_embedded(tsk):
     gen = tsk.generator
     bld = gen.bld
@@ -97,17 +108,24 @@ def package_embedded(tsk):
     outfile = bld.path.get_bld().abspath() + '/' + tsk.outputs[0].relpath()
     outdir = re.sub('\.tar.gz$', '', outfile)
 
-    src = ''
-    for f in tsk.inputs:
-        src += os.path.relpath(f.abspath(), bld.path.abspath()) + ' '
+    shutil.rmtree(outdir, ignore_errors = True)
+    mkdir_p(outdir + '/zcm')
 
-    cmd = 'cd {0} && rm -rf {1} && mkdir -p {1}/zcm && cp --parents {2} {1}/zcm/ && \
-           {0}/scripts/prepend-embed-guards.sh {1}/zcm && rm -rf {1}/zcm/*.old && \
-           tar -czf {3} -C {1} zcm'.format(bld.path.abspath(), outdir, src, outfile)
+    for f in tsk.inputs:
+        srcDest = outdir + '/zcm/' + os.path.relpath(f.abspath(), bld.path.abspath())
+        mkdir_p(os.path.dirname(srcDest))
+        shutil.copyfile(f.abspath(), srcDest)
+
+    cmd = '{0}/scripts/prepend-embed-guards.sh {1}/zcm && \
+           find {1}/zcm -name "*.old" -type f -delete && \
+           tar -czf {2} -C {1} zcm'.format(bld.path.abspath(), outdir, outfile)
 
     ret = tsk.exec_command(cmd)
     if ret is not 0:
         raise WafError('Unable to package embedded tarball')
+
+    for f in tsk.inputs:
+        srcDest = outdir + '/zcm/' + os.path.relpath(f.abspath(), bld.path.abspath())
 
     return 0
 
