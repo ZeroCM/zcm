@@ -41,7 +41,7 @@ bool GetOpt::parse(int argc, char *argv[], int showErrors)
     }
 
     // now loop over the elements and evaluate the arguments
-    uint i = 0;
+    size_t i = 0;
     while (i < toks.size()) {
         auto& tok_ = toks[i];
         char *tok = (char*)tok_.c_str();

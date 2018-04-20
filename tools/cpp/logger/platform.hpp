@@ -8,7 +8,11 @@
 #else
 # include <sys/time.h>
 # include <unistd.h>
-# include <linux/limits.h>
+# include <limits.h>
+# ifdef __APPLE__
+#  include <fcntl.h>
+#  define fdatasync(fd) fcntl(fd, F_FULLFSYNC);
+# endif
 #endif
 
 struct Platform

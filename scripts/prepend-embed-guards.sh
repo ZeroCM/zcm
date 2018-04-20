@@ -1,5 +1,7 @@
 #!/bin/bash
 
+dir=${1%%/}
+
 files=`find $1 -type f`
 ret=$?
 
@@ -8,9 +10,9 @@ if [ $ret -ne 0 ]; then
 fi
 
 for file in $files; do
-  sed -i '1i #define ZCM_EMBEDDED' "$file"
-  sed -i '1i #undef ZCM_EMBEDDED' "$file"
-  sed -i '1i \ *\/' "$file"
-  sed -i '1i \ * DO NOT MODIFY THIS FILE BY HAND' "$file"
-  sed -i '1i \/*' "$file"
+    sed -i .old '1s;^;#define ZCM_EMBEDDED;' "$file"
+    sed -i .old '1s;^;#undef ZCM_EMBEDDED;' "$file"
+    sed -i .old '1s;^;\ *\/;' "$file"
+    sed -i .old '1s;^;\ * DO NOT MODIFY THIS FILE BY HAND;' "$file"
+    sed -i .old '1s;^;\/*;' "$file"
 done

@@ -61,6 +61,9 @@ else
     brew install $PKGS
 fi
 
+sudo ln -s /usr/local/Cellar/libelf/0.8.13_1/include/libelf/libelf.h /usr/include/libelf.h
+sudo ln -s /usr/local/Cellar/libelf/0.8.13_1/include/libelf/gelf.h /usr/include/gelf.h
+
 
 ## -----------------------------------------------------------------------------
 ## Install PIP dependencies

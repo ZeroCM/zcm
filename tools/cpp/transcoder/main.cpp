@@ -4,6 +4,10 @@
 #include <algorithm>
 #include <memory>
 
+#  ifdef __APPLE__
+#    define off64_t off_t
+#  endif
+
 #include <zcm/zcm-cpp.hpp>
 #include <zcm/zcm_coretypes.h>
 

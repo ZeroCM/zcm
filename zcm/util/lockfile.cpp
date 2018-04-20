@@ -8,6 +8,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <signal.h>
+#include <errno.h>
 
 #include <cstring>
 #include <string>
