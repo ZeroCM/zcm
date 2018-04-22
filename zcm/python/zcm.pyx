@@ -82,13 +82,17 @@ cdef void handler_cb(const zcm_recv_buf_t* rbuf, const char* channel, void* usr)
 
 cdef class ZCM:
     cdef zcm_t* zcm
+    cdef object subscriptions
     def __cinit__(self, str url=""):
         PyEval_InitThreads()
+        self.subscriptions = []
         self.zcm = zcm_create(url.encode('utf-8'))
     def __dealloc__(self):
         if self.zcm == NULL:
             return
         self.stop()
+        while len(self.subscriptions) > 0:
+            self.unsubscribe(self.subscriptions[0]);
         zcm_destroy(self.zcm)
     def good(self):
         return self.zcm != NULL
@@ -105,11 +109,13 @@ cdef class ZCM:
         while True:
             subs.sub = zcm_try_subscribe(self.zcm, channel.encode('utf-8'), handler_cb, <void*> subs)
             if subs.sub != NULL:
+                self.subscriptions.append(subs)
                 return subs
             time.sleep(0) # yield the gil
-    def unsubscribe(self, ZCMSubscription sub):
-        while zcm_try_unsubscribe(self.zcm, sub.sub) != ZCM_EOK:
+    def unsubscribe(self, ZCMSubscription subs):
+        while zcm_try_unsubscribe(self.zcm, subs.sub) != ZCM_EOK:
             time.sleep(0) # yield the gil
+        self.subscriptions.remove(subs)
     def publish(self, str channel, object msg):
         _data = msg.encode()
         cdef const uint8_t* data = _data
