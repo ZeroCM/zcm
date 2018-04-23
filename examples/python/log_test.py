@@ -9,7 +9,6 @@ msg = example_t()
 msg.timestamp = 10
 
 event = LogEvent()
-event.setEventnum  (0)
 event.setTimestamp (1)
 event.setChannel   ("test channel")
 event.setData      (msg.encode())
@@ -20,13 +19,13 @@ log.close()
 
 log = LogFile('testlog.log', 'r')
 evt = log.readNextEvent()
-assert evt.getEventnum() == event.getEventnum(), "Event nums dont match"
+assert evt.getEventnum() == 0, "Event nums dont match"
 assert evt.getTimestamp() == event.getTimestamp(), "Timestamps dont match"
 assert evt.getChannel() == event.getChannel(), "Channels dont match"
 assert evt.getData() == event.getData(), "Data doesn't match"
 
 evt = log.readPrevEvent()
-assert evt.getEventnum() == event.getEventnum(), "Event nums dont match"
+assert evt.getEventnum() == 0, "Event nums dont match"
 assert evt.getTimestamp() == event.getTimestamp(), "Timestamps dont match"
 assert evt.getChannel() == event.getChannel(), "Channels dont match"
 assert evt.getData() == event.getData(), "Data doesn't match"
