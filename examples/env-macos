@@ -1,0 +1,26 @@
+#!/bin/bash
+
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do # resolve $SOURCE until the file is no longer a symlink
+  DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE" # if $SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
+done
+DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+
+prefix="/usr/local"
+if [[ $1 != "" ]]; then
+    prefix=$1
+fi
+
+export ASAN_SYMBOLIZER_PATH=/usr/local/opt/llvm/bin/llvm-symbolizer
+export ASAN_OPTIONS=check_initialization_order=1
+export CLASSPATH=$CLASSPATH:$prefix/share/java/zcm.jar
+export CLASSPATH=$CLASSPATH:$prefix/share/java/zcm-tools.jar
+export CLASSPATH=$CLASSPATH:$DIR/build/types/examplezcmtypes.jar
+export CLASSPATH=$CLASSPATH:$DIR/build/java/example.jar
+export ZCM_SPY_LITE_PATH=$DIR/build/types/libexamplezcmtypes.so
+export ZCM_DEFAULT_URL=ipc
+
+export JAVA_HOME=$(/usr/libexec/java_home)
+export PATH=$PATH:/usr/local/opt/libelf/include/libelf/

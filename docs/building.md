@@ -56,10 +56,15 @@ tutorials and intros will work flawlessly. For all features:
     sudo ./waf install
 
 Unless you're lucky, the above command will probably fail due to a missing *Optional*
-dependency (as listed above). For Ubuntu users, we have provided a dependency installation
-script using:
+dependency (as listed above).
+
+For Ubuntu users, we have provided a dependency installation script using:
 
     ./scripts/install-deps.sh
+
+For MacOS users, we have provided a different dependency installation script:
+
+    ./scripts/install-deps-macos.sh
 
 On other systems you may need to use your specific package manager to obtain the needed
 packages. It should be noted that JNI sometimes needs `$JAVA_HOME` to be manually set.

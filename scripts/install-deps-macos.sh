@@ -12,6 +12,16 @@ done
 
 
 ## -----------------------------------------------------------------------------
+## Set the environment variables
+source ./examples/env-macos
+ret=$?
+if [[ $ret -ne 0 && "$STRICT" == "true" ]]; then
+    echo "Failed to install packages"
+    exit $ret
+fi
+
+
+## -----------------------------------------------------------------------------
 ## Define the dependencies to be installed
 PKGS=''
 PIP_PKGS=''
@@ -26,7 +36,7 @@ PKGS+='zeromq '
 PKGS+='caskroom/cask/java '
 
 ## Node
-PKGS+='nodejs npm '
+PKGS+='nodejs '
 
 ## Python
 PKGS+='python '
@@ -60,9 +70,6 @@ if $SINGLE_MODE; then
 else
     brew install $PKGS
 fi
-
-sudo ln -s /usr/local/Cellar/libelf/0.8.13_1/include/libelf/libelf.h /usr/include/libelf.h
-sudo ln -s /usr/local/Cellar/libelf/0.8.13_1/include/libelf/gelf.h /usr/include/gelf.h
 
 
 ## -----------------------------------------------------------------------------
