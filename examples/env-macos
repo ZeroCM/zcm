@@ -23,4 +23,3 @@ export ZCM_SPY_LITE_PATH=$DIR/build/types/libexamplezcmtypes.so
 export ZCM_DEFAULT_URL=ipc
 
 export JAVA_HOME=$(/usr/libexec/java_home)
-export PATH=$PATH:/usr/local/opt/libelf/include/libelf/

@@ -93,10 +93,21 @@ Now use Waf as before to build the examples
 You can now run the examples located inside the build folder.
 Try to run this inside one shell
 
+    # On Linux
+    ./build/cpp/sub
+
+    # On MacOS
+    export ZCM_DEFAULT_URL=ipc
     ./build/cpp/sub
 
 And in another shell
 
+    # On Linux
+    ./build/cpp/pub
+
+    # On MacOS
+    export ZCM_DEFAULT_URL=ipc
+    export ZCM_LOCK_DIR=.
     ./build/cpp/pub
 
 The first shell should now start to print out the messages received.
