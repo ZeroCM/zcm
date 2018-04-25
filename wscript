@@ -219,10 +219,11 @@ def attempt_use_cxxtest(ctx):
     return True
 
 def attempt_use_elf(ctx):
-    if not os.path.exists('/usr/include/libelf.h') and not os.path.exists('/usr/local/opt/libelf/include/libelf/libelf.h'):
+    if not (os.path.exists('/usr/include/libelf.h') or ctx.check_cfg(package='libelf', args='--cflags --libs', uselib_store='elf')):
         raise WafError('Failed to find libelf')
-    ctx.check_cfg(package='libelf', args='--cflags --libs', uselib_store='elf')
-    ctx.env.LIB_elf = ['elf', 'dl']
+    if not isinstance(ctx.env.LIB_elf, list):
+        ctx.env.LIB_elf = []
+    ctx.env.LIB_elf.extend(['elf', 'dl'])
     return True
 
 def attempt_use_third_party(ctx):
