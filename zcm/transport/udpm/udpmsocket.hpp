@@ -13,7 +13,7 @@ class UDPMAddress
         memset(&this->addr, 0, sizeof(this->addr));
         this->addr.sin_family = AF_INET;
         inet_aton(ip.c_str(), &this->addr.sin_addr);
-        this->addr.sin_port = port;
+        this->addr.sin_port = htons(port);
     }
 
     const string& getIP() const { return ip; }
