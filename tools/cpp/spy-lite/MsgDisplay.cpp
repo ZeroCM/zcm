@@ -154,7 +154,7 @@ void msg_display(TypeDb& db, const TypeMetadata& metadata_, void *msg, const Msg
         int num_fields = typeinfo->num_fields();
         size_t user_field_count = 0;
         int inside_array = 0;
-        int index;
+        int index = 0;
         for(int j = 0; j < num_fields; j++) {
             typeinfo->get_field(msg, j, &field);
             inside_array = 0;

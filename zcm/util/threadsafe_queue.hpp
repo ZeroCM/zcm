@@ -73,7 +73,7 @@ class ThreadsafeQueue
     bool pushIfRoom(Args&&... args)
     {
         std::unique_lock<std::mutex> lk(mut);
-        if (!queue.hasFreeSpace()) return ZCM_EAGAIN;
+        if (!queue.hasFreeSpace()) return false;
 
         queue.push(std::forward<Args>(args)...);
         cond.notify_all();
