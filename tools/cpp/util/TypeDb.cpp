@@ -161,20 +161,26 @@ bool TypeDb::loadtypes(const string& libname, void* lib)
     return true;
 }
 
-TypeDb::TypeDb(const string& paths, bool debug) : debug(debug)
+TypeDb::TypeDb(const string& paths, bool debug) : debug(debug), isGood(false)
 {
     for (auto& libname : StringUtil::split(paths, ':')) {
         DEBUG("Loading types from '%s'\n", libname.c_str());
         void* lib = openlib(libname);
         if (lib == nullptr) {
             ERROR("failed to open '%s'\n", libname.c_str());
-            continue;
+            return;
         }
         if (!loadtypes(libname, lib)) {
             ERROR("failed to load types from '%s'\n", libname.c_str());
-            continue;
+            return;
         }
     }
+    isGood = true;
+}
+
+bool TypeDb::good() const
+{
+    return isGood;
 }
 
 const TypeMetadata* TypeDb::getByHash(int64_t hash)
