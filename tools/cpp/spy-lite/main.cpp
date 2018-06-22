@@ -30,6 +30,11 @@ struct SpyInfo
             delete it.second;
     }
 
+    bool good() const
+    {
+        return typedb.good();
+    }
+
     MsgInfo *getCurrentMsginfo(const char **channel)
     {
         auto& ch = names[decode_index];
@@ -404,8 +409,12 @@ int main(int argc, char *argv[])
     }
 
     SpyInfo spy {spy_lite_path, debug};
-    if (debug)
-        exit(0);
+    if (!spy.good()) {
+        fprintf(stderr, "ERR: Failed to load all specified zcmtype libs\n");
+        fflush(stderr);
+        exit(1);
+    }
+    if (debug) exit(0);
 
     signal(SIGINT, sighandler);
     signal(SIGQUIT, sighandler);
