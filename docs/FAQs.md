@@ -12,6 +12,20 @@ If you see this error when trying to use anything zcm related, then you probably
 Add that line to the bottom of your ~/.bashrc to make it permanent.
 
 
+### In trying to run zcm-spy or another java program I get the following error:
+
+    Exception in thread "main" java.lang.UnsatisfiedLinkError: no zcmjni in java.library.path
+            at java.lang.ClassLoader.loadLibrary(ClassLoader.java:1867)
+            at java.lang.Runtime.loadLibrary0(Runtime.java:870)
+            at java.lang.System.loadLibrary(System.java:1122)
+            at zcm.zcm.ZCMJNI.<clinit>(ZCMJNI.java:7)
+            at zcm.zcm.ZCM.<init>(ZCM.java:37)
+            at zcm.spy.Spy.<init>(Spy.java:77)
+            at zcm.spy.Spy.main(Spy.java:481)
+
+This is a similar symptom to the first question. It means your $LD\_LIBRARY\_PATH isn't set correctly. See the answer to the question above.
+
+
 
 ### I'm trying to run my program and ZCM's not working and I don't know why
 
