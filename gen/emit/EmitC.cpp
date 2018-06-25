@@ -344,6 +344,9 @@ struct EmitSource : public Emit
         const char* tn_ = zs.structname.nameUnderscoreCStr();
         string package = dotsToSlashes(zs.structname.package);
         emit(0, "#include <string.h>");
+        emit(0, "#ifndef ZCM_EMBEDDED");
+        emit(0, "#include <stdio.h>");
+        emit(0, "#endif");
         emit(0, "#include \"%s%s%s%s%s.h\"",
                 zcm.gopt->getString("c-include").c_str(),
                 zcm.gopt->getString("c-include").size()>0 ? "/" : "",
