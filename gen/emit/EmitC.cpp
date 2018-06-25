@@ -838,7 +838,9 @@ struct EmitSource : public Emit
         emit(0, "    memset(&p, 0, sizeof(%s));", tn_);
         emit(0, "    status = %s_decode (rbuf->data, 0, rbuf->data_size, &p);", tn_);
         emit(0, "    if (status < 0) {");
+        emit(0, "        #ifndef ZCM_EMBEDDED");
         emit(0, "        fprintf (stderr, \"error %%d decoding %s!!!\\n\", status);", tn_);
+        emit(0, "        #endif");
         emit(0, "        return;");
         emit(0, "    }");
         emit(0, "");
@@ -868,7 +870,9 @@ struct EmitSource : public Emit
         emit(0, "    n->z_sub = zcm_subscribe (zcm, channel,");
         emit(0, "                              %s_handler_stub, n);", tn_);
         emit(0, "    if (n->z_sub == NULL) {");
+        emit(0, "        #ifndef ZCM_EMBEDDED");
         emit(0, "        fprintf (stderr,\"couldn't reg %s ZCM handler!\\n\");", tn_);
+        emit(0, "        #endif");
         emit(0, "        free (n);");
         emit(0, "        return NULL;");
         emit(0, "    }");
@@ -885,8 +889,10 @@ struct EmitSource : public Emit
         emit(0, "{");
         emit(0, "    int status = zcm_unsubscribe (zcm, hid->z_sub);");
         emit(0, "    if (0 != status) {");
+        emit(0, "        #ifndef ZCM_EMBEDDED");
         emit(0, "        fprintf(stderr,");
         emit(0, "           \"couldn't unsubscribe %s_handler %%p!\\n\", hid);", tn_);
+        emit(0, "        #endif");
         emit(0, "        return -1;");
         emit(0, "    }");
         emit(0, "    free (hid);");
