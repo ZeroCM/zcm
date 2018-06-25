@@ -189,7 +189,7 @@ extern "C" {
 #include "zcm/zcm.h"
 
 /* Only define inline for C99 builds or better */
-#if __STDC_VERSION >= 199901L
+#if (__STDC_VERSION__ >= 199901L) || (__cplusplus)
 # define INLINE inline
 #else
 # define INLINE
