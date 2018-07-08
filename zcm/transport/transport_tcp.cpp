@@ -215,7 +215,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
     int recvmsg(zcm_msg_t *msg, int timeout)
     {
-        u32 clen, dlen;
+        u32 clen = 0, dlen = 0;
         int ret;
 
         ret = 1;
