@@ -65,7 +65,7 @@ public:
        Returns true if data was successfully sent in its entirety
        Returns false if an unrecoverable error occurred and the data wasn't send
     */
-    bool write(const char *data, size_t len)
+    bool write(const uint8_t *data, size_t len)
     {
         if (sock_ == -1)
             return false;
@@ -100,7 +100,7 @@ public:
        Returns true if the entire size requested was read
        Returns false if an unrecoverable error occurred and the data wasn't read
     */
-    bool read(char *data, size_t len)
+    bool read(uint8_t *data, size_t len)
     {
         // XXX read should use a buffer to prevent so many syscalls
         if (sock_ == -1)
@@ -136,13 +136,13 @@ public:
     template<class T>
     bool write(const T& val)
     {
-        return write((const char*)&val, sizeof(val));
+        return write((const uint8_t*)&val, sizeof(val));
     }
 
     template<class T>
     bool read(const T& val)
     {
-        return read((char*)&val, sizeof(val));
+        return read((uint8_t*)&val, sizeof(val));
     }
 
 private:
@@ -155,7 +155,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
     // Preallocated memory for recv
     char recvChannelMem[ZCM_CHANNEL_MAXLEN+1];
-    char recvDataMem[MTU];
+    uint8_t recvDataMem[MTU];
 
     ZCM_TRANS_CLASSNAME(int sock)
     : tcp(sock)
@@ -201,7 +201,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         int ret = 1;
         ret &= tcp.write(clen);
         ret &= tcp.write(dlen);
-        ret &= tcp.write(msg.channel, clen);
+        ret &= tcp.write((const uint8_t*)msg.channel, clen);
         ret &= tcp.write(msg.buf, dlen);
 
         ZCM_DEBUG("SENDING DONE!\n");
@@ -226,7 +226,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             return ZCM_EAGAIN;
 
         ret = 1;
-        ret &= tcp.read(recvChannelMem, clen);
+        ret &= tcp.read((uint8_t*)recvChannelMem, clen);
         ret &= tcp.read(recvDataMem, dlen);
         if (!ret)
             return ZCM_EAGAIN;

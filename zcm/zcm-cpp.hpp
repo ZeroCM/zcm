@@ -110,9 +110,11 @@ class ZCM
     virtual inline void unsubscribeRaw(void*& rawSub);
 
   private:
+    inline ZCM(zcm_t* zcm);
     zcm_t* zcm;
     int _err;
     std::vector<Subscription*> subscriptions;
+    friend class ZCMServer;
 };
 
 class ZCMServer
