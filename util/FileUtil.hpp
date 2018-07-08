@@ -38,7 +38,7 @@ namespace FileUtil
             if (path[i]=='/') {
                 char *dirpath = (char *) malloc(i+1);
                 strncpy(dirpath, path.c_str(), i);
-                dirpath[i]=0;
+                dirpath[i] = '\0';
 
                 mkdir(dirpath, mode);
                 free(dirpath);

@@ -428,7 +428,8 @@ zcm_sub_t* zcm_blocking_t::subscribe(const string& channel,
 
     zcm_sub_t* sub = new zcm_sub_t();
     ZCM_ASSERT(sub);
-    strncpy(sub->channel, channel.c_str(), sizeof(sub->channel)/sizeof(sub->channel[0]));
+    strncpy(sub->channel, channel.c_str(), ZCM_CHANNEL_MAXLEN);
+    sub->channel[ZCM_CHANNEL_MAXLEN] = '\0';
     sub->regex = regex;
     sub->regexobj = nullptr;
     sub->callback = cb;

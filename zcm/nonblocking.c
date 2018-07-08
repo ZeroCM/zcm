@@ -119,8 +119,8 @@ zcm_sub_t* zcm_nonblocking_subscribe(zcm_nonblocking_t* zcm, const char* channel
     for (i = 0; i <= zcm->subInUseEnd && i < ZCM_NONBLOCK_SUBS_MAX; ++i) {
         if (!zcm->subInUse[i]) {
 
-            strncpy(zcm->subs[i].channel, channel,
-                    sizeof(zcm->subs[i].channel)/sizeof(zcm->subs[i].channel[0]));
+            strncpy(zcm->subs[i].channel, channel, ZCM_CHANNEL_MAXLEN);
+            zcm->subs[i].channel[ZCM_CHANNEL_MAXLEN] = '\0';
             zcm->subs[i].callback = cb;
             zcm->subs[i].usr = usr;
             zcm->subInUse[i] = true;
