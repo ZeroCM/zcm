@@ -11,7 +11,7 @@ extern "C" {
 /* A subscription descriptor object */
 struct zcm_sub_t
 {
-    char channel[ZCM_CHANNEL_MAXLEN+1];
+    char channel[ZCM_CHANNEL_MAXLEN + 1];
     int regex;  /* true(1) or false(0) */
     void *regexobj;
     zcm_msg_handler_t callback;
