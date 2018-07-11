@@ -109,6 +109,9 @@ a dependency to Java. We could build ZCM as follows:
     ./test.sh
     sudo ./waf install
 
+This configuration will only provide the tools zcm-logplayer, zcm-repeater and zcm-spy-peek. To also install 
+zcm-spy-lite, zcm-indexer, zcm-transcoder, zcm-logger and zcm-bridge, add the `--use-elf` option in the configure call.
+
 There are many more configuration options that can be passed to the configure script. To
 browse them all, simply run:
 
