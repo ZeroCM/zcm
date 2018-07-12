@@ -106,13 +106,16 @@ a dependency to Java. We could build ZCM as follows:
 
     ./waf configure --use-ipc --use-zmq
     ./waf build
-    ./test.sh
     sudo ./waf install
 
 There are many more configuration options that can be passed to the configure script. To
 browse them all, simply run:
 
     ./waf --help
+
+Note that some of the zcm tools have dependencies that must be specified at
+waf configure time. For a complete list of available tools and their dependencies,
+take a look at the page on [Tools](tools.md).
 
 For help with frequently asked questions, check out the *links* below:
 
