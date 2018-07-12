@@ -145,7 +145,6 @@ a dependency to Java. We could build ZCM as follows:</p>
 
 <pre><code>./waf configure --use-ipc --use-zmq
 ./waf build
-./test.sh
 sudo ./waf install
 </code></pre>
 
@@ -154,6 +153,10 @@ browse them all, simply run:</p>
 
 <pre><code>./waf --help
 </code></pre>
+
+<p>Note that some of the zcm tools have dependencies that must be specified at
+waf configure time. For a complete list of available tools and their dependencies,
+take a look at the page on <a href="tools.html">Tools</a>.</p>
 
 <p>For help with frequently asked questions, check out the <em>links</em> below:</p>
 

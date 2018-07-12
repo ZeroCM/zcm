@@ -32,6 +32,8 @@ we demonstrate the usage of these tools.</p>
 
 <h3>Spy</h3>
 
+<h5>To mark for build: <code>$./waf configure --use-java</code></h5>
+
 <p>Since ZCM makes data decoupling so easy, developers tend to build applications in
 several modules/processes and tie them together with ZCM message passing. In this
 model, a lot of the debugging takes place at the message-passing level. Often
@@ -42,6 +44,8 @@ to decode messages.</p>
 
 <h3>Spy Lite</h3>
 
+<h5>To mark for build: <code>$./waf configure --use-elf</code></h5>
+
 <p>Sometimes developers don't have access to a display environment to run <code>zcm-spy</code>.
 The terminal-based <code>zcm-spy-lite</code> is provided for exactly that situation.
 <code>zcm-spy-lite</code> is a lite version of zcm spy that runs entirely from the terminal.
@@ -51,6 +55,8 @@ and where it can find a shared library containing the zcmtypes you would like it
 be able to decode. For an example on how to compile the shared library see the example further down.</p>
 
 <h3>Logger</h3>
+
+<h5>To mark for build: <code>$./waf configure --use-elf</code></h5>
 
 <p>It is often desirable to record the messaging data events and record them for later
 debugging. On a robotics system this is very important because often the developer
@@ -91,7 +97,18 @@ been broadcasted on a specified channel. A definition of a <code>jslp</code> fil
 
 <p>see examples/tools/logplayer/example.log.jslp for more examples.</p>
 
+<h3>Log Player GUI</h3>
+
+<h5>To mark for build: <code>$./waf configure --use-java</code></h5>
+
+<p>This is similar to <code>zcm-logplayer</code> but is a GUI-based tool. Launch <code>zcm-logplayer-gui</code>
+to play back a log interactively. Speed up/slow down playback, play/pause,
+scrub through the log, make bookmarks, mark sections to play on repeat,
+export log snippets, all from one lightweight and easy to use tool.</p>
+
 <h3>Bridge</h3>
+
+<h5>To mark for build: <code>$./waf configure --use-elf</code></h5>
 
 <p>When architecting a system that uses zcm, you might want to use multiple
 transports. <code>zcm-bridge</code> allows you to bridge traffic between two
@@ -103,6 +120,19 @@ on another, and vice versa</p>
 <p><code>zcm-repeater</code> is almost identical to <code>zcm-bridge</code> but is unidirectional.
 It takes traffic on one transport and channel and rebroadcasts it to a
 new channel</p>
+
+<h3>Spy Peek</h3>
+
+<p><code>zcm-spy-peek</code> is an extremely lightweight tool that simply prints when a message
+is received. It's intended to be a sanity check tool to help diagnose when issues
+arrise sending data from point A to point B. Running <code>zcm-spy-peek</code> while also
+running the example publisher would result in the following printing to the screen:</p>
+
+<pre><code>Message received on channel: "EXAMPLE"
+Message received on channel: "EXAMPLE"
+Message received on channel: "EXAMPLE"
+...
+</code></pre>
 
 <!-- ADD MORE HERE -->
 
@@ -220,6 +250,8 @@ zcm-logplayer --zcm-url ipc zcmlog-*.00
 
 <h3>CsvWriter</h3>
 
+<h5>To mark for build: <code>$./waf configure --use-java</code></h5>
+
 <p>Sometimes it is useful to convert either a zcmlog or live zcm data into csv format.
 This tool, launched via</p>
 
@@ -231,6 +263,8 @@ however often times, it is more useful to write your own CsvWriterPlugin for
 custom output formatting. Examples are provided in the examples directory in zcm.</p>
 
 <h3>CsvReader</h3>
+
+<h5>To mark for build: <code>$./waf configure --use-java</code></h5>
 
 <p>Sometimes it is useful to convert a csv into a zcmlog.
 This tool, launched via</p>
@@ -244,6 +278,8 @@ custom csv parsing. Examples are provided in the examples directory in zcm.</p>
 
 <h3>Transcoder</h3>
 
+<h5>To mark for build: <code>$./waf configure --use-elf</code></h5>
+
 <p>As explained in <a href="zcmtypesys.html">type generation</a>, modifying a zcmtype changes
 that types hash and therefore invalidates all old logs you may have. However,
 sometimes it may be desirable to add a field to a type without invalidating all
@@ -256,6 +292,8 @@ prior logs. To do this we provide a log transcoder launched via</p>
 to new log. This tool can even let you convert between completely different types</p>
 
 <h3>Indexer</h3>
+
+<h5>To mark for build: <code>$./waf configure --use-elf</code></h5>
 
 <p>This tool was designed to make programmatically working with zcm logs faster.
 The purpose of this tool is best explained with an example.</p>
@@ -386,7 +424,7 @@ traverse logs in <code>examples/python/indexer_test.py</code></p>
 <pre><code>zcm-log-indexer -l zcm.log -o zcm.dbz -t types.so -p plugins.so
 </code></pre>
 
-<p>To tell <code>zcm-log-indexer</code> abour your custom plugins and zcmtypes, you simply
+<p>To tell <code>zcm-log-indexer</code> about your custom plugins and zcmtypes, you simply
 compile a shared library and pass it to the tool via a command line argument.
 You can also use the environment variables mentioned in the <code>--help</code> section
 of <code>zcm-log-indexer</code> for specifying the <code>types.so</code> and <code>plugins.so</code> libraries.
