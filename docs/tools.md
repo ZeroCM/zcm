@@ -4,6 +4,7 @@ ZCM ships with a convenient set of debugging and monitoring tools. In this secti
 we demonstrate the usage of these tools.
 
 ### Spy
+##### To mark for build: `$./waf configure --use-java`
 
 Since ZCM makes data decoupling so easy, developers tend to build applications in
 several modules/processes and tie them together with ZCM message passing. In this
@@ -14,6 +15,7 @@ java jar and that jar must be listed in your `CLASSPATH` for `zcm-spy` to be abl
 to decode messages.
 
 ### Spy Lite
+##### To mark for build: `$./waf configure --use-elf`
 
 Sometimes developers don't have access to a display environment to run `zcm-spy`.
 The terminal-based `zcm-spy-lite` is provided for exactly that situation.
@@ -25,6 +27,7 @@ be able to decode. For an example on how to compile the shared library see the e
 
 
 ### Logger
+##### To mark for build: `$./waf configure --use-elf`
 
 It is often desirable to record the messaging data events and record them for later
 debugging. On a robotics system this is very important because often the developer
@@ -64,8 +67,17 @@ been broadcasted on a specified channel. A definition of a `jslp` file follows:
 
 see examples/tools/logplayer/example.log.jslp for more examples.
 
+### Log Player GUI
+##### To mark for build: `$./waf configure --use-java`
+
+This is similar to `zcm-logplayer` but is a GUI-based tool. Launch `zcm-logplayer-gui`
+to play back a log interactively. Speed up/slow down playback, play/pause,
+scrub through the log, make bookmarks, mark sections to play on repeat,
+export log snippets, all from one lightweight and easy to use tool.
+
 
 ### Bridge
+##### To mark for build: `$./waf configure --use-elf`
 
 When architecting a system that uses zcm, you might want to use multiple
 transports. `zcm-bridge` allows you to bridge traffic between two
@@ -77,6 +89,18 @@ on another, and vice versa
 `zcm-repeater` is almost identical to `zcm-bridge` but is unidirectional.
 It takes traffic on one transport and channel and rebroadcasts it to a
 new channel
+
+### Spy Peek
+
+`zcm-spy-peek` is an extremely lightweight tool that simply prints when a message
+is received. It's intended to be a sanity check tool to help diagnose when issues
+arrise sending data from point A to point B. Running `zcm-spy-peek` while also
+running the example publisher would result in the following printing to the screen:
+
+    Message received on channel: "EXAMPLE"
+    Message received on channel: "EXAMPLE"
+    Message received on channel: "EXAMPLE"
+    ...
 
 <!-- ADD MORE HERE -->
 
@@ -185,6 +209,7 @@ we can use the `zcm-spy-lite` tool, running it before the replay tool:
 ## Advanced Tools
 
 ### CsvWriter
+##### To mark for build: `$./waf configure --use-java`
 
 Sometimes it is useful to convert either a zcmlog or live zcm data into csv format.
 This tool, launched via
@@ -196,6 +221,7 @@ however often times, it is more useful to write your own CsvWriterPlugin for
 custom output formatting. Examples are provided in the examples directory in zcm.
 
 ### CsvReader
+##### To mark for build: `$./waf configure --use-java`
 
 Sometimes it is useful to convert a csv into a zcmlog.
 This tool, launched via
@@ -207,6 +233,7 @@ be able to read in, however you may write your own CsvReaderPlugin for
 custom csv parsing. Examples are provided in the examples directory in zcm.
 
 ### Transcoder
+##### To mark for build: `$./waf configure --use-elf`
 
 As explained in [type generation](zcmtypesys.md), modifying a zcmtype changes
 that types hash and therefore invalidates all old logs you may have. However,
@@ -219,6 +246,7 @@ and the TranscoderPlugin interface so you may define the mapping from old log
 to new log. This tool can even let you convert between completely different types
 
 ### Indexer
+##### To mark for build: `$./waf configure --use-elf`
 
 This tool was designed to make programmatically working with zcm logs faster.
 The purpose of this tool is best explained with an example.
@@ -346,7 +374,7 @@ When working with custom plugins, your launch command might looks like so:
 
     zcm-log-indexer -l zcm.log -o zcm.dbz -t types.so -p plugins.so
 
-To tell `zcm-log-indexer` abour your custom plugins and zcmtypes, you simply
+To tell `zcm-log-indexer` about your custom plugins and zcmtypes, you simply
 compile a shared library and pass it to the tool via a command line argument.
 You can also use the environment variables mentioned in the `--help` section
 of `zcm-log-indexer` for specifying the `types.so` and `plugins.so` libraries.
