@@ -334,7 +334,7 @@ int serial_recvmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t *msg, int timeout)
 
     receivedCS = (expectedHighCS << 8) | expectedLowCS;
     if (receivedCS == checksum) {
-        msg->channel = zt->recvChanName;
+        msg->channel = (char*) zt->recvChanName;
         msg->buf     = zt->recvMsgData;
         msg->utime   = utime;
         cb_pop(&zt->recvBuffer, consumed);
