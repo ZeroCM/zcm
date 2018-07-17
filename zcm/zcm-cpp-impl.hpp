@@ -15,15 +15,19 @@
 // Note: To prevent compiler "redefinition" issues, all functions in this file must be declared
 //       as `inline`
 
+#ifndef ZCM_EMBEDDED
 inline ZCM::ZCM()
 {
     zcm = zcm_create(nullptr);
 }
+#endif
 
+#ifndef ZCM_EMBEDDED
 inline ZCM::ZCM(const std::string& transport)
 {
     zcm = zcm_create(transport.c_str());
 }
+#endif
 
 inline ZCM::ZCM(zcm_trans_t* zt)
 {
@@ -63,35 +67,47 @@ inline const char* ZCM::strerrno(int err) const
     return zcm_strerrno(err);
 }
 
+#ifndef ZCM_EMBEDDED
 inline void ZCM::run()
 {
     return zcm_run(zcm);
 }
+#endif
 
+#ifndef ZCM_EMBEDDED
 inline void ZCM::start()
 {
     return zcm_start(zcm);
 }
+#endif
 
+#ifndef ZCM_EMBEDDED
 inline void ZCM::stop()
 {
     return zcm_stop(zcm);
 }
+#endif
 
+#ifndef ZCM_EMBEDDED
 inline void ZCM::pause()
 {
     return zcm_pause(zcm);
 }
+#endif
 
+#ifndef ZCM_EMBEDDED
 inline void ZCM::resume()
 {
     return zcm_resume(zcm);
 }
+#endif
 
+#ifndef ZCM_EMBEDDED
 inline int ZCM::handle()
 {
     return zcm_handle(zcm);
 }
+#endif
 
 inline int ZCM::handleNonblock()
 {
@@ -406,6 +422,10 @@ inline void ZCM::subscribeRaw(void*& rawSub, const std::string& channel,
 inline void ZCM::unsubscribeRaw(void*& rawSub)
 { zcm_unsubscribe(zcm, (zcm_sub_t*) rawSub); rawSub = nullptr; }
 
+
+// ***********************************
+// LogFile and LogEvent implementation
+// ***********************************
 #ifndef ZCM_EMBEDDED
 inline LogFile::LogFile(const std::string& path, const std::string& mode)
 {
