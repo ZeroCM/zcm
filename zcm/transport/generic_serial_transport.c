@@ -196,7 +196,7 @@ int serial_sendmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t msg)
     cb_push(&zt->sendBuffer, (len>> 8)&0xff); ++nPushed;
     cb_push(&zt->sendBuffer, (len>> 0)&0xff); ++nPushed;
 
-    uint16_t sum = 0xffff;
+    uint16_t checksum = 0xffff;
     int i;
     for (i = 0; i < chan_len; ++i) {
         uint8_t c = (uint8_t) msg.channel[i];
@@ -214,7 +214,7 @@ int serial_sendmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t msg)
             }
         }
 
-        sum = fletcherUpdate(c, sum);
+        checksum = fletcherUpdate(c, checksum);
     }
 
     for (i = 0; i < msg.len; ++i) {
@@ -233,11 +233,11 @@ int serial_sendmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t msg)
             }
         }
 
-        sum = fletcherUpdate(c, sum);
+        checksum = fletcherUpdate(c, checksum);
     }
 
-    cb_push(&zt->sendBuffer, (sum >> 8) & 0xff); ++nPushed;
-    cb_push(&zt->sendBuffer,  sum       & 0xff); ++nPushed;
+    cb_push(&zt->sendBuffer, (checksum >> 8) & 0xff); ++nPushed;
+    cb_push(&zt->sendBuffer,  checksum       & 0xff); ++nPushed;
 
     return ZCM_EOK;
 }
@@ -258,13 +258,18 @@ int serial_recvmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t *msg, int timeout)
         return ZCM_EAGAIN;
 
     uint32_t consumed = 0;
+    uint8_t chan_len = 0;
+    uint16_t checksum = 0;
+    uint8_t expectedHighCS = 0;
+    uint8_t expectedLowCS  = 0;
+    uint16_t receivedCS = 0;
 
     // Sync
     if (cb_top(&zt->recvBuffer, consumed++) != ZCM_GENERIC_SERIAL_ESCAPE_CHAR) goto fail;
     if (cb_top(&zt->recvBuffer, consumed++) != 0x00       )                    goto fail;
 
     // Msg sizes
-    uint8_t chan_len = cb_top(&zt->recvBuffer, consumed++);
+    chan_len = cb_top(&zt->recvBuffer, consumed++);
     msg->len  = cb_top(&zt->recvBuffer, consumed++) << 24;
     msg->len |= cb_top(&zt->recvBuffer, consumed++) << 16;
     msg->len |= cb_top(&zt->recvBuffer, consumed++) << 8;
@@ -277,7 +282,7 @@ int serial_recvmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t *msg, int timeout)
 
     memset(&zt->recvChanName, '0', ZCM_CHANNEL_MAXLEN);
 
-    uint16_t sum = 0xffff;
+    checksum = 0xffff;
     int i;
     for (i = 0; i < chan_len; ++i) {
 
@@ -297,7 +302,7 @@ int serial_recvmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t *msg, int timeout)
         }
 
         zt->recvChanName[i] = c;
-        sum = fletcherUpdate(c, sum);
+        checksum = fletcherUpdate(c, checksum);
     }
 
     zt->recvChanName[chan_len] = '\0';
@@ -321,14 +326,14 @@ int serial_recvmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t *msg, int timeout)
         }
 
         zt->recvMsgData[i] = c;
-        sum = fletcherUpdate(c, sum);
+        checksum = fletcherUpdate(c, checksum);
     }
 
-    uint8_t expectedHigh = cb_top(&zt->recvBuffer, consumed++);
-    uint8_t expectedLow  = cb_top(&zt->recvBuffer, consumed++);
+    expectedHighCS = cb_top(&zt->recvBuffer, consumed++);
+    expectedLowCS  = cb_top(&zt->recvBuffer, consumed++);
 
-    uint16_t received = (expectedHigh << 8) | expectedLow;
-    if (received == sum) {
+    receivedCS = (expectedHighCS << 8) | expectedLowCS;
+    if (receivedCS == checksum) {
         msg->channel = zt->recvChanName;
         msg->buf     = zt->recvMsgData;
         msg->utime   = utime;
