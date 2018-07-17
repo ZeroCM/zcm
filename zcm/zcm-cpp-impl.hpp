@@ -109,6 +109,13 @@ inline int ZCM::handle()
 }
 #endif
 
+#ifndef ZCM_EMBEDDED
+inline void ZCM::setQueueSize(uint32_t sz)
+{
+    return zcm_set_queue_size(zcm, sz);
+}
+#endif
+
 inline int ZCM::handleNonblock()
 {
     return zcm_handle_nonblock(zcm);
@@ -117,11 +124,6 @@ inline int ZCM::handleNonblock()
 inline void ZCM::flush()
 {
     return zcm_flush(zcm);
-}
-
-inline void ZCM::setQueueSize(uint32_t sz)
-{
-    return zcm_set_queue_size(zcm, sz);
 }
 
 inline int ZCM::publish(const std::string& channel, const uint8_t* data, uint32_t len)

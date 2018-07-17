@@ -42,10 +42,10 @@ class ZCM
     virtual inline void pause();
     virtual inline void resume();
     virtual inline int  handle();
+    virtual inline void setQueueSize(uint32_t sz);
     #endif
     virtual inline int  handleNonblock();
     virtual inline void flush();
-    virtual inline void setQueueSize(uint32_t sz);
 
   public:
     inline int publish(const std::string& channel, const uint8_t* data, uint32_t len);
