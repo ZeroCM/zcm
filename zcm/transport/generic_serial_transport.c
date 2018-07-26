@@ -11,7 +11,9 @@
 #define ZCM_GENERIC_SERIAL_ESCAPE_CHAR (0xcc)
 #endif
 
-// Framing (size = 8 + chan_len + data_len)
+#define ASSERT(x)
+
+// Framing (size = 9 + chan_len + data_len)
 //   0xCC
 //   0x00
 //   chan_len
@@ -66,19 +68,24 @@ size_t cb_room(circBuffer_t* cb)
 
 void cb_push(circBuffer_t* cb, uint8_t d)
 {
+    ASSERT((cb->capacity > cb_size(cb) + 1) && "cb_push 1");
+    ASSERT((cb_room(cb) > 0) && "cb_push 2");
     cb->data[cb->back++] = d;
-    if (cb->back >= cb->capacity) cb->back = 0;
+    ASSERT((cb->back <= cb->capacity) && "cb_push 3");
+    if (cb->back == cb->capacity) cb->back = 0;
 }
 
 uint8_t cb_top(circBuffer_t* cb, size_t offset)
 {
-    int val = cb->front + offset;
-    if (val >= cb->capacity) val -= cb->capacity;
-    return cb->data[val];
+    ASSERT((cb_size(cb) > offset) && "cb_top 1");
+    size_t idx = cb->front + offset;
+    if (idx >= cb->capacity) idx -= cb->capacity;
+    return cb->data[idx];
 }
 
 void cb_pop(circBuffer_t* cb, size_t num)
 {
+    ASSERT((cb_size(cb) >= num) && "cb_pop 1");
     cb->front += num;
     if (cb->front >= cb->capacity) cb->front -= cb->capacity;
 }
@@ -116,6 +123,7 @@ size_t cb_flush_in(circBuffer_t* cb, size_t bytes,
                    size_t (*read)(uint8_t* data, size_t num, void* usr),
                    void* usr)
 {
+    ASSERT((bytes <= cb_room(cb)) && "cb_flush_in 1");
 	size_t bytesRead = 0;
 	size_t n;
 
@@ -124,6 +132,7 @@ size_t cb_flush_in(circBuffer_t* cb, size_t bytes,
     // if back < front, we can just read in every byte starting at "back".
     if (cb->back < cb->front) {
     	bytesRead += read(cb->data + cb->back, bytes, usr);
+        ASSERT((bytesRead <= bytes) && "cb_flush_in 2");
         cb->back += bytesRead;
         return bytesRead;
     }
@@ -133,20 +142,24 @@ size_t cb_flush_in(circBuffer_t* cb, size_t bytes,
     size_t wrapped    = bytes - contiguous;
 
     n = read(cb->data + cb->back, contiguous, usr);
+    ASSERT((n <= contiguous) && "cb_flush_in 3");
     bytesRead += n;
+    ASSERT((bytesRead <= bytes) && "cb_flush_in 4");
     cb->back += n;
     if (n != contiguous) return bytesRead; // back could NOT have hit BUFFER_SIZE in this case
 
     // may need to wrap back here (if bytes >= BUFFER_SIZE - cb->back) but not otherwise
+    ASSERT((cb->back <= cb->capacity) && "cb_flush_in 5");
     if (cb->back == cb->capacity) cb->back = 0;
     if (wrapped == 0) return bytesRead;
 
     n = read(cb->data, wrapped, usr);
+    ASSERT((n <= wrapped) && "cb_flush_in 6");
     bytesRead += n;
+    ASSERT((bytesRead <= bytes) && "cb_flush_in 7");
     cb->back += n;
     return bytesRead;
 }
-
 #undef MIN
 
 static uint16_t fletcherUpdate(uint8_t b, uint16_t prevSum)
@@ -278,10 +291,10 @@ int serial_recvmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t *msg, int timeout)
 
     // Sync
     if (cb_top(&zt->recvBuffer, consumed++) != ZCM_GENERIC_SERIAL_ESCAPE_CHAR) goto fail;
-    if (cb_top(&zt->recvBuffer, consumed++) != 0x00       )                    goto fail;
+    if (cb_top(&zt->recvBuffer, consumed++) != 0x00)                           goto fail;
 
     // Msg sizes
-    chan_len = cb_top(&zt->recvBuffer, consumed++);
+    chan_len  = cb_top(&zt->recvBuffer, consumed++);
     msg->len  = cb_top(&zt->recvBuffer, consumed++) << 24;
     msg->len |= cb_top(&zt->recvBuffer, consumed++) << 16;
     msg->len |= cb_top(&zt->recvBuffer, consumed++) << 8;
@@ -292,7 +305,7 @@ int serial_recvmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t *msg, int timeout)
 
     if (incomingSize < FRAME_BYTES + chan_len + msg->len) return ZCM_EAGAIN;
 
-    memset(&zt->recvChanName, '0', ZCM_CHANNEL_MAXLEN);
+    memset(&zt->recvChanName, '\0', ZCM_CHANNEL_MAXLEN);
 
     checksum = 0xffff;
     int i;
@@ -303,7 +316,7 @@ int serial_recvmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t *msg, int timeout)
         if (c == ZCM_GENERIC_SERIAL_ESCAPE_CHAR) {
         	// the escape character doesn't count, so we have chan_len - i characters
         	// remaining in channel + the msg + the checksum.
-            if (consumed + chan_len - i + msg->len + 1 > incomingSize) return ZCM_EAGAIN;
+            if (consumed + chan_len - i + msg->len + 2 > incomingSize) return ZCM_EAGAIN;
 
             c = cb_top(&zt->recvBuffer, consumed++);
 
@@ -327,7 +340,7 @@ int serial_recvmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t *msg, int timeout)
         if (c == ZCM_GENERIC_SERIAL_ESCAPE_CHAR) {
         	// the escape character doesn't count, so we have msg.len - i characters
         	// remaining in the msg + the checksum.
-            if (consumed + msg->len - i + 1 > incomingSize) return ZCM_EAGAIN;
+            if (consumed + msg->len - i + 2 > incomingSize) return ZCM_EAGAIN;
 
             c = cb_top(&zt->recvBuffer, consumed++);
 
