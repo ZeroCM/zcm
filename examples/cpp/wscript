@@ -50,4 +50,8 @@ def build(ctx):
                 use = 'default zcm examplezcmtypes_cpp',
                 source = 'Packaged.cpp')
 
+    ctx.program(target = 'bandwidth-test',
+                use = 'default zcm',
+                source = 'BandwidthTest.cpp')
+
     ctx.recurse('transport')
