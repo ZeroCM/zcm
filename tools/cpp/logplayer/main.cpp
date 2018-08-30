@@ -270,14 +270,12 @@ struct LogPlayer
 
         uint64_t firstMsgUtime = UINT64_MAX;
         uint64_t lastMsgUtime = 0;
+        // timestamp when first message is dispatched; will be overwritten in the loop
+        uint64_t firstDispatchUtime = 0;
         uint64_t lastDispatchUtime = 0;
         bool startedPub = false;
 
         if (startMode == StartMode::NUM_MODES) startedPub = true;
-        uint64_t firstDispatchUtime = 0;
-        uint64_t pubproctime = 0;
-        uint64_t sleeptime = 0;
-        uint64_t sumtime = 0;
         
         while (!done) {
             const zcm::LogEvent* le = zcmIn->readNextEvent();
@@ -292,78 +290,37 @@ struct LogPlayer
             if (lastMsgUtime == 0)
                 lastMsgUtime = le->timestamp;
             
+            
             if (lastDispatchUtime == 0)
                 lastDispatchUtime = now;
 
             if (firstMsgUtime == UINT64_MAX){
                 firstMsgUtime = (uint64_t) le->timestamp;
-                std::cout << "INIT " << std::endl;
-                std::cout << "lastMsgUtime: " << lastMsgUtime << std::endl;
-                std::cout << "lastDisUtime: " << lastDispatchUtime << std::endl;
-                std::cout << "firstMsgUtime: " << firstMsgUtime << std::endl;
-                
-            }
+                //std::cout << "INIT " << std::endl;
+                //std::cout << "lastMsgUtime: " << lastMsgUtime << std::endl;
+                //std::cout << "lastDisUtime: " << lastDispatchUtime << std::endl;
+                //std::cout << "firstMsgUtime: " << firstMsgUtime << std::endl;
+                }
 
-            uint64_t localDiff = now - lastDispatchUtime + pubproctime;
-            pubproctime = TimeUtil::utime();  
-            std::cout << "localDiff: " << localDiff << std::endl;
-            
-            uint64_t logDiff = (uint64_t) le->timestamp - lastMsgUtime;
-            std::cout << "logdaDiff: " << logDiff << std::endl;
-          
-            
-            std::cout << "delay_man: " <<  (le->timestamp - firstMsgUtime) - (now - firstDispatchUtime) << std::endl;
-            //std::cout << "delay_ma2: " <<  (now - firstdispUtime) - (le->timestamp - firstMsgUtime) << std::endl;   
-            
-            //localDiff = lastDispatchUtime - firstDispatchUtime;
-            //logDiff = le->timestamp - firstMsgUtime;
-            std::cout << "absDiff" << (le->timestamp - firstMsgUtime) / args.speed - (lastDispatchUtime - firstDispatchUtime) << std::endl;
-            //std::cout << "totaldisptime: " << lastDispatchUtime - firstdispUtime << std::endl;
-            //std::cout << "totalsigntime: " << lastMsgUtime - firstMsgUtime << std::endl;
-            
-            
-            
+            //uint64_t localDiff = now - lastDispatchUtime;
+            //uint64_t logDiff = (uint64_t) le->timestamp - lastMsgUtime;
+            // Total time difference from now to publishing the first message
+            // is zero in first run
+            uint64_t localDiff = firstDispatchUtime > 0 ? now - firstDispatchUtime
+                                                     : 0;
+            // Total difference of timestamps of the current and first message  
+            uint64_t logDiff = le->timestamp - firstMsgUtime;
             uint64_t logDiffSpeed = logDiff / args.speed;
-
-            std::cout << "relDiff: " << logDiffSpeed - localDiff << std::endl;
-            
-
-            std::cout << "diffDiff: " << (le->timestamp - firstMsgUtime) / args.speed - (lastDispatchUtime - firstDispatchUtime)- (logDiffSpeed - localDiff) << std::endl;
-            
-
-
             uint64_t diff = logDiffSpeed > localDiff ? logDiffSpeed - localDiff
                                                      : 0;
-            // TODO: this doesn't reproduce the input frequency perfectly but that is likely
-            //       due to the difficulty of accurately timing events with the OS scheduler
-            //       active. If it becomes an issue in the future, we could devote more time
-            //       to improving the loop timing accuracy.
-            //       Note that this inaccuracy does not apply if you are filting a log into
-            //       a different log via a jslp file because the log times are preserved.
-            //       Possible resource: http://www.tldp.org/HOWTO/IO-Port-Programming-4.html
-            if (diff ==0) {
-                std::cout << "negative Delay!!!!!!!";
-            }
-
+            // Introducing time differences to starting times rather than last loop 
+            // times eliminates linear increase of delay when message are published
             timespec delay;
             delay.tv_sec = (long int) diff / 1000000;
-            delay.tv_nsec = (long int) (diff - (delay.tv_sec * 1000000)) * 1000 -100000;
-            //std::cout << "delat_sec: " << delay.tv_sec << std::endl;
-            //std::cout << "delat_nas: " << delay.tv_nsec << std::endl;
-
-
-            //std::cout << "diff: " << diff << std::endl;
-
-            
-            sleeptime = TimeUtil::utime();            
+            delay.tv_nsec = (long int) (diff - (delay.tv_sec * 1000000)) * 1000;        
             if (diff > 3 && startedPub) nanosleep(&delay, nullptr);
-            sleeptime = TimeUtil::utime() - sleeptime;
-            std::cout << "sleeptime" << sleeptime << std::endl;
 
-
-            //lastDispatchUtime = TimeUtil::utime();
-            
-            
+               
             if (!startedPub) {
                 if (startMode == StartMode::CHANNEL) {
                     if (le->channel == startChan)
@@ -412,19 +369,12 @@ struct LogPlayer
                 }
             }
 
-            pubproctime = TimeUtil::utime() - pubproctime - sleeptime;
-            std::cout << "pubproctime" << pubproctime << std::endl;
             lastDispatchUtime = TimeUtil::utime();
+            // set timestamp to the one when the first message was sent out
             if (firstDispatchUtime == 0){
                 firstDispatchUtime = lastDispatchUtime;
             }
-            
-            sumtime = sumtime + TimeUtil::utime() - lastDispatchUtime;
-            std::cout << "sumtime: " << sumtime << std::endl;
-            std::cout << "tottime: " << TimeUtil::utime() - firstDispatchUtime << std::endl;
-            std::cout << "diff: " << TimeUtil::utime() - firstDispatchUtime - sumtime << std::endl;
 
-            std::cout << "duration" << lastDispatchUtime - now << std::endl;
             lastMsgUtime = le->timestamp;
         }
 
