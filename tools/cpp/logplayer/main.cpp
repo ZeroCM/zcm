@@ -273,6 +273,7 @@ struct LogPlayer
         // timestamp when first message is dispatched; will be overwritten in the loop
         uint64_t firstDispatchUtime = 0;
         uint64_t lastDispatchUtime = 0;
+
         bool startedPub = false;
 
         if (startMode == StartMode::NUM_MODES) startedPub = true;
@@ -308,8 +309,30 @@ struct LogPlayer
             // times eliminates linear increase of delay when message are published
             timespec delay;
             delay.tv_sec = (long int) diff / 1000000;
-            delay.tv_nsec = (long int) (diff - (delay.tv_sec * 1000000)) * 1000;        
+            delay.tv_nsec = (long int) (diff - (delay.tv_sec * 1000000)) * 1000;    
+            const int32_t busywtime = 1000000;
+            delay.tv_nsec = delay.tv_nsec > busywtime ? delay.tv_nsec - busywtime : 0;
+            // prepare for busy waiting
+            //if (delay.tv_nsec > 100000){
+            //    uint64_t longinterval = ((long int) delay.tv_nsec / 100000) * 100000;
+            //    uint64_t busyinterval = (long int)(delay.tv_nsec - longinterval);
+            //    std::cout << "longinterval" << longinterval << std::endl;
+            //    std::cout << "busyinterval" <<busyinterval << std::endl;
+            //    std::cout << "totainterval" <<delay.tv_nsec << std::endl;
+            //    delay.tv_nsec = longinterval;
+            //    if (startedPub) nanosleep(&delay, nullptr);
+            //std::cout << "befo: "  << delay.tv_nsec << std::endl;
+            //}
             if (diff > 3 && startedPub) nanosleep(&delay, nullptr);
+            //std::cout << "diff: "  <<  logDiffSpeed - (TimeUtil::utime() - firstDispatchUtime) << std::endl;
+
+                std::cout << "prior: " << TimeUtil::utime()  << std::endl;
+                int64_t prior = TimeUtil::utime();
+                while(logDiffSpeed > TimeUtil::utime() - firstDispatchUtime){
+                //std::cout << "diff: " << logDiffSpeed - (TimeUtil::utime() - firstDispatchUtime) << std::endl;
+                }
+                std::cout << "diffb: " << (TimeUtil::utime() - prior) << std::endl;
+            //if (diff > 3 && startedPub) nanosleep(&delay, nullptr);
 
             if (!startedPub) {
                 if (startMode == StartMode::CHANNEL) {
