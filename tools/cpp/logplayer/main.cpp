@@ -285,25 +285,16 @@ struct LogPlayer
             }
             
             uint64_t now = TimeUtil::utime();
-            
-
+        
             if (lastMsgUtime == 0)
                 lastMsgUtime = le->timestamp;
-            
             
             if (lastDispatchUtime == 0)
                 lastDispatchUtime = now;
 
-            if (firstMsgUtime == UINT64_MAX){
+            if (firstMsgUtime == UINT64_MAX)
                 firstMsgUtime = (uint64_t) le->timestamp;
-                //std::cout << "INIT " << std::endl;
-                //std::cout << "lastMsgUtime: " << lastMsgUtime << std::endl;
-                //std::cout << "lastDisUtime: " << lastDispatchUtime << std::endl;
-                //std::cout << "firstMsgUtime: " << firstMsgUtime << std::endl;
-                }
-
-            //uint64_t localDiff = now - lastDispatchUtime;
-            //uint64_t logDiff = (uint64_t) le->timestamp - lastMsgUtime;
+                
             // Total time difference from now to publishing the first message
             // is zero in first run
             uint64_t localDiff = firstDispatchUtime > 0 ? now - firstDispatchUtime
@@ -320,7 +311,6 @@ struct LogPlayer
             delay.tv_nsec = (long int) (diff - (delay.tv_sec * 1000000)) * 1000;        
             if (diff > 3 && startedPub) nanosleep(&delay, nullptr);
 
-               
             if (!startedPub) {
                 if (startMode == StartMode::CHANNEL) {
                     if (le->channel == startChan)
