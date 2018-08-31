@@ -13,6 +13,8 @@ before_install:
   - sudo apt-get remove --purge clang
   - sudo apt-get install clang-3.8
   - apt-cache search clang-3.8
+  # python
+  - sudo apt-get install python-pip python3-pip
 before_script: mkdir ../tmp
 script:
   - ./waf distclean configure build &&
