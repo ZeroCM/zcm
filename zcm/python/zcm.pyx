@@ -80,6 +80,10 @@ cdef void handler_cb(const zcm_recv_buf_t* rbuf, const char* channel, void* usr)
     msg = subs.msgtype.decode(rbuf.data[:rbuf.data_size])
     subs.handler(channel.decode('utf-8'), msg)
 
+cdef void handler_cb_raw(const zcm_recv_buf_t* rbuf, const char* channel, void* usr) with gil:
+    subs = (<ZCMSubscription>usr)
+    subs.handler(channel.decode('utf-8'), rbuf.data[:rbuf.data_size])
+
 cdef class ZCM:
     cdef zcm_t* zcm
     cdef object subscriptions
@@ -102,6 +106,16 @@ cdef class ZCM:
         return zcm_strerror(self.zcm).decode('utf-8')
     def strerrno(self, err):
         return zcm_strerrno(err).decode('utf-8')
+    def subscribe_raw(self, str channel, handler):
+        cdef ZCMSubscription subs = ZCMSubscription()
+        subs.handler = handler
+        subs.msgtype = None
+        while True:
+            subs.sub = zcm_try_subscribe(self.zcm, channel.encode('utf-8'), handler_cb_raw, <void*> subs)
+            if subs.sub != NULL:
+                self.subscriptions.append(subs)
+                return subs
+            time.sleep(0) # yield the gil
     def subscribe(self, str channel, msgtype, handler):
         cdef ZCMSubscription subs = ZCMSubscription()
         subs.handler = handler
