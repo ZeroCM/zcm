@@ -14,7 +14,7 @@ before_install:
   - sudo apt-get install clang-3.8
   - apt-cache search clang-3.8
   # python
-  - sudo apt-get install python-pip python3-pip
+  - sudo apt-get install python-pip python3-pip cython cython3
 before_script: mkdir ../tmp
 script:
   - ./waf distclean configure build &&
