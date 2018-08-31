@@ -23,8 +23,10 @@ class Subscription;
 class ZCM
 {
   public:
+    #ifndef ZCM_EMBEDDED
     inline ZCM();
     inline ZCM(const std::string& transport);
+    #endif
     inline ZCM(zcm_trans_t* zt);
     virtual inline ~ZCM();
 
@@ -33,15 +35,17 @@ class ZCM
     virtual inline const char* strerror() const;
     virtual inline const char* strerrno(int err) const;
 
+    #ifndef ZCM_EMBEDDED
     virtual inline void run();
     virtual inline void start();
     virtual inline void stop();
     virtual inline void pause();
     virtual inline void resume();
     virtual inline int  handle();
+    virtual inline void setQueueSize(uint32_t sz);
+    #endif
     virtual inline int  handleNonblock();
     virtual inline void flush();
-    virtual inline void setQueueSize(uint32_t sz);
 
   public:
     inline int publish(const std::string& channel, const uint8_t* data, uint32_t len);
