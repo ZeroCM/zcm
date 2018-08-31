@@ -1,24 +1,29 @@
 #! /usr/bin/env python
 # encoding: utf-8
 
-import os
+import subprocess
+
+
+def install_python_package(ctx):
+    if ctx.cmd == 'install':
+        with open("zcm/python/version.txt", "w") as fh:
+            fh.write(ctx.env.VERSION)
+
+        subprocess.check_call(['sudo', 'ldconfig'])
+        subprocess.check_call([
+            'pip3',
+            'install',
+            '--force-reinstall',
+            '--upgrade',
+            'zcm/python/'])
+        subprocess.check_call([
+            'pip',
+            'install',
+            '--force-reinstall',
+            '--upgrade',
+            'zcm/python/'])
+
 
 def build(ctx):
+    ctx.add_post_fun(install_python_package)
 
-    def cythonize(task):
-        cmd = 'cython %s -o %s' % (task.inputs[0].abspath(), task.outputs[0].abspath())
-        task.exec_command(cmd)
-
-    ctx(name = 'cyzcm',
-        rule = cythonize,
-        color = 'GREEN',
-        source = 'zcm.pyx',
-        target = 'zcm.c')
-
-    ctx.shlib(name = 'pyzcm',
-              target = 'zcm',
-              features = 'pyext',
-              source = 'zcm.c',
-              # PYTHON here for safety (mainly copying java). Seems to compile
-              # fine when omitted as well, but better safe than....
-              use = 'zcm PYTHON').init_pyext()
