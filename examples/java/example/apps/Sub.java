@@ -12,6 +12,7 @@ public class Sub implements ZCMSubscriber
     public Sub()
     {
         zcm = ZCM.getSingleton();
+        zcm.start();
         sub();
     }
 
