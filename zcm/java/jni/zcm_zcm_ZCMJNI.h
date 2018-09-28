@@ -17,6 +17,30 @@ JNIEXPORT jboolean JNICALL Java_zcm_zcm_ZCMJNI_initializeNative
 
 /*
  * Class:     zcm_zcm_ZCMJNI
+ * Method:    destroy
+ * Signature: ()V
+ */
+JNIEXPORT void JNICALL Java_zcm_zcm_ZCMJNI_destroy
+  (JNIEnv *, jobject);
+
+/*
+ * Class:     zcm_zcm_ZCMJNI
+ * Method:    start
+ * Signature: ()V
+ */
+JNIEXPORT void JNICALL Java_zcm_zcm_ZCMJNI_start
+  (JNIEnv *, jobject);
+
+/*
+ * Class:     zcm_zcm_ZCMJNI
+ * Method:    stop
+ * Signature: ()V
+ */
+JNIEXPORT void JNICALL Java_zcm_zcm_ZCMJNI_stop
+  (JNIEnv *, jobject);
+
+/*
+ * Class:     zcm_zcm_ZCMJNI
  * Method:    publish
  * Signature: (Ljava/lang/String;[BII)I
  */
@@ -26,7 +50,7 @@ JNIEXPORT jint JNICALL Java_zcm_zcm_ZCMJNI_publish
 /*
  * Class:     zcm_zcm_ZCMJNI
  * Method:    subscribe
- * Signature: (Ljava/lang/String;Lzcm/zcm/ZCM;)I
+ * Signature: (Ljava/lang/String;Lzcm/zcm/ZCM;Lzcm/zcm/ZCM;)Ljava/lang/Object;
  */
 JNIEXPORT jobject JNICALL Java_zcm_zcm_ZCMJNI_subscribe
   (JNIEnv *, jobject, jstring, jobject, jobject);

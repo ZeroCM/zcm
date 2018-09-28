@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include "zcm/java/jni/zcm_zcm_ZCMJNI.h"
 #include "zcm/zcm.h"
 #include "zcm/util/debug.h"
@@ -55,14 +56,51 @@ JNIEXPORT jboolean JNICALL Java_zcm_zcm_ZCMJNI_initializeNative
     if (urlJ)
         url = (*env)->GetStringUTFChars(env, urlJ, 0);
     I->zcm = zcm_create(url);
-    if (I->zcm)
-        zcm_start(I->zcm);
     if (url)
         (*env)->ReleaseStringUTFChars(env, urlJ, url);
 
     setNativePtr(env, self, I);
 
     return I->zcm ? 1 : 0;
+}
+
+/*
+ * Class:     zcm_zcm_ZCMJNI
+ * Method:    start
+ * Signature: ()Z
+ */
+JNIEXPORT void JNICALL Java_zcm_zcm_ZCMJNI_destroy
+(JNIEnv *env, jobject self)
+{
+    Internal *I = getNativePtr(env, self);
+    assert(I && I->zcm);
+    zcm_destroy(I->zcm);
+}
+
+/*
+ * Class:     zcm_zcm_ZCMJNI
+ * Method:    start
+ * Signature: ()Z
+ */
+JNIEXPORT void JNICALL Java_zcm_zcm_ZCMJNI_start
+(JNIEnv *env, jobject self)
+{
+    Internal *I = getNativePtr(env, self);
+    assert(I && I->zcm);
+    return zcm_start(I->zcm);
+}
+
+/*
+ * Class:     zcm_zcm_ZCMJNI
+ * Method:    stop
+ * Signature: ()Z
+ */
+JNIEXPORT void JNICALL Java_zcm_zcm_ZCMJNI_stop
+(JNIEnv *env, jobject self)
+{
+    Internal *I = getNativePtr(env, self);
+    assert(I && I->zcm);
+    return zcm_stop(I->zcm);
 }
 
 /*
@@ -121,8 +159,9 @@ static void handler(const zcm_recv_buf_t *rbuf, const char *channel, void *_usr)
 
     jclass cls = (*env)->GetObjectClass(env, self);
     assert(cls);
-    jmethodID receiveMessage = (*env)->GetMethodID(env, cls, "receiveMessage",
-                                                   "(Ljava/lang/String;[BII)V");
+    jmethodID receiveMessage =
+        (*env)->GetMethodID(env, cls, "receiveMessage",
+                            "(Ljava/lang/String;[BIILzcm/zcm/ZCM$Subscription;)V");
     assert(receiveMessage);
 
     (*env)->CallVoidMethod(env, self, receiveMessage,
@@ -150,7 +189,7 @@ JNIEXPORT jobject JNICALL Java_zcm_zcm_ZCMJNI_subscribe
     Subscription* subs = malloc(sizeof(Subscription));
     subs->self = (*env)->NewGlobalRef(env, zcmObjJ);
     subs->I = I;
-    subs->javaUsr = usr;
+    subs->javaUsr = (*env)->NewGlobalRef(env, usr);
 
     const char *channel = (*env)->GetStringUTFChars(env, channelJ, 0);
 
@@ -174,7 +213,12 @@ JNIEXPORT jint JNICALL Java_zcm_zcm_ZCMJNI_unsubscribe
     assert(I);
 
     Subscription* subs = (Subscription*) (*env)->GetDirectBufferAddress(env, _subs);
+    (*env)->DeleteGlobalRef(env, subs->javaUsr);
     (*env)->DeleteGlobalRef(env, subs->self);
 
-    return zcm_unsubscribe(I->zcm, subs->zcmsub);
+    int ret = zcm_unsubscribe(I->zcm, subs->zcmsub);
+
+    free(subs);
+
+    return ret;
 }

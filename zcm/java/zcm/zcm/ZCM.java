@@ -30,6 +30,9 @@ public class ZCM
         zcmjni = new ZCMJNI(url);
     }
 
+    public void start() { zcmjni.start(); }
+    public void stop()  { zcmjni.stop(); }
+
     /** Retrieve a default instance of ZCM using either the environment
      * variable ZCM_DEFAULT_URL or the default. If an exception
      * occurs, System.exit(-1) is called.
@@ -86,7 +89,7 @@ public class ZCM
      * specification. If more than one URL was specified when the ZCM
      * object was created, the message will be sent on each.
      **/
-    public synchronized void publish(String channel, byte[] data, int offset, int length)
+    public void publish(String channel, byte[] data, int offset, int length)
         throws IOException
     {
         if (this.closed) throw new IllegalStateException();
@@ -100,26 +103,22 @@ public class ZCM
         Subscription subs = new Subscription();
         subs.javaSub = sub;
 
-        synchronized(this) {
-            subs.nativeSub = zcmjni.subscribe(channel, this, subs);
-        }
+        subs.nativeSub = zcmjni.subscribe(channel, this, subs);
 
         return subs;
     }
 
     public int unsubscribe(Subscription subs) {
         if (this.closed) throw new IllegalStateException();
-
-        synchronized(this) {
-            return zcmjni.unsubscribe(subs.nativeSub);
-        }
+        return zcmjni.unsubscribe(subs.nativeSub);
     }
 
     /** Not for use by end users. Provider back ends call this method
      * when they receive a message. The subscribers that match the
      * channel name are synchronously notified.
      **/
-    public void receiveMessage(String channel, byte data[], int offset, int length,
+    public void receiveMessage(String channel,
+                               byte data[], int offset, int length,
                                Subscription subs)
     {
         if (this.closed) throw new IllegalStateException();
@@ -132,9 +131,10 @@ public class ZCM
      * function, the ZCM instance should consume no resources, and cannot be used to
      * receive or transmit messages.
      */
-    public synchronized void close()
+    public void close()
     {
         if (this.closed) throw new IllegalStateException();
+        zcmjni.destroy();
         this.closed = true;
     }
 
@@ -153,22 +153,39 @@ public class ZCM
             return;
         }
 
-        zcm.subscribe(".*", new SimpleSubscriber());
+        SimpleSubscriber subscriber = new SimpleSubscriber();
 
+        ZCM.Subscription subs = zcm.subscribe(".*", subscriber);
+
+        zcm.start();
         while (true) {
             try {
-                Thread.sleep(100);
+                Thread.sleep(10);
                 zcm.publish("TEST", "foobar");
             } catch (Exception ex) {
                 System.err.println("ex: "+ex);
             }
+            if (subscriber.getNumMsgsReceived() >= 10)
+                break;
         }
+        zcm.stop();
+
+        zcm.unsubscribe(subs);
+
+        zcm.close();
     }
 
     static class SimpleSubscriber implements ZCMSubscriber
     {
+        public int numMsgsReceived = 0;
+
+        public synchronized int getNumMsgsReceived() { return numMsgsReceived; }
+
         public void messageReceived(ZCM zcm, String channel, ZCMDataInputStream dins)
         {
+            synchronized (this) {
+                numMsgsReceived++;
+            }
             System.err.println("RECV: "+channel);
         }
     }
