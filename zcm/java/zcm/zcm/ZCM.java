@@ -8,7 +8,7 @@ import java.nio.*;
 /** Zero Communications and Marshalling Java implementation **/
 public class ZCM
 {
-    class Subscription
+    public class Subscription
     {
         Object nativeSub;
         ZCMSubscriber javaSub;
