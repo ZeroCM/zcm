@@ -13,7 +13,7 @@ class ZCMJNI
     {
         if (!initializeNative(url)) {
             String msg = (url != null) ?
-                "Failed to create ZCM for '"+url+"'" :
+                "Failed to create ZCM for '" + url + "'" :
                 "Failed to create ZCM using the default url";
             throw new IOException(msg);
         }
@@ -23,5 +23,8 @@ class ZCMJNI
     public native int publish(String channel, byte[] data, int offset, int length);
 
     // This method registers the ZCM object for an upcall to receiveMessage()
-    public native int subscribe(String channel, ZCM zcm);
+    public native Object subscribe(String channel, ZCM zcm, Object usr);
+
+    // This method registers the ZCM object for an upcall to receiveMessage()
+    public native int unsubscribe(Object usr);
 }

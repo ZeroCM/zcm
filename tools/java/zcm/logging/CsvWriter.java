@@ -53,7 +53,7 @@ public class CsvWriter implements ZCMSubscriber
 
         if (log == null) {
             try {
-                new ZCM(zcm_url).subscribeAll(this);
+                new ZCM(zcm_url).subscribe(".*", this);
                 System.out.println("Generating csv from live zcm data. Press ctrl+C to end.");
             } catch (IOException e) {
                 System.err.println("Unable to parse zcm url for input");

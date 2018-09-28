@@ -28,8 +28,16 @@ JNIEXPORT jint JNICALL Java_zcm_zcm_ZCMJNI_publish
  * Method:    subscribe
  * Signature: (Ljava/lang/String;Lzcm/zcm/ZCM;)I
  */
-JNIEXPORT jint JNICALL Java_zcm_zcm_ZCMJNI_subscribe
-  (JNIEnv *, jobject, jstring, jobject);
+JNIEXPORT jobject JNICALL Java_zcm_zcm_ZCMJNI_subscribe
+  (JNIEnv *, jobject, jstring, jobject, jobject);
+
+/*
+ * Class:     zcm_zcm_ZCMJNI
+ * Method:    unsubscribe
+ * Signature: (Lzcm/zcm/ZCM;Lzcm/zcm/ZCM/Subscription;)I
+ */
+JNIEXPORT jint JNICALL Java_zcm_zcm_ZCMJNI_unsubscribe
+  (JNIEnv *, jobject, jobject);
 
 #ifdef __cplusplus
 }

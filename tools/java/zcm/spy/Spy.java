@@ -75,7 +75,7 @@ public class Spy
         jdp.add(jif);
 
         zcm = new ZCM(url);
-        zcm.subscribeAll(new MySubscriber());
+        zcm.subscribe(".*", new MySubscriber());
 
         new HzThread().start();
 
