@@ -153,24 +153,30 @@ public class ZCM
             return;
         }
 
-        SimpleSubscriber subscriber = new SimpleSubscriber();
+        SimpleSubscriber subscriber1 = new SimpleSubscriber();
+        SimpleSubscriber subscriber2 = new SimpleSubscriber();
 
-        ZCM.Subscription subs = zcm.subscribe(".*", subscriber);
+        ZCM.Subscription subs1 = zcm.subscribe(".*", subscriber1);
+        ZCM.Subscription subs2 = zcm.subscribe(".*", subscriber2);
+
+        int numMsgsSent = 0;
 
         zcm.start();
         while (true) {
+            if (subscriber1.getNumMsgsReceived() >= 10)
+                break;
             try {
-                Thread.sleep(10);
+                Thread.sleep(250);
                 zcm.publish("TEST", "foobar");
+                numMsgsSent++;
             } catch (Exception ex) {
                 System.err.println("ex: "+ex);
             }
-            if (subscriber.getNumMsgsReceived() >= 10)
-                break;
         }
         zcm.stop();
 
-        zcm.unsubscribe(subs);
+        zcm.unsubscribe(subs1);
+        zcm.unsubscribe(subs2);
 
         zcm.close();
     }
