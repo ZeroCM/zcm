@@ -5,6 +5,20 @@
 #include <assert.h>
 #include <stdbool.h>
 
+#define PASS_THROUGH_FUNC(NAME, NATIVE_NAME, RET, SIG) \
+/* \
+ * Class:     zcm_zcm_ZCMJNI \
+ * Method:    NAME \
+ * Signature: SIG \
+ */ \
+JNIEXPORT RET JNICALL Java_zcm_zcm_ZCMJNI_ ## NAME \
+(JNIEnv *env, jobject self) \
+{ \
+    Internal *I = getNativePtr(env, self); \
+    assert(I && I->zcm); \
+    return zcm_ ## NATIVE_NAME(I->zcm); \
+}
+
 typedef struct Internal Internal;
 struct Internal
 {
@@ -64,44 +78,9 @@ JNIEXPORT jboolean JNICALL Java_zcm_zcm_ZCMJNI_initializeNative
     return I->zcm ? 1 : 0;
 }
 
-/*
- * Class:     zcm_zcm_ZCMJNI
- * Method:    start
- * Signature: ()Z
- */
-JNIEXPORT void JNICALL Java_zcm_zcm_ZCMJNI_destroy
-(JNIEnv *env, jobject self)
-{
-    Internal *I = getNativePtr(env, self);
-    assert(I && I->zcm);
-    zcm_destroy(I->zcm);
-}
-
-/*
- * Class:     zcm_zcm_ZCMJNI
- * Method:    start
- * Signature: ()Z
- */
-JNIEXPORT void JNICALL Java_zcm_zcm_ZCMJNI_start
-(JNIEnv *env, jobject self)
-{
-    Internal *I = getNativePtr(env, self);
-    assert(I && I->zcm);
-    return zcm_start(I->zcm);
-}
-
-/*
- * Class:     zcm_zcm_ZCMJNI
- * Method:    stop
- * Signature: ()Z
- */
-JNIEXPORT void JNICALL Java_zcm_zcm_ZCMJNI_stop
-(JNIEnv *env, jobject self)
-{
-    Internal *I = getNativePtr(env, self);
-    assert(I && I->zcm);
-    return zcm_stop(I->zcm);
-}
+PASS_THROUGH_FUNC(destroy, destroy, void, ()V)
+PASS_THROUGH_FUNC(start, start, void, ()V)
+PASS_THROUGH_FUNC(stop, stop, void, ()V)
 
 /*
  * Class:     zcm_zcm_ZCMJNI
@@ -222,3 +201,9 @@ JNIEXPORT jint JNICALL Java_zcm_zcm_ZCMJNI_unsubscribe
 
     return ret;
 }
+
+PASS_THROUGH_FUNC(flush, flush, void, ()V)
+PASS_THROUGH_FUNC(pause, pause, void, ()V)
+PASS_THROUGH_FUNC(resume, resume, void, ()V)
+PASS_THROUGH_FUNC(handle, handle, jint, ()I)
+PASS_THROUGH_FUNC(handleNonblock, handle_nonblock, jint, ()I)
