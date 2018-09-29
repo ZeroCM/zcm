@@ -7,21 +7,23 @@ import example.zcmtypes.example_t;
 public class Sub implements ZCMSubscriber
 {
     ZCM zcm;
+    ZCM.Subscription s;
 
     public Sub()
     {
         zcm = ZCM.getSingleton();
+        zcm.start();
         sub();
     }
 
     public void sub()
     {
-        zcm.subscribe("EXAMPLE", this);
+        s = zcm.subscribe("EXAMPLE", this);
     }
 
     public void unsub()
     {
-        zcm.unsubscribe("EXAMPLE", this);
+        zcm.unsubscribe(s);
     }
 
     public void messageReceived(ZCM zcm, String channel, ZCMDataInputStream ins)

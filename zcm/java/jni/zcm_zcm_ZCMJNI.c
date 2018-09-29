@@ -1,8 +1,23 @@
+#include <stdio.h>
 #include "zcm/java/jni/zcm_zcm_ZCMJNI.h"
 #include "zcm/zcm.h"
 #include "zcm/util/debug.h"
 #include <assert.h>
 #include <stdbool.h>
+
+#define PASS_THROUGH_FUNC(NAME, NATIVE_NAME, RET, SIG) \
+/* \
+ * Class:     zcm_zcm_ZCMJNI \
+ * Method:    NAME \
+ * Signature: SIG \
+ */ \
+JNIEXPORT RET JNICALL Java_zcm_zcm_ZCMJNI_ ## NAME \
+(JNIEnv *env, jobject self) \
+{ \
+    Internal *I = getNativePtr(env, self); \
+    assert(I && I->zcm); \
+    return zcm_ ## NATIVE_NAME(I->zcm); \
+}
 
 typedef struct Internal Internal;
 struct Internal
@@ -11,10 +26,12 @@ struct Internal
     zcm_t *zcm;
 };
 
-typedef struct SubscriptionUsr SubscriptionUsr;
-struct SubscriptionUsr {
+typedef struct Subscription Subscription;
+struct Subscription {
     Internal* I;
     jobject self;
+    zcm_sub_t* zcmsub;
+    jobject javaUsr;
 };
 
 // J is the type signature for long
@@ -53,8 +70,6 @@ JNIEXPORT jboolean JNICALL Java_zcm_zcm_ZCMJNI_initializeNative
     if (urlJ)
         url = (*env)->GetStringUTFChars(env, urlJ, 0);
     I->zcm = zcm_create(url);
-    if (I->zcm)
-        zcm_start(I->zcm);
     if (url)
         (*env)->ReleaseStringUTFChars(env, urlJ, url);
 
@@ -62,6 +77,10 @@ JNIEXPORT jboolean JNICALL Java_zcm_zcm_ZCMJNI_initializeNative
 
     return I->zcm ? 1 : 0;
 }
+
+PASS_THROUGH_FUNC(destroy, destroy, void, ()V)
+PASS_THROUGH_FUNC(start, start, void, ()V)
+PASS_THROUGH_FUNC(stop, stop, void, ()V)
 
 /*
  * Class:     zcm_zcm_ZCMJNI
@@ -90,9 +109,9 @@ JNIEXPORT jint JNICALL Java_zcm_zcm_ZCMJNI_publish
 
 static void handler(const zcm_recv_buf_t *rbuf, const char *channel, void *_usr)
 {
-    SubscriptionUsr *usr = (SubscriptionUsr *)_usr;
-    Internal *I = (Internal *)usr->I;
-    jobject self = usr->self;
+    Subscription* subs = (Subscription*)_usr;
+    Internal *I = (Internal *)subs->I;
+    jobject self = subs->self;
 
     bool isAttached = false;
     JavaVM *vm = I->jvm;
@@ -109,7 +128,6 @@ static void handler(const zcm_recv_buf_t *rbuf, const char *channel, void *_usr)
         fprintf(stderr, "ZCMJNI: getEnv: JNI version not supported!\n");
     }
 
-
     jstring channelJ = (*env)->NewStringUTF(env, channel);
 
     jbyteArray dataJ = (*env)->NewByteArray(env, rbuf->data_size);
@@ -120,11 +138,13 @@ static void handler(const zcm_recv_buf_t *rbuf, const char *channel, void *_usr)
 
     jclass cls = (*env)->GetObjectClass(env, self);
     assert(cls);
-    jmethodID receiveMessage = (*env)->GetMethodID(env, cls, "receiveMessage", "(Ljava/lang/String;[BII)V");
+    jmethodID receiveMessage =
+        (*env)->GetMethodID(env, cls, "receiveMessage",
+                            "(Ljava/lang/String;[BIILzcm/zcm/ZCM$Subscription;)V");
     assert(receiveMessage);
 
     (*env)->CallVoidMethod(env, self, receiveMessage,
-                           channelJ, dataJ, offsetJ, lenJ);
+                           channelJ, dataJ, offsetJ, lenJ, subs->javaUsr);
 
     // NOTE: if we attached this thread to dispatch up to java, we need to make sure
     //       that we detach before returning so the references get freed.
@@ -139,21 +159,51 @@ static void handler(const zcm_recv_buf_t *rbuf, const char *channel, void *_usr)
  * Method:    subscribe
  * Signature: (Ljava/lang/String;Lzcm/zcm/ZCM;)I
  */
-JNIEXPORT jint JNICALL Java_zcm_zcm_ZCMJNI_subscribe
-(JNIEnv *env, jobject self, jstring channelJ, jobject zcmObjJ)
+JNIEXPORT jobject JNICALL Java_zcm_zcm_ZCMJNI_subscribe
+(JNIEnv *env, jobject self, jstring channelJ, jobject zcmObjJ, jobject usr)
 {
     Internal *I = getNativePtr(env, self);
     assert(I);
     // TODO: Should delete usr and call DeleteGlobalRef on an unsubscribe call
-    SubscriptionUsr* usr = malloc(sizeof(SubscriptionUsr));
-    usr->self = (*env)->NewGlobalRef(env, zcmObjJ);
-    usr->I = I;
+    Subscription* subs = malloc(sizeof(Subscription));
+    subs->self = (*env)->NewGlobalRef(env, zcmObjJ);
+    subs->I = I;
+    subs->javaUsr = (*env)->NewGlobalRef(env, usr);
 
     const char *channel = (*env)->GetStringUTFChars(env, channelJ, 0);
 
     // TODO: need to handle the subscription type returned from subscribe
-    zcm_subscribe(I->zcm, channel, handler, (void*)usr);
+    subs->zcmsub = zcm_subscribe(I->zcm, channel, handler, (void*)subs);
 
     (*env)->ReleaseStringUTFChars(env, channelJ, channel);
-    return 0;
+
+    return (*env)->NewDirectByteBuffer(env, (void*)subs, 0);
 }
+
+/*
+ * Class:     zcm_zcm_ZCMJNI
+ * Method:    unsubscribe
+ * Signature: (Lzcm/zcm/ZCM;Lzcm/zcm/ZCM/Subscription;)I
+ */
+JNIEXPORT jint JNICALL Java_zcm_zcm_ZCMJNI_unsubscribe
+(JNIEnv *env, jobject self, jobject _subs)
+{
+    Internal *I = getNativePtr(env, self);
+    assert(I);
+
+    Subscription* subs = (Subscription*) (*env)->GetDirectBufferAddress(env, _subs);
+    (*env)->DeleteGlobalRef(env, subs->javaUsr);
+    (*env)->DeleteGlobalRef(env, subs->self);
+
+    int ret = zcm_unsubscribe(I->zcm, subs->zcmsub);
+
+    free(subs);
+
+    return ret;
+}
+
+PASS_THROUGH_FUNC(flush, flush, void, ()V)
+PASS_THROUGH_FUNC(pause, pause, void, ()V)
+PASS_THROUGH_FUNC(resume, resume, void, ()V)
+PASS_THROUGH_FUNC(handle, handle, jint, ()I)
+PASS_THROUGH_FUNC(handleNonblock, handle_nonblock, jint, ()I)

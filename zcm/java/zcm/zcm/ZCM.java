@@ -3,23 +3,16 @@ package zcm.zcm;
 import java.net.*;
 import java.io.*;
 import java.util.*;
-import java.util.regex.*;
 import java.nio.*;
 
 /** Zero Communications and Marshalling Java implementation **/
 public class ZCM
 {
-    static class SubscriptionRecord
+    public class Subscription
     {
-        String  regex;
-        Pattern pat;
-        ZCMSubscriber lcsub;
+        Object nativeSub;
+        ZCMSubscriber javaSub;
     }
-
-    ArrayList<SubscriptionRecord> subscriptions = new ArrayList<SubscriptionRecord>();
-    ArrayList<Provider> providers = new ArrayList<Provider>();
-
-    HashMap<String,ArrayList<SubscriptionRecord>> subscriptionsMap = new HashMap<String,ArrayList<SubscriptionRecord>>();
 
     boolean closed = false;
 
@@ -36,6 +29,9 @@ public class ZCM
     {
         zcmjni = new ZCMJNI(url);
     }
+
+    public void start() { zcmjni.start(); }
+    public void stop()  { zcmjni.stop(); }
 
     /** Retrieve a default instance of ZCM using either the environment
      * variable ZCM_DEFAULT_URL or the default. If an exception
@@ -58,13 +54,6 @@ public class ZCM
         return singleton;
     }
 
-    /** Return the number of subscriptions. **/
-    public int getNumSubscriptions()
-    {
-        if (this.closed) throw new IllegalStateException();
-        return subscriptions.size();
-    }
-
     /** Publish a string on a channel. This method does not use the
      * ZCM type definitions and thus is not type safe. This method is
      * primarily provided for testing purposes and may be removed in
@@ -73,7 +62,7 @@ public class ZCM
     public void publish(String channel, String s) throws IOException
     {
         if (this.closed) throw new IllegalStateException();
-        s=s+"\0";
+        s = s + "\0";
         byte[] b = s.getBytes();
         publish(channel, b, 0, b.length);
     }
@@ -100,140 +89,56 @@ public class ZCM
      * specification. If more than one URL was specified when the ZCM
      * object was created, the message will be sent on each.
      **/
-    public synchronized void publish(String channel, byte[] data, int offset, int length)
+    public void publish(String channel, byte[] data, int offset, int length)
         throws IOException
     {
         if (this.closed) throw new IllegalStateException();
         zcmjni.publish(channel, data, offset, length);
     }
 
-    // TODO: because ZCM uses JNI while LCM used a full java implementation, this function and
-    //       many of the data structures that support it are obsolete. The entire java
-    //       subscription record could be replaced by a JNI type that kept track of the c style
-    //       subscriptions and would save us all the bookkeeping in java.
-    /** Subscribe to all channels whose name matches the regular
-     * expression. Note that to subscribe to all channels, you must
-     * specify ".*", not "*".
-     **/
-    public void subscribe(String regex, ZCMSubscriber sub)
+    public Subscription subscribe(String channel, ZCMSubscriber sub)
     {
         if (this.closed) throw new IllegalStateException();
-        SubscriptionRecord srec = new SubscriptionRecord();
-        srec.regex = regex;
-        srec.pat = Pattern.compile(regex);
-        srec.lcsub = sub;
 
-        synchronized(this) {
-            zcmjni.subscribe(regex, this);
-        }
+        Subscription subs = new Subscription();
+        subs.javaSub = sub;
 
-        synchronized(subscriptions) {
-            subscriptions.add(srec);
+        subs.nativeSub = zcmjni.subscribe(channel, this, subs);
 
-            for (String channel : subscriptionsMap.keySet()) {
-                if (srec.pat.matcher(channel).matches()) {
-                    ArrayList<SubscriptionRecord> subs = subscriptionsMap.get(channel);
-                    subs.add(srec);
-                }
-            }
-        }
+        return subs;
     }
 
-    // TODO: because ZCM uses JNI while LCM used a full java implementation, this function and
-    //       many of the data structures that support it are obsolete. The entire java
-    //       subscription record could be replaced by a JNI type that kept track of the c style
-    //       subscriptions and would save us all the bookkeeping in java.
-    /** Remove this particular regex/subscriber pair (UNTESTED AND API
-     * MAY CHANGE). If regex is null, all subscriptions for 'sub' are
-     * cancelled. If subscriber is null, any previous subscriptions
-     * matching the regular expression will be cancelled. If both
-     * 'sub' and 'regex' are null, all subscriptions will be
-     * cancelled.
-     **/
-    public void unsubscribe(String regex, ZCMSubscriber sub) {
+    public int unsubscribe(Subscription subs) {
         if (this.closed) throw new IllegalStateException();
-
-        synchronized(this) {
-            for (Provider p : providers)
-                p.unsubscribe (regex);
-        }
-
-        // TODO: providers don't seem to use anything beyond first channel
-
-        synchronized(subscriptions) {
-
-            // Find and remove subscriber from list
-            for (Iterator<SubscriptionRecord> it = subscriptions.iterator(); it.hasNext(); ) {
-                SubscriptionRecord sr = it.next();
-
-                if ((sub == null || sr.lcsub == sub) &&
-                    (regex == null || sr.regex.equals(regex))) {
-                    it.remove();
-                }
-            }
-
-            // Find and remove subscriber from map
-            for (String channel : subscriptionsMap.keySet()) {
-                for (Iterator<SubscriptionRecord> it = subscriptionsMap.get(channel).iterator(); it.hasNext(); ) {
-                    SubscriptionRecord sr = it.next();
-
-                    if ((sub == null || sr.lcsub == sub) &&
-                        (regex == null || sr.regex.equals(regex))) {
-                        it.remove();
-                    }
-                }
-            }
-        }
+        return zcmjni.unsubscribe(subs.nativeSub);
     }
 
     /** Not for use by end users. Provider back ends call this method
      * when they receive a message. The subscribers that match the
      * channel name are synchronously notified.
      **/
-    public void receiveMessage(String channel, byte data[], int offset, int length)
+    public void receiveMessage(String channel,
+                               byte data[], int offset, int length,
+                               Subscription subs)
     {
         if (this.closed) throw new IllegalStateException();
-        synchronized (subscriptions) {
-            ArrayList<SubscriptionRecord> srecs = subscriptionsMap.get(channel);
-
-            if (srecs == null) {
-                // must build this list!
-                srecs = new ArrayList<SubscriptionRecord>();
-                subscriptionsMap.put(channel, srecs);
-
-                for (SubscriptionRecord srec : subscriptions) {
-                    if (srec.pat.matcher(channel).matches())
-                        srecs.add(srec);
-                }
-            }
-
-            for (SubscriptionRecord srec : srecs) {
-                srec.lcsub.messageReceived(this,
-                                           channel,
-                                           new ZCMDataInputStream(data, offset, length));
-            }
-        }
-    }
-
-    /** A convenience function that subscribes to all ZCM channels. **/
-    public synchronized void subscribeAll(ZCMSubscriber sub)
-    {
-        subscribe(".*", sub);
+        subs.javaSub.messageReceived(this,
+                                     channel,
+                                     new ZCMDataInputStream(data, offset, length));
     }
 
     /** Call this function to release all resources used by the ZCM instance.  After calling this
      * function, the ZCM instance should consume no resources, and cannot be used to
      * receive or transmit messages.
      */
-    public synchronized void close()
+    public void close()
     {
         if (this.closed) throw new IllegalStateException();
-        for (Provider p : providers) {
-            p.close();
-        }
-        providers = null;
+        zcmjni.destroy();
         this.closed = true;
     }
+
+    public void finalize() { if (!this.closed) close(); }
 
     ////////////////////////////////////////////////////////////////
 
@@ -250,22 +155,45 @@ public class ZCM
             return;
         }
 
-        zcm.subscribe(".*", new SimpleSubscriber());
+        SimpleSubscriber subscriber1 = new SimpleSubscriber();
+        SimpleSubscriber subscriber2 = new SimpleSubscriber();
 
+        ZCM.Subscription subs1 = zcm.subscribe(".*", subscriber1);
+        ZCM.Subscription subs2 = zcm.subscribe(".*", subscriber2);
+
+        int numMsgsSent = 0;
+
+        zcm.start();
         while (true) {
+            if (subscriber1.getNumMsgsReceived() >= 10)
+                break;
             try {
-                Thread.sleep(100);
+                Thread.sleep(250);
                 zcm.publish("TEST", "foobar");
+                numMsgsSent++;
             } catch (Exception ex) {
                 System.err.println("ex: "+ex);
             }
         }
+        zcm.stop();
+
+        zcm.unsubscribe(subs1);
+        zcm.unsubscribe(subs2);
+
+        zcm.close();
     }
 
     static class SimpleSubscriber implements ZCMSubscriber
     {
+        public int numMsgsReceived = 0;
+
+        public synchronized int getNumMsgsReceived() { return numMsgsReceived; }
+
         public void messageReceived(ZCM zcm, String channel, ZCMDataInputStream dins)
         {
+            synchronized (this) {
+                numMsgsReceived++;
+            }
             System.err.println("RECV: "+channel);
         }
     }
