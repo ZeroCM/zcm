@@ -138,6 +138,8 @@ public class ZCM
         this.closed = true;
     }
 
+    public void finalize() { if (!this.closed) close(); }
+
     ////////////////////////////////////////////////////////////////
 
     /** Minimalist test code.

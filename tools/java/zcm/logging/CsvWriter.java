@@ -17,6 +17,9 @@ import zcm.util.*;
 
 public class CsvWriter implements ZCMSubscriber
 {
+    private ZCM zcm;
+    private ZCM.Subscription subs;
+
     private ZCMTypeDatabase handlers;
 
     private PrintWriter output;
@@ -53,7 +56,8 @@ public class CsvWriter implements ZCMSubscriber
 
         if (log == null) {
             try {
-                new ZCM(zcm_url).subscribe(".*", this);
+                zcm = new ZCM(zcm_url);
+                subs = zcm.subscribe(".*", this);
                 System.out.println("Generating csv from live zcm data. Press ctrl+C to end.");
             } catch (IOException e) {
                 System.err.println("Unable to parse zcm url for input");
@@ -116,6 +120,9 @@ public class CsvWriter implements ZCMSubscriber
         Runtime.getRuntime().addShutdownHook(new Thread() {
             public void run() {
                 done = true;
+                zcm.stop();
+                zcm.unsubscribe(subs);
+                zcm.close();
                 output.close();
                 System.out.print("\b\b  ");
                 System.out.println("Wrote " + numLinesWritten + " events");
@@ -123,8 +130,10 @@ public class CsvWriter implements ZCMSubscriber
             }
         });
 
-        if(log == null) {
-            while (true) try { Thread.sleep(1000); } catch(Exception e){}
+        zcm.start();
+
+        if (log == null) {
+            while (true) try { Thread.sleep(1000); } catch(Exception e) {}
         } else {
             long lastPrintTime = 0;
             while (!done) {

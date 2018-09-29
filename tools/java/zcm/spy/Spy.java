@@ -21,10 +21,11 @@ import zcm.zcm.*;
 public class Spy
 {
     JFrame       jf;
-    ZCM          zcm;
     JDesktopPane jdp;
 
-    ZCMTypeDatabase handlers;
+    ZCM              zcm;
+    ZCM.Subscription subs;
+    ZCMTypeDatabase  handlers;
 
     HashMap<String,  ChannelData> channelMap = new HashMap<String, ChannelData>();
     ArrayList<ChannelData>        channelList = new ArrayList<ChannelData>();
@@ -75,7 +76,9 @@ public class Spy
         jdp.add(jif);
 
         zcm = new ZCM(url);
-        zcm.subscribe(".*", new MySubscriber());
+        subs = zcm.subscribe(".*", new MySubscriber());
+
+        zcm.start();
 
         new HzThread().start();
 
@@ -124,6 +127,9 @@ public class Spy
 	    {
             public void windowClosing(WindowEvent e)
             {
+                zcm.stop();
+                zcm.unsubscribe(subs);
+                zcm.close();
                 System.out.println("Spy quitting");
                 System.exit(0);
             }
