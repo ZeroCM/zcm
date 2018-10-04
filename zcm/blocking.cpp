@@ -23,7 +23,7 @@ using namespace std;
 
 #define RECV_TIMEOUT 100
 
-// Define a macro to set thread names. The function call is 
+// Define a macro to set thread names. The function call is
 // different for some operating systems
 #ifdef __linux__
     #define SET_THREAD_NAME(name) pthread_setname_np(pthread_self(),name);
@@ -32,7 +32,7 @@ using namespace std;
     #define SET_THREAD_NAME(name) pthread_set_name_np(pthread_self(),name);
 #elif __APPLE__ || __MACH__
     #define SET_THREAD_NAME(name) pthread_setname_np(name);
-#else 
+#else
     // If the OS is not in this list, don't call anything
     #define SET_THREAD_NAME(name)
 #endif
@@ -577,7 +577,7 @@ void zcm_blocking_t::sendThreadFunc()
 {
     // Name the send thread
     SET_THREAD_NAME("ZeroCM_sender");
-    
+
     while (true) {
         {
             unique_lock<mutex> lk(sendStateMutex);
