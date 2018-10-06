@@ -572,19 +572,19 @@ struct EmitModule : public Emitter
             else if (tn == "string")  initializer = "\"\"";
 
             if (initializer) {
-                fprintfPass("%s", initializer);
+                emitContinue("%s", initializer);
             } else {
-                fprintfPass("new %s()", zm.type.nameUnderscoreCStr());
+                emitContinue("new %s()", zm.type.nameUnderscoreCStr());
             }
             return;
         }
         auto& dim = zm.dimensions[dimNum];
         if (dim.mode == ZCM_VAR) {
-            fprintfPass("[]");
+            emitContinue("[]");
         } else {
-            fprintfPass("new Array(%s).fill(", dim.size.c_str());
+            emitContinue("new Array(%s).fill(", dim.size.c_str());
             emitMemberInitializer(zm, dimNum+1);
-            fprintfPass(")");
+            emitContinue(")");
         }
     }
 

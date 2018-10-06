@@ -14,10 +14,9 @@ before_install:
   - tmpdir=$(mktemp -d)
   - pushd $tmpdir
   - sudo apt-get install wget
-  - sudo updatedb
-  - wget https://julialang-s3.julialang.org/bin/linux/x64/0.5/julia-0.5.2-linux-x86_64.tar.gz
-  - tar -xaf julia-0.5.2-linux-x86_64.tar.gz
-  - sudo cp -R ./julia-f4c6c9d4bb/* /usr
+  - wget https://julialang-s3.julialang.org/bin/linux/x64/0.6/julia-0.6.4-linux-x86_64.tar.gz
+  - tar -xaf julia-0.6.4-linux-x86_64.tar.gz
+  - export PATH=$PATH:`pwd`/julia-9d11f62bcb/bin
   - sudo updatedb
   - popd
   - git clone https://github.com/CxxTest/cxxtest.git

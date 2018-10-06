@@ -55,9 +55,3 @@ void Emitter::emitEnd(const char* msg, ...)
     fprintf(f, "\n");
     va_end(va);
 }
-
-// RRR (Bendes) Why'd you get rid of fprintfPass?
-//              And why is this function here? Doesn't seem to be used anywhere
-// RRR (Isaac)  fprintfPass was literally exactly the same as emitContinue ...
-//              just with a more confusing name
-//              getFilename was originally used within EmitJulia but I think I got rid of it

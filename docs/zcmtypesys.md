@@ -192,8 +192,8 @@ if the zcmtype `qux` actually belonged to a package `quuz` (that is not part of 
 replacing `.qux` with `.quuz.qux` would properly specify the desired type.
 
 Note also that although some languages allow unqualified access to types from
-parent packages, the zcmtype specification does not. Speciically, for the following
-2 types, note that `t2` must specify its `t1` member as existing withing the package
+parent packages, the zcmtype specification does not. Specifically, for the following
+2 types, note that `t2` must specify its `t1` member as existing within the package
 `.foo` even though `t2` itself exists within a child package of `foo`.
 
     package foo;
