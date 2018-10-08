@@ -61,9 +61,9 @@ void uv_zcm_msg_handler_trigger(const zcm_recv_buf_t* rbuf, const char* channel,
         // Call the callback
 		uvCb->cb(uvCb->rbuf, uvCb->channel, uvCb->usr);
 
-        // RRR: We should probably call "uv_async_init" and "uv_close" on create
-        //      and destroy of the uv zcm callback. The way we're doing it now
-        //      works but is probably far less efficient than it needs to be
+        // TODO: We should probably call "uv_async_init" and "uv_close" on create
+        //       and destroy of the uv zcm callback. The way we're doing it now
+        //       works but is probably far less efficient than it needs to be
         // close async handle
         uv_close((uv_handle_t*)&uvCb->handle, [](uv_handle_t* handle){
             uv_zcm_msg_handler_t* uvCb = (uv_zcm_msg_handler_t*) handle->data;

@@ -6,16 +6,9 @@ def build(ctx):
                lang         = ['c_stlib', 'c_shlib', 'cpp', 'java', 'python', 'nodejs', 'julia'],
                javapkg      = 'example.zcmtypes')
 
-    # RRR (Bendes): Not a fan of splitting this off from the main call
-    #               into the waftool. Seems like a bandaid (nodejs is a terrible role model)
-    # RRR (Bendes): Actually on second reading, this is very confusing how many
-    #               different ways there are of doing seemingly the same thing
-    # RRR (Isaac) : happy to chat about how to make this better, but it'll likely
-    #               not be a simple fix
     ctx.zcmgen(name         = 'examplezcmtype-juliapkgs',
                source       = ctx.path.ant_glob('**/*.zcm'),
                juliagenpkgs = True)
-
 
     ctx.zcmgen(name         = 'examplezcmtypes-little-endian',
                source       = ctx.path.ant_glob('little_endian_t.zcm'),
