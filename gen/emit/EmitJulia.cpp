@@ -751,7 +751,7 @@ struct EmitJuliaPackage : public Emitter
         return pkgPath + filename;
     }
 
-    void emitModuleStart(const vector<ZCMStruct*>& pkgStructs)
+    void emitModuleStart(const vector<const ZCMStruct*>& pkgStructs)
     {
         emit(0, "\"\"\"");
         emit(0, "THIS IS AN AUTOMATICALLY GENERATED FILE.");
@@ -826,7 +826,7 @@ struct EmitJuliaPackage : public Emitter
         emit(0, "");
     }
 
-    void emitTypes(const vector<ZCMStruct*>& pkgStructs)
+    void emitTypes(const vector<const ZCMStruct*>& pkgStructs)
     {
         emit(1, "# Types");
         for (auto& s : pkgStructs) {
@@ -835,7 +835,7 @@ struct EmitJuliaPackage : public Emitter
         emit(0, "");
     }
 
-    int emitPackage(const vector<string>& pkgSubmods, const vector<ZCMStruct*>& pkgStructs)
+    int emitPackage(const vector<string>& pkgSubmods, const vector<const ZCMStruct*>& pkgStructs)
     {
         emitModuleStart(pkgStructs);
         emitSubmodules(pkgSubmods);
@@ -845,15 +845,14 @@ struct EmitJuliaPackage : public Emitter
     }
 };
 
-int emitJulia(ZCMGen& zcm)
+int emitJulia(const ZCMGen& zcm)
 {
     string pkgPrefix = zcm.gopt->getString("julia-pkg-prefix");
 
     bool genPkgFiles = zcm.gopt->getBool("julia-generate-pkg-files");
-    bool printOutputFiles = zcm.gopt->getBool("output-files");
 
     // Map of packages to their submodules and structs
-    unordered_map<string, std::pair<vector<string>, vector<ZCMStruct*>>> packages;
+    unordered_map<string, std::pair<vector<string>, vector<const ZCMStruct*>>> packages;
     // Add all stucts
     for (auto& zs : zcm.structs) {
         auto package = (pkgPrefix == "" || zs.structname.package == "")
@@ -896,21 +895,15 @@ int emitJulia(ZCMGen& zcm)
             if (!package.empty()) {
                 // TODO: outfile checking here is a bit tougher because you need to check all
                 //       files beneath the package to see if they've changed.
-                if (printOutputFiles) {
-                    cout << EmitJuliaPackage::getFilename(zcm, package) << endl;
-                } else {
-                    EmitJuliaPackage ejPkg {zcm, package};
-                    int ret = ejPkg.emitPackage(submodules_structs.first,
-                                                submodules_structs.second);
-                    if (ret != 0) return ret;
-                }
+                EmitJuliaPackage ejPkg {zcm, package};
+                int ret = ejPkg.emitPackage(submodules_structs.first,
+                                            submodules_structs.second);
+                if (ret != 0) return ret;
             }
         } else {
             for (auto* zs : submodules_structs.second) {
                 auto outFile = EmitJuliaType::getFilename(zcm, package, zs->structname.shortname);
-                if (printOutputFiles) {
-                    cout << outFile << endl;
-                } else if (zcm.needsGeneration(zs->zcmfile, outFile)) {
+                if (zcm.needsGeneration(zs->zcmfile, outFile)) {
                     EmitJuliaType ejType {zcm, package, *zs};
                     int ret = ejType.emitType();
                     if (ret != 0) return ret;
@@ -920,4 +913,63 @@ int emitJulia(ZCMGen& zcm)
     }
 
     return 0;
+}
+
+vector<string> getFilepathsJulia(const ZCMGen& zcm)
+{
+    vector<string> ret;
+
+    string pkgPrefix = zcm.gopt->getString("julia-pkg-prefix");
+
+    bool genPkgFiles = zcm.gopt->getBool("julia-generate-pkg-files");
+
+    // Map of packages to their submodules and structs
+    unordered_map<string, std::pair<vector<string>, vector<const ZCMStruct*>>> packages;
+    // Add all stucts
+    for (auto& zs : zcm.structs) {
+        auto package = (pkgPrefix == "" || zs.structname.package == "")
+                         ? pkgPrefix + zs.structname.package
+                         : pkgPrefix + "." + zs.structname.package;
+
+        // Ensure whole package tree
+        auto parents = StringUtil::split(package, '.');
+        while (parents.size() > 1) {
+            auto thispkg = parents.back();
+            parents.pop_back();
+            auto parent = StringUtil::join(parents, '.');
+            packages[parent].first.push_back(thispkg);
+        }
+
+        packages[package].second.push_back(&zs);
+    }
+    // Ensure uniqueness of submodules and structs
+    for (auto& kv : packages) {
+        {
+            auto& submodules = kv.second.first;
+            sort(submodules.begin(), submodules.end());
+            auto last = unique(submodules.begin(), submodules.end());
+            submodules.erase(last, submodules.end());
+        }
+
+        {
+            auto& structs = kv.second.second;
+            sort(structs.begin(), structs.end());
+            auto last = unique(structs.begin(), structs.end());
+            structs.erase(last, structs.end());
+        }
+    }
+
+    for (auto& kv : packages) {
+        auto& package = kv.first;
+        auto& submodules_structs = kv.second;
+
+        if (genPkgFiles) {
+            if (!package.empty()) ret.push_back(EmitJuliaPackage::getFilename(zcm, package));
+        } else {
+            for (auto* zs : submodules_structs.second)
+                ret.push_back(EmitJuliaType::getFilename(zcm, package, zs->structname.shortname));
+        }
+    }
+
+    return ret;
 }

@@ -32,7 +32,7 @@ struct PrimInfo
         storage(storage), decode(decode), encode(encode) {}
 };
 
-string makeFqn(ZCMGen& zcm, const string& typeName)
+string makeFqn(const ZCMGen& zcm, const string& typeName)
 {
     string ret = "";
     if (zcm.gopt->wasSpecified("jpkgprefix"))
@@ -55,7 +55,7 @@ static string specialReplace(const string& haystack, const string& replace1)
     return ret;
 }
 
-static string makeAccessor(ZCMMember& zm, const string& obj)
+static string makeAccessor(const ZCMMember& zm, const string& obj)
 {
     string ret;
     ret += obj + (obj.size() == 0 ? "" : ".") + zm.membername;
@@ -68,7 +68,7 @@ static string makeAccessor(ZCMMember& zm, const string& obj)
 }
 
 /** Make an accessor that points to the last array **/
-static string makeAccessorArray(ZCMMember& zm, const string& obj)
+static string makeAccessorArray(const ZCMMember& zm, const string& obj)
 {
     string ret;
     ret += obj + (obj.size() == 0 ? "" : ".") + zm.membername;
@@ -80,7 +80,7 @@ static string makeAccessorArray(ZCMMember& zm, const string& obj)
     return ret;
 }
 
-static bool structHasStringMember(ZCMStruct& zs)
+static bool structHasStringMember(const ZCMStruct& zs)
 {
     for (auto& zm : zs.members)
         if (zm.type.fullname == "string")
@@ -165,13 +165,13 @@ static TypeTable typeTable;
 
 struct EmitStruct : public Emitter
 {
-    ZCMGen& zcm;
-    ZCMStruct& zs;
+    const ZCMGen& zcm;
+    const ZCMStruct& zs;
 
-    EmitStruct(ZCMGen& zcm, ZCMStruct& zs, const string& fname):
+    EmitStruct(const ZCMGen& zcm, const ZCMStruct& zs, const string& fname):
         Emitter(fname), zcm(zcm), zs(zs) {}
 
-    void encodeRecursive(ZCMMember& zm, PrimInfo* pinfo, const string& accessor, int depth)
+    void encodeRecursive(const ZCMMember& zm, PrimInfo* pinfo, const string& accessor, int depth)
     {
         int ndims = (int)zm.dimensions.size();
 
@@ -211,7 +211,7 @@ struct EmitStruct : public Emitter
         emit(2+depth, "}");
     }
 
-    void decodeRecursive(ZCMMember& zm, PrimInfo* pinfo, const string& accessor, int depth)
+    void decodeRecursive(const ZCMMember& zm, PrimInfo* pinfo, const string& accessor, int depth)
     {
         int ndims = (int)zm.dimensions.size();
 
@@ -248,7 +248,7 @@ struct EmitStruct : public Emitter
         emit(2+depth, "}");
     }
 
-    void copyRecursive(ZCMMember& zm, PrimInfo* pinfo, const string& accessor, int depth)
+    void copyRecursive(const ZCMMember& zm, PrimInfo* pinfo, const string& accessor, int depth)
     {
         int ndims = (int)zm.dimensions.size();
 
@@ -555,14 +555,12 @@ struct EmitStruct : public Emitter
     }
 };
 
-int emitJava(ZCMGen& zcm)
+int emitJava(const ZCMGen& zcm)
 {
     if (zcm.gopt->getBool("little-endian-encoding")) {
         printf("Java does not currently support little endian encoding\n");
         return -1;
     }
-
-    bool printOutputFiles = zcm.gopt->getBool("output-files");
 
     string jpath = zcm.gopt->getString("jpath");
     string jpathPrefix = jpath + (jpath.size() > 0 ? "/" : "");
@@ -581,11 +579,6 @@ int emitJava(ZCMGen& zcm)
         string classname = makeFqn(zcm, zs.structname.fullname);
         string path = jpathPrefix + dotsToSlashes(classname) + ".java";
 
-        if (printOutputFiles) {
-            std::cout << path << std::endl;
-            continue;
-        }
-
         if (!zcm.needsGeneration(zs.zcmfile, path))
             continue;
 
@@ -601,4 +594,28 @@ int emitJava(ZCMGen& zcm)
     }
 
     return 0;
+}
+
+vector<string> getFilepathsJava(const ZCMGen& zcm)
+{
+    vector<string> ret;
+
+    string jpath = zcm.gopt->getString("jpath");
+    string jpathPrefix = jpath + (jpath.size() > 0 ? "/" : "");
+
+    for (auto& zs : zcm.structs) {
+        if (!zcm.gopt->wasSpecified("jpkgprefix") &&
+            zs.structname.fullname.find('.') == string::npos) {
+            fprintf(stderr, "Please provide a java package for the output java classes -- "
+                            "either via the \"--jpkgprefix\" flag or inside the type itself\n");
+            return {};
+        }
+
+        string classname = makeFqn(zcm, zs.structname.fullname);
+        string path = jpathPrefix + dotsToSlashes(classname) + ".java";
+
+        ret.push_back(path);
+    }
+
+    return ret;
 }

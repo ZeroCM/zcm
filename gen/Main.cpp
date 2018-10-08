@@ -97,7 +97,12 @@ int main(int argc, char* argv[])
 
     if (gopt.getBool("c")) {
         did_something = 1;
-        if (emitC(zcm)) {
+        if (gopt.getBool("output-files")) {
+            auto files = getFilepathsC(zcm);
+            for (auto& f : files) {
+                printf("%s\n", f.c_str());
+            }
+        } else if (emitC(zcm)) {
             printf("An error occurred while emitting C code.\n");
             ret = 1;
         }
@@ -105,7 +110,12 @@ int main(int argc, char* argv[])
 
     if (gopt.getBool("cpp")) {
         did_something = 1;
-        if (emitCpp(zcm)) {
+        if (gopt.getBool("output-files")) {
+            auto files = getFilepathsCpp(zcm);
+            for (auto& f : files) {
+                printf("%s\n", f.c_str());
+            }
+        } else if (emitCpp(zcm)) {
             printf("An error occurred while emitting C++ code.\n");
             ret = 1;
         }
@@ -113,23 +123,38 @@ int main(int argc, char* argv[])
 
     if (gopt.getBool("java")) {
         did_something = 1;
-        if (emitJava(zcm)) {
+        if (gopt.getBool("output-files")) {
+            auto files = getFilepathsJava(zcm);
+            for (auto& f : files) {
+                printf("%s\n", f.c_str());
+            }
+        } else if (emitJava(zcm)) {
             printf("An error occurred while emitting Java code.\n");
             ret = 1;
         }
     }
 
-     if (gopt.getBool("python")) {
-         did_something = 1;
-         if (emitPython(zcm)) {
-             printf("An error occurred while emitting Python code.\n");
-             ret = 1;
-         }
-     }
+    if (gopt.getBool("python")) {
+        did_something = 1;
+        if (gopt.getBool("output-files")) {
+           auto files = getFilepathsPython(zcm);
+           for (auto& f : files) {
+               printf("%s\n", f.c_str());
+           }
+        } else if (emitPython(zcm)) {
+            printf("An error occurred while emitting Python code.\n");
+            ret = 1;
+        }
+    }
 
     if (gopt.getBool("node")) {
         did_something = 1;
-        if (emitNode(zcm)) {
+        if (gopt.getBool("output-files")) {
+            auto files = getFilepathsNode(zcm);
+            for (auto& f : files) {
+                printf("%s\n", f.c_str());
+            }
+        } else if (emitNode(zcm)) {
             printf("An error occurred while emitting Node.js code.\n");
             ret = 1;
         }
@@ -137,7 +162,12 @@ int main(int argc, char* argv[])
 
     if (gopt.getBool("julia")) {
         did_something = 1;
-        if (emitJulia(zcm)) {
+        if (gopt.getBool("output-files")) {
+            auto files = getFilepathsJulia(zcm);
+            for (auto& f : files) {
+                printf("%s\n", f.c_str());
+            }
+        } else if (emitJulia(zcm)) {
             printf("An error occurred while emitting Julia code.\n");
             ret = 1;
         }

@@ -548,7 +548,7 @@ struct PyEmitStruct : public Emitter
 
     void emitPythonDependencies()
     {
-        unordered_map<string, ZCMTypename> dependencies;
+        unordered_map<string, const ZCMTypename&> dependencies;
         for (auto& zm : zs.members) {
             auto& tn = zm.type.fullname;
             if (!ZCMGen::isPrimitiveType(tn) &&
@@ -587,7 +587,7 @@ struct PyEmitPack
     PyEmitPack(const ZCMGen& zcm):
         zcm(zcm) {}
 
-    int emitPackage(const string& packName, vector<ZCMStruct*>& packStructs)
+    int emitPackage(const string& packName, vector<const ZCMStruct*>& packStructs)
     {
         // create the package directory, if necessary
         vector<string> dirs = StringUtil::split(packName, '.');
@@ -700,17 +700,35 @@ struct PyEmitPack
     }
 };
 
-int emitPython(ZCMGen& zcm)
+int emitPython(const ZCMGen& zcm)
 {
     if (zcm.gopt->getBool("little-endian-encoding")) {
         printf("Python does not currently support little endian encoding\n");
         return -1;
     }
 
-    bool printOutputFiles = zcm.gopt->getBool("output-files");
+    unordered_map<string, vector<const ZCMStruct*> > packages;
 
-    unordered_map<string, vector<ZCMStruct*> > packages;
+    // group the structs by package
+    for (auto& zs : zcm.structs)
+        packages[zs.structname.package].push_back(&zs);
 
+    for (auto& kv : packages) {
+        auto& name = kv.first;
+        auto& pack = kv.second;
+
+        int ret = PyEmitPack{zcm}.emitPackage(name, pack);
+        if (ret != 0) return ret;
+    }
+
+    return 0;
+}
+
+vector<string> getFilepathsPython(const ZCMGen& zcm)
+{
+    vector<string> ret;
+
+    unordered_map<string, vector<const ZCMStruct*> > packages;
 
     // group the structs by package
     for (auto& zs : zcm.structs)
@@ -721,25 +739,19 @@ int emitPython(ZCMGen& zcm)
         auto& pack = kv.second;
 
         // TODO: definitely should push this into a static funciton once we clean up this file
-        if (printOutputFiles) {
-            vector<string> dirs = StringUtil::split(name, '.');
-            string pdname = StringUtil::join(dirs, '/');
-            int havePackage = dirs.size() > 0;
+        vector<string> dirs = StringUtil::split(name, '.');
+        string pdname = StringUtil::join(dirs, '/');
+        int havePackage = dirs.size() > 0;
 
-            auto& ppath = zcm.gopt->getString("ppath");
-            string packageDirPrefix = ppath + ((ppath.size() > 0) ? "/" : "");
-            string packageDir = packageDirPrefix + pdname + (havePackage ? "/" : "");
+        auto& ppath = zcm.gopt->getString("ppath");
+        string packageDirPrefix = ppath + ((ppath.size() > 0) ? "/" : "");
+        string packageDir = packageDirPrefix + pdname + (havePackage ? "/" : "");
 
-            for (auto* zs : pack) {
-                string path = packageDir + zs->structname.shortname + ".py";
-                std::cout << path << std::endl;
-            }
-            continue;
+        for (auto* zs : pack) {
+            string path = packageDir + zs->structname.shortname + ".py";
+            ret.push_back(path);
         }
-
-        int ret = PyEmitPack{zcm}.emitPackage(name, pack);
-        if (ret != 0) return ret;
     }
 
-    return 0;
+    return ret;
 }
