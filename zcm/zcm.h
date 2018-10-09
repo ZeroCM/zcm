@@ -47,6 +47,10 @@ typedef struct zcm_sub_t      zcm_sub_t;
 typedef void (*zcm_msg_handler_t)(const zcm_recv_buf_t* rbuf,
                                   const char* channel, void* usr);
 
+/* Note: some language bindings depend on the specific memory layout
+ *       of ZCM structures. If you change these, be sure to update
+ *       language bindings to match. */
+
 /* Primary ZCM object that handles all top-level interactions including
    delegation between blocking and non-blocking interfaces */
 struct zcm_t

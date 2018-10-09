@@ -5,6 +5,8 @@
 #include "util/StringUtil.hpp"
 #include "util/FileUtil.hpp"
 
+#include <iostream>
+
 static string dotsToSlashes(const string& s)
 {
     return StringUtil::replace(s, '.', '/');
@@ -12,10 +14,12 @@ static string dotsToSlashes(const string& s)
 
 void setupOptionsJava(GetOpt& gopt)
 {
-    gopt.addString(0,   "jpath",     "",         "Java file destination directory");
-    gopt.addBool(0,    "jmkdir",     1,         "Make java source directories automatically");
-    gopt.addString(0,   "jdecl",      "implements zcm.zcm.ZCMEncodable", "String added to class declarations");
-    gopt.addString(0,   "jdefaultpkg", "zcmtypes", "Default Java package if ZCM type has no package");
+    gopt.addString(0, "jpath",      "",        "Java file destination directory");
+    gopt.addBool(0,   "jmkdir",     1,         "Make java source directories automatically");
+    gopt.addString(0, "jdecl",      "implements zcm.zcm.ZCMEncodable", "String added to class declarations");
+    gopt.addString(0, "jpkgprefix", "zcmtypes",
+                      "Java package prefix, all types/packages will be inside this. "
+                      "Comes *before* global pkg-prefix if both specified.");
 }
 
 struct PrimInfo
@@ -28,11 +32,11 @@ struct PrimInfo
         storage(storage), decode(decode), encode(encode) {}
 };
 
-string makeFqn(ZCMGen& zcm, const string& typeName)
+string makeFqn(const ZCMGen& zcm, const string& typeName)
 {
     string ret = "";
-    if (zcm.gopt->wasSpecified("jdefaultpkg"))
-        ret += zcm.gopt->getString("jdefaultpkg") + ".";
+    if (zcm.gopt->wasSpecified("jpkgprefix"))
+        ret += zcm.gopt->getString("jpkgprefix") + ".";
     return ret + typeName;
 }
 
@@ -51,7 +55,7 @@ static string specialReplace(const string& haystack, const string& replace1)
     return ret;
 }
 
-static string makeAccessor(ZCMMember& zm, const string& obj)
+static string makeAccessor(const ZCMMember& zm, const string& obj)
 {
     string ret;
     ret += obj + (obj.size() == 0 ? "" : ".") + zm.membername;
@@ -64,7 +68,7 @@ static string makeAccessor(ZCMMember& zm, const string& obj)
 }
 
 /** Make an accessor that points to the last array **/
-static string makeAccessorArray(ZCMMember& zm, const string& obj)
+static string makeAccessorArray(const ZCMMember& zm, const string& obj)
 {
     string ret;
     ret += obj + (obj.size() == 0 ? "" : ".") + zm.membername;
@@ -76,7 +80,7 @@ static string makeAccessorArray(ZCMMember& zm, const string& obj)
     return ret;
 }
 
-static bool structHasStringMember(ZCMStruct& zs)
+static bool structHasStringMember(const ZCMStruct& zs)
 {
     for (auto& zm : zs.members)
         if (zm.type.fullname == "string")
@@ -161,13 +165,13 @@ static TypeTable typeTable;
 
 struct EmitStruct : public Emitter
 {
-    ZCMGen& zcm;
-    ZCMStruct& zs;
+    const ZCMGen& zcm;
+    const ZCMStruct& zs;
 
-    EmitStruct(ZCMGen& zcm, ZCMStruct& zs, const string& fname):
+    EmitStruct(const ZCMGen& zcm, const ZCMStruct& zs, const string& fname):
         Emitter(fname), zcm(zcm), zs(zs) {}
 
-    void encodeRecursive(ZCMMember& zm, PrimInfo* pinfo, const string& accessor, int depth)
+    void encodeRecursive(const ZCMMember& zm, PrimInfo* pinfo, const string& accessor, int depth)
     {
         int ndims = (int)zm.dimensions.size();
 
@@ -207,7 +211,7 @@ struct EmitStruct : public Emitter
         emit(2+depth, "}");
     }
 
-    void decodeRecursive(ZCMMember& zm, PrimInfo* pinfo, const string& accessor, int depth)
+    void decodeRecursive(const ZCMMember& zm, PrimInfo* pinfo, const string& accessor, int depth)
     {
         int ndims = (int)zm.dimensions.size();
 
@@ -244,7 +248,7 @@ struct EmitStruct : public Emitter
         emit(2+depth, "}");
     }
 
-    void copyRecursive(ZCMMember& zm, PrimInfo* pinfo, const string& accessor, int depth)
+    void copyRecursive(const ZCMMember& zm, PrimInfo* pinfo, const string& accessor, int depth)
     {
         int ndims = (int)zm.dimensions.size();
 
@@ -312,8 +316,8 @@ struct EmitStruct : public Emitter
         emit(0, "");
 
         string package = "";
-        if (zcm.gopt->wasSpecified("jdefaultpkg"))
-            package += zcm.gopt->getString("jdefaultpkg");
+        if (zcm.gopt->wasSpecified("jpkgprefix"))
+            package += zcm.gopt->getString("jpkgprefix");
         if (zs.structname.package.size() > 0)
         {
             if (package != "") package += ".";
@@ -551,7 +555,7 @@ struct EmitStruct : public Emitter
     }
 };
 
-int emitJava(ZCMGen& zcm)
+int emitJava(const ZCMGen& zcm)
 {
     if (zcm.gopt->getBool("little-endian-encoding")) {
         printf("Java does not currently support little endian encoding\n");
@@ -565,10 +569,10 @@ int emitJava(ZCMGen& zcm)
     //////////////////////////////////////////////////////////////
     // STRUCTS
     for (auto& zs : zcm.structs) {
-        if (!zcm.gopt->wasSpecified("jdefaultpkg") &&
+        if (!zcm.gopt->wasSpecified("jpkgprefix") &&
             zs.structname.fullname.find('.') == string::npos) {
             fprintf(stderr, "Please provide a java package for the output java classes -- "
-                            "either via the \"--jdefaultpkg\" flag or inside the type itself\n");
+                            "either via the \"--jpkgprefix\" flag or inside the type itself\n");
             return -2;
         }
 
@@ -590,4 +594,28 @@ int emitJava(ZCMGen& zcm)
     }
 
     return 0;
+}
+
+vector<string> getFilepathsJava(const ZCMGen& zcm)
+{
+    vector<string> ret;
+
+    string jpath = zcm.gopt->getString("jpath");
+    string jpathPrefix = jpath + (jpath.size() > 0 ? "/" : "");
+
+    for (auto& zs : zcm.structs) {
+        if (!zcm.gopt->wasSpecified("jpkgprefix") &&
+            zs.structname.fullname.find('.') == string::npos) {
+            fprintf(stderr, "Please provide a java package for the output java classes -- "
+                            "either via the \"--jpkgprefix\" flag or inside the type itself\n");
+            return {};
+        }
+
+        string classname = makeFqn(zcm, zs.structname.fullname);
+        string path = jpathPrefix + dotsToSlashes(classname) + ".java";
+
+        ret.push_back(path);
+    }
+
+    return ret;
 }

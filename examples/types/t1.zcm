@@ -1,0 +1,5 @@
+package foo;
+struct t1 {
+    // Testing comment
+	t2 x;
+}

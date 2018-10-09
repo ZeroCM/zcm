@@ -9,6 +9,10 @@ extern "C" {
 #include <stdio.h>
 #include <stdint.h>
 
+/* Note: some language bindings depend on the specific memory layout
+ *       of ZCM structures. If you change these, be sure to update
+ *       language bindings to match. */
+
 typedef struct _zcm_eventlog_event_t zcm_eventlog_event_t;
 struct _zcm_eventlog_event_t
 {

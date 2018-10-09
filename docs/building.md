@@ -30,6 +30,7 @@ modern linux systems.
    package because of the debian renaming of the "node" executable to "nodejs"
    will cause build problems.
  - Python: used for python language bindings
+ - Julia: used for julia language bindings
  - elf: used by some tools for runtime loading of shared libraries of zcmtypes
  - clang: development tool used for testing zcm with clang's addresss and thread sanitizers
  - cxxtest: development tool used for verifying zcm core code

@@ -89,6 +89,9 @@ def build(ctx):
     if ctx.env.USING_PYTHON:
         ctx.recurse('python')
 
+    if ctx.env.USING_JULIA:
+        ctx.recurse('julia')
+
     if ctx.env.USING_CXXTEST:
         ctx.cxxtest(use = ['zcm', 'testzcmtypes'])
 

@@ -1,0 +1,4 @@
+package foo.bar;
+struct t3 {
+	.unpackaged_t x;
+}

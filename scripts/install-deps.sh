@@ -41,6 +41,9 @@ PKGS+='cxxtest '
 ## Clang tools for code sanitizers, style checkers, etc.
 PKGS+='clang '
 
+## Julia
+PKGS+='julia '
+
 echo "Updating apt repos"
 sudo apt-get update
 ret=$?

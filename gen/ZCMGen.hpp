@@ -17,8 +17,8 @@ struct ZCMTypename
     string package;   // package name, e.g., "com.foo.prj"
     string shortname; // e.g., "laser"
 
-    ZCMTypename(ZCMGen& zcmgen, const string& lctypename);
-    void dump();
+    ZCMTypename(ZCMGen& zcmgen, const string& name, bool skipPrefix = false);
+    void dump() const;
 
     static bool isSame(const ZCMTypename& a, const ZCMTypename& b)
     { return a.fullname == b.fullname; }
@@ -66,9 +66,9 @@ struct ZCMMember
     string comment;
 
     // Are all of the dimensions of this array constant? (scalars return true)
-    bool isConstantSizeArray();
+    bool isConstantSizeArray() const;
 
-    void dump();
+    void dump() const;
     ZCMMember(const ZCMTypename& type, const string& membername) :
         type(type), membername(membername)
     {}
@@ -92,7 +92,7 @@ struct ZCMConstant
     // attached to the constant.
     string comment;
 
-    bool isFixedPoint();
+    bool isFixedPoint() const;
 
     ZCMConstant(const string& type, const string& name, const string& valstr);
 };
@@ -119,30 +119,30 @@ struct ZCMStruct
     // Returns the constant of a struct by name. Returns NULL on error.
     ZCMConstant* findConst(const string& name);
 
-    u64 computeHash();
+    u64 computeHash() const;
 
-    void dump();
+    void dump() const;
     ZCMStruct(ZCMGen& zcmgen, const string& zcmfile, const string& structname);
 };
 
 struct ZCMGen
 {
-    string             package;
-
     GetOpt*            gopt = nullptr;
     vector<ZCMStruct>  structs;
 
-    string             comment;
+    // Semi-temporary variables used while parsing, not used once structs are parsed
+    mutable string     package;
+    mutable string     comment;
 
     // create a new parsing context.
     ZCMGen();
 
     // Returns true if the "lazy" option is enabled AND the file "outfile" is
     // older than the file "declaringfile"
-    bool needsGeneration(const string& declaringfile, const string& outfile);
+    bool needsGeneration(const string& declaringfile, const string& outfile) const;
 
     // for debugging, emit the contents to stdout
-    void dump();
+    void dump() const;
 
     // parse the provided file
     int handleFile(const string& path);

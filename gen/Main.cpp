@@ -11,35 +11,41 @@ extern "C" {
 int main(int argc, char* argv[])
 {
     GetOpt gopt;
-    gopt.addBool('h',  "help",     0,    "Show this help");
-    gopt.addBool('t',  "tokenize", 0,    "Show tokenization");
-    gopt.addBool(0,    "package",  0,    "Show only package");
-    gopt.addBool('d',  "debug",    0,    "Show parsed file");
-    gopt.addBool(0,    "lazy",     0,    "Generate output file only if .zcm is newer");
-    gopt.addString(0,    "package-prefix",     "",
+    gopt.addBool('h', "help",                   0,  "Show this help");
+    gopt.addBool('t', "tokenize",               0,  "Show tokenization");
+    gopt.addBool(0,   "package",                0,  "Show only package");
+    gopt.addBool(0,   "output-files",           0,  "Show output filenames only");
+    gopt.addBool('d', "debug",                  0,  "Show parsed file");
+    gopt.addBool(0,   "lazy",                   0,  "Generate output file only if .zcm is newer");
+    gopt.addString(0, "package-prefix",         "",
                       "Add this package name as a prefix to the declared package");
-    gopt.addBool(0,  "little-endian-encoding", 0, "Encode and decode network traffic in little endian format");
-    gopt.addBool(0,  "version",    0,    "Show version information and exit");
+    gopt.addBool(0,   "little-endian-encoding", 0,
+                      "Encode and decode network traffic in little endian format");
+    gopt.addBool(0,   "version",                0,  "Show version information and exit");
 
     gopt.addSpacer("**** C options ****");
-    gopt.addBool('c', "c",         0,     "Emit C code");
+    gopt.addBool('c', "c",         0,    "Emit C code");
     setupOptionsC(gopt);
 
     gopt.addSpacer("**** C++ options ****");
-    gopt.addBool('x', "cpp",       0,     "Emit C++ code");
+    gopt.addBool('x', "cpp",       0,    "Emit C++ code");
     setupOptionsCpp(gopt);
 
     gopt.addSpacer("**** Java options ****");
-    gopt.addBool('j', "java",      0,     "Emit Java code");
+    gopt.addBool('j', "java",      0,    "Emit Java code");
     setupOptionsJava(gopt);
 
     gopt.addSpacer("**** Python options ****");
-    gopt.addBool('p', "python",    0,     "Emit Python code");
+    gopt.addBool('p', "python",    0,    "Emit Python code");
     setupOptionsPython(gopt);
 
     gopt.addSpacer("**** Node.js options ****");
-    gopt.addBool('n', "node",      0,     "Emit Node.js code");
+    gopt.addBool('n', "node",      0,    "Emit Node.js code");
     setupOptionsNode(gopt);
+
+    gopt.addSpacer("**** Julia options ****");
+    gopt.addBool('u', "julia",     0,    "Emit Julia code");
+    setupOptionsJulia(gopt);
 
     bool parseSuccess = gopt.parse(argc, argv, 1);
     if (!parseSuccess || gopt.getBool("help")) {
@@ -91,7 +97,12 @@ int main(int argc, char* argv[])
 
     if (gopt.getBool("c")) {
         did_something = 1;
-        if (emitC(zcm)) {
+        if (gopt.getBool("output-files")) {
+            auto files = getFilepathsC(zcm);
+            for (auto& f : files) {
+                printf("%s\n", f.c_str());
+            }
+        } else if (emitC(zcm)) {
             printf("An error occurred while emitting C code.\n");
             ret = 1;
         }
@@ -99,7 +110,12 @@ int main(int argc, char* argv[])
 
     if (gopt.getBool("cpp")) {
         did_something = 1;
-        if (emitCpp(zcm)) {
+        if (gopt.getBool("output-files")) {
+            auto files = getFilepathsCpp(zcm);
+            for (auto& f : files) {
+                printf("%s\n", f.c_str());
+            }
+        } else if (emitCpp(zcm)) {
             printf("An error occurred while emitting C++ code.\n");
             ret = 1;
         }
@@ -107,24 +123,52 @@ int main(int argc, char* argv[])
 
     if (gopt.getBool("java")) {
         did_something = 1;
-        if (emitJava(zcm)) {
+        if (gopt.getBool("output-files")) {
+            auto files = getFilepathsJava(zcm);
+            for (auto& f : files) {
+                printf("%s\n", f.c_str());
+            }
+        } else if (emitJava(zcm)) {
             printf("An error occurred while emitting Java code.\n");
             ret = 1;
         }
     }
 
-     if (gopt.getBool("python")) {
-         did_something = 1;
-         if (emitPython(zcm)) {
-             printf("An error occurred while emitting Python code.\n");
-             ret = 1;
-         }
-     }
+    if (gopt.getBool("python")) {
+        did_something = 1;
+        if (gopt.getBool("output-files")) {
+           auto files = getFilepathsPython(zcm);
+           for (auto& f : files) {
+               printf("%s\n", f.c_str());
+           }
+        } else if (emitPython(zcm)) {
+            printf("An error occurred while emitting Python code.\n");
+            ret = 1;
+        }
+    }
 
     if (gopt.getBool("node")) {
         did_something = 1;
-        if (emitNode(zcm)) {
+        if (gopt.getBool("output-files")) {
+            auto files = getFilepathsNode(zcm);
+            for (auto& f : files) {
+                printf("%s\n", f.c_str());
+            }
+        } else if (emitNode(zcm)) {
             printf("An error occurred while emitting Node.js code.\n");
+            ret = 1;
+        }
+    }
+
+    if (gopt.getBool("julia")) {
+        did_something = 1;
+        if (gopt.getBool("output-files")) {
+            auto files = getFilepathsJulia(zcm);
+            for (auto& f : files) {
+                printf("%s\n", f.c_str());
+            }
+        } else if (emitJulia(zcm)) {
+            printf("An error occurred while emitting Julia code.\n");
             ret = 1;
         }
     }
