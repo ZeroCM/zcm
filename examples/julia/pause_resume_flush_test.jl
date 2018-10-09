@@ -5,7 +5,7 @@ using _example_t
 
 numReceived = 0
 function handler(rbuf, channel::String, msg::example_t)
-    println("Received message on channel: ", channel)
+    println("Received message on channel: ", channel, " at time ", msg.timestamp)
     global numReceived
     @assert (numReceived == msg.timestamp) "Received message with incorrect timestamp"
     numReceived = numReceived + 1
@@ -51,11 +51,15 @@ publish(zcm, "EXAMPLE", msg)
 
 sleep(0.5)
 
-@assert (numReceived == 3) "Received a message while paused"
+@assert (numReceived == 3) "Received a message while paused : $numReceived"
 
-flush(zcm)
+flush(zcm) # flushes messages out on publish
 
-@assert (numReceived == 6) "Did not receive all messages after flush"
+sleep(0.5)
+
+flush(zcm) # flushes message in on receive
+
+@assert (numReceived == 6) "Did not receive all messages after flush : $numReceived"
 
 resume(zcm)
 
@@ -72,6 +76,6 @@ stop(zcm)
 unsubscribe(zcm, sub)
 unsubscribe(zcm, sub2)
 
-@assert (numReceived == 9) "Did not receive all messages after resume"
+@assert (numReceived == 9) "Did not receive all messages after resume : $numReceived"
 
 println("Success!")

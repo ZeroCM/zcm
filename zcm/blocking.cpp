@@ -107,8 +107,8 @@ struct zcm_blocking
     void hndlThreadFunc();
 
     void dispatchMsg(zcm_msg_t* msg);
-    bool dispatchOneMessage();
-    bool sendOneMessage();
+    bool dispatchOneMessage(bool returnIfPaused);
+    bool sendOneMessage(bool returnIfPaused);
 
     // Mutexes protecting the ...OneMessage() functions
     mutex dispOneMutex;
@@ -160,6 +160,8 @@ struct zcm_blocking
     ThreadState_t hndlThreadState {THREAD_STATE_STOPPED};
 
     // These mutexes protect read and write access to the ThreadState flags
+    // (if you also want to hold the dispOneMutex or sendOneMutex, those mutexes must be locked
+    // before these ones)
     mutex sendStateMutex;
     mutex recvStateMutex;
     mutex hndlStateMutex;
@@ -349,7 +351,7 @@ int zcm_blocking_t::handle()
     }
 
     unique_lock<mutex> lk(dispOneMutex);
-    return dispatchOneMessage() ? ZCM_EOK : ZCM_EAGAIN;
+    return dispatchOneMessage(true) ? ZCM_EOK : ZCM_EAGAIN;
 }
 
 void zcm_blocking_t::pause()
@@ -498,7 +500,7 @@ int zcm_blocking_t::flush(bool block)
 
         sendQueue.enable();
         n = sendQueue.numMessages();
-        for (size_t i = 0; i < n; ++i) sendOneMessage();
+        for (size_t i = 0; i < n; ++i) sendOneMessage(false);
     }
 
     {
@@ -514,7 +516,7 @@ int zcm_blocking_t::flush(bool block)
 
         recvQueue.enable();
         n = recvQueue.numMessages();
-        for (size_t i = 0; i < n; ++i) dispatchOneMessage();
+        for (size_t i = 0; i < n; ++i) dispatchOneMessage(false);
     }
 
     return ZCM_EOK;
@@ -568,7 +570,7 @@ void zcm_blocking_t::sendThreadFunc()
             if (sendThreadState == THREAD_STATE_HALTING) break;
         }
         unique_lock<mutex> lk(sendOneMutex);
-        sendOneMessage();
+        sendOneMessage(true);
     }
 
     unique_lock<mutex> lk(sendStateMutex);
@@ -634,7 +636,7 @@ void zcm_blocking_t::hndlThreadFunc()
             if (hndlThreadState == THREAD_STATE_HALTING) break;
         }
         unique_lock<mutex> lk(dispOneMutex);
-        dispatchOneMessage();
+        dispatchOneMessage(true);
     }
 
     {
@@ -683,24 +685,34 @@ void zcm_blocking_t::dispatchMsg(zcm_msg_t* msg)
     }
 }
 
-bool zcm_blocking_t::dispatchOneMessage()
+bool zcm_blocking_t::dispatchOneMessage(bool returnIfPaused)
 {
     Msg* m = recvQueue.top();
     // If the Queue was forcibly woken-up, recheck the
     // running condition, and then retry.
     if (m == nullptr) return false;
 
+    if (returnIfPaused) {
+        unique_lock<mutex> lk(hndlStateMutex);
+        if (paused || hndlThreadState == THREAD_STATE_HALTING) return false;
+    }
+
     dispatchMsg(m->get());
     recvQueue.pop();
     return true;
 }
 
-bool zcm_blocking_t::sendOneMessage()
+bool zcm_blocking_t::sendOneMessage(bool returnIfPaused)
 {
     Msg* m = sendQueue.top();
     // If the Queue was forcibly woken-up, recheck the
     // running condition, and then retry.
     if (m == nullptr) return false;
+
+    if (returnIfPaused) {
+        unique_lock<mutex> lk(sendStateMutex);
+        if (paused || sendThreadState == THREAD_STATE_HALTING) return false;
+    }
 
     zcm_msg_t* msg = m->get();
     int ret = zcm_trans_sendmsg(zt, *msg);
