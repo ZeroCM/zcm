@@ -127,7 +127,7 @@ arrays. This includes nested types.</p>
 <h3>Recursive/Nested Types</h3>
 
 <p>Nested types are also encoded with zero overhead. Since the decoder knows the layout, there is no reason to encode
-type metadata.</p>
+type metadata. Circular type dependencies are not currently supported.</p>
 
 <h2>Type Hashes</h2>
 
@@ -230,6 +230,22 @@ will not belong to any package. This also allows the user to specify a member ty
 completely separate package by prepending a leading <code>.</code> before the package. For instance,
 if the zcmtype <code>qux</code> actually belonged to a package <code>quuz</code> (that is not part of <code>foo</code>),
 replacing <code>.qux</code> with <code>.quuz.qux</code> would properly specify the desired type.</p>
+
+<p>Note also that although some languages allow unqualified access to types from
+parent packages, the zcmtype specification does not. Specifically, for the following
+2 types, note that <code>t2</code> must specify its <code>t1</code> member as existing within the package
+<code>.foo</code> even though <code>t2</code> itself exists within a child package of <code>foo</code>.</p>
+
+<pre><code>package foo;
+struct t1 {
+    int8_t a;
+};
+
+package foo.bar;
+struct t2 {
+    .foo.t1 b;
+};
+</code></pre>
 
 <p><hr>
  <a style="margin-right: 1rem;" href="javascript:history.go(-1)">Back</a>
