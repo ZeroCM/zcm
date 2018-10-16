@@ -35,11 +35,16 @@ static void handler(const zcm_recv_buf_t *rbuf, const char *channel,
 
 static void send_msgs(zcm_t *zcm)
 {
-    example_t msg = {
-        .timestamp = 0,
-        .position = { 1, 2, 3 },
-        .orientation = { 1, 0, 0, 0 },
-    };
+    example_t msg = {};
+
+    msg.timestamp = 0,
+    msg.position[0] = 1;
+    msg.position[1] = 2;
+    msg.position[2] = 3;
+    msg.orientation[0] = 1;
+    msg.orientation[1] = 0;
+    msg.orientation[2] = 0;
+    msg.orientation[3] = 0;
 
     msg.num_ranges = NRANGES;
     msg.ranges = calloc(msg.num_ranges, sizeof(int16_t));

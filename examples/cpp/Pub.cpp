@@ -8,7 +8,7 @@ int main(int argc, char *argv[])
     if (!zcm.good())
         return 1;
 
-    example_t my_data;
+    example_t my_data {};
     my_data.timestamp = 0;
 
     my_data.position[0] = 1;

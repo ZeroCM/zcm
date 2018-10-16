@@ -41,11 +41,16 @@ int main(int argc, char *argv[])
 
     example_t_subscription_t* exSub = example_t_subscribe(&zcm, "EXAMPLE", &my_handler, NULL);
 
-    example_t my_data = {
-        .timestamp = 0,
-        .position = { 1, 2, 3 },
-        .orientation = { 1, 0, 0, 0 },
-    };
+    example_t my_data = {};
+
+    my_data.timestamp = 0,
+    my_data.position[0] = 1;
+    my_data.position[1] = 2;
+    my_data.position[2] = 3;
+    my_data.orientation[0] = 1;
+    my_data.orientation[1] = 0;
+    my_data.orientation[2] = 0;
+    my_data.orientation[3] = 0;
 
     my_data.num_ranges = 15;
     my_data.ranges = calloc(my_data.num_ranges, sizeof(int16_t));
