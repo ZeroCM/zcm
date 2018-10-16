@@ -10,7 +10,7 @@ int main(int argc, char *argv[])
     if (!zcm.good())
         return 1;
 
-    test_package::packaged_t my_data;
+    test_package::packaged_t my_data {};
 
     my_data.packaged = true;
     my_data.a.packaged = true;

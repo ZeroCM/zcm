@@ -41,7 +41,7 @@ int main(int argc, char *argv[])
     Handler handlerObject;
     zcm.subscribe(".*", &Handler::handleMessage, &handlerObject);
 
-    example_t my_data;
+    example_t my_data {};
     my_data.timestamp = 0;
 
     my_data.position[0] = 1;

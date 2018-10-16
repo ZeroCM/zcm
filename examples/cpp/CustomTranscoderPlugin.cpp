@@ -45,7 +45,7 @@ CustomTranscoderPlugin::transcodeEvent(int64_t hash, const zcm::LogEvent* evt)
     example_t e;
     e.decode(evt->data, 0, evt->datalen);
 
-    example2_t e2;
+    example2_t e2 {};
 
     e2.timestamp2 = e.timestamp;
 

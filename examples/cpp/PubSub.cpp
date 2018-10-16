@@ -34,7 +34,7 @@ class Handler
 
 static void sendMessages(zcm::ZCM& zcm)
 {
-    example_t msg;
+    example_t msg {};
     msg.timestamp = 0;
 
     msg.position[0] = 1;
