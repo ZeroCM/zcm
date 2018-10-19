@@ -330,7 +330,7 @@ class zcmgen(Task.Task):
         inp = self.inputs[0]
         bldpath = gen.path.get_bld().abspath()
 
-        files = outFileNames(gen.bld, bldpath, inp,
+        files = outFileNames(gen.bld, bldpath, inp.abspath(),
                              pkgPrefix = gen.pkgPrefix,
                              javapkg   = gen.javapkg,
                              juliapkg  = gen.juliapkg,
