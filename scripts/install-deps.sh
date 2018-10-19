@@ -1,5 +1,22 @@
 #!/bin/bash
 
+#### Find the script directory regardless of symlinks, etc
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do # resolve $SOURCE until the file is no longer a symlink
+    DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+    SOURCE="$(readlink "$SOURCE")"
+    [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+    # if $SOURCE was a relative symlink, we need to resolve it relative
+    # to the path where the symlink file was located
+done
+THISDIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+ROOTDIR=${THISDIR%/scripts}
+####
+
+color_bold=`tput bold`
+color_redf=`tput setaf 1`
+color_reset=`tput sgr0`
+
 STRICT=true
 SINGLE_MODE=false
 while getopts "is" opt; do
@@ -10,8 +27,13 @@ while getopts "is" opt; do
     esac
 done
 
+mkdir -p $ROOTDIR/deps
+
 PKGS=''
 PIP_PKGS=''
+
+## Dependency dependencies
+PKGS+='wget '
 
 ## Waf dependencies
 PKGS+='pkg-config '
@@ -25,9 +47,6 @@ PKGS+='libzmq3-dev '
 ## Java
 PKGS+='default-jdk default-jre '
 
-## Node
-PKGS+='nodejs nodejs-legacy npm '
-
 ## Python
 PKGS+='python python-pip '
 PIP_PKGS+='Cython '
@@ -40,9 +59,6 @@ PKGS+='cxxtest '
 
 ## Clang tools for code sanitizers, style checkers, etc.
 PKGS+='clang '
-
-## Julia
-PKGS+='julia '
 
 echo "Updating apt repos"
 sudo apt-get update
@@ -74,11 +90,45 @@ if [[ $ret -ne 0 && "$STRICT" == "true" ]]; then
     exit $ret
 fi
 
-sudo pip install $PIP_PKGS
+pip install --user $PIP_PKGS
 ret=$?
 if [[ $ret -ne 0 && "$STRICT" == "true" ]]; then
     echo "Failed to install pip packages"
     exit $ret
+fi
+
+## Node
+bash -i -c "which node" > /dev/null 2>&1
+nodeExists=$?
+if [ $nodeExists -ne 0 ]; then
+    echo "Installing NVM"
+    unset NVM_DIR
+    NVM_INSTALL=$(wget -qO- https://raw.githubusercontent.com/creationix/nvm/v0.33.11/install.sh)
+    echo "$NVM_INSTALL" | bash -i
+    bash -i -c "nvm install 4.2.6 && nvm alias default 4.2.6"
+else
+    echo "Found node on system. Skipping install"
+fi
+
+## Julia
+juliaVersion=$(julia --version | xargs | cut -d ' ' -f 3 2>/dev/null)
+ret=$?
+if [[ $ret -ne 0 || "$juliaVersion" != "0.6.4" ]]; then
+    echo "Installing julia"
+    tmpdir=$(mktemp -d)
+    pushd $tmpdir > /dev/null
+    wget https://julialang-s3.julialang.org/bin/linux/x64/0.6/julia-0.6.4-linux-x86_64.tar.gz
+    tar -xaf julia-0.6.4-linux-x86_64.tar.gz
+    mv julia-9d11f62bcb $ROOTDIR/deps/
+    popd > /dev/null
+    rm -rf $tmpdir
+    echo "Julia has been downloaded to $ROOTDIR/deps"
+    echo -n "$color_bold$color_redf"
+    echo    "You must add the following to your ~/.bashrc:"
+    echo    "    PATH=\$PATH:$ROOTDIR/deps/julia-9d11f62bcb/bin"
+    echo -n "$color_reset"
+else
+    echo "Found julia on system. Skipping install"
 fi
 
 echo "Updating db"

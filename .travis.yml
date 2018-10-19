@@ -8,17 +8,9 @@ before_install:
   - sudo apt-get install -y --allow-unauthenticated g++-5
   - sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-5 90
   - ./scripts/install-deps.sh -i -s
-  - sudo apt-get remove julia
-  - sudo apt-get remove --purge julia
   - sudo apt-get autoremove
-  - tmpdir=$(mktemp -d)
-  - pushd $tmpdir
-  - sudo apt-get install wget
-  - wget https://julialang-s3.julialang.org/bin/linux/x64/0.6/julia-0.6.4-linux-x86_64.tar.gz
-  - tar -xaf julia-0.6.4-linux-x86_64.tar.gz
-  - export PATH=$PATH:`pwd`/julia-9d11f62bcb/bin
+  - export PATH=$PATH:`pwd`/deps/julia-9d11f62bcb/bin
   - sudo updatedb
-  - popd
   - git clone https://github.com/CxxTest/cxxtest.git
   - export PATH=$PATH:`pwd`/cxxtest/bin/; export LIBRARY_PATH=$LIBRARY_PATH:`pwd`/cxxtest/
   - sudo apt-get remove --purge clang
