@@ -6,7 +6,8 @@ while [ -h "$SOURCE" ]; do # resolve $SOURCE until the file is no longer a symli
   SOURCE="$(readlink "$SOURCE")"
   [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE" # if $SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
 done
-DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+THISDIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+ROOTDIR=${THISDIR%/examples}
 
 prefix="/usr/local"
 if [[ $1 != "" ]]; then
@@ -17,9 +18,29 @@ export ASAN_SYMBOLIZER_PATH=/usr/bin/llvm-symbolizer
 export ASAN_OPTIONS=check_initialization_order=1
 export CLASSPATH=$CLASSPATH:$prefix/share/java/zcm.jar
 export CLASSPATH=$CLASSPATH:$prefix/share/java/zcm-tools.jar
-export CLASSPATH=$CLASSPATH:$DIR/build/types/examplezcmtypes.jar
-export CLASSPATH=$CLASSPATH:$DIR/build/types/examplezcmtypespfx.jar
-export CLASSPATH=$CLASSPATH:$DIR/build/java/example.jar
-export ZCM_SPY_LITE_PATH=$DIR/build/types/libexamplezcmtypes.so
+export CLASSPATH=$CLASSPATH:$THISDIR/build/types/examplezcmtypes.jar
+export CLASSPATH=$CLASSPATH:$THISDIR/build/types/examplezcmtypespfx.jar
+export CLASSPATH=$CLASSPATH:$THISDIR/build/java/example.jar
+export ZCM_SPY_LITE_PATH=$THISDIR/build/types/libexamplezcmtypes.so
 export ZCM_DEFAULT_URL=ipc
 export JULIA_LOAD_PATH="$JULIA_LOAD_PATH:$prefix/share/julia"
+
+checkJuliaInstall()
+{
+    juliaVersion=$(julia --version 2>/dev/null)
+    juliaExists=$?
+    juliaVersion=$(echo "$juliaVersion" | xargs | cut -d ' ' -f 3)
+    if [ $juliaExists -ne 0 ] || [ "$juliaVersion" != "0.6.4" ]; then
+        return 1
+    else
+        return 0
+    fi
+}
+checkJuliaInstall
+ret=$?
+if [ $ret -ne 0 ]; then
+    export PATH=$PATH:$ROOTDIR/deps/julia-9d11f62bcb/bin
+    checkJuliaInstall
+    ret=$?
+    if [ $ret -ne 0 ]; then echo "Unable to find julia"; fi
+fi
