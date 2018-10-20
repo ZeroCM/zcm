@@ -111,9 +111,20 @@ else
 fi
 
 ## Julia
-juliaVersion=$(julia --version | xargs | cut -d ' ' -f 3 2>/dev/null)
+checkJuliaInstall()
+{
+    juliaVersion=$(julia --version 2>/dev/null)
+    juliaExists=$?
+    juliaVersion=$(echo "$juliaVersion" | xargs | cut -d ' ' -f 3)
+    if [ $juliaExists -ne 0 ] || [ "$juliaVersion" != "0.6.4" ]; then
+        return 1
+    else
+        return 0
+    fi
+}
+checkJuliaInstall
 ret=$?
-if [[ $ret -ne 0 || "$juliaVersion" != "0.6.4" ]]; then
+if [ $ret -ne 0 ]; then
     echo "Installing julia"
     tmpdir=$(mktemp -d)
     pushd $tmpdir > /dev/null
