@@ -23,6 +23,20 @@ using namespace std;
 
 #define RECV_TIMEOUT 100
 
+// Define a macro to set thread names. The function call is
+// different for some operating systems
+#ifdef __linux__
+    #define SET_THREAD_NAME(name) pthread_setname_np(pthread_self(),name)
+#elif __FreeBSD__ || __OpenBSD__
+    #include <pthread_np.h>
+    #define SET_THREAD_NAME(name) pthread_set_name_np(pthread_self(),name)
+#elif __APPLE__ || __MACH__
+    #define SET_THREAD_NAME(name) pthread_setname_np(name)
+#else
+    // If the OS is not in this list, don't call anything
+    #define SET_THREAD_NAME(name)
+#endif
+
 // A C++ class that manages a zcm_msg_t*
 struct Msg
 {
@@ -561,6 +575,9 @@ int zcm_blocking_t::setQueueSize(uint32_t numMsgs, bool block)
 
 void zcm_blocking_t::sendThreadFunc()
 {
+    // Name the send thread
+    SET_THREAD_NAME("ZeroCM_sender");
+
     while (true) {
         {
             unique_lock<mutex> lk(sendStateMutex);
@@ -579,6 +596,9 @@ void zcm_blocking_t::sendThreadFunc()
 
 void zcm_blocking_t::recvThreadFunc()
 {
+    // Name the recv thread
+    SET_THREAD_NAME("ZeroCM_receiver");
+
     while (true) {
         {
             unique_lock<mutex> lk(recvStateMutex);
@@ -619,6 +639,9 @@ void zcm_blocking_t::recvThreadFunc()
 
 void zcm_blocking_t::hndlThreadFunc()
 {
+    // Name the handle thread
+    SET_THREAD_NAME("ZeroCM_handler");
+
     {
         // Spawn the recv thread
         unique_lock<mutex> lk(recvStateMutex);
