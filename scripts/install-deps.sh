@@ -90,7 +90,7 @@ if [[ $ret -ne 0 && "$STRICT" == "true" ]]; then
     exit $ret
 fi
 
-pip install --user $PIP_PKGS
+sudo pip install $PIP_PKGS
 ret=$?
 if [[ $ret -ne 0 && "$STRICT" == "true" ]]; then
     echo "Failed to install pip packages"
