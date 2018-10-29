@@ -300,13 +300,6 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             } else if (*rawStr == "false") {
                 raw = false;
             } else {
-                // RRR (Bendes) I'd fail on arguments where specifying it
-                //              incorrectly probably means something very
-                //              unintentional is going to happen
-                // RRR (Isaac)  It's a little subtle, but returning early from
-                //              this constructor actually is "failing" because
-                //              calls to "good()" will fail if the serial port
-                //              isn't open
                 ZCM_DEBUG("expected boolean argument for 'raw'");
                 return;
             }
@@ -376,8 +369,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     { return TimeUtil::utime(); }
 
     /********************** METHODS **********************/
-    size_t getMtu() // RRR (Bendes) Isn't MTU just the raw size if you're in raw mode?
-    // RRR (Isaac)  No, raw_size is only on the receive end, nothing stops you from sending more
+    size_t getMtu()
     { return raw ? MTU : zcm_trans_get_mtu(this->gst); }
 
     int sendmsg(zcm_msg_t msg)
