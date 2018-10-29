@@ -303,6 +303,10 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
                 // RRR (Bendes) I'd fail on arguments where specifying it
                 //              incorrectly probably means something very
                 //              unintentional is going to happen
+                // RRR (Isaac)  It's a little subtle, but returning early from
+                //              this constructor actually is "failing" because
+                //              calls to "good()" will fail if the serial port
+                //              isn't open
                 ZCM_DEBUG("expected boolean argument for 'raw'");
                 return;
             }
@@ -373,6 +377,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
     /********************** METHODS **********************/
     size_t getMtu() // RRR (Bendes) Isn't MTU just the raw size if you're in raw mode?
+    // RRR (Isaac)  No, raw_size is only on the receive end, nothing stops you from sending more
     { return raw ? MTU : zcm_trans_get_mtu(this->gst); }
 
     int sendmsg(zcm_msg_t msg)
@@ -404,9 +409,6 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             msg->utime   = timestamp_now(this);
             msg->channel = rawChan.c_str();
             msg->len     = sz;
-            // RRR: is it ok to share the mem here?
-            // RRR (Bendes) I think this is very standard.
-            //              I don't know how else it would work.
             msg->buf     = rawBuf.get();
 
             return ZCM_EOK;
