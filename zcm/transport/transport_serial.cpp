@@ -300,6 +300,9 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             } else if (*rawStr == "false") {
                 raw = false;
             } else {
+                // RRR (Bendes) I'd fail on arguments where specifying it
+                //              incorrectly probably means something very
+                //              unintentional is going to happen
                 ZCM_DEBUG("expected boolean argument for 'raw'");
                 return;
             }
@@ -369,7 +372,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     { return TimeUtil::utime(); }
 
     /********************** METHODS **********************/
-    size_t getMtu()
+    size_t getMtu() // RRR (Bendes) Isn't MTU just the raw size if you're in raw mode?
     { return raw ? MTU : zcm_trans_get_mtu(this->gst); }
 
     int sendmsg(zcm_msg_t msg)
@@ -392,8 +395,9 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
     int recvmsg(zcm_msg_t* msg, int timeoutMs)
     {
+        timeoutLeft = timeoutMs > 0 ? timeoutMs * 1e3 : numeric_limits<uint64_t>::max();
+
         if (raw) {
-            timeoutLeft = timeoutMs > 0 ? timeoutMs * 1e3 : numeric_limits<uint64_t>::max();
             size_t sz = get(rawBuf.get(), rawSize, this);
             if (sz == 0 || rawChan.empty()) return ZCM_EAGAIN;
 
@@ -401,11 +405,12 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             msg->channel = rawChan.c_str();
             msg->len     = sz;
             // RRR: is it ok to share the mem here?
+            // RRR (Bendes) I think this is very standard.
+            //              I don't know how else it would work.
             msg->buf     = rawBuf.get();
 
             return ZCM_EOK;
         } else {
-            timeoutLeft = timeoutMs > 0 ? timeoutMs * 1e3 : numeric_limits<uint64_t>::max();
             do {
                 uint64_t startUtime = TimeUtil::utime();
 
