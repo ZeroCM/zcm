@@ -54,6 +54,25 @@ static string mapTypeName(const string& t, const string& pkgPrefix = "")
     }
 }
 
+// Returns if input is a reserved julia keyword
+static bool isKeyword(const string& s)
+{
+    vector<string> reserved { "begin", "while", "if", "for", "try", "return",
+                              "break", "continue", "function", "macro", "quote",
+                              "let", "local", "global", "const", "do", "struct",
+                              "abstract", "typealias", "bitstype", "type",
+                              "immutable", "module", "baremodule", "using",
+                              "import", "export", "importall", "end", "else",
+                              "catch", "finally", "true", "false" };
+
+    return (find(reserved.begin(), reserved.end(), s) != reserved.end());
+}
+
+static string fixKeywords(const string& s)
+{
+    return isKeyword(s) ? ('_' + s) : s;
+}
+
 static string topLevelPackage(const string& package)
 {
     auto packageParts = StringUtil::split(package, '.');
@@ -245,11 +264,13 @@ struct EmitJuliaType : public Emitter
                     mappedTypename = "ZCM.AbstractZcmType";
                 }
 
+                string fixedMembername = fixKeywords(zm.membername);
+
                 int ndim = (int)zm.dimensions.size();
                 if (ndim == 0) {
-                    emitStart(1, "%-30s::%s", zm.membername.c_str(), mappedTypename.c_str());
+                    emitStart(1, "%-30s::%s", fixedMembername.c_str(), mappedTypename.c_str());
                 } else {
-                    emitStart(1, "%-30s::Array{%s,%u}", zm.membername.c_str(),
+                    emitStart(1, "%-30s::Array{%s,%u}", fixedMembername.c_str(),
                                                         mappedTypename.c_str(), ndim);
                 }
 
@@ -272,7 +293,8 @@ struct EmitJuliaType : public Emitter
             for (auto& zc : zs.constants) {
                 assert(ZCMGen::isLegalConstType(zc.type));
                 string mt = mapTypeName(zc.type);
-                emit(1, "%-30s::%s", zc.membername.c_str(), mt.c_str(), zc.valstr.c_str());
+                string fm = fixKeywords(zc.membername);
+                emit(1, "%-30s::%s", fm.c_str(), mt.c_str(), zc.valstr.c_str());
             }
             emit(0, "");
         }
@@ -290,7 +312,8 @@ struct EmitJuliaType : public Emitter
             emit(2, "# **********************\n");
             for (size_t i = 0; i < zs.members.size(); ++i) {
                 auto& zm = zs.members[i];
-                emitStart(2, "self.%s = ", zm.membername.c_str());
+                string fm = fixKeywords(zm.membername);
+                emitStart(2, "self.%s = ", fm.c_str());
                 emitMemberInitializer(zm);
                 emitEnd("");
             }
@@ -306,7 +329,8 @@ struct EmitJuliaType : public Emitter
             for (auto& zc : zs.constants) {
                 assert(ZCMGen::isLegalConstType(zc.type));
                 string mt = mapTypeName(zc.type);
-                emitStart(2, "self.%s::%s = ", zc.membername.c_str(), mt.c_str());
+                string fm = fixKeywords(zc.membername);
+                emitStart(2, "self.%s::%s = ", fm.c_str(), mt.c_str());
                 if (zc.isFixedPoint() && zc.valstr.substr(0, 2) == "0x")
                     emitEnd("reinterpret(%s,%s)", mt.c_str(), zc.valstr.c_str());
                 else
@@ -453,17 +477,18 @@ struct EmitJuliaType : public Emitter
         for (auto& zm : zs.members) {
             auto& mtn = zm.type.fullname;
             string mappedTypename = mapTypeName(mtn, pkgPrefix);
+            string fixedMembername = fixKeywords(zm.membername);
 
             if (zm.dimensions.size() == 0) {
                 if (enableRuntimeAssertions && !zcm.isPrimitiveType(mtn))
                     emit(1, "@assert isa(msg.%s, %s) "
                             "\"Msg of type `%s` requires field `%s` to be of type `%s`\"",
-                            zm.membername.c_str(), mappedTypename.c_str(),
-                            fn, zm.membername.c_str(), mtn.c_str());
+                            fixedMembername.c_str(), mappedTypename.c_str(),
+                            fn, fixedMembername.c_str(), mtn.c_str());
 
-                emitEncodeSingleMember(zm, "msg." + zm.membername, 1);
+                emitEncodeSingleMember(zm, "msg." + fixedMembername, 1);
             } else {
-                string accessor = "msg." + zm.membername;
+                string accessor = "msg." + fixedMembername;
 
                 size_t n;
                 if (enableRuntimeAssertions) {
@@ -477,8 +502,8 @@ struct EmitJuliaType : public Emitter
                         emit(1, "@assert size(msg.%s,%d)==%s "
                                 "\"Msg of type `%s` requires field `%s` dimension `%d` "
                                 "to be size `%s`\"",
-                                zm.membername.c_str(), n + 1, sz.c_str(),
-                                fn, zm.membername.c_str(), n + 1,
+                                fixedMembername.c_str(), n + 1, sz.c_str(),
+                                fn, fixedMembername.c_str(), n + 1,
                                 sz.c_str());
                     }
                 }
@@ -610,11 +635,12 @@ struct EmitJuliaType : public Emitter
         emit(1,     "msg = %s();", sn);
 
         for (auto& zm : zs.members) {
+            string fixedMembername = fixKeywords(zm.membername);
             if (zm.dimensions.size() == 0) {
-                string accessor = "msg." + zm.membername + " = ";
+                string accessor = "msg." + fixedMembername + " = ";
                 emitDecodeSingleMember(zm, accessor.c_str(), 1, "");
             } else {
-                string accessor = "msg." + zm.membername;
+                string accessor = "msg." + fixedMembername;
                 size_t n = 0;
 
                 auto& mtn = zm.type.fullname;
