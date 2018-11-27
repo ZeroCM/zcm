@@ -406,16 +406,13 @@ static int _serial_update(zcm_trans_t *zt)
     return rxRet == ZCM_EOK ? txRet : rxRet;
 }
 
-static void _serial_destroy(zcm_trans_t *zt)
-{ free(cast(zt)); }
-
 static zcm_trans_methods_t methods = {
     &_serial_get_mtu,
     &_serial_sendmsg,
     &_serial_recvmsg_enable,
     &_serial_recvmsg,
     &_serial_update,
-    &_serial_destroy,
+    &zcm_trans_generic_serial_destroy,
 };
 
 static zcm_trans_generic_serial_t *cast(zcm_trans_t *zt)
