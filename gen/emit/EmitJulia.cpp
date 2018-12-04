@@ -307,7 +307,7 @@ struct EmitJuliaType : public Emitter
                 assert(ZCMGen::isLegalConstType(zc.type));
                 string mt = mapTypeName(zc.type);
                 emitStart(2, "self.%s::%s = ", zc.membername.c_str(), mt.c_str());
-                if (zc.isFixedPoint())
+                if (zc.isFixedPoint() && zc.valstr.substr(0, 2) == "0x")
                     emitEnd("reinterpret(%s,%s)", mt.c_str(), zc.valstr.c_str());
                 else
                     emitEnd("%s", zc.valstr.c_str());
