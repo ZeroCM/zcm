@@ -290,8 +290,10 @@ int main(int argc, char* argv[])
 
         cout << endl;
 
-        for (auto& p : pluginGroups[i])
+        for (auto& p : pluginGroups[i]) {
+            fseeko(log.getFilePtr(), 0, SEEK_SET);
             p.plugin->tearDown(index, index[p.plugin->name()], log);
+        }
     }
 
     delete defaultPlugin;
