@@ -65,6 +65,7 @@ bool IndexerPluginDb::findPlugins(const string& libname)
     SymtabElf stbl{libname};
     if (!stbl.good()) {
         ERROR("ERR: failed to load symbol table for ELF file\n");
+        dlclose(lib);
         return false;
     }
 
@@ -100,6 +101,8 @@ bool IndexerPluginDb::findPlugins(const string& libname)
     }
 
     DEBUG("Loaded %d plugins from %s\n", (int)plugins.size(), libname.c_str());
+
+    dlclose(lib);
 
     return true;
 }
