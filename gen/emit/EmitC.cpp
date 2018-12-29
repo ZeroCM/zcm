@@ -362,7 +362,7 @@ struct EmitSource : public Emit
     {
         const char* tn_ = zs.structname.nameUnderscoreCStr();
 
-        emit(0, "static int __%s_hash_computed;", tn_);
+        emit(0, "static int __%s_hash_computed = 0;", tn_);
         emit(0, "static uint64_t __%s_hash;", tn_);
         emit(0, "");
 
