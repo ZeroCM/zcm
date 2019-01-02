@@ -137,7 +137,8 @@ inline int ZCM::publish(const std::string& channel, const Msg* msg)
     uint32_t len = msg->getEncodedSize();
     uint8_t* buf = new uint8_t[len];
     if (!buf) return ZCM_EMEMORY;
-    if (msg->encode(buf, 0, len) != len) {
+    int encodeRet = msg->encode(buf, 0, len);
+    if (encodeRet < 0 || (uint32_t) encodeRet != len) {
         delete[] buf;
         return ZCM_EAGAIN;
     }
