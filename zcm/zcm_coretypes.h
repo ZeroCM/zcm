@@ -243,7 +243,7 @@ static inline uint32_t __int16_t_clone_array(const int16_t *p, int16_t *q, uint3
 static inline uint32_t __int32_t_encoded_array_size(const int32_t *p, uint32_t elements)
 {
     (void)p;
-    return ZCM_CORETYPES_INT16_NUM_BYTES_ON_BUS * elements;
+    return ZCM_CORETYPES_INT32_NUM_BYTES_ON_BUS * elements;
 }
 
 static inline int __int32_t_encode_array(void *_buf, uint32_t offset, uint32_t maxlen, const int32_t *p, uint32_t elements)
