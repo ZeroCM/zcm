@@ -556,7 +556,7 @@ struct Emit : public Emitter
                 for(int i = 0; i < ndim; ++i)
                     emitContinue("[a%d]", i);
                 if (mtn == "string") {
-                    emitEnd(".size() + 4 + 1;");
+                    emitEnd(".size() + ZCM_CORETYPES_INT32_NUM_BYTES_ON_BUS + ZCM_CORETYPES_INT8_NUM_BYTES_ON_BUS;");
                 } else {
                     emitEnd("._getEncodedSizeNoHash();");
                 }
@@ -612,7 +612,7 @@ struct Emit : public Emitter
                 emitStart(1 + depth, "this->%s", mn);
                 for(int i = 0; i < depth; ++i)
                     emitContinue("[a%d]", i);
-                emitEnd(".assign(((const char*)buf) + offset + pos, __elem_len -  1);");
+                emitEnd(".assign(((const char*)buf) + offset + pos, __elem_len - ZCM_CORETYPES_INT8_NUM_BYTES_ON_BUS);");
                 emit(1 + depth, "pos += __elem_len;");
             } else {
                 emitStart(1 + depth, "thislen = this->%s", mn);
@@ -668,7 +668,7 @@ struct Emit : public Emitter
                             mn);
                     emit(1, "if(thislen < 0) return thislen; else pos += thislen;");
                     emit(1, "if((uint32_t)__%s_len__ > maxlen - pos) return -1;", mn);
-                    emit(1, "this->%s.assign(((const char*)buf) + offset + pos, __%s_len__ - 1);", mn, mn);
+                    emit(1, "this->%s.assign(((const char*)buf) + offset + pos, __%s_len__ - ZCM_CORETYPES_INT8_NUM_BYTES_ON_BUS);", mn, mn);
                     emit(1, "pos += __%s_len__;", mn);
                 } else {
                     emit(1, "thislen = __%s_decode_%sarray(buf, offset + pos, maxlen - pos, &this->%s, 1);",
