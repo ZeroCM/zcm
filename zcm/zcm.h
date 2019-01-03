@@ -28,7 +28,8 @@ enum zcm_type {
     X(ZCM_ECONNECT,         3, "Transport connection failed"           ) \
     X(ZCM_EINTR   ,         4, "Operation was unexpectedly interrupted") \
     X(ZCM_EUNKNOWN,         5, "Unknown error"                         ) \
-    X(ZCM_NUM_RETURN_CODES, 6, "Invalid return code"                   )
+    X(ZCM_EMEMORY,          6, "Out of memory"                         ) \
+    X(ZCM_NUM_RETURN_CODES, 7, "Invalid return code"                   )
 
 /* Return codes */
 enum zcm_return_codes {
