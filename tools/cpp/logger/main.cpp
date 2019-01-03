@@ -80,8 +80,10 @@ struct Args
             switch (c) {
                 case 'b':
                     auto_split_mb = strtod(optarg, NULL);
-                    if (auto_split_mb <= 0)
+                    if (auto_split_mb <= 0) {
+                        cerr << "Please specify an auto split size greater than 0 MB" << endl;
                         return false;
+                    }
                     break;
                 case 'f':
                     force_overwrite = 1;
@@ -107,13 +109,17 @@ struct Args
                 case 'r': {
                     char* eptr = NULL;
                     rotate = strtol(optarg, &eptr, 10);
-                    if(*eptr)
+                    if (*eptr) {
+                        cerr << "Please specify a valid rotate maximum" << endl;
                         return false;
+                    }
                 } break;
                 case 'l':
                     fflush_interval_ms = atol(optarg);
-                    if (fflush_interval_ms <= 0)
+                    if (fflush_interval_ms <= 0) {
+                        cerr << "Please specify a flush interval greater than 0 ms" << endl;
                         return false;
+                    }
                     break;
                 case 'm':
                     max_target_memory = atoll(optarg);

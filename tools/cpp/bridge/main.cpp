@@ -192,7 +192,9 @@ struct Bridge
         zcmA = new zcm::ZCM(args.Aurl);
         if (!zcmA->good()) {
             cerr << "Couldn't initialize A endpoint ZCM network! "
-                    "Please check your A endpoint transport url." << endl << endl;
+                 << "Please check your A endpoint transport url: "
+                 << args.Aurl
+                 << endl << endl;
             delete zcmA;
             zcmA = nullptr;
             return false;
@@ -202,7 +204,9 @@ struct Bridge
         zcmB = new zcm::ZCM(args.Burl);
         if (!zcmB->good()) {
             cerr << "Couldn't initialize B endpoint ZCM network! "
-                    "Please check your B endpoint transport url." << endl << endl;
+                 << "Please check your B endpoint transport url: "
+                 << args.Burl
+                 << endl << endl;
             delete zcmB;
             zcmB = nullptr;
             return false;
