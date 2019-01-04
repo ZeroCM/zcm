@@ -52,8 +52,8 @@ enum ZCMDimensionMode {
 
 struct ZCMDimension
 {
-	ZCMDimensionMode mode;
-	string size;      // a string containing either a member variable name or a constant
+    ZCMDimensionMode mode;
+    string size;      // a string containing either a member variable name or a constant
 };
 
 struct ZCMMember
@@ -61,7 +61,7 @@ struct ZCMMember
     ZCMTypename    type;
     string         membername;
 
-	// A scalar is a 1-dimensional array of length 1.
+    // A scalar is a 1-dimensional array of length 1.
     vector<ZCMDimension> dimensions;
 
     // Comments in the ZCM type definition immediately before a member

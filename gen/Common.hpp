@@ -32,4 +32,4 @@ typedef int32_t   i32;
 typedef int64_t   i64;
 
 static void merge(unordered_set<string>& a, const unordered_set<string>& b)
-{ for (auto str : b) a.insert(str); }
+{ a.insert(b.begin(), b.end()); }
