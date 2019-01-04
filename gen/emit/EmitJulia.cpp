@@ -973,3 +973,14 @@ vector<string> getFilepathsJulia(const ZCMGen& zcm)
 
     return ret;
 }
+
+unordered_set<string> getReservedKeywordsJulia()
+{
+    return { "begin", "while", "if", "for", "try", "return",
+             "break", "continue", "function", "macro", "quote",
+             "let", "local", "global", "const", "do", "struct",
+             "abstract", "typealias", "bitstype", "type",
+             "immutable", "module", "baremodule", "using",
+             "import", "export", "importall", "end", "else",
+             "catch", "finally", "true", "false" };
+}

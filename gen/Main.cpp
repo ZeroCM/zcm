@@ -57,8 +57,16 @@ int main(int argc, char* argv[])
     ZCMGen zcm;
     zcm.gopt = &gopt;
 
+    unordered_set<string> reservedTokens;
+    merge(reservedTokens, getReservedKeywordsC());
+    merge(reservedTokens, getReservedKeywordsCpp());
+    merge(reservedTokens, getReservedKeywordsJava());
+    merge(reservedTokens, getReservedKeywordsPython());
+    merge(reservedTokens, getReservedKeywordsNode());
+    merge(reservedTokens, getReservedKeywordsJulia());
+
     for (auto& fname : gopt.extraargs)
-        if (int res = zcm.handleFile(fname))
+        if (int res = zcm.handleFile(fname, reservedTokens))
             return res;
 
     // If "--version" was specified, then show version information and exit.

@@ -323,6 +323,7 @@ type LogEvent
     function LogEvent(event::Ptr{Native.EventLogEvent})
         instance = new()
         instance.event = event
+        instance.valid = false
 
         if (event != C_NULL)
             loadedEvent = unsafe_load(event)
