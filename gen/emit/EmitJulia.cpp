@@ -272,8 +272,7 @@ struct EmitJuliaType : public Emitter
             for (auto& zc : zs.constants) {
                 assert(ZCMGen::isLegalConstType(zc.type));
                 string mt = mapTypeName(zc.type);
-                string fm = zc.membername;
-                emit(1, "%-30s::%s", fm.c_str(), mt.c_str(), zc.valstr.c_str());
+                emit(1, "%-30s::%s", zc.membername.c_str(), mt.c_str(), zc.valstr.c_str());
             }
             emit(0, "");
         }
@@ -291,8 +290,7 @@ struct EmitJuliaType : public Emitter
             emit(2, "# **********************\n");
             for (size_t i = 0; i < zs.members.size(); ++i) {
                 auto& zm = zs.members[i];
-                string fm = zm.membername;
-                emitStart(2, "self.%s = ", fm.c_str());
+                emitStart(2, "self.%s = ", zm.membername.c_str());
                 emitMemberInitializer(zm);
                 emitEnd("");
             }
@@ -308,9 +306,8 @@ struct EmitJuliaType : public Emitter
             for (auto& zc : zs.constants) {
                 assert(ZCMGen::isLegalConstType(zc.type));
                 string mt = mapTypeName(zc.type);
-                string fm = zc.membername;
-                emitStart(2, "self.%s::%s = ", fm.c_str(), mt.c_str());
-                if (zc.isFixedPoint() && zc.valstr.substr(0, 2) == "0x")
+                emitStart(2, "self.%s::%s = ", zc.membername.c_str(), mt.c_str());
+                if (zc.isFixedPoint())
                     emitEnd("reinterpret(%s,%s)", mt.c_str(), zc.valstr.c_str());
                 else
                     emitEnd("%s", zc.valstr.c_str());

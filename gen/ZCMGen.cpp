@@ -673,7 +673,7 @@ ZCMGen::getConflictingTokens(const unordered_set<string>& reservedTokens) const
     return ret;
 }
 
-int ZCMGen::handleFile(const string& path, const unordered_set<string> reservedTokens = {})
+int ZCMGen::handleFile(const string& path, const unordered_set<string>& reservedTokens = {})
 {
     tokenize_t* t = tokenize_create(path.c_str());
 

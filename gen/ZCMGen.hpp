@@ -160,7 +160,7 @@ struct ZCMGen
     void dump() const;
 
     // parse the provided file
-    int handleFile(const string& path, const unordered_set<string> reservedTokens);
+    int handleFile(const string& path, const unordered_set<string>& reservedTokens);
 
     // Returns true if the argument is a built-in type (e.g., "int64_t", "float").
     static bool isPrimitiveType(const string& t);
