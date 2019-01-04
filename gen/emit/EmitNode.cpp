@@ -704,3 +704,6 @@ vector<string> getFilepathsNode(const ZCMGen& zcm)
 
     return ret;
 }
+
+unordered_set<string> getReservedKeywordsNode()
+{ return {}; }

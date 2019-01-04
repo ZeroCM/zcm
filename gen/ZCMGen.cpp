@@ -620,7 +620,60 @@ static int parseEntity(ZCMGen& zcmgen, const string& zcmfile, tokenize_t* t)
     return 0;
 }
 
-int ZCMGen::handleFile(const string& path)
+unordered_set<string>
+ZCMTypename::getConflictingTokens(const unordered_set<string>& reservedTokens) const
+{
+    unordered_set<string> ret;
+    auto parts = StringUtil::split(fullname, '.');
+    for (const auto& p : parts)
+        if (reservedTokens.count(p) > 0)
+            ret.insert(p);
+    return ret;
+}
+
+unordered_set<string>
+ZCMMember::getConflictingTokens(const unordered_set<string>& reservedTokens) const
+{
+    unordered_set<string> ret;
+    if (reservedTokens.count(membername) > 0)
+        ret.insert(membername);
+    merge(ret, type.getConflictingTokens(reservedTokens));
+    return ret;
+}
+
+unordered_set<string>
+ZCMConstant::getConflictingTokens(const unordered_set<string>& reservedTokens) const
+{
+    unordered_set<string> ret;
+    if (reservedTokens.count(membername) > 0)
+        ret.insert(membername);
+    return ret;
+}
+
+unordered_set<string>
+ZCMStruct::getConflictingTokens(const unordered_set<string>& reservedTokens) const
+{
+    unordered_set<string> ret;
+    merge(ret, structname.getConflictingTokens(reservedTokens));
+    for (const auto& zstruct : structs)
+        merge(ret, zstruct.getConflictingTokens(reservedTokens));
+    for (const auto& zmember : members)
+        merge(ret, zmember.getConflictingTokens(reservedTokens));
+    for (const auto& zconst : constants)
+        merge(ret, zconst.getConflictingTokens(reservedTokens));
+    return ret;
+}
+
+unordered_set<string>
+ZCMGen::getConflictingTokens(const unordered_set<string>& reservedTokens) const
+{
+    unordered_set<string> ret;
+    for (const auto& zstruct : structs)
+        merge(ret, zstruct.getConflictingTokens(reservedTokens));
+    return ret;
+}
+
+int ZCMGen::handleFile(const string& path, const unordered_set<string> reservedTokens = {})
 {
     tokenize_t* t = tokenize_create(path.c_str());
 
@@ -635,6 +688,8 @@ int ZCMGen::handleFile(const string& path)
 
         while (tokenize_next(t) != EOF)
             printf("%6i %6i %6i: %s\n", ntok++, t->token_line, t->token_column, t->token);
+
+        tokenize_destroy(t);
         return 0;
     }
 
@@ -642,6 +697,9 @@ int ZCMGen::handleFile(const string& path)
     do {
         res = parseEntity(*this, path, t);
     } while (res == 0);
+
+    for (const string& conflict : getConflictingTokens(reservedTokens))
+        fprintf(stderr, "WARNING: Token, \"%s\" is a reserved keyword\n", conflict.c_str());
 
     tokenize_destroy(t);
     if (res == 0 || res == EOF)

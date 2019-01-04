@@ -1019,3 +1019,6 @@ vector<string> getFilepathsC(const ZCMGen& zcm)
 
     return ret;
 }
+
+unordered_set<string> getReservedKeywordsC()
+{ return {}; }

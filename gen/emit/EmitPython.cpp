@@ -755,3 +755,6 @@ vector<string> getFilepathsPython(const ZCMGen& zcm)
 
     return ret;
 }
+
+unordered_set<string> getReservedKeywordsPython()
+{ return {}; }

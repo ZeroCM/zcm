@@ -619,3 +619,6 @@ vector<string> getFilepathsJava(const ZCMGen& zcm)
 
     return ret;
 }
+
+unordered_set<string> getReservedKeywordsJava()
+{ return {}; }
