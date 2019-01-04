@@ -623,6 +623,9 @@ static int parseEntity(ZCMGen& zcmgen, const string& zcmfile, tokenize_t* t)
 unordered_set<string>
 ZCMTypename::getConflictingTokens(const unordered_set<string>& reservedTokens) const
 {
+    if (ZCMGen::isPrimitiveType(fullname))
+        return {};
+
     unordered_set<string> ret;
     auto parts = StringUtil::split(fullname, '.');
     for (const auto& p : parts)
