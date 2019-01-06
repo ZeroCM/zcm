@@ -172,10 +172,8 @@ TypeDb::TypeDb(const string& paths, bool debug) : debug(debug), isGood(false)
         }
         if (!loadtypes(libname, lib)) {
             ERROR("failed to load types from '%s'\n", libname.c_str());
-            dlclose(lib);
             return;
         }
-        dlclose(lib);
     }
     isGood = true;
 }
