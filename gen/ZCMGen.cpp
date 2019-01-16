@@ -701,9 +701,11 @@ int ZCMGen::handleFile(const string& path, const unordered_set<string>& reserved
         res = parseEntity(*this, path, t);
     } while (res == 0);
 
+    // RRR: this actually triggers for any type that has been passed into zcmgen in this invocation
+    //      *even* ones that already created warnings
     for (const string& conflict : getConflictingTokens(reservedTokens))
-        fprintf(stderr, "WARNING (\"%s\"): Token, \"%s\" is a reserved keyword\n",
-                path.c_str(), conflict.c_str());
+        fprintf(stderr, "WARNING: Token, \"%s\" is a reserved keyword in file: \"%s\"\n",
+                conflict.c_str(), path.c_str());
 
     tokenize_destroy(t);
     if (res == 0 || res == EOF)
