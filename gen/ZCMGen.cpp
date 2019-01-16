@@ -702,7 +702,8 @@ int ZCMGen::handleFile(const string& path, const unordered_set<string>& reserved
     } while (res == 0);
 
     for (const string& conflict : getConflictingTokens(reservedTokens))
-        fprintf(stderr, "WARNING: Token, \"%s\" is a reserved keyword\n", conflict.c_str());
+        fprintf(stderr, "WARNING (\"%s\"): Token, \"%s\" is a reserved keyword\n",
+                path.c_str(), conflict.c_str());
 
     tokenize_destroy(t);
     if (res == 0 || res == EOF)
