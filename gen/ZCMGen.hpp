@@ -20,6 +20,7 @@ struct ZCMTypename
     ZCMTypename(ZCMGen& zcmgen, const string& name, bool skipPrefix = false);
     void dump() const;
 
+    // Returns { conflicting tokens }
     unordered_set<string>
         getConflictingTokens(const unordered_set<string>& reservedTokens) const;
 
@@ -71,6 +72,7 @@ struct ZCMMember
     // Are all of the dimensions of this array constant? (scalars return true)
     bool isConstantSizeArray() const;
 
+    // Returns { conflicting tokens }
     unordered_set<string>
         getConflictingTokens(const unordered_set<string>& reservedTokens) const;
 
@@ -100,6 +102,7 @@ struct ZCMConstant
 
     bool isFixedPoint() const;
 
+    // Returns { conflicting tokens }
     unordered_set<string>
         getConflictingTokens(const unordered_set<string>& reservedTokens) const;
 
@@ -130,6 +133,7 @@ struct ZCMStruct
 
     u64 computeHash() const;
 
+    // Returns { conflicting tokens }
     unordered_set<string>
         getConflictingTokens(const unordered_set<string>& reservedTokens) const;
 
@@ -153,14 +157,15 @@ struct ZCMGen
     // older than the file "declaringfile"
     bool needsGeneration(const string& declaringfile, const string& outfile) const;
 
-    unordered_set<string>
+    // Returns { (const ZCMStruct*, conflicting tokens) }
+    unordered_map<const ZCMStruct*, unordered_set<string>>
         getConflictingTokens(const unordered_set<string>& reservedTokens) const;
 
     // for debugging, emit the contents to stdout
     void dump() const;
 
     // parse the provided file
-    int handleFile(const string& path, const unordered_set<string>& reservedTokens);
+    int handleFile(const string& path);
 
     // Returns true if the argument is a built-in type (e.g., "int64_t", "float").
     static bool isPrimitiveType(const string& t);
