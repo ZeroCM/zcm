@@ -57,6 +57,10 @@ int main(int argc, char* argv[])
     ZCMGen zcm;
     zcm.gopt = &gopt;
 
+    for (auto& fname : gopt.extraargs)
+        if (int res = zcm.handleFile(fname))
+            return res;
+
     unordered_set<string> reservedTokens;
     merge(reservedTokens, getReservedKeywordsC());
     merge(reservedTokens, getReservedKeywordsCpp());
@@ -65,9 +69,15 @@ int main(int argc, char* argv[])
     merge(reservedTokens, getReservedKeywordsNode());
     merge(reservedTokens, getReservedKeywordsJulia());
 
-    for (auto& fname : gopt.extraargs)
-        if (int res = zcm.handleFile(fname, reservedTokens))
-            return res;
+    for (const auto& conflict : zcm.getConflictingTokens(reservedTokens)) {
+        string structname = conflict.first->structname.fullname;
+        string filename   = conflict.first->zcmfile;
+
+        for (const auto& token : conflict.second) {
+            fprintf(stderr, "WARNING: Token \"%s\" is a reserved keyword in struct \"%s\" (%s)\n",
+                    token.c_str(), structname.c_str(), filename.c_str());
+        }
+    }
 
     // If "--version" was specified, then show version information and exit.
     if (gopt.getBool("version")) {

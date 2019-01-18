@@ -667,16 +667,16 @@ ZCMStruct::getConflictingTokens(const unordered_set<string>& reservedTokens) con
     return ret;
 }
 
-unordered_set<string>
+unordered_map<const ZCMStruct*, unordered_set<string>>
 ZCMGen::getConflictingTokens(const unordered_set<string>& reservedTokens) const
 {
-    unordered_set<string> ret;
+    unordered_map<const ZCMStruct*, unordered_set<string>> ret;
     for (const auto& zstruct : structs)
-        merge(ret, zstruct.getConflictingTokens(reservedTokens));
+        ret[&zstruct] = zstruct.getConflictingTokens(reservedTokens);
     return ret;
 }
 
-int ZCMGen::handleFile(const string& path, const unordered_set<string>& reservedTokens = {})
+int ZCMGen::handleFile(const string& path)
 {
     tokenize_t* t = tokenize_create(path.c_str());
 
@@ -700,9 +700,6 @@ int ZCMGen::handleFile(const string& path, const unordered_set<string>& reserved
     do {
         res = parseEntity(*this, path, t);
     } while (res == 0);
-
-    for (const string& conflict : getConflictingTokens(reservedTokens))
-        fprintf(stderr, "WARNING: Token, \"%s\" is a reserved keyword\n", conflict.c_str());
 
     tokenize_destroy(t);
     if (res == 0 || res == EOF)
