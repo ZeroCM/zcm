@@ -17,11 +17,11 @@ struct Platform
         setsockopt(fd, SOL_SOCKET, SO_RCVBUF, (char*)&recv_size, sizeof(recv_size));
     }
 
-    static bool setMulticastGroup(int fd, struct in_addr multiaddr)
+    static bool setMulticastGroup(int fd, struct in_addr multiaddr, struct in_addr ifaddr)
     {
         struct ip_mreq mreq;
         mreq.imr_multiaddr = multiaddr;
-        mreq.imr_interface.s_addr = INADDR_ANY;
+        mreq.imr_interface = ifaddr;
         ZCM_DEBUG("ZCM: joining multicast group");
         setsockopt(fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char*)&mreq, sizeof(mreq));
         // ignore any errors in windows... see issue LCM #60
@@ -38,11 +38,11 @@ struct Platform
 {
     static void closesocket(int fd) { close(fd); }
     static void setKernelBuffers(int fd) {}
-    static bool setMulticastGroup(int fd, struct in_addr multiaddr)
+    static bool setMulticastGroup(int fd, struct in_addr multiaddr, struct in_addr ifaddr)
     {
         struct ip_mreq mreq;
         mreq.imr_multiaddr = multiaddr;
-        mreq.imr_interface.s_addr = INADDR_ANY;
+        mreq.imr_interface = ifaddr;
         ZCM_DEBUG("ZCM: joining multicast group");
         int ret = setsockopt(fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char*)&mreq, sizeof(mreq));
         if (ret < 0) {
@@ -92,12 +92,22 @@ bool UDPMSocket::init()
     return true;
 }
 
-bool UDPMSocket::joinMulticastGroup(struct in_addr multiaddr)
+bool UDPMSocket::setMulticastInterface(struct in_addr ifaddr)
+{
+    if (setsockopt(fd, IPPROTO_IP, IP_MULTICAST_IF, (char *) &(ifaddr.s_addr), sizeof(ifaddr)) < 0) {
+        perror("setsockopt (SOL_IP, IP_MULTICAST_IF)");
+        this->close();
+        return false;
+    }
+    return true;
+}
+
+bool UDPMSocket::joinMulticastGroup(struct in_addr multiaddr, struct in_addr ifaddr)
 {
     Platform::setKernelBuffers(fd);
 
     // Set-up the multicast group
-    if (!Platform::setMulticastGroup(fd, multiaddr)) {
+    if (!Platform::setMulticastGroup(fd, multiaddr, ifaddr)) {
         this->close();
         return false;
     }
@@ -376,26 +386,27 @@ void UDPMSocket::checkAndWarnAboutSmallBuffer(size_t datalen, size_t kbufsize)
 #endif
 }
 
-UDPMSocket UDPMSocket::createSendSocket(struct in_addr multiaddr, u8 ttl)
+UDPMSocket UDPMSocket::createSendSocket(struct in_addr multiaddr, u8 ttl, struct in_addr ifaddr)
 {
     // don't use connect() on the actual transmit socket, because linux then
     // has problems multicasting to localhost
     UDPMSocket sock;
-    if (!sock.init())                        { sock.close(); return sock; }
-    if (!sock.setTTL(ttl))                   { sock.close(); return sock; }
-    if (!sock.enableLoopback())              { sock.close(); return sock; }
-    if (!sock.joinMulticastGroup(multiaddr)) { sock.close(); return sock; }
+    if (!sock.init())                                { sock.close(); return sock; }
+    if (!sock.setTTL(ttl))                           { sock.close(); return sock; }
+    if (!sock.enableLoopback())                      { sock.close(); return sock; }
+    if (!sock.setMulticastInterface(ifaddr))         { sock.close(); return sock; }
+    if (!sock.joinMulticastGroup(multiaddr, ifaddr)) { sock.close(); return sock; }
     return sock;
 }
 
-UDPMSocket UDPMSocket::createRecvSocket(struct in_addr multiaddr, u16 port)
+UDPMSocket UDPMSocket::createRecvSocket(struct in_addr multiaddr, u16 port, struct in_addr ifaddr)
 {
     UDPMSocket sock;
-    if (!sock.init())                        { sock.close(); return sock; }
-    if (!sock.setReuseAddr())                { sock.close(); return sock; }
-    if (!sock.setReusePort())                { sock.close(); return sock; }
-    if (!sock.enablePacketTimestamp())       { sock.close(); return sock; }
-    if (!sock.bindPort(port))                { sock.close(); return sock; }
-    if (!sock.joinMulticastGroup(multiaddr)) { sock.close(); return sock; }
+    if (!sock.init())                                { sock.close(); return sock; }
+    if (!sock.setReuseAddr())                        { sock.close(); return sock; }
+    if (!sock.setReusePort())                        { sock.close(); return sock; }
+    if (!sock.enablePacketTimestamp())               { sock.close(); return sock; }
+    if (!sock.bindPort(port))                        { sock.close(); return sock; }
+    if (!sock.joinMulticastGroup(multiaddr, ifaddr)) { sock.close(); return sock; }
     return sock;
 }
