@@ -31,16 +31,20 @@ static i32 utimeInSeconds()
 struct Params
 {
     string ip;
+    string iface;
     struct in_addr addr;
+    struct in_addr ifaddr;
     u16            port;
     u8             ttl;
     size_t         recv_buf_size;
 
-    Params(const string& ip, u16 port, size_t recv_buf_size, u8 ttl)
+    Params(const string& ip, u16 port, size_t recv_buf_size, u8 ttl, const string& iface)
     {
         // TODO verify that the IP and PORT are vaild
         this->ip = ip;
+        this->iface = iface;
         inet_aton(ip.c_str(), (struct in_addr*) &this->addr);
+        inet_aton(iface.c_str(), (struct in_addr*) &this->ifaddr);
         this->port = port;
         this->recv_buf_size = recv_buf_size;
         this->ttl = ttl;
@@ -72,7 +76,7 @@ struct UDPM
     u32          msg_seqno = 0; // rolling counter of how many messages transmitted
 
     /***** Methods ******/
-    UDPM(const string& ip, u16 port, size_t recv_buf_size, u8 ttl);
+    UDPM(const string& ip, u16 port, size_t recv_buf_size, u8 ttl, const string& iface);
     bool init();
     ~UDPM();
 
@@ -390,8 +394,8 @@ UDPM::~UDPM()
     ZCM_DEBUG("closing zcm context");
 }
 
-UDPM::UDPM(const string& ip, u16 port, size_t recv_buf_size, u8 ttl)
-    : params(ip, port, recv_buf_size, ttl),
+UDPM::UDPM(const string& ip, u16 port, size_t recv_buf_size, u8 ttl, const string& iface)
+    : params(ip, port, recv_buf_size, ttl, iface),
       destAddr(ip, port)
 {
 }
@@ -400,13 +404,15 @@ bool UDPM::init()
 {
     ZCM_DEBUG("Initializing ZCM UDPM context...");
     ZCM_DEBUG("Multicast %s:%d", params.ip.c_str(), params.port);
+    if (params.ifaddr.s_addr != 0)
+        ZCM_DEBUG("Using interface: %s", params.iface.c_str());
     UDPMSocket::checkConnection(params.ip, params.port);
 
-    sendfd = UDPMSocket::createSendSocket(params.addr, params.ttl);
+    sendfd = UDPMSocket::createSendSocket(params.addr, params.ttl, params.ifaddr);
     if (!sendfd.isOpen()) return false;
     kernel_sbuf_sz = sendfd.getSendBufSize();
 
-    recvfd = UDPMSocket::createRecvSocket(params.addr, params.port);
+    recvfd = UDPMSocket::createRecvSocket(params.addr, params.port, params.ifaddr);
     if (!recvfd.isOpen()) return false;
     kernel_rbuf_sz = recvfd.getRecvBufSize();
 
@@ -436,8 +442,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 {
     UDPM udpm;
 
-    ZCM_TRANS_CLASSNAME(const string& ip, u16 port, size_t recv_buf_size, u8 ttl)
-        : udpm(ip, port, recv_buf_size, ttl)
+    ZCM_TRANS_CLASSNAME(const string& ip, u16 port, size_t recv_buf_size, u8 ttl, const string& iface)
+        : udpm(ip, port, recv_buf_size, ttl, iface)
     {
         trans_type = ZCM_BLOCKING;
         vtbl = &methods;
@@ -519,12 +525,17 @@ static zcm_trans_t *createUdpm(zcm_url_t *url)
 
     auto *opts = zcm_url_opts(url);
     auto *ttl = optFind(opts, "ttl");
+    auto *iface = optFind(opts, "if");
     if (!ttl) {
         ZCM_DEBUG("No ttl specified. Using default ttl=0");
         ttl = "0";
     }
+    if (!iface) {
+        ZCM_DEBUG("No iface specified. Using default if=0.0.0.0");
+        iface = "0.0.0.0";
+    }
     size_t recv_buf_size = 1024;
-    auto *trans = new ZCM_TRANS_CLASSNAME(address, atoi(port.c_str()), recv_buf_size, atoi(ttl));
+    auto *trans = new ZCM_TRANS_CLASSNAME(address, atoi(port.c_str()), recv_buf_size, atoi(ttl), iface);
     if (!trans->init()) {
         delete trans;
         return nullptr;

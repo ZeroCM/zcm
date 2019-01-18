@@ -36,7 +36,8 @@ class UDPMSocket
     void close();
 
     bool init();
-    bool joinMulticastGroup(struct in_addr multiaddr);
+    bool setMulticastInterface(struct in_addr ifaddr);
+    bool joinMulticastGroup(struct in_addr multiaddr, struct in_addr ifaddr);
     bool setTTL(u8 ttl);
     bool bindPort(u16 port);
     bool setReuseAddr();
@@ -61,8 +62,8 @@ class UDPMSocket
     static bool checkConnection(const string& ip, u16 port);
     void checkAndWarnAboutSmallBuffer(size_t datalen, size_t kbufsize);
 
-    static UDPMSocket createSendSocket(struct in_addr multiaddr, u8 ttl);
-    static UDPMSocket createRecvSocket(struct in_addr multiaddr, u16 port);
+    static UDPMSocket createSendSocket(struct in_addr multiaddr, u8 ttl, struct in_addr ifaddr);
+    static UDPMSocket createRecvSocket(struct in_addr multiaddr, u16 port, struct in_addr ifaddr);
 
   private:
     SOCKET fd = -1;
