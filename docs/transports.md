@@ -37,9 +37,9 @@ be used to *summon* the transport:
     <td><code>  zcm_create("nonblock-inproc")                           </code></td>
   </tr>
   <tr>
-    <td>        UDP Multicast                                           </td>
-    <td><code>  udpm://&lt;udpm-ipaddr&gt;:&lt;port&gt;?ttl=&lt;ttl&gt; </code></td>
-    <td><code>  zcm_create("udpm://239.255.76.67:7667?ttl=0")           </code></td>
+    <td>        UDP Multicast                                                             </td>
+    <td><code>  udpm://&lt;udpm-ipaddr&gt;:&lt;port&gt;?ttl=&lt;ttl&gt;&if=&lt;ifaddr&gt; </code></td>
+    <td><code>  zcm_create("udpm://239.255.76.67:7667?ttl=0&if=192.168.0.1")              </code></td>
   </tr>
   <tr>
     <td>        Serial                                                  </td>
@@ -50,6 +50,8 @@ be used to *summon* the transport:
 
 When no url is provided (i.e. `zcm_create(NULL)`), the `ZCM_DEFAULT_URL` environment variable is
 queried for a valid url.
+
+> The **if=&lt;ifaddr&gt;** option for `udpm` transports allows the selection of a specific ethernet interface.
 
 ## Custom Transports
 
