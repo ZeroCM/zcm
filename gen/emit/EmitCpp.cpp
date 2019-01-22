@@ -297,8 +297,7 @@ struct Emit : public Emitter
         emit(1,     "int thislen;");
         emit(1,     "int64_t hash = (int64_t)getHash();");
         emit(0, "");
-        emit(1,     "thislen = __int64_t_encode_%sarray(buf, offset + pos, maxlen - pos, &hash, 1);",
-                    zcm.gopt->getBool("little-endian-encoding") ? "little_endian_" : "");
+        emit(1,     "thislen = __int64_t_encode_array(buf, offset + pos, maxlen - pos, &hash, 1);");
         emit(1,     "if(thislen < 0) return thislen; else pos += thislen;");
         emit(0, "");
         emit(1,     "thislen = this->_encodeNoHash(buf, offset + pos, maxlen - pos);");
@@ -328,8 +327,7 @@ struct Emit : public Emitter
         emit(1,     "int thislen;");
         emit(0, "");
         emit(1,     "int64_t msg_hash;");
-        emit(1,     "thislen = __int64_t_decode_%sarray(buf, offset + pos, maxlen - pos, &msg_hash, 1);",
-                    zcm.gopt->getBool("little-endian-encoding") ? "little_endian_" : "");
+        emit(1,     "thislen = __int64_t_decode_array(buf, offset + pos, maxlen - pos, &msg_hash, 1);");
         emit(1,     "if (thislen < 0) return thislen; else pos += thislen;");
         emit(1,     "if (msg_hash != getHash()) return -1;");
         emit(0, "");
