@@ -530,7 +530,7 @@ struct EmitJuliaType : public Emitter
 
         emit(0, "function ZCM.encode(msg::%s)", sn);
         emit(1,     "buf = IOBuffer()");
-        emit(1,     "write(buf, %s(ZCM.getHash(%s)))", hton.c_str(), sn);
+        emit(1,     "write(buf, hton(ZCM.getHash(%s)))", sn);
         emit(1,     "ZCM._encode_one(msg, buf)");
         emit(1,     "return ZCM._takebuf_array(buf);");
         emit(0, "end");
@@ -686,8 +686,7 @@ struct EmitJuliaType : public Emitter
 
         emit(0, "function ZCM.decode(::Type{%s}, data::Vector{UInt8})", sn);
         emit(1,     "buf = IOBuffer(data)");
-        emit(1,     "if %s(reinterpret(Int64, read(buf, 8))[1]) != ZCM.getHash(%s)",
-                ntoh.c_str(), sn);
+        emit(1,     "if ntoh(reinterpret(Int64, read(buf, 8))[1]) != ZCM.getHash(%s)", sn);
         emit(2,         "throw(\"Decode error\")");
         emit(1,     "end");
         emit(1,     "return ZCM._decode_one(%s, buf)", sn);
