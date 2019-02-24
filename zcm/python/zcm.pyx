@@ -134,6 +134,8 @@ cdef class ZCM:
         _data = msg.encode()
         cdef const uint8_t* data = _data
         return zcm_publish(self.zcm, channel.encode('utf-8'), data, len(_data) * sizeof(uint8_t))
+    def publishRaw(self, str channel, uint8_t* msg, int32_t length):
+        return zcm_publish(self.zcm, str channel.encode('utf-8'), uint8_t* msg, int32_t length)
     def flush(self):
         while zcm_try_flush(self.zcm) != ZCM_EOK:
             time.sleep(0) # yield the gil
