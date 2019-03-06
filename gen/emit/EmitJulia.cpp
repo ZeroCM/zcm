@@ -196,7 +196,7 @@ struct EmitJuliaType : public Emitter
             emit(0, "#     import _%s : %s", zs.structname.shortname.c_str(),
                                              zs.structname.shortname.c_str());
             emit(0, "module _%s", zs.structname.shortname.c_str());
-            emit(0, "__basemodule = module_parent(_%s)", zs.structname.shortname.c_str());
+            emit(0, "__basemodule = parentmodule(_%s)", zs.structname.shortname.c_str());
         } else {
             emit(0, "begin");
             emitStart(0, "@assert (endswith(string(current_module()), \"%s\"))",
@@ -226,7 +226,7 @@ struct EmitJuliaType : public Emitter
         // define the class
         emitComment(0, zs.comment);
         emit(0, "export %s", sn);
-        emit(0, "type %s <: ZCM.AbstractZcmType", sn);
+        emit(0, "mutable struct %s <: ZCM.AbstractZcmType", sn);
         emit(0, "");
 
         // data members
@@ -623,7 +623,7 @@ struct EmitJuliaType : public Emitter
                 else                          mappedTypename = "ZCM.AbstractZcmType";
 
                 // emit array initializer for sizing
-                emitStart(1, "%s = Array{%s, %d}(",
+                emitStart(1, "%s = Array{%s, %d}(undef,",
                              accessor.c_str(), mappedTypename.c_str(), zm.dimensions.size());
                 for (n = 0; n < zm.dimensions.size(); ++n) {
                     auto& dim = zm.dimensions[n];
@@ -778,7 +778,7 @@ struct EmitJuliaPackage : public Emitter
 
         emitStart(0, "__basemodule = ");
         for (size_t i = 0; i < pkgs.size(); ++i) {
-            emitContinue("module_parent(");
+            emitContinue("parentmodule(");
         }
         emitContinue("%s", pkg.c_str());
         for (size_t i = 0; i < pkgs.size(); ++i) {
@@ -978,8 +978,8 @@ unordered_set<string> getReservedKeywordsJulia()
     return { "begin", "while", "if", "for", "try", "return",
              "break", "continue", "function", "macro", "quote",
              "let", "local", "global", "const", "do", "struct",
-             "abstract", "typealias", "bitstype", "type",
-             "immutable", "module", "baremodule", "using",
+             "abstract", "typealias", "bitstype", "abstract type",
+             "mutable", "module", "baremodule", "using",
              "import", "export", "importall", "end", "else",
-             "catch", "finally", "true", "false" };
+             "catch", "finally", "true", "false", "struct" };
 }
