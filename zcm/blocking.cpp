@@ -753,7 +753,9 @@ bool zcm_blocking_t::deleteSubEntry(zcm_sub_t* sub, size_t nentriesleft)
             rc = zcm_trans_recvmsg_enable(zt, NULL, false);
         }
     } else {
-        rc = zcm_trans_recvmsg_enable(zt, sub->channel, false);
+        if (nentriesleft == 0) {
+            rc = zcm_trans_recvmsg_enable(zt, sub->channel, false);
+        }
     }
     delete sub;
     return rc == ZCM_EOK;
@@ -764,7 +766,7 @@ bool zcm_blocking_t::deleteFromSubList(SubList& slist, zcm_sub_t* sub)
     for (size_t i = 0; i < slist.size(); i++) {
         if (slist[i] == sub) {
             // shrink the array by moving the last element
-            size_t last = slist.size()-1;
+            size_t last = slist.size() - 1;
             slist[i] = slist[last];
             slist.resize(last);
             // delete the element
