@@ -136,7 +136,7 @@ int zcm_nonblocking_unsubscribe(zcm_nonblocking_t* zcm, zcm_sub_t* sub)
     size_t i;
     size_t clen;
     bool regex;
-    int    match_idx = sub - zcm->subs;
+    int match_idx = sub - zcm->subs;
     bool lastChanSub = true;
     int rc = ZCM_EOK;
 
@@ -147,7 +147,9 @@ int zcm_nonblocking_unsubscribe(zcm_nonblocking_t* zcm, zcm_sub_t* sub)
     regex = isRegexChannel(sub->channel, clen);
     if (regex) {
         for (i = 0; i < zcm->subInUseEnd; ++i) {
-            if (isRegexChannel(sub->channel, strlen(sub->channel))) {
+            if (!zcm->subInUse[i]) continue;
+            if (match_idx != i &&
+                isRegexChannel(zcm->subs[i]->channel, strlen(zcm->subs[i]->channel))) {
                 lastChanSub = false;
                 break;
             }
@@ -156,6 +158,7 @@ int zcm_nonblocking_unsubscribe(zcm_nonblocking_t* zcm, zcm_sub_t* sub)
         if (lastChanSub) rc = zcm_trans_recvmsg_enable(zcm->zt, NULL, false);
     } else {
         for (i = 0; i < zcm->subInUseEnd; ++i) {
+            if (!zcm->subInUse[i]) continue;
             /* Note: it would be nice if we didn't have to do a string comp to unsubscribe, but
                      we need to count the number of channel matches so we know when we can disable
                      the transport's recvmsg_enable */
