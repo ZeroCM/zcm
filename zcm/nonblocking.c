@@ -149,7 +149,7 @@ int zcm_nonblocking_unsubscribe(zcm_nonblocking_t* zcm, zcm_sub_t* sub)
         for (i = 0; i < zcm->subInUseEnd; ++i) {
             if (!zcm->subInUse[i]) continue;
             if (match_idx != i &&
-                isRegexChannel(zcm->subs[i]->channel, strlen(zcm->subs[i]->channel))) {
+                isRegexChannel(zcm->subs[i].channel, strlen(zcm->subs[i].channel))) {
                 lastChanSub = false;
                 break;
             }
@@ -163,8 +163,7 @@ int zcm_nonblocking_unsubscribe(zcm_nonblocking_t* zcm, zcm_sub_t* sub)
                      we need to count the number of channel matches so we know when we can disable
                      the transport's recvmsg_enable */
             if (match_idx != i &&
-                strncmp(sub->channel, zcm->subs[i].channel,
-                        sizeof(zcm->subs[i].channel)/sizeof(zcm->subs[i].channel[0])) == 0) {
+                strncmp(sub->channel, zcm->subs[i].channel, ZCM_CHANNEL_MAXLEN) == 0) {
                 lastChanSub = false;
                 break;
             }
@@ -190,31 +189,29 @@ static void dispatch_message(zcm_nonblocking_t* zcm, zcm_msg_t* msg)
     for (i = 0; i < zcm->subInUseEnd; ++i) {
         if (!zcm->subInUse[i]) continue;
 
+        bool shouldDispatch = false;
+
         size_t subsChanLen = strlen(zcm->subs[i].channel);
         if (isRegexChannel(zcm->subs[i].channel, subsChanLen)) {
-            size_t msgLen = strlen(msg->channel);
             /* This only works because isSupportedRegex() is called on subscribe */
-            if (msgLen > 2 &&
+            if (strlen(msg->channel) > 2 &&
                 strncmp(zcm->subs[i].channel, msg->channel, subsChanLen - 2) == 0) {
-
-                rbuf.zcm = zcm->z;
-                rbuf.data = msg->buf;
-                rbuf.data_size = msg->len;
-                rbuf.recv_utime = msg->utime;
-
-                sub = &zcm->subs[i];
-                sub->callback(&rbuf, msg->channel, sub->usr);
+                shouldDispatch = true;
             }
         } else {
-            if (strcmp(zcm->subs[i].channel, msg->channel) == 0) {
-                rbuf.zcm = zcm->z;
-                rbuf.data = msg->buf;
-                rbuf.data_size = msg->len;
-                rbuf.recv_utime = msg->utime;
-
-                sub = &zcm->subs[i];
-                sub->callback(&rbuf, msg->channel, sub->usr);
+            if (strncmp(zcm->subs[i].channel, msg->channel, ZCM_CHANNEL_MAXLEN) == 0) {
+                shouldDispatch = true;
             }
+        }
+
+        if (shouldDispatch) {
+            rbuf.zcm = zcm->z;
+            rbuf.data = msg->buf;
+            rbuf.data_size = msg->len;
+            rbuf.recv_utime = msg->utime;
+
+            sub = &zcm->subs[i];
+            sub->callback(&rbuf, msg->channel, sub->usr);
         }
     }
 }
