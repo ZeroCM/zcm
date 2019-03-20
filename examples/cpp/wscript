@@ -18,6 +18,10 @@ def build(ctx):
                 use = 'default zcm examplezcmtypes_cpp',
                 source = 'PubSub.cpp')
 
+    ctx.program(target = 'unsub',
+                use = 'default zcm examplezcmtypes_cpp',
+                source = 'Unsub.cpp')
+
     ctx.program(target = 'pauseflushresume',
                 use = 'default zcm examplezcmtypes_cpp',
                 source = 'PauseFlushResume.cpp')
