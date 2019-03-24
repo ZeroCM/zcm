@@ -12,7 +12,7 @@ before_install:
   - sudo apt-get autoremove
   - sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-3.8 100
   - sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-3.8 100
-  - export PATH=$PATH:`pwd`/deps/julia-9d11f62bcb/bin
+  - export PATH=$PATH:`pwd`/deps/julia/bin
   - sudo updatedb
   - git clone https://github.com/CxxTest/cxxtest.git
   - export PATH=$PATH:`pwd`/cxxtest/bin/; export LIBRARY_PATH=$LIBRARY_PATH:`pwd`/cxxtest/
@@ -22,6 +22,7 @@ script:
     ./waf distclean configure --use-all --use-third-party --use-clang --use-cxxtest --prefix=../tmp/ &&
     ./waf build &&
     ./waf install &&
+    sudo ldconfig &&
     cd examples && source ./env /home/travis/build/ZeroCM/tmp &&
     export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/home/travis/build/ZeroCM/tmp/lib/pkgconfig &&
     export PATH=$PATH:/home/travis/build/ZeroCM/tmp/bin &&
@@ -29,6 +30,7 @@ script:
     ./waf distclean configure --use-all --use-third-party --use-clang --use-cxxtest --prefix=../tmp/ &&
     ./waf build_asan &&
     ./waf install_asan &&
+    sudo ldconfig &&
     cd examples && source ./env /home/travis/build/ZeroCM/tmp &&
     export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/home/travis/build/ZeroCM/tmp/lib/pkgconfig &&
     export PATH=$PATH:/home/travis/build/ZeroCM/tmp/bin &&

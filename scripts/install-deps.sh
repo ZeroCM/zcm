@@ -19,9 +19,11 @@ color_reset=`tput sgr0`
 
 STRICT=true
 SINGLE_MODE=false
-while getopts "is" opt; do
+JULIA_0_6_MODE=false
+while getopts "ijs" opt; do
     case $opt in
         i) STRICT=false ;;
+        j) JULIA_0_6_MODE=true ;;
         s) SINGLE_MODE=true ;;
         \?) exit 1 ;;
     esac
@@ -116,7 +118,13 @@ checkJuliaInstall()
     juliaVersion=$(julia --version 2>/dev/null)
     juliaExists=$?
     juliaVersion=$(echo "$juliaVersion" | xargs | cut -d ' ' -f 3)
-    if [ $juliaExists -ne 0 ] || [ "$juliaVersion" != "0.6.4" ]; then
+
+    expectedVersion="1.0.3"
+    if $JULIA_0_6_MODE; then
+        expectedVersion="0.6.4"
+    fi
+
+    if [ $juliaExists -ne 0 ] || [ "$juliaVersion" != "$expectedVersion" ]; then
         return 1
     else
         return 0
@@ -128,15 +136,23 @@ if [ $ret -ne 0 ]; then
     echo "Installing julia"
     tmpdir=$(mktemp -d)
     pushd $tmpdir > /dev/null
-    wget https://julialang-s3.julialang.org/bin/linux/x64/0.6/julia-0.6.4-linux-x86_64.tar.gz
-    tar -xaf julia-0.6.4-linux-x86_64.tar.gz
-    mv julia-9d11f62bcb $ROOTDIR/deps/
+
+    if $JULIA_0_6_MODE; then
+        wget https://julialang-s3.julialang.org/bin/linux/x64/0.6/julia-0.6.4-linux-x86_64.tar.gz
+        tar -xaf julia-0.6.4-linux-x86_64.tar.gz
+        mv julia-9d11f62bcb $ROOTDIR/deps/julia
+    else
+        wget https://julialang-s3.julialang.org/bin/linux/x64/1.0/julia-1.0.3-linux-x86_64.tar.gz
+        tar -xaf julia-1.0.3-linux-x86_64.tar.gz
+        mv julia-1.0.3 $ROOTDIR/deps/julia
+    fi
+
     popd > /dev/null
     rm -rf $tmpdir
     echo "Julia has been downloaded to $ROOTDIR/deps"
     echo -n "$color_bold$color_redf"
     echo    "You must add the following to your ~/.bashrc:"
-    echo    "    PATH=\$PATH:$ROOTDIR/deps/julia-9d11f62bcb/bin"
+    echo    "    PATH=\$PATH:$ROOTDIR/deps/julia/bin"
     echo -n "$color_reset"
 else
     echo "Found julia on system. Skipping install"
