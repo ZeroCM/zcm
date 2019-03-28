@@ -196,13 +196,21 @@ struct EmitJuliaType : public Emitter
             emit(0, "#     import _%s : %s", zs.structname.shortname.c_str(),
                                              zs.structname.shortname.c_str());
             emit(0, "module _%s", zs.structname.shortname.c_str());
-            emit(0, "__basemodule = parentmodule(_%s)", zs.structname.shortname.c_str());
-	    emit(0, "__basemodule == _%s && (__basemodule = Main)", zs.structname.shortname.c_str());
+            emit(0, "@static if VERSION < v\"1.0.0-\"");
+            emit(1, "__basemodule = parentmodule(_%s)", zs.structname.shortname.c_str());
+            emit(0, "else");
+            emit(1, "__basemodule = split(string(@__MODULE__),\'.\')[end-1]");
+            emit(0, "end");
         } else {
             emit(0, "begin");
-            emitStart(0, "@assert (endswith(string(@__MODULE__), \"%s\"))",
-                         zs.structname.package.c_str());
-            emitEnd(" \"Only import this file through its module\"");
+            string assertModuleStr = "@assert endswith(string(%s), \"" +
+                                     zs.structname.package + "\") " +
+                                     "\"Only import this module through its parent\"";
+            emit(0, "@static if VERSION < v\"1.0.0-\"");
+            emit(1, assertModuleStr.c_str(), "current_module()");
+            emit(0, "else");
+            emit(1, assertModuleStr.c_str(), "@__MODULE__");
+            emit(0, "end");
         }
         emit(0, "");
         emitPreDependencies();
@@ -623,17 +631,24 @@ struct EmitJuliaType : public Emitter
                 if (zcm.isPrimitiveType(mtn)) mappedTypename = mapTypeName(mtn);
                 else                          mappedTypename = "ZCM.AbstractZcmType";
 
-                // emit array initializer for sizing
-                emitStart(1, "%s = Array{%s, %d}(undef,",
-                             accessor.c_str(), mappedTypename.c_str(), zm.dimensions.size());
+                string arrayInit = accessor + " = Array{" + mappedTypename + ", " +
+                                   to_string(zm.dimensions.size()) + "}(%s";
+
                 for (n = 0; n < zm.dimensions.size(); ++n) {
                     auto& dim = zm.dimensions[n];
 
-                    if (n > 0) emitContinue(",");
-                    if (dim.mode == ZCM_CONST) emitContinue("%s",     dim.size.c_str());
-                    else                       emitContinue("msg.%s", dim.size.c_str());
+                    if (n > 0) arrayInit += ", ";
+                    if (dim.mode == ZCM_CONST) arrayInit += dim.size;
+                    else                       arrayInit += "msg." + dim.size;
                 }
-                emitEnd(")");
+                arrayInit += ")";
+
+                // emit array initializer for sizing
+                emit(1, "@static if VERSION < v\"1.0.0-\"");
+                emit(2, arrayInit.c_str(), "");
+                emit(1, "else");
+                emit(2, arrayInit.c_str(), "undef, ");
+                emit(1, "end");
 
                 // iterate through the dimensions of the member, building up
                 // an accessor string, and emitting for loops
@@ -771,13 +786,26 @@ struct EmitJuliaPackage : public Emitter
         emit(0, "\n\"\"\"");
         emit(0, "module %s", pkg.c_str());
         if (pkgs.size() != 1) {
-            emitStart(0, "@assert (endswith(string(@__MODULE__), \"%s\"))",
-                         StringUtil::join(pkgs, '.').c_str());
-            emitEnd(" \"Only import this module through its parent\"");
+            string assertModuleStr = "@assert endswith(string(%s), \"" +
+                                     StringUtil::join(pkgs, '.') + "\") " +
+                                     "\"Only import this module through its parent\"";
+            emit(0, "@static if VERSION < v\"1.0.0-\"");
+            emit(1, assertModuleStr.c_str(), "current_module()");
+            emit(0, "else");
+            emit(1, assertModuleStr.c_str(), "@__MODULE__");
+            emit(0, "end");
         }
         emit(0, "");
 
-        emitStart(0, "__basemodule = ");
+        emit(0, "@static if VERSION < v\"1.0.0-\"");
+        emit(1, "parentmodule = module_parent");
+        emit(1, "pushfirst! = unshift!");
+        emit(1, "popfirst! = shift!");
+        emit(0, "end");
+        emit(0, "");
+
+        emit(0, "@static if VERSION < v\"1.0.0-\"");
+        emitStart(1, "__basemodule = ");
         for (size_t i = 0; i < pkgs.size(); ++i) {
             emitContinue("parentmodule(");
         }
@@ -786,6 +814,9 @@ struct EmitJuliaPackage : public Emitter
             emitContinue(")");
         }
         emitEnd("");
+        emit(0, "else");
+        emit(1, "__basemodule = split(string(@__MODULE__),\'.\')[end-%d]", pkgs.size() + 1);
+        emit(0, "end");
         emit(0, "__modulepath = joinpath(dirname(@__FILE__), \"%s\")", pkg.c_str());
         emit(0, "pushfirst!(LOAD_PATH, __modulepath)");
         emit(0, "");
@@ -976,11 +1007,12 @@ vector<string> getFilepathsJulia(const ZCMGen& zcm)
 
 unordered_set<string> getReservedKeywordsJulia()
 {
+    // Best way I've found to retrieve this list : https://stackoverflow.com/a/52341209
     return { "begin", "while", "if", "for", "try", "return",
              "break", "continue", "function", "macro", "quote",
              "let", "local", "global", "const", "do", "struct",
-             "abstract", "typealias", "bitstype", "abstract type",
-             "mutable", "module", "baremodule", "using",
+             "abstract", "typealias", "bitstype", "type",
+             "immutable", "module", "baremodule", "using",
              "import", "export", "importall", "end", "else",
-             "catch", "finally", "true", "false", "struct" };
+             "catch", "finally", "true", "false" };
 }
