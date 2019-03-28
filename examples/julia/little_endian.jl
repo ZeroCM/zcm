@@ -1,4 +1,7 @@
-unshift!(LOAD_PATH, "../build/types")
+@static if VERSION < v"1.0.0-"
+    pushfirst! = unshift!
+end
+pushfirst!(LOAD_PATH, "../build/types")
 
 using ZCM
 using _little_endian_t

@@ -31,6 +31,10 @@ import Base: flush,
              first,
              unsafe_convert
 
+@static if VERSION < v"1.0.0-"
+    import Base: start
+end
+
 abstract type AbstractZcmType end
 _takebuf_array(buf) = take!(buf)
 
@@ -112,7 +116,7 @@ mutable struct Zcm
     subscriptions::Vector{Subscription}
 
     function Zcm(url::AbstractString = "")
-        pointer = ccall(("zcm_create", libzcm), Ptr{Native.Zcm}, (Cstring,), url);
+        pointer = ccall(("zcm_create", "libzcm"), Ptr{Native.Zcm}, (Cstring,), url);
         instance = new(pointer, Subscription[])
 
         @static if VERSION < v"1.0.0-"
@@ -127,7 +131,7 @@ end
 
 function destroy(zcm::Zcm)
     if zcm.zcm != C_NULL
-        ccall(("zcm_destroy", libzcm), Nothing,
+        ccall(("zcm_destroy", "libzcm"), Nothing,
               (Ptr{Native.Zcm},), zcm)
         zcm.zcm = C_NULL
     end
@@ -141,11 +145,11 @@ function good(zcm::Zcm)
 end
 
 function errno(zcm::Zcm)
-    ccall(("zcm_errno", libzcm), Cint, (Ptr{Native.Zcm},), zcm)
+    ccall(("zcm_errno", "libzcm"), Cint, (Ptr{Native.Zcm},), zcm)
 end
 
 function strerror(zcm::Zcm)
-    val =  ccall(("zcm_strerror", libzcm), Cstring, (Ptr{Native.Zcm},), zcm)
+    val =  ccall(("zcm_strerror", "libzcm"), Cstring, (Ptr{Native.Zcm},), zcm)
     if (val == C_NULL)
         return "unable to get strerror"
     else
@@ -197,12 +201,12 @@ function subscribe(zcm::Zcm, channel::AbstractString,
                    additional_args...)
     callback = typed_handler(handler, msgtype, additional_args...)
     c_handler = sub_handler(typeof(callback))
-    uv_wrapper = ccall(("uv_zcm_msg_handler_create", libzcmjulia),
+    uv_wrapper = ccall(("uv_zcm_msg_handler_create", "libzcmjulia"),
                        Ptr{Native.UvSub},
                        (Ptr{Nothing}, Ptr{Nothing}),
                        c_handler, Ref(callback))
-    uv_handler = cglobal(("uv_zcm_msg_handler_trigger", libzcmjulia))
-    try_sub = () -> ccall(("zcm_try_subscribe", libzcm), Ptr{Native.Sub},
+    uv_handler = cglobal(("uv_zcm_msg_handler_trigger", "libzcmjulia"))
+    try_sub = () -> ccall(("zcm_try_subscribe", "libzcm"), Ptr{Native.Sub},
                           (Ptr{Native.Zcm}, Cstring, Ptr{Nothing}, Ptr{Native.UvSub}),
                           zcm, channel, uv_handler, uv_wrapper)
     csub = Ptr{Native.Sub}(C_NULL)
@@ -220,7 +224,7 @@ function subscribe(zcm::Zcm, channel::AbstractString,
 end
 
 function unsubscribe(zcm::Zcm, sub::Subscription)
-    try_unsub = () -> ccall(("zcm_try_unsubscribe", libzcm), Cint,
+    try_unsub = () -> ccall(("zcm_try_unsubscribe", "libzcm"), Cint,
                             (Ptr{Native.Zcm}, Ptr{Native.Sub}), zcm, sub.native_sub)
     ret = Cint(0)
     while (true)
@@ -231,14 +235,14 @@ function unsubscribe(zcm::Zcm, sub::Subscription)
             break
         end
     end
-    ccall(("uv_zcm_msg_handler_destroy", libzcmjulia), Nothing,
+    ccall(("uv_zcm_msg_handler_destroy", "libzcmjulia"), Nothing,
           (Ptr{Native.UvSub},), sub.uv_wrapper)
     deleteat!(zcm.subscriptions, findall(s -> s == sub, zcm.subscriptions))
     return ret
 end
 
 function publish(zcm::Zcm, channel::AbstractString, data::Vector{UInt8})
-    return ccall(("zcm_publish", libzcm), Cint,
+    return ccall(("zcm_publish", "libzcm"), Cint,
                  (Ptr{Native.Zcm}, Cstring, Ptr{Nothing}, UInt32),
                  zcm, convert(String, channel), data, length(data))
 end
@@ -248,16 +252,16 @@ function publish(zcm::Zcm, channel::AbstractString, msg::AbstractZcmType)
 end
 
 function pause(zcm::Zcm)
-    ccall(("zcm_pause", libzcm), Nothing, (Ptr{Native.Zcm},), zcm)
+    ccall(("zcm_pause", "libzcm"), Nothing, (Ptr{Native.Zcm},), zcm)
 end
 
 function resume(zcm::Zcm)
-    ccall(("zcm_resume", libzcm), Nothing, (Ptr{Native.Zcm},), zcm)
+    ccall(("zcm_resume", "libzcm"), Nothing, (Ptr{Native.Zcm},), zcm)
 end
 
 function flush(zcm::Zcm)
     while (true)
-        ret = ccall(("zcm_try_flush", libzcm), Cint, (Ptr{Native.Zcm},), zcm)
+        ret = ccall(("zcm_try_flush", "libzcm"), Cint, (Ptr{Native.Zcm},), zcm)
         if (ret == Cint(0))
             break
         else
@@ -267,12 +271,12 @@ function flush(zcm::Zcm)
 end
 
 function start(zcm::Zcm)
-    ccall(("zcm_start", libzcm), Nothing, (Ptr{Native.Zcm},), zcm)
+    ccall(("zcm_start", "libzcm"), Nothing, (Ptr{Native.Zcm},), zcm)
 end
 
 function stop(zcm::Zcm)
     while (true)
-        ret = ccall(("zcm_try_stop", libzcm), Cint, (Ptr{Native.Zcm},), zcm)
+        ret = ccall(("zcm_try_stop", "libzcm"), Cint, (Ptr{Native.Zcm},), zcm)
         if (ret == Cint(0))
             break
         else
@@ -282,17 +286,17 @@ function stop(zcm::Zcm)
 end
 
 function handle(zcm::Zcm)
-    ccall(("zcm_handle", libzcm), Cint, (Ptr{Native.Zcm},), zcm)
+    ccall(("zcm_handle", "libzcm"), Cint, (Ptr{Native.Zcm},), zcm)
 end
 
 function handle_nonblock(zcm::Zcm)
-    ccall(("zcm_handle_nonblock", libzcm), Cint, (Ptr{Native.Zcm},), zcm)
+    ccall(("zcm_handle_nonblock", "libzcm"), Cint, (Ptr{Native.Zcm},), zcm)
 end
 
 function set_queue_size(zcm::Zcm, num::Integer)
     sz = UInt32(num)
     while (true)
-        ret = ccall(("zcm_try_set_queue_size", libzcm), Cint, (Ptr{Native.Zcm}, UInt32), zcm, sz)
+        ret = ccall(("zcm_try_set_queue_size", "libzcm"), Cint, (Ptr{Native.Zcm}, UInt32), zcm, sz)
         if (ret == Cint(0))
             break
         else
@@ -371,7 +375,7 @@ end
 
 function destroy(event::LogEvent)
     if (event.event != C_NULL)
-        ccall(("zcm_eventlog_free_event", libzcm), Nothing,
+        ccall(("zcm_eventlog_free_event", "libzcm"), Nothing,
               (Ptr{Native.EventLogEvent},), event.event)
         event.event = C_NULL
     end
@@ -390,7 +394,7 @@ mutable struct LogFile
     """
     function LogFile(path::AbstractString, mode::AbstractString)
         instance = new()
-        instance.eventLog = ccall(("zcm_eventlog_create", libzcm), Ptr{Native.EventLog},
+        instance.eventLog = ccall(("zcm_eventlog_create", "libzcm"), Ptr{Native.EventLog},
                                   (Cstring, Cstring), path, mode)
 
         # user can force cleanup of their instance by calling `finalize(zcm)`
@@ -406,7 +410,7 @@ end
 
 function destroy(log::LogFile)
     if (log.eventLog != C_NULL)
-        ccall(("zcm_eventlog_destroy", libzcm), Nothing,
+        ccall(("zcm_eventlog_destroy", "libzcm"), Nothing,
               (Ptr{Native.EventLog},), log.eventLog)
         log.eventLog = C_NULL
     end
@@ -419,19 +423,19 @@ end
 # TODO: we could actually make all zcmtypes register their hash somewhere and allow the
 #       read_event functions to return an actual zcmtype
 function read_next_event(lf::LogFile)
-    event = ccall(("zcm_eventlog_read_next_event", libzcm), Ptr{Native.EventLogEvent},
+    event = ccall(("zcm_eventlog_read_next_event", "libzcm"), Ptr{Native.EventLogEvent},
                   (Ptr{Native.EventLog},), lf.eventLog)
     return LogEvent(event)
 end
 
 function read_prev_event(lf::LogFile)
-    event = ccall(("zcm_eventlog_read_prev_event", libzcm), Ptr{Native.EventLogEvent},
+    event = ccall(("zcm_eventlog_read_prev_event", "libzcm"), Ptr{Native.EventLogEvent},
                   (Ptr{Native.EventLog},), lf.eventLog)
     return LogEvent(event)
 end
 
 function read_event_at_offset(lf::LogFile, offset::Int64)
-    event = ccall(("zcm_eventlog_read_event_at_offset", libzcm), Ptr{Native.EventLogEvent},
+    event = ccall(("zcm_eventlog_read_event_at_offset", "libzcm"), Ptr{Native.EventLogEvent},
                   (Ptr{Native.EventLog}, Int64), lf.eventLog, offset)
     return LogEvent(event)
 end
@@ -443,7 +447,7 @@ function write_event(lf::LogFile, event::LogEvent)
                                        length(event.data),
                                        pointer(event.channel),
                                        pointer(event.data))
-    return ccall(("zcm_eventlog_write_event", libzcm), Cint,
+    return ccall(("zcm_eventlog_write_event", "libzcm"), Cint,
                  (Ptr{Native.EventLog}, Ref{Native.EventLogEvent}),
                  lf.eventLog, nativeEvent)
 end

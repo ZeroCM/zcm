@@ -197,9 +197,14 @@ struct EmitJuliaType : public Emitter
                                              zs.structname.shortname.c_str());
             emit(0, "module _%s", zs.structname.shortname.c_str());
             emit(0, "@static if VERSION < v\"1.0.0-\"");
-            emit(1, "__basemodule = parentmodule(_%s)", zs.structname.shortname.c_str());
+            emit(1, "parentmodule = module_parent");
+            emit(1, "pushfirst! = unshift!");
+            emit(1, "popfirst! = shift!");
+            emit(0, "end");
+            emit(0, "");
+            emit(0, "__basemodule = parentmodule(_%s)", zs.structname.shortname.c_str());
+            emit(0, "@static if VERSION < v\"1.0.0-\"");
             emit(0, "else");
-            emit(1, "__basemodule = split(string(@__MODULE__),\'.\')[end-1]");
             emit(0, "end");
         } else {
             emit(0, "begin");
@@ -785,6 +790,13 @@ struct EmitJuliaPackage : public Emitter
 
         emit(0, "\n\"\"\"");
         emit(0, "module %s", pkg.c_str());
+        emit(0, "@static if VERSION < v\"1.0.0-\"");
+        emit(1, "parentmodule = module_parent");
+        emit(1, "pushfirst! = unshift!");
+        emit(1, "popfirst! = shift!");
+        emit(0, "end");
+        emit(0, "");
+
         if (pkgs.size() != 1) {
             string assertModuleStr = "@assert endswith(string(%s), \"" +
                                      StringUtil::join(pkgs, '.') + "\") " +
@@ -797,15 +809,7 @@ struct EmitJuliaPackage : public Emitter
         }
         emit(0, "");
 
-        emit(0, "@static if VERSION < v\"1.0.0-\"");
-        emit(1, "parentmodule = module_parent");
-        emit(1, "pushfirst! = unshift!");
-        emit(1, "popfirst! = shift!");
-        emit(0, "end");
-        emit(0, "");
-
-        emit(0, "@static if VERSION < v\"1.0.0-\"");
-        emitStart(1, "__basemodule = ");
+        emitStart(0, "__basemodule = ");
         for (size_t i = 0; i < pkgs.size(); ++i) {
             emitContinue("parentmodule(");
         }
@@ -814,8 +818,8 @@ struct EmitJuliaPackage : public Emitter
             emitContinue(")");
         }
         emitEnd("");
+        emit(0, "@static if VERSION < v\"1.0.0-\"");
         emit(0, "else");
-        emit(1, "__basemodule = split(string(@__MODULE__),\'.\')[end-%d]", pkgs.size() + 1);
         emit(0, "end");
         emit(0, "__modulepath = joinpath(dirname(@__FILE__), \"%s\")", pkg.c_str());
         emit(0, "pushfirst!(LOAD_PATH, __modulepath)");
