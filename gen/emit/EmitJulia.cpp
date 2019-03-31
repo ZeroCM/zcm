@@ -126,7 +126,7 @@ struct EmitJuliaType : public Emitter
             string joiner = (pkgPrefix.empty() || zm.type.package.empty()) ? "" : ".";
             auto memberPkg = pkgPrefix + joiner + zm.type.package;
             if (memberPkg.empty()) {
-                deps.insert("_" + zm.type.shortname + ": " + zm.type.shortname);
+                deps.insert("_" + zm.type.shortname);
             } else {
                 auto memberTopLvlPkg = topLevelPackage(memberPkg);
                 if (topLvlPkg != memberTopLvlPkg) {
@@ -822,7 +822,6 @@ struct EmitJuliaPackage : public Emitter
         emit(0, "else");
         emit(0, "end");
         emit(0, "__modulepath = joinpath(dirname(@__FILE__), \"%s\")", pkg.c_str());
-        emit(0, "pushfirst!(LOAD_PATH, __modulepath)");
         emit(0, "");
         emit(0, "function __init__()");
 
@@ -843,7 +842,6 @@ struct EmitJuliaPackage : public Emitter
     void emitModuleEnd()
     {
         emit(0, "finally");
-        emit(1, "popfirst!(LOAD_PATH)");
         emit(0, "end");
         emit(0, "");
         emit(0, "end # module %s;", pkg.c_str());
