@@ -1,7 +1,6 @@
 module o
 
-#import m2
-
 import p
+x = p.m1.t1()
 
 end

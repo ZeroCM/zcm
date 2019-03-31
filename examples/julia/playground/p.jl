@@ -1,8 +1,11 @@
 module p
+@static if VERSION < v"1.0.0-"
+    parentmodule = module_parent
+    pushfirst! = unshift!
+    popfirst! = shift!
+end
 
 __modulepath = joinpath(dirname(@__FILE__), "p")
-
-basemodule = parentmodule(p)
 
 try
     # Submodules

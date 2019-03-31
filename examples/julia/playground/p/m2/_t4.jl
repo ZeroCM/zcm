@@ -7,7 +7,7 @@ mutable struct t4 <: ZCM.AbstractZcmType
     function t4()
 
         self = new()
-        self.x = basemodule.p.m1.t2()
+        self.x = basemodule.m1.t2()
 
         return self
     end

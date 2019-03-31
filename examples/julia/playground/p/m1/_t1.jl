@@ -8,8 +8,8 @@ mutable struct t1 <: ZCM.AbstractZcmType
     function t1()
 
         self = new()
-        self.x = basemodule.p.m1.t2()
-        self.y = basemodule.p.m2.t6()
+        self.x = basemodule.m1.t2()
+        self.y = basemodule.m2.t6()
 
         return self
     end
