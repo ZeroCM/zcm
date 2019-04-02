@@ -4,8 +4,8 @@ end
 pushfirst!(LOAD_PATH, "../build/types")
 
 using ZCM
-using _example_t
-using _arrays_t
+using juliazcmtypes: example_t,
+                     arrays_t
 
 numReceived = 0
 function handler(rbuf, channel::String, msg::arrays_t)

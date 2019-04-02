@@ -4,8 +4,8 @@ end
 pushfirst!(LOAD_PATH, "../build/types")
 
 using ZCM
-using _example_t
-using _example2_t
+using juliazcmtypes: example_t,
+                     example2_t
 
 received_example_t = false
 function handler1(rbuf, channel::String, msg::example_t)

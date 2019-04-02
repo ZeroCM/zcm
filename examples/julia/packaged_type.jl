@@ -5,8 +5,8 @@ pushfirst!(LOAD_PATH, "../build/types")
 
 using ZCM
 
-import test_package: packaged_t
-import _example_t: example_t
+import juliazcmtypes.test_package: packaged_t
+import juliazcmtypes: example_t
 
 function prepMsg!(m::packaged_t, tf::Bool)
     m.packaged = tf;

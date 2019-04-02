@@ -4,7 +4,7 @@ end
 pushfirst!(LOAD_PATH, "../build/types")
 
 using ZCM
-using _example_t
+using juliazcmtypes: example_t
 
 zcm = Zcm("inproc")
 if (!good(zcm))

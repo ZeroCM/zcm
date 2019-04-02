@@ -4,8 +4,8 @@ end
 pushfirst!(LOAD_PATH, "../build/types")
 
 using ZCM
-using _example_t
-using _encoded_t
+using juliazcmtypes: example_t,
+                     encoded_t
 
 # declare a new msg and populate it
 msg = example_t()
