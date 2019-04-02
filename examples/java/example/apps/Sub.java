@@ -2,7 +2,7 @@ package example.apps;
 
 import java.io.*;
 import zcm.zcm.*;
-import example.zcmtypes.example_t;
+import javazcmtypes.example_t;
 
 public class Sub implements ZCMSubscriber
 {

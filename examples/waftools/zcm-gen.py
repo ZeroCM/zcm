@@ -55,9 +55,9 @@ def configure(ctx):
 #                 default = 'zcmtypes' (though it is encouraged to name it something more unique
 #                                       to avoid library naming conflicts)
 #   juliapkg:     Julia module prefix that all types will be generated into. This prefix also
-#                 prefixes the global pkgPrefix if one is set. If neither pkgPrefix nor juliapkg
-#                 are set, types without packages will be generated into a module that is the
-#                 typename prefixed by '_'
+#                 prefixes the global pkgPrefix if one is set.
+#                 default = 'zcmtypes' (though it is encouraged to name it something more unique
+#                                       to avoid library naming conflicts)
 #   juliagenpkgs: If True, generate julia module files for all packages. ALL ZCMTYPES MUST BE
 #                 INCLUDED IN SOURCE FOR THIS COMMAND! Types are NOT generated themselves
 #                 unless the user specifies 'julia' in the `lang` list. This allows users
@@ -108,8 +108,7 @@ def configure(ctx):
 #                  be imported by importing the package "_" + "type_name_t"
 #     wscript:     add '${name}_julia' to the list of "use" dependencies
 #     julia files: Add ${dir} to your LOAD_PATH : "unshift!(LOAD_PATH, ${dir})"
-#                  Import packaged type :         "import pkg_name"
-#                  Import a non-packaged type :   "import _type_name_t: type_name_t"
+#                  Import packaged type :         "import pkg_name: type_name_t"
 #
 # Note on running the output java classes:
 #   Because of the way that java's CLASSPATH works, even though waf will link the appropriate jar
@@ -127,7 +126,7 @@ def outFileNames(ctx, bldpath, inFile, **kw):
 
     pkgPrefix    = kw.get('pkgPrefix',    '')
     javapkg      = kw.get('javapkg',      'zcmtypes')
-    juliapkg     = kw.get('juliapkg',     '')
+    juliapkg     = kw.get('juliapkg',     'zcmtypes')
     juliagenpkgs = kw.get('juliagenpkgs', False)
 
     lang = kw.get('lang', [])

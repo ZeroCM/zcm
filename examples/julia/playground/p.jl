@@ -3,6 +3,9 @@ module p
     parentmodule = module_parent
     pushfirst! = unshift!
     popfirst! = shift!
+    basemodule = current_module()
+else
+    basemodule = @__MODULE__
 end
 
 __modulepath = joinpath(dirname(@__FILE__), "p")

@@ -1,7 +1,7 @@
 package example.apps;
 
 import zcm.zcm.*;
-import example.zcmtypes.example_t;
+import javazcmtypes.example_t;
 
 public class Pub
 {

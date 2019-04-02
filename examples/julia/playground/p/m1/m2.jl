@@ -3,9 +3,9 @@ module m2
     parentmodule = module_parent
     pushfirst! = unshift!
     popfirst! = shift!
-    basemodule = parentmodule(parentmodule(current_module()))
+    basemodule = parentmodule(current_module()).basemodule
 else
-    basemodule = parentmodule(parentmodule(@__MODULE__))
+    basemodule = parentmodule(@__MODULE__).basemodule
 end
 
 __modulepath = joinpath(dirname(@__FILE__), "m2")

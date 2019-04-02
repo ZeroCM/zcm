@@ -12,7 +12,7 @@ namespace StringUtil
     // Splits string with delimiter into a vector
     // Example:
     //    split("fg/kjh/i", '/') -> vector<string>{"fg", "kjh", "i"}
-// This function is very useful for extracting delimited fields
+    // This function is very useful for extracting delimited fields
     static vector<string> split(const string& str, char delimiter)
     {
         // TODO: if this function is ever too slow, it can be rewritten to loop through

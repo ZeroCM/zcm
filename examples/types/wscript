@@ -1,37 +1,44 @@
 #!/usr/bin/env python
 
 def build(ctx):
+    # Generate zcmtype files
     ctx.zcmgen(name         = 'examplezcmtypes',
                source       = ctx.path.ant_glob('**/*.zcm', excl='little_endian_t.zcm'),
                lang         = ['c_stlib', 'c_shlib', 'cpp', 'java', 'python', 'nodejs', 'julia'],
-               javapkg      = 'example.zcmtypes')
+               javapkg      = 'javazcmtypes',
+               juliapkg     = 'juliazcmtypes')
 
-    ctx.zcmgen(name         = 'examplezcmtype-juliapkgs',
-               source       = ctx.path.ant_glob('**/*.zcm'),
-               juliagenpkgs = True)
-
+    # Generate zcmtype files for little endian types
     ctx.zcmgen(name         = 'examplezcmtypes-little-endian',
                source       = ctx.path.ant_glob('little_endian_t.zcm'),
                lang         = ['c_stlib', 'c_shlib', 'cpp', 'julia'],
+               juliapkg     = 'juliazcmtypes',
                littleEndian = True)
 
-    # Do the same thing, just with package prefix
-    ctx.zcmgen(name         = 'examplezcmtypepfx-juliapkgs',
+    # Generate julia package files (for all zcmtypes regardless of endian-ness)
+    ctx.zcmgen(name         = 'examplezcmtype-juliapkgs',
                source       = ctx.path.ant_glob('**/*.zcm'),
-               pkgPrefix    = 'example.zcmtypes',
                juliapkg     = 'juliazcmtypes',
                juliagenpkgs = True)
 
+
+    # Do the same things, just with a global package prefix
     ctx.zcmgen(name         = 'examplezcmtypespfx',
                source       = ctx.path.ant_glob('**/*.zcm', excl='little_endian_t.zcm'),
                lang         = ['c_stlib', 'c_shlib', 'cpp', 'java', 'python', 'nodejs', 'julia'],
                pkgPrefix    = 'example.zcmtypes',
-               juliapkg     = 'juliazcmtypes',
-               javapkg      = 'javazcmtypes')
+               javapkg      = 'javazcmtypespfx',
+               juliapkg     = 'juliazcmtypespfx')
 
     ctx.zcmgen(name         = 'examplezcmtypespfx-little-endian',
                source       = ctx.path.ant_glob('little_endian_t.zcm'),
                lang         = ['c_stlib', 'c_shlib', 'cpp', 'julia'],
                pkgPrefix    = 'example.zcmtypes',
-               juliapkg     = 'juliazcmtypes',
+               juliapkg     = 'juliazcmtypespfx',
                littleEndian = True)
+
+    ctx.zcmgen(name         = 'examplezcmtypepfx-juliapkgs',
+               source       = ctx.path.ant_glob('**/*.zcm'),
+               pkgPrefix    = 'example.zcmtypes',
+               juliapkg     = 'juliazcmtypespfx',
+               juliagenpkgs = True)
