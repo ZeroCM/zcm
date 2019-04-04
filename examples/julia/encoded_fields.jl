@@ -1,5 +1,5 @@
 using ZCM
-using julia.zcmtypes: example_t,
+using juliazcm.types: example_t,
                       encoded_t
 
 # declare a new msg and populate it

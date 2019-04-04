@@ -1,5 +1,5 @@
 using ZCM
-using julia.zcmtypes: little_endian_t
+using juliazcm.types: little_endian_t
 
 numReceived = 0
 function handler(rbuf, channel::String, msg::little_endian_t)

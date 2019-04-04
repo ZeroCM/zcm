@@ -1,7 +1,7 @@
 using ZCM
 
-import julia.zcmtypes.test_package: packaged_t
-import julia.zcmtypes: example_t
+import juliazcm.types.test_package: packaged_t
+import juliazcm.types: example_t
 
 function prepMsg!(m::packaged_t, tf::Bool)
     m.packaged = tf;

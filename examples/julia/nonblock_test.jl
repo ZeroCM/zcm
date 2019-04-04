@@ -1,5 +1,5 @@
 using ZCM
-using julia.zcmtypes: example_t
+using juliazcm.types: example_t
 
 numReceived = 0
 handler = function(rbuf, channel::String, msg::example_t)

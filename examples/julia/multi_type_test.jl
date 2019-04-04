@@ -1,5 +1,5 @@
 using ZCM
-using julia.zcmtypes: example_t,
+using juliazcm.types: example_t,
                       example2_t
 
 received_example_t = false

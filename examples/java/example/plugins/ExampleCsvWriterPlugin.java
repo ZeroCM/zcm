@@ -4,8 +4,8 @@ import java.io.PrintWriter;
 
 import zcm.logging.CsvWriterPlugin;
 
-import java.zcmtypes.example_t;
-import java.zcmtypes.example2_t;
+import javazcm.types.example_t;
+import javazcm.types.example2_t;
 
 public class ExampleCsvWriterPlugin extends CsvWriterPlugin
 {
