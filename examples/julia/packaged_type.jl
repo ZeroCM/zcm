@@ -1,12 +1,7 @@
-@static if VERSION < v"1.0.0-"
-    pushfirst! = unshift!
-end
-pushfirst!(LOAD_PATH, "../build/types")
-
 using ZCM
 
-import juliazcmtypes.test_package: packaged_t
-import juliazcmtypes: example_t
+import julia.zcmtypes.test_package: packaged_t
+import julia.zcmtypes: example_t
 
 function prepMsg!(m::packaged_t, tf::Bool)
     m.packaged = tf;

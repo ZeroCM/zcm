@@ -1,10 +1,5 @@
-@static if VERSION < v"1.0.0-"
-    pushfirst! = unshift!
-end
-pushfirst!(LOAD_PATH, "../build/types")
-
 using ZCM
-using juliazcmtypes: example_t
+using julia.zcmtypes: example_t
 
 zcm = Zcm("inproc")
 if (!good(zcm))

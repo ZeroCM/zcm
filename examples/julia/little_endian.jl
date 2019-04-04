@@ -1,10 +1,5 @@
-@static if VERSION < v"1.0.0-"
-    pushfirst! = unshift!
-end
-pushfirst!(LOAD_PATH, "../build/types")
-
 using ZCM
-using juliazcmtypes: little_endian_t
+using julia.zcmtypes: little_endian_t
 
 numReceived = 0
 function handler(rbuf, channel::String, msg::little_endian_t)

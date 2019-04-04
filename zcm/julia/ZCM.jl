@@ -28,17 +28,15 @@ export Zcm,
        write_event
 
 import Base: flush,
-             first,
              unsafe_convert
 
-@static if VERSION < v"1.0.0-"
+@static if VERSION < v"0.7.0-"
     import Base: start
 end
 
 abstract type AbstractZcmType end
-_takebuf_array(buf) = take!(buf)
 
-@static if VERSION < v"1.0.0-"
+@static if VERSION < v"0.7.0-"
     Nothing = Void
     findall = find
 end
@@ -61,7 +59,7 @@ function _decode_one(::Type{AbstractZcmType}, buf) end
 # C ptr types for types that we don't need the internals of
 module Native
 
-@static if VERSION < v"1.0.0-"
+@static if VERSION < v"0.7.0-"
     Nothing = Void
     findall = find
 end
@@ -119,7 +117,7 @@ mutable struct Zcm
         pointer = ccall(("zcm_create", "libzcm"), Ptr{Native.Zcm}, (Cstring,), url);
         instance = new(pointer, Subscription[])
 
-        @static if VERSION < v"1.0.0-"
+        @static if VERSION < v"0.7.0-"
             finalizer(instance, destroy)
         else
             finalizer(destroy, instance)
@@ -172,7 +170,7 @@ function typed_handler(handler, msgtype::Type{Nothing}, args...)
     (rbuf, channel, msgdata) -> handler(rbuf, channel, msgdata, args...)
 end
 
-@static if VERSION < v"1.0.0-"
+@static if VERSION < v"0.7.0-"
     sub_handler(::Type{T}) where {T} = cfunction(handler_wrapper, Nothing, (Ref{Native.RecvBuf}, Cstring, Ref{T}))
 else
     sub_handler(::Type{T}) where {T} = @cfunction(handler_wrapper, Nothing, (Ref{Native.RecvBuf}, Cstring, Ref{T}))
@@ -328,7 +326,7 @@ mutable struct LogEvent
         instance.data    = encode(msg)
         instance.valid   = true
 
-        @static if VERSION < v"1.0.0-"
+        @static if VERSION < v"0.7.0-"
             finalizer(instance, destroy)
         else
             finalizer(destroy, instance)
@@ -363,7 +361,7 @@ mutable struct LogEvent
         end
 
         # user can force cleanup of their instance by calling `finalize(zcm)`
-        @static if VERSION < v"1.0.0-"
+        @static if VERSION < v"0.7.0-"
             finalizer(instance, destroy)
         else
             finalizer(destroy, instance)
@@ -398,7 +396,7 @@ mutable struct LogFile
                                   (Cstring, Cstring), path, mode)
 
         # user can force cleanup of their instance by calling `finalize(zcm)`
-        @static if VERSION < v"1.0.0-"
+        @static if VERSION < v"0.7.0-"
             finalizer(instance, destroy)
         else
             finalizer(destroy, instance)

@@ -1,11 +1,6 @@
-@static if VERSION < v"1.0.0-"
-    pushfirst! = unshift!
-end
-pushfirst!(LOAD_PATH, "../build/types")
-
 using ZCM
-using juliazcmtypes: example_t,
-                     arrays_t
+using julia.zcmtypes: example_t,
+                      arrays_t
 
 numReceived = 0
 function handler(rbuf, channel::String, msg::arrays_t)

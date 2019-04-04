@@ -1,8 +1,3 @@
-@static if VERSION < v"1.0.0-"
-    pushfirst! = unshift!
-end
-pushfirst!(LOAD_PATH, "../build/types")
-
 using ZCM
 
 import juliazcmtypespfx.example.zcmtypes.test_package: packaged_t

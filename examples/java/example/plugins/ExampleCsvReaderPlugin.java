@@ -7,7 +7,7 @@ import zcm.logging.CsvReaderPlugin;
 import zcm.logging.Log;
 import zcm.zcm.ZCMDataOutputStream;
 
-import javazcmtypes.example_t;
+import java.zcmtypes.example_t;
 
 public class ExampleCsvReaderPlugin extends CsvReaderPlugin
 {
