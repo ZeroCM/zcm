@@ -1,7 +1,5 @@
-unshift!(LOAD_PATH, "../build/types")
-
 using ZCM
-using _example_t
+using juliazcm.types: example_t
 
 zcm = Zcm("inproc")
 if (!good(zcm))

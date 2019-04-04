@@ -7,8 +7,8 @@ import zcm.logging.TranscoderPlugin;
 import zcm.logging.Log;
 import zcm.zcm.ZCMDataOutputStream;
 
-import example.zcmtypes.example_t;
-import example.zcmtypes.example2_t;
+import javazcm.types.example_t;
+import javazcm.types.example2_t;
 
 public class ExampleTranscoderPlugin extends TranscoderPlugin
 {

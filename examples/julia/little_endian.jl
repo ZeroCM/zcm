@@ -1,7 +1,5 @@
-unshift!(LOAD_PATH, "../build/types")
-
 using ZCM
-using _little_endian_t
+using juliazcm.types: little_endian_t
 
 numReceived = 0
 function handler(rbuf, channel::String, msg::little_endian_t)
@@ -15,8 +13,8 @@ end
 function untyped_handler(rbuf, channel::String, msgdata::Vector{UInt8})
     println("Recieved raw message data on channel: ", channel)
     buf = IOBuffer(msgdata)
-    @assert (ltoh(reinterpret(Int64, read(buf, 8))[1]) == ZCM.getHash(little_endian_t))
-            "Incorrect encoding for little endian"
+    @assert (ntoh(reinterpret(Int64, read(buf, 8))[1]) == ZCM.getHash(little_endian_t))
+            "Hash should always be encoded as network format"
     decode(little_endian_t, msgdata)
 end
 

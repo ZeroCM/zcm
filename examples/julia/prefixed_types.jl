@@ -1,11 +1,7 @@
-push!(LOAD_PATH, "../build/types")
-
 using ZCM
 
-import juliazcmtypes
-
-import juliazcmtypes.example.zcmtypes.test_package: packaged_t
-import juliazcmtypes.example.zcmtypes:               example_t
+import juliazcmtypespfx.example.zcmtypes.test_package: packaged_t
+import juliazcmtypespfx.example.zcmtypes:               example_t
 
 function prepPackaged!(m::packaged_t, tf::Bool)
     m.packaged = tf;

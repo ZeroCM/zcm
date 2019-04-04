@@ -1,7 +1,5 @@
-unshift!(LOAD_PATH, "../build/types")
-
 using ZCM
-using _example_t
+using juliazcm.types: example_t
 
 msg = example_t()
 
@@ -46,6 +44,7 @@ end
 i = 0
 event = read_next_event(zlog)
 while (good(event))
+    global i, event
     msg = decode(example_t, event.data)
 
     @assert (event.utime   == Int64(i * 1e6)) "Bad event utime"

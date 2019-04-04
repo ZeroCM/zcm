@@ -220,10 +220,30 @@ def attempt_use_julia(ctx):
     ctx.env.julia = ctx.env.julia[0]
 
     try:
-        res = subprocess.check_output('%s -E "abspath(JULIA_HOME, Base.INCLUDEDIR)"' %
-                                      ctx.env.julia, shell=True, stderr=open(os.devnull,'wb'))
+        version = subprocess.check_output('%s --version | cut -d \' \' -f3' %
+                                          ctx.env.julia, shell=True, stderr=open(os.devnull,'wb'))
+        version = version.strip()
+
+        Logs.pprint('NORMAL', '{:41}:'.format('Julia version identified as'), sep='')
+        Logs.pprint('GREEN', '%s' % version)
+
+        if version != '0.6.4' and version != '1.0.3':
+            raise WafError('Wrong Julia version, requires 0.6.4 or 1.0.3\nfound %s' % version)
+
+        # Note: because of how the include structure **internal** to the julia 1.0 uv headers
+        #       works, you actually **have** to point the include directory at
+        #       JULIA_HOME/include/julia instead of just JULIA_HOME/include
+        if version == '0.6.4':
+            res = subprocess.check_output('%s -E "abspath(JULIA_HOME, Base.INCLUDEDIR, %s)"' %
+                                          (ctx.env.julia, '\\\"julia\\\"'),
+                                          shell=True, stderr=open(os.devnull,'wb'))
+        else:
+            res = subprocess.check_output('%s -E "abspath(Sys.BINDIR, Base.INCLUDEDIR, %s)"' %
+                                          (ctx.env.julia, '\\\"julia\\\"'),
+                                          shell=True, stderr=open(os.devnull,'wb'))
+
         ctx.env.INCLUDES_julia = res.strip().strip('"')
-        Logs.pprint('NORMAL', '{:41}:'.format('JULIA_HOME identified as'), sep='')
+        Logs.pprint('NORMAL', '{:41}:'.format('Julia include path identified as'), sep='')
         Logs.pprint('GREEN', '%s' % ctx.env.INCLUDES_julia)
     except subprocess.CalledProcessError as e:
         raise WafError('Failed to find julia include path\n%s' % e)
