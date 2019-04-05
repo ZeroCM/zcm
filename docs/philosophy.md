@@ -77,7 +77,7 @@ However, there are many more disconcerting problems. Imagine a developer discove
 the roll, pitch, and yaw fields above need more precision and decides an upgrade to
 double precision is required. How should she approach this issue? What about migrating
 all of the existing distributed nodes to the new layout? What happens if it's a very
-large development team relying on the interface? At a minimum, how can we gaurantee
+large development team relying on the interface? At a minimum, how can we guarantee
 that no user ever decodes data incorrectly?
 
 ### ASCII Approach
