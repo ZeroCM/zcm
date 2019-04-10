@@ -1,3 +1,5 @@
+# cython: language_level=2
+
 from libc.stdint cimport int64_t, int32_t, uint32_t, uint8_t
 from posix.unistd cimport off_t
 import time
@@ -134,8 +136,8 @@ cdef class ZCM:
         _data = msg.encode()
         cdef const uint8_t* data = _data
         return zcm_publish(self.zcm, channel.encode('utf-8'), data, len(_data) * sizeof(uint8_t))
-    def publishRaw(self, str channel, uint8_t* msg, int32_t length):
-        return zcm_publish(self.zcm, channel.encode('utf-8'), msg, length)
+    def publish_raw(self, str channel, bytes data):
+        return zcm_publish(self.zcm, channel.encode('utf-8'), data, len(data))
     def flush(self):
         while zcm_try_flush(self.zcm) != ZCM_EOK:
             time.sleep(0) # yield the gil
