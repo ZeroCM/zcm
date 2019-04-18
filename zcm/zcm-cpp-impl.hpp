@@ -223,10 +223,10 @@ inline bool ZCMServer::good() const
     return svr != NULL;
 }
 
-inline ZCM ZCMServer::accept(int timeout)
+inline ZCM* ZCMServer::accept(int timeout)
 {
     zcm_t *z = zcm_server_accept(svr, timeout);
-    return ZCM(z);
+    return z ? new ZCM(z) : nullptr;
 }
 
 // Virtual inheritance to avoid ambiguous base class problem http://stackoverflow.com/a/139329

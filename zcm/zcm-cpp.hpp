@@ -123,7 +123,7 @@ public:
     inline ZCMServer(const std::string& url);
     inline ~ZCMServer();
     inline bool good() const;
-    inline ZCM accept(int timeout);
+    inline ZCM* accept(int timeout);
 
 private:
     zcm_server_t *svr;

@@ -58,4 +58,12 @@ def build(ctx):
                 use = 'default zcm',
                 source = 'BandwidthTest.cpp')
 
+    ctx.program(target = 'tcp-server',
+                use = 'default zcm examplezcmtypes_cpp',
+                source = 'TCPServer.cpp')
+
+    ctx.program(target = 'tcp-client',
+                use = 'default zcm examplezcmtypes_cpp',
+                source = 'TCPClient.cpp')
+
     ctx.recurse('transport')
