@@ -144,7 +144,6 @@ void zcm_cleanup(zcm_t* zcm)
             case ZCM_NONBLOCKING: zcm_nonblocking_destroy(zcm->impl); return;
         }
 #endif
-        ZCM_ASSERT(zcm->type == ZCM_NONBLOCKING);
         zcm_nonblocking_destroy(zcm->impl);
     }
 }
@@ -183,7 +182,6 @@ int zcm_publish(zcm_t* zcm, const char* channel, const uint8_t* data, uint32_t l
         case ZCM_NONBLOCKING: return zcm_nonblocking_publish(zcm->impl, channel, data, len);
     }
 #endif
-    ZCM_ASSERT(zcm->type == ZCM_NONBLOCKING);
     return zcm_nonblocking_publish(zcm->impl, channel, data, len);
 }
 
@@ -195,7 +193,6 @@ void zcm_flush(zcm_t* zcm)
         case ZCM_NONBLOCKING: return zcm_nonblocking_flush(zcm->impl);
     }
 #endif
-    ZCM_ASSERT(zcm->type == ZCM_NONBLOCKING);
     return zcm_nonblocking_flush(zcm->impl);
 }
 
@@ -207,7 +204,6 @@ int  zcm_try_flush(zcm_t* zcm)
         case ZCM_NONBLOCKING: zcm_nonblocking_flush(zcm->impl); return ZCM_EOK;
     }
 #endif
-    ZCM_ASSERT(zcm->type == ZCM_NONBLOCKING);
     zcm_nonblocking_flush(zcm->impl);
     return ZCM_EOK;
 }
@@ -220,7 +216,6 @@ zcm_sub_t* zcm_subscribe(zcm_t* zcm, const char* channel, zcm_msg_handler_t cb, 
         case ZCM_NONBLOCKING: return zcm_nonblocking_subscribe(zcm->impl, channel, cb, usr);
     }
 #endif
-    ZCM_ASSERT(zcm->type == ZCM_NONBLOCKING);
     return zcm_nonblocking_subscribe(zcm->impl, channel, cb, usr);
 }
 
@@ -232,7 +227,6 @@ zcm_sub_t* zcm_try_subscribe(zcm_t* zcm, const char* channel, zcm_msg_handler_t 
         case ZCM_NONBLOCKING: return zcm_nonblocking_subscribe (zcm->impl, channel, cb, usr);
     }
 #endif
-    ZCM_ASSERT(zcm->type == ZCM_NONBLOCKING);
     return zcm_nonblocking_subscribe(zcm->impl, channel, cb, usr);
 }
 
@@ -244,7 +238,6 @@ int zcm_unsubscribe(zcm_t* zcm, zcm_sub_t* sub)
         case ZCM_NONBLOCKING: return zcm_nonblocking_unsubscribe(zcm->impl, sub);
     }
 #endif
-    ZCM_ASSERT(zcm->type == ZCM_NONBLOCKING);
     return zcm_nonblocking_unsubscribe(zcm->impl, sub);
 }
 
@@ -256,7 +249,6 @@ int zcm_try_unsubscribe(zcm_t* zcm, zcm_sub_t* sub)
         case ZCM_NONBLOCKING: return zcm_nonblocking_unsubscribe (zcm->impl, sub);
     }
 #endif
-    ZCM_ASSERT(zcm->type == ZCM_NONBLOCKING);
     return zcm_nonblocking_unsubscribe(zcm->impl, sub);
 }
 
@@ -325,6 +317,5 @@ int  zcm_try_set_queue_size(zcm_t* zcm, uint32_t numMsgs)
 
 int zcm_handle_nonblock(zcm_t* zcm)
 {
-    ZCM_ASSERT(zcm->type == ZCM_NONBLOCKING);
     return zcm_nonblocking_handle_nonblock(zcm->impl);
 }
