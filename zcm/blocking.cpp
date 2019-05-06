@@ -189,6 +189,7 @@ struct zcm_blocking
 
 zcm_blocking_t::zcm_blocking(zcm_t* z, zcm_trans_t* zt_)
 {
+    ZCM_ASSERT(z->type == ZCM_BLOCKING);
     zt = zt_;
     mtu = zcm_trans_get_mtu(zt);
 }

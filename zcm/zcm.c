@@ -263,7 +263,6 @@ int zcm_try_unsubscribe(zcm_t* zcm, zcm_sub_t* sub)
 #ifndef ZCM_EMBEDDED
 void zcm_start(zcm_t* zcm)
 {
-    ZCM_ASSERT(zcm->type == ZCM_BLOCKING);
     return zcm_blocking_start(zcm->impl);
 }
 #endif
@@ -271,7 +270,6 @@ void zcm_start(zcm_t* zcm)
 #ifndef ZCM_EMBEDDED
 void zcm_stop(zcm_t* zcm)
 {
-    ZCM_ASSERT(zcm->type == ZCM_BLOCKING);
     return zcm_blocking_stop(zcm->impl);
 }
 #endif
@@ -279,7 +277,6 @@ void zcm_stop(zcm_t* zcm)
 #ifndef ZCM_EMBEDDED
 int zcm_try_stop(zcm_t* zcm)
 {
-    ZCM_ASSERT(zcm->type == ZCM_BLOCKING);
     return zcm_blocking_try_stop(zcm->impl);
 }
 #endif
@@ -287,7 +284,6 @@ int zcm_try_stop(zcm_t* zcm)
 #ifndef ZCM_EMBEDDED
 void zcm_run(zcm_t* zcm)
 {
-    ZCM_ASSERT(zcm->type == ZCM_BLOCKING);
     return zcm_blocking_run(zcm->impl);
 }
 #endif
@@ -295,7 +291,6 @@ void zcm_run(zcm_t* zcm)
 #ifndef ZCM_EMBEDDED
 void zcm_pause(zcm_t* zcm)
 {
-    ZCM_ASSERT(zcm->type == ZCM_BLOCKING);
     return zcm_blocking_pause(zcm->impl);
 }
 #endif
@@ -303,7 +298,6 @@ void zcm_pause(zcm_t* zcm)
 #ifndef ZCM_EMBEDDED
 void zcm_resume(zcm_t* zcm)
 {
-    ZCM_ASSERT(zcm->type == ZCM_BLOCKING);
     return zcm_blocking_resume(zcm->impl);
 }
 #endif
@@ -311,7 +305,6 @@ void zcm_resume(zcm_t* zcm)
 #ifndef ZCM_EMBEDDED
 int zcm_handle(zcm_t* zcm)
 {
-    ZCM_ASSERT(zcm->type == ZCM_BLOCKING);
     return zcm_blocking_handle(zcm->impl);
 }
 #endif
@@ -319,7 +312,6 @@ int zcm_handle(zcm_t* zcm)
 #ifndef ZCM_EMBEDDED
 void zcm_set_queue_size(zcm_t* zcm, uint32_t numMsgs)
 {
-    ZCM_ASSERT(zcm->type == ZCM_BLOCKING);
     return zcm_blocking_set_queue_size(zcm->impl, numMsgs);
 }
 #endif
@@ -327,7 +319,6 @@ void zcm_set_queue_size(zcm_t* zcm, uint32_t numMsgs)
 #ifndef ZCM_EMBEDDED
 int  zcm_try_set_queue_size(zcm_t* zcm, uint32_t numMsgs)
 {
-    ZCM_ASSERT(zcm->type == ZCM_BLOCKING);
     return zcm_blocking_try_set_queue_size(zcm->impl, numMsgs);
 }
 #endif
