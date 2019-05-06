@@ -55,6 +55,7 @@ static bool isSupportedRegex(const char* c, size_t clen)
 
 zcm_nonblocking_t* zcm_nonblocking_create(zcm_t* z, zcm_trans_t* zt)
 {
+    ZCM_ASSERT(z->type == ZCM_NONBLOCKING);
     zcm_nonblocking_t* zcm;
 
     zcm = malloc(sizeof(zcm_nonblocking_t));
