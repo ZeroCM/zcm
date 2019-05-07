@@ -38,7 +38,7 @@ int main()
     while (!subrunning) {}
 
     // do pub
-    char data = 'A';
+    uint8_t data = 'A';
     for (size_t i = 0; i < N; i++) {
         // create, send, and destroy
         zcm_t *zcm = zcm_create("udpm://239.255.76.67:7667?ttl=0");

@@ -21,7 +21,7 @@ using namespace std;
 static bool verbose = false;
 static int  retval = 0;
 
-static char data[NUM_DATA] = {'a', 'b', 'c', 'd', 'e'};
+static uint8_t data[NUM_DATA] = {'a', 'b', 'c', 'd', 'e'};
 
 class Handler
 {

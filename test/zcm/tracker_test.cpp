@@ -31,17 +31,17 @@ static std::random_device rd;
 static std::minstd_rand gen(rd());
 static std::normal_distribution<double> dist(0.0, noiseStdDev);
 
-uint32_t get(uint8_t* data, uint32_t nData, void* usr)
+size_t get(uint8_t* data, size_t nData, void* usr)
 {
-    uint32_t ret = std::min(nData, (uint32_t) buf.size());
+    uint32_t ret = std::min(nData, (size_t) buf.size());
     if (ret == 0) return 0;
     for (size_t i = 0; i < ret; ++i) { data[i] = buf.front(); buf.pop_front(); }
     return ret;
 }
 
-uint32_t put(const uint8_t* data, uint32_t nData, void* usr)
+size_t put(const uint8_t* data, size_t nData, void* usr)
 {
-    uint32_t ret = std::min(nData, (uint32_t) (maxBufSize - buf.size()));
+    uint32_t ret = std::min(nData, (size_t) (maxBufSize - buf.size()));
     if (ret == 0) return 0;
     for (size_t i = 0; i < ret; ++i) buf.push_back(data[i]);
     assert(buf.size() <= maxBufSize);
@@ -65,7 +65,10 @@ int main(int argc, char *argv[])
 {
     constexpr size_t numMsgs = 500;
 
-    zcm_trans_t* trans = zcm_trans_generic_serial_create(get, put, NULL, timestamp_now, NULL);
+    size_t mtu = 10; //TODO: MAKE UP VALUE HERE
+    size_t bufSize = 100; //todo: MAKE UP VALUE HERE
+
+    zcm_trans_t* trans = zcm_trans_generic_serial_create(get, put, NULL, timestamp_now, NULL, mtu, bufSize);
 
     zcm::ZCM zcmLocal(trans);
     zcm::MessageTracker<example_t> mt(&zcmLocal, "EXAMPLE", numMsgs, numMsgs, callback);

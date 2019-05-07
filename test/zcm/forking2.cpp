@@ -37,7 +37,7 @@ void pub(zcm_t *zcm)
     // Sleep for a moment to give the sub() process time to start
     usleep(100000);
 
-    char data = 'd';
+    uint8_t data = 'd';
     zcm_publish(zcm, CHANNEL, &data, 1);
     usleep(10000);
 }
@@ -78,7 +78,7 @@ void test2()
 
     // Try publishing once. This may start a thread, but a zcm_stop() before a fork
     // should be okay.
-    char data = 'd';
+    uint8_t data = 'd';
     zcm_publish(zcm, CHANNEL, &data, 1);
     zcm_stop(zcm);
 

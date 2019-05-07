@@ -18,7 +18,7 @@ static void handler(const zcm_recv_buf_t *rbuf, const char *channel, void *usr)
 
 int main(int argc, char *argv[])
 {
-    char *data = malloc(DATASZ);
+    uint8_t *data = malloc(DATASZ);
     memset(data, 0, DATASZ);
 
     zcm_t *zcm = zcm_create(URL);

@@ -14,7 +14,7 @@ int main(int argc, const char *argv[])
     event.channellen = testChannel.length();
     event.channel    = (char*) testChannel.c_str();
     event.datalen    = testData.length();
-    event.data       = (void*) testData.c_str();
+    event.data       = (uint8_t*) testData.c_str();
 
     zcm_eventlog_t *l = zcm_eventlog_create("testlog.log", "w");
     assert(l && "Failed to open log for writing");

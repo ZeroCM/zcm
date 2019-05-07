@@ -19,7 +19,7 @@ static int  retval = 0;
 
 static int  num_received = 0;
 static int  bytepacked_received = 0;
-static char data[NUM_DATA] = {'a', 'b', 'c', 'd', 'e'};
+static uint8_t data[NUM_DATA] = {'a', 'b', 'c', 'd', 'e'};
 static void generic_handler(const zcm_recv_buf_t *rbuf, const char *channel, void *usr)
 {
     vprintf("%" PRIi64 " - %s: ", rbuf->recv_utime, channel);
