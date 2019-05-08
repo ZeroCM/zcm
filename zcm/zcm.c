@@ -37,25 +37,44 @@ int zcm_retcode_name_to_enum(const char* zcm_retcode_name)
 #ifndef ZCM_EMBEDDED
 zcm_t* zcm_create(const char* url)
 {
-    zcm_t* z = malloc(sizeof(zcm_t));
+    zcm_t* z = NULL;
+    ZCM_ASSERT(zcm_create_(url, &z) == ZCM_EOK);
     ZCM_ASSERT(z);
-    if (zcm_init(z, url) == -1) {
-        free(z);
-        return NULL;
-    }
     return z;
+}
+
+int zcm_create_(const char* url, zcm_t** z)
+{
+    *z = malloc(sizeof(zcm_t));
+    if(!*z) return ZCM_EMEMORY;
+    int init_return_code = zcm_init(*z, url);
+    if (init_return_code != ZCM_EOK) {
+        free(*z);
+        return init_return_code;
+    }
+    return ZCM_EOK;
 }
 #endif
 
 zcm_t* zcm_create_trans(zcm_trans_t* zt)
 {
-    zcm_t* z = malloc(sizeof(zcm_t));
+    zcm_t* z = NULL;
+    ZCM_ASSERT(zcm_create_trans_(zt, &z) == ZCM_EOK);
     ZCM_ASSERT(z);
-    if (zcm_init_trans(z, zt) == -1) {
-        free(z);
-        return NULL;
-    }
     return z;
+}
+
+
+int zcm_create_trans_(zcm_trans_t* zt, zcm_t** z)
+{
+    *z = malloc(sizeof(zcm_t));
+    if(!*z) return ZCM_EMEMORY;
+    int init_trans_ret = zcm_init_trans(*z, zt);
+    if (init_trans_ret == ZCM_EOK) {
+        free(*z);
+        return init_trans_ret;
+    }
+    return ZCM_EOK;
 }
 
 void zcm_destroy(zcm_t* zcm)
@@ -74,12 +93,12 @@ int zcm_init(zcm_t* zcm, const char* url)
         if (!url) {
             fprintf(stderr, "Please specify zcm url when creating zcm or "
                             "set environment variable ZCM_DEFAULT_URL\n");
-            return -1;
+            return ZCM_EUNKNOWN;
         }
     }
-    int ret = -1;
+    int ret = ZCM_EUNKNOWN;
     zcm_url_t* u = zcm_url_create(url);
-    ZCM_ASSERT(u);
+    if(!u) return ZCM_EMEMORY;
     const char* protocol = zcm_url_protocol(u);
 
     zcm_trans_create_func* creator = zcm_transport_find(protocol);
@@ -101,38 +120,37 @@ int zcm_init(zcm_t* zcm, const char* url)
 
 int zcm_init_trans(zcm_t* zcm, zcm_trans_t* zt)
 {
-    if (zt == NULL) goto fail;
-
-#ifndef ZCM_EMBEDDED
-    switch (zt->trans_type) {
-        case ZCM_BLOCKING: {
-            zcm->type = ZCM_BLOCKING;
-            zcm->impl = zcm_blocking_create(zcm, zt);
-            ZCM_ASSERT(zcm->impl);
-            zcm->err = ZCM_EOK;
-            return 0;
-        }
-        case ZCM_NONBLOCKING: {
-            zcm->type = ZCM_NONBLOCKING;
-            zcm->impl = zcm_nonblocking_create(zcm, zt);
-            ZCM_ASSERT(zcm->impl);
-            zcm->err = ZCM_EOK;
-            return 0;
-        }
+    /* Check for valid transport */
+    if (zt == NULL) {
+        zcm->impl = NULL;
+         zcm->err = ZCM_ECONNECT;
+         return ZCM_ECONNECT;
     }
-#endif
-    ZCM_ASSERT(zt->trans_type == ZCM_NONBLOCKING);
-    zcm->type = ZCM_NONBLOCKING;
-    zcm->impl = zcm_nonblocking_create(zcm, zt);
-    ZCM_ASSERT(zcm->impl);
-    zcm->err = ZCM_EOK;
-    return 0;
 
- fail:
-    zcm->type = ZCM_NONBLOCKING;
-    zcm->impl = NULL;
-    zcm->err = ZCM_ECONNECT;
-    return -1;
+    /* Create blocking transport */
+    if (zt->trans_type == ZCM_BLOCKING) {
+    #ifndef ZCM_EMBEDDED
+        zcm->type = ZCM_BLOCKING;
+        zcm->impl = zcm_blocking_create(zcm, zt);
+    #else
+        return ZCM_EINVALID;
+    #endif
+    }
+
+    /* Create non-blocking transport */
+    if (zt->trans_type == ZCM_NONBLOCKING) {
+        zcm->type = ZCM_NONBLOCKING;
+        zcm->impl = zcm_nonblocking_create(zcm, zt);
+    }
+
+    /* Check if transport has been initialized properly */
+    if(!zcm->impl) {
+        zcm->err = ZCM_EMEMORY;
+        return ZCM_EMEMORY;
+    }
+
+    zcm->err = ZCM_EOK;
+    return ZCM_EOK;
 }
 
 void zcm_cleanup(zcm_t* zcm)
