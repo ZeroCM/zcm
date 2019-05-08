@@ -780,6 +780,7 @@ bool zcm_blocking_t::deleteFromSubList(SubList& slist, zcm_sub_t* sub)
 /////////////// C Interface Functions ////////////////
 extern "C" {
 
+// RRR: we should make a "try_create" method for blocking similar to the try_create from nonblock
 zcm_blocking_t* zcm_blocking_create(zcm_t* z, zcm_trans_t* trans)
 {
     return new zcm_blocking_t(z, trans);

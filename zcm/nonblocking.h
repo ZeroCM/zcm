@@ -10,7 +10,7 @@ extern "C" {
 
 typedef struct     zcm_nonblocking zcm_nonblocking_t;
 zcm_nonblocking_t* zcm_nonblocking_create(zcm_t* z, zcm_trans_t* trans);
-int zcm_nonblocking_create_(zcm_t* z, zcm_trans_t* zt, zcm_nonblocking_t** zcm);
+int                zcm_nonblocking_try_create(zcm_nonblocking_t** zcm, zcm_t* z, zcm_trans_t* zt);
 
 void               zcm_nonblocking_destroy(zcm_nonblocking_t* zcm);
 

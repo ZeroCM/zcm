@@ -56,12 +56,12 @@ static bool isSupportedRegex(const char* c, size_t clen)
 zcm_nonblocking_t* zcm_nonblocking_create(zcm_t* z, zcm_trans_t* zt)
 {
     zcm_nonblocking_t* zcm = NULL;
-    int ret = zcm_nonblocking_create_(z, zt,  &zcm);
+    int ret = zcm_nonblocking_try_create(&zcm, z, zt);
     ZCM_ASSERT(ret == ZCM_EOK);
     return zcm;
 }
 
-int zcm_nonblocking_create_(zcm_t* z, zcm_trans_t* zt, zcm_nonblocking_t** zcm)
+int zcm_nonblocking_try_create(zcm_nonblocking_t** zcm, zcm_t* z, zcm_trans_t* zt)
 {
     if(z->type != ZCM_NONBLOCKING) return ZCM_EINVALID;
 
