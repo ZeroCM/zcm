@@ -78,8 +78,10 @@ int zcm_retcode_name_to_enum(const char* zcm_retcode_name);
    Sets zcm errno on failure */
 #ifndef ZCM_EMBEDDED
 zcm_t* zcm_create(const char* url);
+int zcm_create_(const char* url, zcm_t** z);
 #endif
 zcm_t* zcm_create_trans(zcm_trans_t* zt);
+int zcm_create_trans_(zcm_trans_t* zt, zcm_t** z);
 void   zcm_destroy(zcm_t* zcm);
 
 #ifndef ZCM_EMBEDDED

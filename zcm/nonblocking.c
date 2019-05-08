@@ -55,21 +55,28 @@ static bool isSupportedRegex(const char* c, size_t clen)
 
 zcm_nonblocking_t* zcm_nonblocking_create(zcm_t* z, zcm_trans_t* zt)
 {
-    ZCM_ASSERT(z->type == ZCM_NONBLOCKING);
-    zcm_nonblocking_t* zcm;
+    zcm_nonblocking_t* zcm = NULL;
+    int ret = zcm_nonblocking_create_(z, zt,  &zcm);
+    ZCM_ASSERT(ret == ZCM_EOK);
+    return zcm;
+}
 
-    zcm = malloc(sizeof(zcm_nonblocking_t));
-    if (!zcm) return NULL;
-    zcm->z = z;
-    zcm->zt = zt;
-    zcm->allChannelsEnabled = false;
+int zcm_nonblocking_create_(zcm_t* z, zcm_trans_t* zt, zcm_nonblocking_t** zcm)
+{
+    if(z->type != ZCM_NONBLOCKING) return ZCM_EINVALID;
+
+    *zcm = malloc(sizeof(zcm_nonblocking_t));
+    if (!*zcm) return ZCM_EMEMORY;
+    (*zcm)->z = z;
+    (*zcm)->zt = zt;
+    (*zcm)->allChannelsEnabled = false;
 
     size_t i;
     for (i = 0; i < ZCM_NONBLOCK_SUBS_MAX; ++i)
-        zcm->subInUse[i] = false;
+        (*zcm)->subInUse[i] = false;
 
-    zcm->subInUseEnd = 0;
-    return zcm;
+    (*zcm)->subInUseEnd = 0;
+    return ZCM_EOK;
 }
 
 void zcm_nonblocking_destroy(zcm_nonblocking_t* zcm)
