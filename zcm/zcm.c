@@ -133,7 +133,7 @@ int zcm_init_trans(zcm_t* zcm, zcm_trans_t* zt)
     if (zt->trans_type == ZCM_BLOCKING) {
         #ifndef ZCM_EMBEDDED
             zcm->type = ZCM_BLOCKING;
-            // RRR: do we want to use a "try_create" function here?
+            /* RRR: do we want to use a "try_create" function here? */
             zcm->impl = zcm_blocking_create(zcm, zt);
         #else
             zcm->err = ZCM_EINVALID;
@@ -144,7 +144,7 @@ int zcm_init_trans(zcm_t* zcm, zcm_trans_t* zt)
     /* Create non-blocking transport */
     if (zt->trans_type == ZCM_NONBLOCKING) {
         zcm->type = ZCM_NONBLOCKING;
-        // RRR: do we want to use a "try_create" function here?
+        /* RRR: do we want to use a "try_create" function here? */
         zcm->impl = zcm_nonblocking_create(zcm, zt);
     }
 
