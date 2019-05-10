@@ -166,6 +166,7 @@ def setup_environment(ctx):
     ctx.env.CFLAGS_default   = ['-std=gnu99', '-fPIC'] + WARNING_FLAGS
     ctx.env.CXXFLAGS_default = ['-std=c++11', '-fPIC'] + WARNING_FLAGS
     ctx.env.LINKFLAGS_default = ['-pthread']
+    ctx.env.INCLUDES_default  = [ctx.path.parent.abspath()]
 
     opt = waflib.Options.options
     ctx.env.USING_OPT = not opt.debug
@@ -214,6 +215,7 @@ def build(ctx):
     ctx.recurse('c')
     ctx.recurse('cpp')
     ctx.recurse('java')
+    ctx.recurse('test')
 
 def distclean(ctx):
     ctx.exec_command('rm -f waftools/*.pyc')

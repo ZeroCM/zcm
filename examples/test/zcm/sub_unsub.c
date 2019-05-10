@@ -81,15 +81,16 @@ int main(int argc, const char *argv[])
         zcm_t *zcm = zcm_create(transports[i]);
         vprintf("Creating zcm %s\n", transports[i]);
         if (!zcm) {
-            fprintf(stderr, "Failed to create zcm\n");
+            fprintf(stderr, "Failed to create zcm %s\n", transports[i]);
             return 1;
         }
 
         // TEST RAW DATA TRANSMISSION /////////////////////////////////////////
+        vprintf("\nTest raw data transmission\n");
         num_received = 0;
         bytepacked_received = 0;
         zcm_sub_t *sub = zcm_subscribe(zcm, "TEST", generic_handler, NULL);
-        zcm_publish(zcm, "TEST", data, sizeof(char));
+        assert(zcm_publish(zcm, "TEST", data, sizeof(char)) == ZCM_EOK);
 
         // zmq sockets are documented as taking a small but perceptible amount of time
         // to actuall establish connection, so in order to actually receive messages
@@ -101,7 +102,7 @@ int main(int argc, const char *argv[])
 
         size_t j;
         for (j = 0; j < NUM_DATA; ++j) {
-            zcm_publish(zcm, "TEST", data+j, sizeof(char));
+            assert(zcm_publish(zcm, "TEST", data+j, sizeof(char)) == ZCM_EOK);
         }
 
         usleep(sleep_time);
@@ -127,6 +128,7 @@ int main(int argc, const char *argv[])
 
 
         // TEST TYPED DATA TRANSMISSION ///////////////////////////////////////
+        vprintf("\nTest typed data transmission\n");
         num_typed_received = 0;
         bytepacked_typed_received = 0;
 
@@ -142,7 +144,8 @@ int main(int argc, const char *argv[])
 
         example_t_subscription_t *ex_sub = example_t_subscribe(zcm, "EXAMPLE",
                                                                example_t_handler, NULL);
-        example_t_publish(zcm, "EXAMPLE", &ex_data);
+        assert(ex_sub);
+        assert(example_t_publish(zcm, "EXAMPLE", &ex_data) == ZCM_EOK);
 
         // zmq sockets are documented as taking a small but perceptible amount of time
         // to actuall establish connection, so in order to actually receive messages
@@ -154,7 +157,7 @@ int main(int argc, const char *argv[])
 
         for (j = 0; j < NUM_DATA; ++j) {
             ex_data.utime = 1 << j;
-            example_t_publish(zcm, "EXAMPLE", &ex_data);
+            assert(example_t_publish(zcm, "EXAMPLE", &ex_data) == ZCM_EOK);
         }
 
         usleep(sleep_time);

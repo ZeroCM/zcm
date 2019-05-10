@@ -65,7 +65,7 @@ int main(int argc, char *argv[])
 {
     constexpr size_t numMsgs = 500;
 
-    size_t mtu = 10; //TODO: MAKE UP VALUE HERE
+    size_t mtu = 10000; //TODO: MAKE UP VALUE HERE
     size_t bufSize = 100; //todo: MAKE UP VALUE HERE
 
     zcm_trans_t* trans = zcm_trans_generic_serial_create(get, put, NULL, timestamp_now, NULL, mtu, bufSize);
