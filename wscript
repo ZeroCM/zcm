@@ -15,11 +15,12 @@ top = '.'
 out = 'build'
 
 # Allow import of custom tools
-sys.path.append('examples/waftools')
+sys.path.append('waftools')
 
 variants = {'local' : 'local',
              'asan' : 'local',  ## Core Sanitizers (Address, Undefined-Behavior)
              'tsan' : 'local',  ## Thread Sanitizer
+#             'examples' : 'local',
 }
 
 def options(ctx):
@@ -88,6 +89,9 @@ def configure(ctx):
     ctx.env.configuredEnv = []
 
     process_zcm_configure_options(ctx)
+
+    ctx.recurse('examples')
+
 
 def processCppVersion(ctx, f):
     version = ctx.cmd_and_log('grep VERSION %s | cut -d \' \' -f3' % (f),
@@ -388,20 +392,32 @@ for x in variants:
             cmd = name + '_' + x
             variant = x
 
+class BuildExamplesContext(BuildContext):
+    cmd = "build_examples"
+    variant = "build_examples"
+
+class MyCommandThingy(BuildContext):
+    cmd = "HahaMyCommand"
+    variant = "myownvariant"
+
 def build(ctx):
-    if ctx.variant:
-        if not ctx.variant in ctx.env.configuredEnv:
-            ctx.fatal('Please configure for %s build' % (ctx.variant))
+    if ctx.variant and ctx.variant == "build_examples":
+        ctx.recurse('examples')
+    else:
+        if ctx.variant:
+            if not ctx.variant in ctx.env.configuredEnv:
+                ctx.fatal('Please configure for %s build!!!' % (ctx.variant))
 
-    if not ctx.env.ENVIRONMENT_SETUP:
-        setup_environment(ctx)
+        if not ctx.env.ENVIRONMENT_SETUP:
+            setup_environment(ctx)
 
-    ctx.recurse('scripts')
-    ctx.recurse('zcm')
-    ctx.recurse('config')
-    ctx.recurse('gen')
-    ctx.recurse('tools')
-    generate_signature(ctx)
+        ctx.recurse('scripts')
+        ctx.recurse('zcm')
+        ctx.recurse('config')
+        ctx.recurse('gen')
+        ctx.recurse('tools')
+        generate_signature(ctx)
+
 
     ctx.add_group()
 

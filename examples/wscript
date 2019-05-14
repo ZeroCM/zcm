@@ -93,6 +93,7 @@ def configure(ctx):
         ctx.setenv(e, env=ctx.env.derive()) # start with a copy instead of a new env
 
 
+
 def process_zcm_configure_options(ctx):
     opt = waflib.Options.options
     env = ctx.env
@@ -204,9 +205,9 @@ for x in variants:
             variant = x
 
 def build(ctx):
-    if ctx.variant:
-        if not ctx.variant in ctx.env.configuredEnv:
-            ctx.fatal('Please configure for %s build' % (ctx.variant))
+#    if ctx.variant:
+#        if not ctx.variant in ctx.env.configuredEnv:
+#            ctx.fatal('Please configure for %s build' % (ctx.variant))
 
     if not ctx.env.ENVIRONMENT_SETUP:
         setup_environment(ctx)
@@ -216,6 +217,7 @@ def build(ctx):
     ctx.recurse('cpp')
     ctx.recurse('java')
     ctx.recurse('test')
+
 
 def distclean(ctx):
     ctx.exec_command('rm -f waftools/*.pyc')

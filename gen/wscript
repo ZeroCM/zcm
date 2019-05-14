@@ -11,4 +11,4 @@ def build(ctx):
                 source = ctx.path.ant_glob('*.c *.cpp **/*.c **/*.cpp', excl='disabled/*'))
 
     ctx.install_files('${PREFIX}/share/waf/',
-                      ['../examples/waftools/zcm-gen.py'])
+                      ['../waftools/zcm-gen.py'])

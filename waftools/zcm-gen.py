@@ -28,7 +28,7 @@ def configure(ctx):
     # find program leaves the program itself in an array (probably for if there are multiple),
     # but we only expect / want one
     if not getattr(ctx.env, 'ZCMGEN', []):
-        ctx.find_program('zcm-gen', var='ZCMGEN', mandatory=True)
+        ctx.find_program('zcm-gen', var='ZCMGEN', mandatory=True, path_list=['/home/m/KS/zcm/build/gen/'])
         ctx.env.ZCMGEN = ctx.env.ZCMGEN[0]
 
 # ******* ZcmGen Task Generator *******
@@ -157,7 +157,7 @@ def outFileNames(ctx, bldpath, inFile, **kw):
     if 'nodejs' in lang:
         cmd['nodejs'] = '--node --npath %s' % (bldpath)
 
-    files = ctx.cmd_and_log('zcm-gen --output-files %s %s' % (' '.join(cmd.values()), inFile),
+    files = ctx.cmd_and_log('%s --output-files %s %s' % (zcmgen, ' '.join(cmd.values()), inFile),
                             output=waflib.Context.STDOUT,
                             quiet=waflib.Context.BOTH).strip().split()
 
