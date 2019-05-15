@@ -1,3 +1,8 @@
+#ifndef FORKINGTEST_HPP
+#define FORKINGTEST_HPP
+
+#include "cxxtest/TestSuite.h"
+
 #include "zcm/zcm.h"
 #include <unistd.h>
 #include <sys/wait.h>
@@ -42,34 +47,37 @@ void pub(zcm_t *zcm)
     usleep(10000);
 }
 
-int main()
+class ForkingTest : public CxxTest::TestSuite
 {
-    zcm_t *zcm = zcm_create("ipc");
+  public:
+    void setUp() override {}
+    void tearDown() override {}
 
-    pid_t pid;
-    pid = ::fork();
+    void testForking() {
+        zcm_t *zcm = zcm_create("ipc");
 
-    if (pid < 0) {
-        printf("Fork failed!\n");
-        exit(1);
-    }
+        pid_t pid;
+        pid = ::fork();
 
-    else if (pid == 0) {
-        pub(zcm);
-    }
-
-    else {
-        bool success = sub(zcm);
-        int status;
-        ::waitpid(-1, &status, 0);
-        if (success) {
-            return 0;
-        } else {
-            printf("Failed!\n");
-            return 1;
+        if (pid < 0) {
+            printf("Fork failed!\n");
+            exit(1);
         }
+
+        else if (pid == 0) {
+            pub(zcm);
+        }
+
+        else {
+            bool success = sub(zcm);
+            int status;
+            ::waitpid(-1, &status, 0);
+            TS_ASSERT(success);
+        }
+
+        zcm_destroy(zcm);
     }
 
-    zcm_destroy(zcm);
-    return 0;
-}
+};
+
+#endif // FORKINGTEST_HPP

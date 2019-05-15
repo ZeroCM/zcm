@@ -419,16 +419,18 @@ def build(ctx):
     ctx.recurse('tools')
     generate_signature(ctx)
 
-    if ctx.env.USING_EXAMPLES:
-        ctx.recurse('examples')
-
-    if ctx.env.USING_TESTS:
-        ctx.recurse('test')
-
+    if ctx.env.USING_CXXTEST:
+        ctx.cxxtest(use = ['zcm', 'testzcmtypes'])
 
     ctx.add_group()
 
+    if ctx.env.USING_EXAMPLES:
+        ctx.recurse('examples')
+
+#    if ctx.env.USING_TESTS:
+#        ctx.recurse('test')
+
 
 def distclean(ctx):
-    ctx.exec_command('rm -f examples/waftools/*.pyc')
+    ctx.exec_command('rm -f waftools/*.pyc')
     waflib.Scripting.distclean(ctx)
