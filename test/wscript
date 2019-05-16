@@ -4,4 +4,3 @@
 def build(ctx):
     ctx.recurse('types')
     ctx.recurse('zcm')
-    ctx.recurse('stress')

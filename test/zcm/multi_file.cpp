@@ -1,5 +1,8 @@
 #include "multi_file.hpp"
 
+// RRR TODO: the comment below is not true. I removed all inline statements from zcm-cpp.hpp and it still compiled fine!
+// I put this test on hold for now to review it later.
+
 // This file exists for the sole purpose of ensuring the zcm cpp header can be safely included
 // in multiple files for a binary compilation. Previously, we saw compiler issue resulting
 // from multiple definitions of zcm cpp functions. This was because some functions in zcm-cpp.hpp

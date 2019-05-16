@@ -419,16 +419,15 @@ def build(ctx):
     ctx.recurse('tools')
     generate_signature(ctx)
 
+    # RRR: TODO: somehow cxxtest is always enabled?
     if ctx.env.USING_CXXTEST:
-        ctx.cxxtest(use = ['zcm', 'testzcmtypes'])
-
-    ctx.add_group()
+        ctx.cxxtest(use = ['zcm', 'testzcmtypes', 'testzcmtypes_cpp', 'testzcmtypes_c_stlib'])
 
     if ctx.env.USING_EXAMPLES:
         ctx.recurse('examples')
 
-#    if ctx.env.USING_TESTS:
-#        ctx.recurse('test')
+    if ctx.env.USING_TESTS:
+        ctx.recurse('test')
 
 
 def distclean(ctx):

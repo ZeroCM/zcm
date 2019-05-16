@@ -4,6 +4,8 @@
 #include <cassert>
 #include <cstdbool>
 
+// RRR This test is put on hold because I could not easily understand it and therefore was unable to port it to CXXtests
+
 #include "zcm/zcm_coretypes.h"
 
 using namespace std;

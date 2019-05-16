@@ -1,13 +1,8 @@
 #pragma once
 
-#include <iostream>
-#include <vector>
-#include <thread>
-#include <mutex>
+
 
 #include "cxxtest/TestSuite.h"
-
-#include <zcm/message_tracker.hpp>
 
 using namespace std;
 
