@@ -24,31 +24,31 @@ class ZCM
 {
   public:
     #ifndef ZCM_EMBEDDED
-     ZCM();
-     ZCM(const std::string& transport);
+    inline ZCM();
+    inline ZCM(const std::string& transport);
     #endif
-     ZCM(zcm_trans_t* zt);
-    virtual  ~ZCM();
+    inline ZCM(zcm_trans_t* zt);
+    virtual inline ~ZCM();
 
-      bool good() const;
-    virtual  int err() const; // errno is a reserved name, so this returns zcm_errno()
-    virtual  const char* strerror() const;
-    virtual  const char* strerrno(int err) const;
+    virtual inline bool good() const;
+    virtual inline int err() const; // errno is a reserved name, so this returns zcm_errno()
+    virtual inline const char* strerror() const;
+    virtual inline const char* strerrno(int err) const;
 
     #ifndef ZCM_EMBEDDED
-      void run();
-      void start();
-      void stop();
-      void pause();
-      void resume();
-      int  handle();
-      void setQueueSize(uint32_t sz);
+    virtual inline void run();
+    virtual inline void start();
+    virtual inline void stop();
+    virtual inline void pause();
+    virtual inline void resume();
+    virtual inline int  handle();
+    virtual inline void setQueueSize(uint32_t sz);
     #endif
-    virtual  int  handleNonblock();
-    virtual  void flush();
+    virtual inline int  handleNonblock();
+    virtual inline void flush();
 
   public:
-     int publish(const std::string& channel, const uint8_t* data, uint32_t len);
+    inline int publish(const std::string& channel, const uint8_t* data, uint32_t len);
 
     // Note: if we make a publish binding that takes a const message reference, the compiler does
     //       not select the right version between the pointer and reference versions, so when the
@@ -56,29 +56,29 @@ class ZCM
     //       compile errors (turns the input into a double pointer). We have to choose one or the
     //       other for the api.
     template <class Msg>
-     int publish(const std::string& channel, const Msg* msg);
+    inline int publish(const std::string& channel, const Msg* msg);
 
-    Subscription* subscribe(const std::string& channel,
+    inline Subscription* subscribe(const std::string& channel,
                                    void (*cb)(const ReceiveBuffer* rbuf,
                                               const std::string& channel,
                                               void* usr),
                                    void* usr);
 
     template <class Msg, class Handler>
-     Subscription* subscribe(const std::string& channel,
+    inline Subscription* subscribe(const std::string& channel,
                                    void (Handler::*cb)(const ReceiveBuffer* rbuf,
                                                        const std::string& channel,
                                                        const Msg* msg),
                                    Handler* handler);
 
     template <class Handler>
-     Subscription* subscribe(const std::string& channel,
+    inline Subscription* subscribe(const std::string& channel,
                                    void (Handler::*cb)(const ReceiveBuffer* rbuf,
                                                        const std::string& channel),
                                    Handler* handler);
 
     template <class Msg>
-    Subscription* subscribe(const std::string& channel,
+    inline Subscription* subscribe(const std::string& channel,
                                    void (*cb)(const ReceiveBuffer* rbuf,
                                               const std::string& channel,
                                               const Msg* msg, void* usr),
@@ -86,27 +86,27 @@ class ZCM
 
     #if __cplusplus > 199711L
     template <class Msg>
-     Subscription* subscribe(const std::string& channel,
+    inline Subscription* subscribe(const std::string& channel,
                                    std::function<void (const ReceiveBuffer* rbuf,
                                                        const std::string& channel,
                                                        const Msg* msg)> cb);
     #endif
 
-     void unsubscribe(Subscription* sub);
+    inline void unsubscribe(Subscription* sub);
 
-    virtual  zcm_t* getUnderlyingZCM();
+    virtual inline zcm_t* getUnderlyingZCM();
 
   protected:
     /**** Methods for inheritor override ****/
-    virtual  int publishRaw(const std::string& channel, const uint8_t* data, uint32_t len);
+    virtual inline int publishRaw(const std::string& channel, const uint8_t* data, uint32_t len);
 
     // Set the value of "rawSub" with your underlying subscription. "rawSub" will be passed
     // (by reference) into unsubscribeRaw when zcm->unsubscribe() is called on a cpp subscription
-    virtual  void subscribeRaw(void*& rawSub, const std::string& channel,
+    virtual inline void subscribeRaw(void*& rawSub, const std::string& channel,
                                      MsgHandler cb, void* usr);
 
     // Unsubscribes from a raw subscription. Effectively undoing the actions of subscribeRaw
-    virtual  void unsubscribeRaw(void*& rawSub);
+    virtual inline void unsubscribeRaw(void*& rawSub);
 
   private:
     zcm_t* zcm;
@@ -130,10 +130,10 @@ class Subscription
     void* getRawSub() const
     { return rawSub; }
 
-     void dispatch(const ReceiveBuffer* rbuf, const std::string& channel)
+    inline void dispatch(const ReceiveBuffer* rbuf, const std::string& channel)
     { (*callback)(rbuf, channel, usr); }
 
-    static  void dispatch(const ReceiveBuffer* rbuf, const char* channel, void* usr)
+    static inline void dispatch(const ReceiveBuffer* rbuf, const char* channel, void* usr)
     { ((Subscription*)usr)->dispatch(rbuf, channel); }
 };
 
@@ -152,24 +152,24 @@ struct LogEvent
 struct LogFile
 {
     /**** Methods for ctor/dtor/check ****/
-     LogFile(const std::string& path, const std::string& mode);
-     ~LogFile();
-     bool good() const;
-     void close();
+    inline LogFile(const std::string& path, const std::string& mode);
+    inline ~LogFile();
+    inline bool good() const;
+    inline void close();
 
     /**** Methods general operations ****/
-     int seekToTimestamp(int64_t timestamp);
-     FILE* getFilePtr();
+    inline int seekToTimestamp(int64_t timestamp);
+    inline FILE* getFilePtr();
 
     /**** Methods for read/write ****/
     // NOTE: user should NOT hold-onto the returned ptr across successive calls
-     const LogEvent* readNextEvent();
-     const LogEvent* readPrevEvent();
-     const LogEvent* readEventAtOffset(off_t offset);
-     int             writeEvent(const LogEvent* event);
+    inline const LogEvent* readNextEvent();
+    inline const LogEvent* readPrevEvent();
+    inline const LogEvent* readEventAtOffset(off_t offset);
+    inline int             writeEvent(const LogEvent* event);
 
   private:
-     const LogEvent* cplusplusIfyEvent(zcm_eventlog_event_t* le);
+    inline const LogEvent* cplusplusIfyEvent(zcm_eventlog_event_t* le);
     LogEvent curEvent;
     zcm_eventlog_t* eventlog;
     zcm_eventlog_event_t* lastevent;

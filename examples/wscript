@@ -19,8 +19,6 @@ variants = {'local' : 'local',
 }
 
 def options(ctx):
-    ctx.load('compiler_c')
-    ctx.load('compiler_cxx')
     add_zcm_configure_options(ctx)
     add_zcm_build_options(ctx)
 
@@ -54,8 +52,6 @@ def configure(ctx):
 
     ctx.setenv('')
 
-    ctx.load('compiler_c')
-    ctx.load('compiler_cxx')
     ctx.load('java')
     ctx.check_cfg(package='zcm', args='--cflags --libs', uselib_store='zcm')
     ctx.load('zcm-gen')

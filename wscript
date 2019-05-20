@@ -88,7 +88,6 @@ def configure(ctx):
 
     ctx.load('compiler_c')
     ctx.load('compiler_cxx')
-    ctx.recurse('gen')
     ctx.recurse('config')
     ctx.load('zcm-gen')
 
@@ -407,7 +406,7 @@ for x in variants:
 def build(ctx):
     if ctx.variant:
         if not ctx.variant in ctx.env.configuredEnv:
-            ctx.fatal('Please configure for %s build!!!' % (ctx.variant))
+            ctx.fatal('Please configure for %s build' % (ctx.variant))
 
     if not ctx.env.ENVIRONMENT_SETUP:
         setup_environment(ctx)
@@ -419,15 +418,24 @@ def build(ctx):
     ctx.recurse('tools')
     generate_signature(ctx)
 
-    # RRR: TODO: somehow cxxtest is always enabled?
-    if ctx.env.USING_CXXTEST:
-        ctx.cxxtest(use = ['zcm', 'testzcmtypes', 'testzcmtypes_cpp', 'testzcmtypes_c_stlib'])
+    # Figure out if the zcm-gen binary is either in the build directory or installed
+    zcm_gen_search_paths = [ctx.env.BINDIR]
+    if ctx.path.get_bld().find_node("gen") is not None:
+        zcm_gen_search_paths.append(ctx.path.get_bld().find_node("gen").abspath())
+    ctx.find_program('zcm-gen', var='ZCMGEN', mandatory=False, path_list=zcm_gen_search_paths)
+    ctx.env.ZCMGEN = ctx.env.ZCMGEN[0] if len(ctx.env.ZCMGEN) > 0 else None
 
-    if ctx.env.USING_EXAMPLES:
-        ctx.recurse('examples')
+    # If zcm-gen is found, build the tests and examples
+    if ctx.env.ZCMGEN:
+        if ctx.env.USING_CXXTEST:
+            ctx.recurse('test')
+            ctx.cxxtest(use = ['zcm', 'testzcmtypes', 'testzcmtypes_cpp', 'testzcmtypes_c_stlib'])
 
-    if ctx.env.USING_TESTS:
-        ctx.recurse('test')
+        if ctx.env.USING_EXAMPLES:
+            ctx.recurse('examples')
+    else:
+        Logs.warn("The zcm-gen binary could not be found. We are skipping all tests and examples. "
+                  "Try running the build again!")
 
 
 def distclean(ctx):
