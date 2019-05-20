@@ -54,7 +54,6 @@ def add_zcm_configure_options(ctx):
     add_use_option('elf',         'Enable runtime loading of shared libs')
     add_use_option('third-party', 'Enable inclusion of 3rd party transports.')
     add_use_option('examples',    'Enable building the examples.')
-    add_use_option('tests',       'Enable building the tests.')
 
     gr.add_option('--hash-member-names',  dest='hash_member_names', default='false',
                   type='choice', choices=['true', 'false'],
@@ -97,9 +96,6 @@ def configure(ctx):
 
     if ctx.env.USING_EXAMPLES:
         ctx.recurse('examples')
-
-#    if ctx.env.USING_TESTS:
-#        ctx.recurse('test')
 
 
 def processCppVersion(ctx, f):
@@ -151,7 +147,6 @@ def process_zcm_configure_options(ctx):
     env.USING_ELF         = hasopt('use_elf') and attempt_use_elf(ctx)
     env.USING_THIRD_PARTY = getattr(opt, 'use_third_party') and attempt_use_third_party(ctx)
     env.USING_EXAMPLES    = getattr(opt, 'use_examples')
-    env.USING_TESTS       = getattr(opt, 'use_tests')
 
     env.USING_TRANS_IPC    = hasopt('use_ipc')
     env.USING_TRANS_INPROC = hasopt('use_inproc')

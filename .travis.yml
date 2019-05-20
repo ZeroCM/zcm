@@ -27,7 +27,7 @@ script:
     source examples/env /home/travis/build/ZeroCM/tmp &&
     export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/home/travis/build/ZeroCM/tmp/lib/pkgconfig &&
     export PATH=$PATH:/home/travis/build/ZeroCM/tmp/bin &&
-    ./waf distclean configure --use-all --use-third-party --use-clang --use-cxxtest --use-examples --use-tests --prefix=../tmp/ &&
+    ./waf distclean configure --use-all --use-third-party --use-clang --use-cxxtest --use-examples --prefix=../tmp/ &&
     ./waf build &&
     ./waf build &&
     ./waf install &&
