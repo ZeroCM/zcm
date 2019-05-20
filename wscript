@@ -421,16 +421,20 @@ def build(ctx):
     ctx.env.ZCMGEN = ctx.env.ZCMGEN[0] if len(ctx.env.ZCMGEN) > 0 else None
 
     # If zcm-gen is found, build the tests and examples
-    if ctx.env.ZCMGEN:
-        if ctx.env.USING_CXXTEST:
+    if ctx.env.USING_CXXTEST:
+        if ctx.env.ZCMGEN:
             ctx.recurse('test')
             ctx.cxxtest(use = ['zcm', 'testzcmtypes', 'testzcmtypes_cpp', 'testzcmtypes_c_stlib'])
+        else:
+            Logs.warn("Skipping cxxtests because zcm-gen is neither build nor installed. "
+                      "Just run the build again.")
 
-        if ctx.env.USING_EXAMPLES:
+    if ctx.env.USING_EXAMPLES:
+        if ctx.env.ZCMGEN:
             ctx.recurse('examples')
-    else:
-        Logs.warn("The zcm-gen binary could not be found. We are skipping all tests and examples. "
-                  "Try running the build again!")
+        else:
+            Logs.warn("Skipping examples because zcm-gen is neither build nor installed. "
+                      "Just run the build again.")
 
 
 def distclean(ctx):
