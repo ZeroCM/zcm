@@ -31,6 +31,7 @@ script:
     ./waf build &&
     ./waf build &&
     ./waf install &&
+    ./build/test/runner &&
     ./waf build_asan &&
     ./waf install_asan
 git:
