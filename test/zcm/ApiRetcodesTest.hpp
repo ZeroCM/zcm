@@ -93,12 +93,22 @@ static zcm_trans_t *transport_sub_create(zcm_url_t *url)
 
 class ApiRetcodesTest : public CxxTest::TestSuite
 {
+    bool transportsAreRegistered = false;
   public:
+
     void setUp() override {
-        TS_ASSERT(zcm_transport_register("test-fail", "", transport_fail_create));
-        TS_ASSERT(zcm_transport_register("test-generic", "", transport_generic_create));
-        TS_ASSERT(zcm_transport_register("test-pub-blockforever", "", transport_pub_blockforever_create));
-        TS_ASSERT(zcm_transport_register("test-sub", "", transport_sub_create));
+        if(transportsAreRegistered) {
+            TS_ASSERT(!zcm_transport_register("test-fail", "", transport_fail_create));
+            TS_ASSERT(!zcm_transport_register("test-generic", "", transport_generic_create));
+            TS_ASSERT(!zcm_transport_register("test-pub-blockforever", "", transport_pub_blockforever_create));
+            TS_ASSERT(!zcm_transport_register("test-sub", "", transport_sub_create));
+        } else {
+            TS_ASSERT(zcm_transport_register("test-fail", "", transport_fail_create));
+            TS_ASSERT(zcm_transport_register("test-generic", "", transport_generic_create));
+            TS_ASSERT(zcm_transport_register("test-pub-blockforever", "", transport_pub_blockforever_create));
+            TS_ASSERT(zcm_transport_register("test-sub", "", transport_sub_create));
+            transportsAreRegistered = true;
+        }
     }
     void tearDown() override {}
 
@@ -132,13 +142,13 @@ class ApiRetcodesTest : public CxxTest::TestSuite
             /* channel size at limit */
             memset(channel, 'A', ZCM_CHANNEL_MAXLEN);
             channel[ZCM_CHANNEL_MAXLEN] = '\0';
-            TS_ASSERT_EQUALS(0, zcm_publish(&zcm, channel, &data, 1));
+            TS_ASSERT_EQUALS(ZCM_EOK, zcm_publish(&zcm, channel, &data, 1));
             TS_ASSERT_EQUALS(ZCM_EOK, zcm_errno(&zcm));
 
             /* channel size 1 passed the limit */
             channel[ZCM_CHANNEL_MAXLEN] = 'A';
             channel[ZCM_CHANNEL_MAXLEN+1] = '\0';
-            TS_ASSERT_EQUALS(-1, zcm_publish(&zcm, channel, &data, 1));
+            TS_ASSERT_EQUALS(ZCM_EINVALID, zcm_publish(&zcm, channel, &data, 1));
             TS_ASSERT_EQUALS(ZCM_EINVALID, zcm_errno(&zcm));
         }
 
@@ -148,11 +158,11 @@ class ApiRetcodesTest : public CxxTest::TestSuite
             uint8_t *data = (uint8_t*) malloc(GENERIC_MTU+1);
 
             /* data size at limit */
-            TS_ASSERT_EQUALS(0, zcm_publish(&zcm, channel, data, GENERIC_MTU));
+            TS_ASSERT_EQUALS(ZCM_EOK, zcm_publish(&zcm, channel, data, GENERIC_MTU));
             TS_ASSERT_EQUALS(ZCM_EOK, zcm_errno(&zcm));
 
             /* data size 1 passed the limit */
-            TS_ASSERT_EQUALS(-1, zcm_publish(&zcm, channel, data, GENERIC_MTU+1));
+            TS_ASSERT_EQUALS(ZCM_EINVALID, zcm_publish(&zcm, channel, data, GENERIC_MTU+1));
             TS_ASSERT_EQUALS(ZCM_EINVALID, zcm_errno(&zcm));
 
             free(data);
@@ -173,7 +183,7 @@ class ApiRetcodesTest : public CxxTest::TestSuite
         for (int i = 0; i < MAX_PUBS; i++) {
             uint8_t data = 'a';
             int ret = zcm_publish(&zcm, "CHANNEL", &data, 1);
-            if (ret == -1) {
+            if (ret == ZCM_EAGAIN) {
                 TS_ASSERT_EQUALS(ZCM_EAGAIN, zcm_errno(&zcm));
                 goto done;
             }
@@ -197,11 +207,11 @@ class ApiRetcodesTest : public CxxTest::TestSuite
 
         /* can't unsubscribe */
         TS_ASSERT(NULL != (sub=zcm_subscribe(&zcm, "CANNOT_UNSUB", NULL, NULL)));
-        TS_ASSERT_EQUALS(-1, zcm_unsubscribe(&zcm, sub));
+        TS_ASSERT_EQUALS(ZCM_EINVALID, zcm_unsubscribe(&zcm, sub));
 
         /* all good */
         TS_ASSERT(NULL != (sub=zcm_subscribe(&zcm, "ALL_GOOD", NULL, NULL)));
-        TS_ASSERT_EQUALS(0, zcm_unsubscribe(&zcm, sub));
+        TS_ASSERT_EQUALS(ZCM_EOK, zcm_unsubscribe(&zcm, sub));
 
         zcm_cleanup(&zcm);
     }
