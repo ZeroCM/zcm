@@ -74,13 +74,14 @@ class TrackerTest : public CxxTest::TestSuite
     void testTracker() {
         constexpr size_t numMsgs = 500;
 
-        size_t mtu = 1000; //TODO: MAKE UP VALUE HERE
-        size_t bufSize = 100; //todo: MAKE UP VALUE HERE
+        size_t mtu = 100;
+        size_t bufSize = 1000;
 
         zcm_trans_t* trans = zcm_trans_generic_serial_create(get, put, NULL, timestamp_now, NULL, mtu, bufSize);
-
+        TS_ASSERT(trans);
         zcm::ZCM zcmLocal(trans);
         zcm::MessageTracker<example_t> mt(&zcmLocal, "EXAMPLE", numMsgs, numMsgs, callback);
+
 
         example_t msg = {};
 

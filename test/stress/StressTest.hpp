@@ -28,6 +28,7 @@ class StressTest : public CxxTest::TestSuite
 
     void testFastMessagesOnSingleChannel() {
         TS_SKIP("All transports still have undetectable incoming package loss!");
+        return;
         for(const char* transport_url : {"ipc", "inproc", "udpm://239.255.76.67:7667?ttl=0"}) {
             for(const int num_bytes : {10, 100, 1000, 10000, 100000}) {
                 for(const int publish_period_us : {0, 10, 100, 1000}) {

@@ -19,10 +19,7 @@ static void handler(const zcm_recv_buf_t *rbuf, const char *channel, void *usr)
 static void handle(zcm_t *zcm)
 {
     int rc = zcm_handle(zcm);
-    if (rc == -1)  {
-        printf("handle() failed!\n");
-        exit(1);
-    }
+    TS_ASSERT_EQUALS(rc, -1)
 }
 
 class Forking2Test : public CxxTest::TestSuite
@@ -48,42 +45,9 @@ class Forking2Test : public CxxTest::TestSuite
         }
 
         else {
-            bool success = sub(zcm, 1);
+            sub(zcm, 1);
             int status;
             ::waitpid(-1, &status, 0);
-            TS_ASSERT(success)
-        }
-
-        zcm_destroy(zcm);
-    }
-
-    void testForking2() {
-        zcm_t *zcm = zcm_create(URL);
-
-        // Try publishing once. This may start a thread, but a zcm_stop() before a fork
-        // should be okay.
-        uint8_t data = 'd';
-        zcm_publish(zcm, CHANNEL, &data, 1);
-        zcm_stop(zcm);
-
-        pid_t pid;
-        pid = ::fork();
-
-        if (pid < 0) {
-            printf("%s: Fork failed!\n", __FUNCTION__);
-            exit(1);
-        }
-
-        else if (pid == 0) {
-            pub(zcm);
-            exit(0);
-        }
-
-        else {
-            bool success = sub(zcm, 2);
-            int status;
-            ::waitpid(-1, &status, 0);
-            TS_ASSERT(success)
         }
 
         zcm_destroy(zcm);
@@ -99,7 +63,7 @@ class Forking2Test : public CxxTest::TestSuite
         usleep(10000);
     }
 
-    bool sub(zcm_t *zcm, size_t expect)
+    void sub(zcm_t *zcm, size_t expect)
     {
         numrecv = 0;
         zcm_subscribe(zcm, CHANNEL, handler, NULL);
@@ -108,7 +72,7 @@ class Forking2Test : public CxxTest::TestSuite
         usleep(500000);
         zcm_stop(zcm);
 
-        return numrecv == expect;
+        TS_ASSERT_EQUALS(numrecv, expect);
     }
 
 };
