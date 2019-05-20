@@ -267,37 +267,20 @@ struct LogPlayer
     int run()
     {
         int err = 0;
+        const zcm::LogEvent* le = zcmIn->readNextEvent();
+        uint64_t now = TimeUtil::utime();
 
-        uint64_t firstMsgUtime = UINT64_MAX;
-        uint64_t lastMsgUtime = 0;
+        uint64_t firstMsgUtime = (uint64_t) le->timestamp;
         // timestamp when first message is dispatched; will be overwritten in the loop
-        uint64_t firstDispatchUtime = UINT64_MAX;
-        uint64_t lastDispatchUtime = 0;
+        uint64_t firstDispatchUtime = now;
+        uint64_t lastDispatchUtime = now;
 
         bool startedPub = false;
-
         if (startMode == StartMode::NUM_MODES) startedPub = true;
 
-        while (!done) {
-            const zcm::LogEvent* le = zcmIn->readNextEvent();
-            if (!le) {
-                done = true;
-                continue;
-            }
+        while ((le = zcmIn->readNextEvent())) {
 
-            uint64_t now = TimeUtil::utime();
-
-            if (lastMsgUtime == 0)
-                lastMsgUtime = le->timestamp;
-
-            if (lastDispatchUtime == 0)
-                lastDispatchUtime = now;
-
-            if (firstMsgUtime == UINT64_MAX)
-                firstMsgUtime = (uint64_t) le->timestamp;
-
-            if (firstDispatchUtime == UINT64_MAX)
-                firstDispatchUtime = now;
+            now = TimeUtil::utime();
 
             // Total time difference from now to publishing the first message
             // is zero in first run
@@ -318,20 +301,8 @@ struct LogPlayer
 
             if (diff > 3 && startedPub) nanosleep(&delay, nullptr);
 
-
-            // RRR (Bendes): Looks like you weren't quite done here?
-            //               Did you look at the resource mentioned in the original file?
-            //               http://www.tldp.org/HOWTO/IO-Port-Programming-4.html
-            //               There is apparently a nanosleep() built into the kernel
-            //               that does something very similar
             // busy waiting the rest
-            //std::cout << "prior: " << TimeUtil::utime()  << std::endl;
-            int64_t prior = TimeUtil::utime();
-            while(logDiffSpeed > TimeUtil::utime() - firstDispatchUtime){
-                //std::cout << "diff: " << logDiffSpeed - (TimeUtil::utime() - firstDispatchUtime) << std::endl;
-                }
-            std::cout << "timebusywait: " << (TimeUtil::utime() - prior) << std::endl;
-            //if (diff > 3 && startedPub) nanosleep(&delay, nullptr);
+            while(logDiffSpeed > TimeUtil::utime() - firstDispatchUtime){}
 
             if (!startedPub) {
                 if (startMode == StartMode::CHANNEL) {
@@ -386,8 +357,6 @@ struct LogPlayer
             if (firstDispatchUtime == 0){
                 firstDispatchUtime = lastDispatchUtime;
             }
-
-            lastMsgUtime = le->timestamp;
         }
 
         return err;
