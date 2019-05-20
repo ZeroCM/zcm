@@ -271,52 +271,59 @@ struct LogPlayer
         uint64_t firstMsgUtime = UINT64_MAX;
         uint64_t lastMsgUtime = 0;
         // timestamp when first message is dispatched; will be overwritten in the loop
-        uint64_t firstDispatchUtime = 0;
+        uint64_t firstDispatchUtime = UINT64_MAX;
         uint64_t lastDispatchUtime = 0;
 
         bool startedPub = false;
 
         if (startMode == StartMode::NUM_MODES) startedPub = true;
-        
+
         while (!done) {
             const zcm::LogEvent* le = zcmIn->readNextEvent();
             if (!le) {
                 done = true;
                 continue;
             }
-            
+
             uint64_t now = TimeUtil::utime();
-        
+
             if (lastMsgUtime == 0)
                 lastMsgUtime = le->timestamp;
-            
+
             if (lastDispatchUtime == 0)
                 lastDispatchUtime = now;
 
             if (firstMsgUtime == UINT64_MAX)
                 firstMsgUtime = (uint64_t) le->timestamp;
-                
+
+            if (firstDispatchUtime == UINT64_MAX)
+                firstDispatchUtime = now;
+
             // Total time difference from now to publishing the first message
             // is zero in first run
-            uint64_t localDiff = firstDispatchUtime > 0 ? now - firstDispatchUtime
-                                                     : 0;
-            // Total difference of timestamps of the current and first message  
-            uint64_t logDiff = le->timestamp - firstMsgUtime;
+            uint64_t localDiff = now - firstDispatchUtime;
+            // Total difference of timestamps of the current and first message
+            uint64_t logDiff = (uint64_t) le->timestamp - firstMsgUtime;
             uint64_t logDiffSpeed = logDiff / args.speed;
             uint64_t diff = logDiffSpeed > localDiff ? logDiffSpeed - localDiff
                                                      : 0;
-            // Introducing time differences to starting times rather than last loop 
+            // Introducing time differences to starting times rather than last loop
             // times eliminates linear increase of delay when message are published
             timespec delay;
             delay.tv_sec = (long int) diff / 1000000;
             delay.tv_nsec = (long int) (diff - (delay.tv_sec * 1000000)) * 1000;
-            // reduce time interval for usleep and busy wait then    
+            // reduce time interval for usleep and busy wait then
             const int32_t busywtime = 1000000;
             delay.tv_nsec = delay.tv_nsec > busywtime ? delay.tv_nsec - busywtime : 0;
-            
+
             if (diff > 3 && startedPub) nanosleep(&delay, nullptr);
 
-            
+
+            // RRR (Bendes): Looks like you weren't quite done here?
+            //               Did you look at the resource mentioned in the original file?
+            //               http://www.tldp.org/HOWTO/IO-Port-Programming-4.html
+            //               There is apparently a nanosleep() built into the kernel
+            //               that does something very similar
             // busy waiting the rest
             //std::cout << "prior: " << TimeUtil::utime()  << std::endl;
             int64_t prior = TimeUtil::utime();
