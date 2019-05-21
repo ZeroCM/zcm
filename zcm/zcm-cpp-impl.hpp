@@ -70,14 +70,14 @@ inline const char* ZCM::strerrno(int err) const
 #ifndef ZCM_EMBEDDED
 inline void ZCM::run()
 {
-    return zcm_run(zcm);
+    zcm_run(zcm);
 }
 #endif
 
 #ifndef ZCM_EMBEDDED
 inline void ZCM::start()
 {
-    return zcm_start(zcm);
+    zcm_start(zcm);
 }
 #endif
 
@@ -91,14 +91,14 @@ inline int ZCM::stop()
 #ifndef ZCM_EMBEDDED
 inline void ZCM::pause()
 {
-    return zcm_pause(zcm);
+    zcm_pause(zcm);
 }
 #endif
 
 #ifndef ZCM_EMBEDDED
 inline void ZCM::resume()
 {
-    return zcm_resume(zcm);
+    zcm_resume(zcm);
 }
 #endif
 
@@ -112,7 +112,7 @@ inline int ZCM::handle()
 #ifndef ZCM_EMBEDDED
 inline void ZCM::setQueueSize(uint32_t sz)
 {
-    return zcm_set_queue_size(zcm, sz);
+    zcm_set_queue_size(zcm, sz);
 }
 #endif
 
@@ -123,7 +123,7 @@ inline int ZCM::handleNonblock()
 
 inline void ZCM::flush()
 {
-    return zcm_flush(zcm);
+    zcm_flush(zcm);
 }
 
 inline int ZCM::publish(const std::string& channel, const uint8_t* data, uint32_t len)
