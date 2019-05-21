@@ -80,7 +80,7 @@ JNIEXPORT jboolean JNICALL Java_zcm_zcm_ZCMJNI_initializeNative
 
 PASS_THROUGH_FUNC(destroy, destroy, void, ()V)
 PASS_THROUGH_FUNC(start, start, void, ()V)
-PASS_THROUGH_FUNC(stop, stop, void, ()V)
+PASS_THROUGH_FUNC(stop, stop, int, ()V)
 
 /*
  * Class:     zcm_zcm_ZCMJNI

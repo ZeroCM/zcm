@@ -82,7 +82,7 @@ inline void ZCM::start()
 #endif
 
 #ifndef ZCM_EMBEDDED
-inline void ZCM::stop()
+inline int ZCM::stop()
 {
     return zcm_stop(zcm);
 }

@@ -36,7 +36,7 @@ JNIEXPORT void JNICALL Java_zcm_zcm_ZCMJNI_start
  * Method:    stop
  * Signature: ()V
  */
-JNIEXPORT void JNICALL Java_zcm_zcm_ZCMJNI_stop
+JNIEXPORT int JNICALL Java_zcm_zcm_ZCMJNI_stop
   (JNIEnv *, jobject);
 
 /*

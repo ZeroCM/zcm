@@ -151,8 +151,7 @@ int  zcm_flush_nonblock(zcm_t* zcm);
 /* Blocking Mode Only: Functions for controlling the message dispatch loop */
 void zcm_run(zcm_t* zcm);
 void zcm_start(zcm_t* zcm);
-void zcm_stop(zcm_t* zcm);
-int  zcm_try_stop(zcm_t* zcm); /* returns ZCM_EOK on success, error code on failure */
+int  zcm_stop(zcm_t* zcm); /* returns ZCM_EOK on success, error code on failure */
 void zcm_pause(zcm_t* zcm); /* pauses message dispatch and publishing, not transport */
 void zcm_resume(zcm_t* zcm);
 int  zcm_handle(zcm_t* zcm); /* returns ZCM_EOK normally, error code on failure. */

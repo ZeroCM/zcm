@@ -274,7 +274,7 @@ end
 
 function stop(zcm::Zcm)
     while (true)
-        ret = ccall(("zcm_try_stop", "libzcm"), Cint, (Ptr{Native.Zcm},), zcm)
+        ret = ccall(("zcm_stop", "libzcm"), Cint, (Ptr{Native.Zcm},), zcm)
         if (ret == Cint(0))
             break
         else

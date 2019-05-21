@@ -42,7 +42,7 @@ cdef extern from "zcm/zcm.h":
 
     void zcm_run               (zcm_t* zcm)
     void zcm_start             (zcm_t* zcm)
-    int  zcm_try_stop          (zcm_t* zcm)
+    int  zcm_stop              (zcm_t* zcm)
     void zcm_pause             (zcm_t* zcm)
     void zcm_resume            (zcm_t* zcm)
     int  zcm_handle            (zcm_t* zcm)
@@ -147,7 +147,7 @@ cdef class ZCM:
     def start(self):
         zcm_start(self.zcm)
     def stop(self):
-        while zcm_try_stop(self.zcm) != ZCM_EOK:
+        while zcm_stop(self.zcm) != ZCM_EOK:
             time.sleep(0) # yield the gil
     def pause(self):
         zcm_pause(self.zcm)
