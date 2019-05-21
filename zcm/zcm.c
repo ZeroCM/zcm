@@ -219,7 +219,7 @@ void zcm_flush(zcm_t* zcm)
     return zcm_nonblocking_flush(zcm->impl);
 }
 
-int  zcm_try_flush(zcm_t* zcm)
+int  zcm_flush_nonblock(zcm_t* zcm)
 {
 #ifndef ZCM_EMBEDDED
     switch (zcm->type) {

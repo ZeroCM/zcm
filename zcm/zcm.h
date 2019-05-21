@@ -145,7 +145,7 @@ void zcm_flush(zcm_t* zcm);
 /* Nonblocking version of flush (ZCM_EAGAIN if fail, ZCM_EOK if success) as defined
    above. If you want to guarantee that this function returns ZCM_EOK at some point,
    you should zcm_pause() first. */
-int  zcm_try_flush(zcm_t* zcm);
+int  zcm_flush_nonblock(zcm_t* zcm);
 
 #ifndef ZCM_EMBEDDED
 /* Blocking Mode Only: Functions for controlling the message dispatch loop */

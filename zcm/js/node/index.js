@@ -42,7 +42,7 @@ var libzcm = new ffi.Library('libzcm', {
     'zcm_try_unsubscribe':      ['int',     ['pointer', 'pointer']],
     'zcm_start':                ['void',    ['pointer']],
     'zcm_try_stop':             ['int',     ['pointer']],
-    'zcm_try_flush':            ['int',     ['pointer']],
+    'zcm_flush_nonblock':       ['int',     ['pointer']],
     'zcm_pause':                ['void',    ['pointer']],
     'zcm_resume':               ['void',    ['pointer']],
     'zcm_try_set_queue_size':   ['int',     ['pointer', 'int']],
@@ -228,7 +228,7 @@ function zcm(zcmtypes, zcmurl)
     function flush(doneCb)
     {
         setTimeout(function f() {
-            var ret = libzcm.zcm_try_flush(z);
+            var ret = libzcm.zcm_flush_nonblock(z);
             if (ret != ZCM_EOK) {
                 setTimeout(f, 0);
                 return;

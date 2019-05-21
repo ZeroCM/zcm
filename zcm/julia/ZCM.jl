@@ -259,7 +259,7 @@ end
 
 function flush(zcm::Zcm)
     while (true)
-        ret = ccall(("zcm_try_flush", "libzcm"), Cint, (Ptr{Native.Zcm},), zcm)
+        ret = ccall(("zcm_flush_nonblock", "libzcm"), Cint, (Ptr{Native.Zcm},), zcm)
         if (ret == Cint(0))
             break
         else

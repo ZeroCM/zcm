@@ -38,7 +38,7 @@ cdef extern from "zcm/zcm.h":
 
     int  zcm_publish(zcm_t* zcm, const char* channel, const uint8_t* data, uint32_t dlen)
 
-    int  zcm_try_flush         (zcm_t* zcm)
+    int  zcm_flush_nonblock    (zcm_t* zcm)
 
     void zcm_run               (zcm_t* zcm)
     void zcm_start             (zcm_t* zcm)
@@ -140,7 +140,7 @@ cdef class ZCM:
         cdef const uint8_t* _data = data
         return zcm_publish(self.zcm, channel.encode('utf-8'), _data, len(_data) * sizeof(uint8_t))
     def flush(self):
-        while zcm_try_flush(self.zcm) != ZCM_EOK:
+        while zcm_flush_nonblock(self.zcm) != ZCM_EOK:
             time.sleep(0) # yield the gil
     def run(self):
         zcm_run(self.zcm)
