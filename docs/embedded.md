@@ -41,7 +41,7 @@ tool and all of the type generation can be made automatic.
 In embedded ZCM there are no built-in transports. To use ZCM in an embedded application,
 you must implement a nonblocking transport that uses your platform's hardware primatives.
 In addition, the transport registrar and the url system is disabled. To create a `zcm_t`
-object, you must use `zcm_create_trans()`. See the page on [Transport Layer](transports.md)
+object, you must use `zcm_create_from_trans()`. See the page on [Transport Layer](transports.md)
 for details on implementing nonblocking transports. Note that the nonblocking api semantics
 are different than the blocking ones which makes zcm more friendly to embedded applications.
 Make sure you read the section on [Non-blocking API Semantics](transports.md) carefully.

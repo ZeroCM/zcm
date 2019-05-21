@@ -57,16 +57,16 @@ int zcm_try_create_from_url(zcm_t** z, const char* url)
 }
 #endif
 
-zcm_t* zcm_create_trans(zcm_trans_t* zt)
+zcm_t* zcm_create_from_trans(zcm_trans_t* zt)
 {
     zcm_t* z = NULL;
-    ZCM_ASSERT(zcm_try_create_trans(&z, zt) == ZCM_EOK);
+    ZCM_ASSERT(zcm_try_create_from_trans(&z, zt) == ZCM_EOK);
     ZCM_ASSERT(z);
     return z;
 }
 
 
-int zcm_try_create_trans(zcm_t** z, zcm_trans_t* zt)
+int zcm_try_create_from_trans(zcm_t** z, zcm_trans_t* zt)
 {
     *z = malloc(sizeof(zcm_t));
     if (!*z) return ZCM_EMEMORY;
