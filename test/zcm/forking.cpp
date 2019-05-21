@@ -44,7 +44,7 @@ void pub(zcm_t *zcm)
 
 int main()
 {
-    zcm_t *zcm = zcm_create("ipc");
+    zcm_t *zcm = zcm_create_from_url("ipc");
 
     pid_t pid;
     pid = ::fork();

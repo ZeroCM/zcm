@@ -45,7 +45,7 @@ int main(int argc, char *argv[])
         }
     }
 
-    zcm_t *zcm = zcm_create("");
+    zcm_t *zcm = zcm_create_from_url("");
     if(!zcm)
         return 1;
 

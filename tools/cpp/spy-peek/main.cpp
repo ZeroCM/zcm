@@ -73,7 +73,7 @@ int main(int argc, char *argv[])
 {
     if (!parse_args(argc, argv)) return 1;
 
-    zcm_t *zcm = zcm_create(zcmurl);
+    zcm_t *zcm = zcm_create_from_url(zcmurl);
     if (!zcm) {
         fprintf(stderr, "Couldn't initialize ZCM! Try providing a URL with the "
                         "-u opt or setting the ZCM_DEFAULT_URL envvar\n");

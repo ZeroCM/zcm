@@ -26,7 +26,7 @@ cdef extern from "zcm/zcm.h":
         pass
     ctypedef void (*zcm_msg_handler_t)(const zcm_recv_buf_t* rbuf, const char* channel, void* usr)
 
-    zcm_t* zcm_create (const char* url)
+    zcm_t* zcm_create_from_url (const char* url)
     void   zcm_destroy(zcm_t* zcm)
 
     int         zcm_errno   (zcm_t* zcm)
@@ -92,7 +92,7 @@ cdef class ZCM:
     def __cinit__(self, str url=""):
         PyEval_InitThreads()
         self.subscriptions = []
-        self.zcm = zcm_create(url.encode('utf-8'))
+        self.zcm = zcm_create_from_url(url.encode('utf-8'))
     def __dealloc__(self):
         if self.zcm == NULL:
             return

@@ -35,7 +35,7 @@ var subscriptionRef = ref.refType(subscription);
 // Define our Foreign Function Interface to the zcm library
 var libzcm = new ffi.Library('libzcm', {
     'zcm_retcode_name_to_enum': ['int',     ['string']],
-    'zcm_create':               ['pointer', ['string']],
+    'zcm_create_from_url':               ['pointer', ['string']],
     'zcm_destroy':              ['void',    ['pointer']],
     'zcm_publish':              ['int',     ['pointer', 'string', 'pointer', 'int']],
     'zcm_try_subscribe':        ['pointer', ['pointer', 'string', 'pointer', 'pointer']],
@@ -128,7 +128,7 @@ function zcm(zcmtypes, zcmurl)
     }
     rehashTypes(zcmtypes);
 
-    var z = libzcm.zcm_create(zcmurl);
+    var z = libzcm.zcm_create_from_url(zcmurl);
     if (z.isNull()) {
         return null;
     }
@@ -305,7 +305,7 @@ function zcm(zcmtypes, zcmurl)
     };
 }
 
-function zcm_create(zcmtypes, zcmurl, http)
+function zcm_create_from_url(zcmtypes, zcmurl, http)
 {
     var ret = zcm(zcmtypes, zcmurl);
 
@@ -370,4 +370,4 @@ function zcm_create(zcmtypes, zcmurl, http)
     return ret;
 }
 
-exports.create = zcm_create;
+exports.create = zcm_create_from_url;

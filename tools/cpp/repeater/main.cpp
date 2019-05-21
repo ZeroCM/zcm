@@ -114,7 +114,7 @@ struct Repeater
             return false;
 
         // Source network
-        zcmSrc = zcm_create(args.src_url.c_str());
+        zcmSrc = zcm_create_from_url(args.src_url.c_str());
         if (!zcmSrc) {
             fprintf(stderr, "Couldn't initialize source ZCM! "
                             "Please check your source transport url.\n\n");
@@ -122,7 +122,7 @@ struct Repeater
         }
 
         // Dest network
-        zcmDest = zcm_create(args.dest_url.c_str());
+        zcmDest = zcm_create_from_url(args.dest_url.c_str());
         if (!zcmDest) {
             fprintf(stderr, "Couldn't initialize destination ZCM! "
                             "Please check your destination transport url.\n\n");

@@ -69,7 +69,7 @@ JNIEXPORT jboolean JNICALL Java_zcm_zcm_ZCMJNI_initializeNative
     const char *url = NULL;
     if (urlJ)
         url = (*env)->GetStringUTFChars(env, urlJ, 0);
-    I->zcm = zcm_create(url);
+    I->zcm = zcm_create_from_url(url);
     if (url)
         (*env)->ReleaseStringUTFChars(env, urlJ, url);
 

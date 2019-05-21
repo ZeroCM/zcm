@@ -18,14 +18,14 @@
 #ifndef ZCM_EMBEDDED
 inline ZCM::ZCM()
 {
-    zcm = zcm_create(nullptr);
+    zcm = zcm_create_from_url(nullptr);
 }
 #endif
 
 #ifndef ZCM_EMBEDDED
 inline ZCM::ZCM(const std::string& transport)
 {
-    zcm = zcm_create(transport.c_str());
+    zcm = zcm_create_from_url(transport.c_str());
 }
 #endif
 

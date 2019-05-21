@@ -114,7 +114,7 @@ mutable struct Zcm
     subscriptions::Vector{Subscription}
 
     function Zcm(url::AbstractString = "")
-        pointer = ccall(("zcm_create", "libzcm"), Ptr{Native.Zcm}, (Cstring,), url);
+        pointer = ccall(("zcm_create_from_url", "libzcm"), Ptr{Native.Zcm}, (Cstring,), url);
         instance = new(pointer, Subscription[])
 
         @static if VERSION < v"0.7.0-"

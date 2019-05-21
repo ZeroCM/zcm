@@ -97,7 +97,7 @@ For most simple programs, the only include needed is the basic zcm, but we also 
 In the main function we have to create a zcm instance that will manage the communications. Here, you decide which
 transport protocol to use and provide an appropriate url. For this example, we'll use Inter-process Communication (IPC):
 
-    zcm_t *zcm = zcm_create("ipc");
+    zcm_t *zcm = zcm_create_from_url("ipc");
 
 Finally, we simply construct a msg\_t and then publish it repeatedly:
 
@@ -117,7 +117,7 @@ And that's it! Here's the full program (publish.c):
 
     int main(int argc, char *argv[])
     {
-        zcm_t *zcm = zcm_create("ipc");
+        zcm_t *zcm = zcm_create_from_url("ipc");
 
         msg_t msg;
         msg.str = (char*)"Hello, World!";
@@ -185,7 +185,7 @@ And that's it! Here's the full program (subscribe.c):
 
     int main(int argc, char *argv[])
     {
-        zcm_t *zcm = zcm_create("ipc");
+        zcm_t *zcm = zcm_create_from_url("ipc");
         msg_t_subscribe(zcm, "HELLO_WORLD", callback_handler, NULL);
 
         zcm_run(zcm);

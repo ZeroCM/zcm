@@ -77,8 +77,8 @@ int zcm_retcode_name_to_enum(const char* zcm_retcode_name);
 /* Standard create/destroy functions. These will malloc() and free() the zcm_t object.
    Sets zcm errno on failure */
 #ifndef ZCM_EMBEDDED
-zcm_t* zcm_create(const char* url);
-int    zcm_try_create(zcm_t** z, const char* url);
+zcm_t* zcm_create_from_url(const char* url);
+int    zcm_try_create_from_url(zcm_t** z, const char* url);
 #endif
 zcm_t* zcm_create_trans(zcm_trans_t* zt);
 int    zcm_try_create_trans(zcm_t** z, zcm_trans_t* zt);

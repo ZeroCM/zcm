@@ -24,31 +24,31 @@ be used to *summon* the transport:
   <tr>
     <td>        Inter-thread                                            </td>
     <td><code>  inproc                                                  </code></td>
-    <td><code>  zcm_create("inproc")                                    </code></td>
+    <td><code>  zcm_create_from_url("inproc")                                    </code></td>
   </tr>
   <tr>
     <td>        Inter-process (IPC)                                     </td>
     <td><code>  ipc://&lt;ipc-subnet&gt;                                </code></td>
-    <td><code>  zcm_create("ipc"), zcm_create("ipc://mysubnet")         </code></td>
+    <td><code>  zcm_create_from_url("ipc"), zcm_create_from_url("ipc://mysubnet")         </code></td>
   </tr>
   <tr>
     <td>        Nonblocking Inter-thread                                </td>
     <td><code>  nonblock-inproc                                         </code></td>
-    <td><code>  zcm_create("nonblock-inproc")                           </code></td>
+    <td><code>  zcm_create_from_url("nonblock-inproc")                           </code></td>
   </tr>
   <tr>
     <td>        UDP Multicast                                           </td>
     <td><code>  udpm://&lt;udpm-ipaddr&gt;:&lt;port&gt;?ttl=&lt;ttl&gt; </code></td>
-    <td><code>  zcm_create("udpm://239.255.76.67:7667?ttl=0")           </code></td>
+    <td><code>  zcm_create_from_url("udpm://239.255.76.67:7667?ttl=0")           </code></td>
   </tr>
   <tr>
     <td>        Serial                                                  </td>
     <td><code>  serial://&lt;path-to-device&gt;?baud=&lt;baud&gt;       </code></td>
-    <td><code>  zcm_create("serial:///dev/ttyUSB0?baud=115200")         </code></td>
+    <td><code>  zcm_create_from_url("serial:///dev/ttyUSB0?baud=115200")         </code></td>
   </tr>
 </table>
 
-When no url is provided (i.e. `zcm_create(NULL)`), the `ZCM_DEFAULT_URL` environment variable is
+When no url is provided (i.e. `zcm_create_from_url(NULL)`), the `ZCM_DEFAULT_URL` environment variable is
 queried for a valid url.
 
 ## Custom Transports
@@ -292,7 +292,7 @@ If we wanted to register the transport we created above, we could write:
 
 Now, we can create new `my_transport` instances with:
 
-    zcm_create("myt://endpoint-for-my?param1=abcd&param2=dfg&param3=yui");
+    zcm_create_from_url("myt://endpoint-for-my?param1=abcd&param2=dfg&param3=yui");
 
 This will issue a call to our `my_transport_create` function with a `zcm_url_t`
 

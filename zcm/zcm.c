@@ -35,15 +35,15 @@ int zcm_retcode_name_to_enum(const char* zcm_retcode_name)
 #endif
 
 #ifndef ZCM_EMBEDDED
-zcm_t* zcm_create(const char* url)
+zcm_t* zcm_create_from_url(const char* url)
 {
     zcm_t* z = NULL;
-    ZCM_ASSERT(zcm_try_create(&z, url) == ZCM_EOK);
+    ZCM_ASSERT(zcm_try_create_from_url(&z, url) == ZCM_EOK);
     ZCM_ASSERT(z);
     return z;
 }
 
-int zcm_try_create(zcm_t** z, const char* url)
+int zcm_try_create_from_url(zcm_t** z, const char* url)
 {
     *z = malloc(sizeof(zcm_t));
     if (!*z) return ZCM_EMEMORY;
