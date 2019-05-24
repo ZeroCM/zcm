@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-from zcm import ZCM, LogFile, LogEvent
+from zerocm import ZCM, LogFile, LogEvent
 import sys, os
 blddir= os.path.dirname(os.path.realpath(__file__)) + '/../build/'
 sys.path.insert(0, blddir + "types/")

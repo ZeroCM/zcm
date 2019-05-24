@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-from zcm import ZCM
+from zerocm import ZCM
 import sys
 sys.path.insert(0, '../build/types/')
 from example_t import example_t

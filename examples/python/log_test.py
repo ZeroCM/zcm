@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-from zcm import ZCM, LogFile, LogEvent
+from zerocm import ZCM, LogFile, LogEvent
 import sys
 sys.path.insert(0, '../build/types/')
 from example_t import example_t

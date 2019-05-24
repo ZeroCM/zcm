@@ -12,13 +12,13 @@ def build(ctx):
     ctx(name = 'cyzcm',
         rule = cythonize,
         color = 'GREEN',
-        source = 'zcm.pyx',
-        target = 'zcm.c')
+        source = 'zerocm.pyx',
+        target = 'zerocm.c')
 
     ctx.shlib(name = 'pyzcm',
-              target = 'zcm',
+              target = 'zerocm',
               features = 'pyext',
-              source = 'zcm.c',
+              source = 'zerocm.c',
               # PYTHON here for safety (mainly copying java). Seems to compile
               # fine when omitted as well, but better safe than....
               use = 'zcm PYTHON').init_pyext()
