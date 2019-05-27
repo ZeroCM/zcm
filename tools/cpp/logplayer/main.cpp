@@ -34,27 +34,30 @@ struct Args
     string jslpFilename = "";
     zcm::Json::Value jslpRoot;
     string outfile = "";
+    bool highAccuracyMode = false;
 
     bool init(int argc, char *argv[])
     {
         struct option long_opts[] = {
-            { "help",          no_argument, 0, 'h' },
-            { "output",  required_argument, 0, 'o' },
-            { "speed",   required_argument, 0, 's' },
-            { "zcm-url", required_argument, 0, 'u' },
-            { "jslp",    required_argument, 0, 'j' },
-            { "verbose",       no_argument, 0, 'v' },
+            { "help",                no_argument, 0, 'h' },
+            { "output",        required_argument, 0, 'o' },
+            { "speed",         required_argument, 0, 's' },
+            { "zcm-url",       required_argument, 0, 'u' },
+            { "jslp",          required_argument, 0, 'j' },
+            { "high-accuracy",       no_argument, 0, 'a' },
+            { "verbose",             no_argument, 0, 'v' },
             { 0, 0, 0, 0 }
         };
 
         int c;
-        while ((c = getopt_long(argc, argv, "ho:s:u:j:v", long_opts, 0)) >= 0) {
+        while ((c = getopt_long(argc, argv, "ho:s:u:j:av", long_opts, 0)) >= 0) {
             switch (c) {
-                case 'o':      outfile = string(optarg);       break;
-                case 's':        speed = strtod(optarg, NULL); break;
-                case 'u':    zcmUrlOut = string(optarg);       break;
-                case 'j': jslpFilename = string(optarg);       break;
-                case 'v':      verbose = true;                 break;
+                case 'o':          outfile = string(optarg);       break;
+                case 's':            speed = strtod(optarg, NULL); break;
+                case 'u':        zcmUrlOut = string(optarg);       break;
+                case 'j':     jslpFilename = string(optarg);       break;
+                case 'a': highAccuracyMode = true;                 break;
+                case 'v':          verbose = true;                 break;
                 case 'h': default: usage(); return false;
             };
         }
@@ -113,6 +116,10 @@ struct Args
              << "                         If unspecified, zcm-logplayer looks for a file " << endl
              << "                         with the same filename as the input log and " << endl
              << "                         a .jslp suffix" << endl
+             << "  -a, --high-accuracy    Enable extremely accurate publish timing." << endl
+             << "                         Note that enabling this feature will probably consume" << endl
+             << "                         a full CPU so logplayer can bypass the OS scheduler" << endl
+             << "                         with busy waits in between messages." << endl
              << "  -v, --verbose          Print information about each packet." << endl
              << "  -h, --help             Shows some help text and exits." << endl
              << endl;
@@ -268,41 +275,40 @@ struct LogPlayer
     {
         int err = 0;
         const zcm::LogEvent* le = zcmIn->readNextEvent();
-        uint64_t now = TimeUtil::utime();
+        uint64_t nowUs = TimeUtil::utime();
 
         uint64_t firstMsgUtime = (uint64_t) le->timestamp;
         // timestamp when first message is dispatched; will be overwritten in the loop
-        uint64_t firstDispatchUtime = now;
-        uint64_t lastDispatchUtime = now;
+        uint64_t firstDispatchUtime = nowUs;
 
         bool startedPub = false;
         if (startMode == StartMode::NUM_MODES) startedPub = true;
 
-        while ((le = zcmIn->readNextEvent())) {
+        do {
 
-            now = TimeUtil::utime();
+            nowUs = TimeUtil::utime();
 
             // Total time difference from now to publishing the first message
             // is zero in first run
-            uint64_t localDiff = now - firstDispatchUtime;
+            uint64_t localDiffUs = nowUs - firstDispatchUtime;
             // Total difference of timestamps of the current and first message
-            uint64_t logDiff = (uint64_t) le->timestamp - firstMsgUtime;
-            uint64_t logDiffSpeed = logDiff / args.speed;
-            uint64_t diff = logDiffSpeed > localDiff ? logDiffSpeed - localDiff
-                                                     : 0;
+            uint64_t logDiffUs = (uint64_t) le->timestamp - firstMsgUtime;
+            uint64_t logDiffSpeedUs = logDiffUs / args.speed;
+            uint64_t diffUs = logDiffSpeedUs > localDiffUs ? logDiffSpeedUs - localDiffUs : 0;
+            // Ensure nanosleep wakes up before the range of uncertainty of
+            // the OS scheduler would impact our sleep time. Then we busy wait
+            const uint64_t busyWaitUs = args.highAccuracyMode ? 10000 : 0;
+            diffUs = diffUs > busyWaitUs ? diffUs - busyWaitUs : 0;
             // Introducing time differences to starting times rather than last loop
             // times eliminates linear increase of delay when message are published
             timespec delay;
-            delay.tv_sec = (long int) diff / 1000000;
-            delay.tv_nsec = (long int) (diff - (delay.tv_sec * 1000000)) * 1000;
-            // reduce time interval for usleep and busy wait then
-            const int32_t busywtime = 1000000;
-            delay.tv_nsec = delay.tv_nsec > busywtime ? delay.tv_nsec - busywtime : 0;
+            delay.tv_sec = (long int) diffUs / 1000000;
+            delay.tv_nsec = (long int) (diffUs - (delay.tv_sec * 1000000)) * 1000;
 
-            if (diff > 3 && startedPub) nanosleep(&delay, nullptr);
-
-            // busy waiting the rest
-            while(logDiffSpeed > TimeUtil::utime() - firstDispatchUtime){}
+            // Sleep until we're supposed to wake up and busy wait
+            if (diffUs > 0 && startedPub) nanosleep(&delay, nullptr);
+            // Busy wait the rest
+            while (logDiffSpeedUs > TimeUtil::utime() - firstDispatchUtime);
 
             if (!startedPub) {
                 if (startMode == StartMode::CHANNEL) {
@@ -352,12 +358,7 @@ struct LogPlayer
                 }
             }
 
-            lastDispatchUtime = TimeUtil::utime();
-            // set timestamp to the one when the first message was sent out
-            if (firstDispatchUtime == 0){
-                firstDispatchUtime = lastDispatchUtime;
-            }
-        }
+        } while ((le = zcmIn->readNextEvent()) && !done);
 
         return err;
     }
