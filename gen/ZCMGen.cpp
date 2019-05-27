@@ -376,7 +376,7 @@ static int parseConst(ZCMGen& zcmgen, ZCMStruct& zs, tokenize_t* t)
                     if (strlen(t->token) > sizeof(TYPE) * 2 + 2) \
                         semantic_error(t, "Too many hex digits specified" \
                                           #TYPE ": %lld", v); \
-                } else if (v < std::numeric_limits<TYPE>::min() || \
+                } else if (v < std::numeric_limits<TYPE>::lowest() || \
                            v > std::numeric_limits<TYPE>::max()) { \
                     semantic_error(t, "Integer value out of bounds for " \
                                       #TYPE ": %lld", v); \
@@ -389,7 +389,7 @@ static int parseConst(ZCMGen& zcmgen, ZCMStruct& zs, tokenize_t* t)
                 if (endptr == t->token || *endptr != '\0') \
                     parse_error(t, "Expected floating point value"); \
                 if (fabs(v) > std::numeric_limits<TYPE>::max() || \
-                        fabs(v) < std::numeric_limits<TYPE>::min()) \
+                        fabs(v) < std::numeric_limits<TYPE>::lowest()) \
                     semantic_error(t, "Cannot represent precision"); \
                 STORE = (TYPE) v;
 
