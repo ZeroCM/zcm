@@ -69,7 +69,7 @@ JNIEXPORT jboolean JNICALL Java_zcm_zcm_ZCMJNI_initializeNative
     const char *url = NULL;
     if (urlJ)
         url = (*env)->GetStringUTFChars(env, urlJ, 0);
-    I->zcm = zcm_create_from_url(url);
+    I->zcm = zcm_create(url);
     if (url)
         (*env)->ReleaseStringUTFChars(env, urlJ, url);
 
@@ -80,7 +80,7 @@ JNIEXPORT jboolean JNICALL Java_zcm_zcm_ZCMJNI_initializeNative
 
 PASS_THROUGH_FUNC(destroy, destroy, void, ()V)
 PASS_THROUGH_FUNC(start, start, void, ()V)
-PASS_THROUGH_FUNC(stop, stop, int, ()V)
+PASS_THROUGH_FUNC(stop, stop, void, ()V)
 
 /*
  * Class:     zcm_zcm_ZCMJNI

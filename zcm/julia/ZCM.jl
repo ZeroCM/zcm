@@ -114,7 +114,7 @@ mutable struct Zcm
     subscriptions::Vector{Subscription}
 
     function Zcm(url::AbstractString = "")
-        pointer = ccall(("zcm_create_from_url", "libzcm"), Ptr{Native.Zcm}, (Cstring,), url);
+        pointer = ccall(("zcm_create", "libzcm"), Ptr{Native.Zcm}, (Cstring,), url);
         instance = new(pointer, Subscription[])
 
         @static if VERSION < v"0.7.0-"
@@ -259,7 +259,7 @@ end
 
 function flush(zcm::Zcm)
     while (true)
-        ret = ccall(("zcm_flush_nonblock", "libzcm"), Cint, (Ptr{Native.Zcm},), zcm)
+        ret = ccall(("zcm_try_flush", "libzcm"), Cint, (Ptr{Native.Zcm},), zcm)
         if (ret == Cint(0))
             break
         else
@@ -274,7 +274,7 @@ end
 
 function stop(zcm::Zcm)
     while (true)
-        ret = ccall(("zcm_stop", "libzcm"), Cint, (Ptr{Native.Zcm},), zcm)
+        ret = ccall(("zcm_try_stop", "libzcm"), Cint, (Ptr{Native.Zcm},), zcm)
         if (ret == Cint(0))
             break
         else

@@ -26,7 +26,7 @@ cdef extern from "zcm/zcm.h":
         pass
     ctypedef void (*zcm_msg_handler_t)(const zcm_recv_buf_t* rbuf, const char* channel, void* usr)
 
-    zcm_t* zcm_create_from_url (const char* url)
+    zcm_t* zcm_create (const char* url)
     void   zcm_destroy(zcm_t* zcm)
 
     int         zcm_errno   (zcm_t* zcm)
@@ -38,11 +38,11 @@ cdef extern from "zcm/zcm.h":
 
     int  zcm_publish(zcm_t* zcm, const char* channel, const uint8_t* data, uint32_t dlen)
 
-    int  zcm_flush_nonblock    (zcm_t* zcm)
+    int  zcm_try_flush         (zcm_t* zcm)
 
     void zcm_run               (zcm_t* zcm)
     void zcm_start             (zcm_t* zcm)
-    int  zcm_stop              (zcm_t* zcm)
+    int  zcm_try_stop          (zcm_t* zcm)
     void zcm_pause             (zcm_t* zcm)
     void zcm_resume            (zcm_t* zcm)
     int  zcm_handle            (zcm_t* zcm)
@@ -92,7 +92,7 @@ cdef class ZCM:
     def __cinit__(self, str url=""):
         PyEval_InitThreads()
         self.subscriptions = []
-        self.zcm = zcm_create_from_url(url.encode('utf-8'))
+        self.zcm = zcm_create(url.encode('utf-8'))
     def __dealloc__(self):
         if self.zcm == NULL:
             return
@@ -140,14 +140,14 @@ cdef class ZCM:
         cdef const uint8_t* _data = data
         return zcm_publish(self.zcm, channel.encode('utf-8'), _data, len(_data) * sizeof(uint8_t))
     def flush(self):
-        while zcm_flush_nonblock(self.zcm) != ZCM_EOK:
+        while zcm_try_flush(self.zcm) != ZCM_EOK:
             time.sleep(0) # yield the gil
     def run(self):
         zcm_run(self.zcm)
     def start(self):
         zcm_start(self.zcm)
     def stop(self):
-        while zcm_stop(self.zcm) != ZCM_EOK:
+        while zcm_try_stop(self.zcm) != ZCM_EOK:
             time.sleep(0) # yield the gil
     def pause(self):
         zcm_pause(self.zcm)

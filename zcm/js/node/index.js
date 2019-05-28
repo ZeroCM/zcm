@@ -35,14 +35,14 @@ var subscriptionRef = ref.refType(subscription);
 // Define our Foreign Function Interface to the zcm library
 var libzcm = new ffi.Library('libzcm', {
     'zcm_retcode_name_to_enum': ['int',     ['string']],
-    'zcm_create_from_url':               ['pointer', ['string']],
+    'zcm_create':               ['pointer', ['string']],
     'zcm_destroy':              ['void',    ['pointer']],
     'zcm_publish':              ['int',     ['pointer', 'string', 'pointer', 'int']],
     'zcm_try_subscribe':        ['pointer', ['pointer', 'string', 'pointer', 'pointer']],
     'zcm_try_unsubscribe':      ['int',     ['pointer', 'pointer']],
     'zcm_start':                ['void',    ['pointer']],
-    'zcm_stop':                 ['int',     ['pointer']],
-    'zcm_flush_nonblock':       ['int',     ['pointer']],
+    'zcm_try_stop':             ['int',     ['pointer']],
+    'zcm_try_flush':            ['int',     ['pointer']],
     'zcm_pause':                ['void',    ['pointer']],
     'zcm_resume':               ['void',    ['pointer']],
     'zcm_try_set_queue_size':   ['int',     ['pointer', 'int']],
@@ -128,7 +128,7 @@ function zcm(zcmtypes, zcmurl)
     }
     rehashTypes(zcmtypes);
 
-    var z = libzcm.zcm_create_from_url(zcmurl);
+    var z = libzcm.zcm_create(zcmurl);
     if (z.isNull()) {
         return null;
     }
@@ -228,7 +228,7 @@ function zcm(zcmtypes, zcmurl)
     function flush(doneCb)
     {
         setTimeout(function f() {
-            var ret = libzcm.zcm_flush_nonblock(z);
+            var ret = libzcm.zcm_try_flush(z);
             if (ret != ZCM_EOK) {
                 setTimeout(f, 0);
                 return;
@@ -252,7 +252,7 @@ function zcm(zcmtypes, zcmurl)
     function stop(stoppedCb)
     {
         setTimeout(function s() {
-            var ret = libzcm.zcm_stop(z);
+            var ret = libzcm.zcm_try_stop(z);
             if (ret != ZCM_EOK) {
                 setTimeout(s, 0);
                 return;
@@ -305,7 +305,7 @@ function zcm(zcmtypes, zcmurl)
     };
 }
 
-function zcm_create_from_url(zcmtypes, zcmurl, http)
+function zcm_create(zcmtypes, zcmurl, http)
 {
     var ret = zcm(zcmtypes, zcmurl);
 
@@ -370,4 +370,4 @@ function zcm_create_from_url(zcmtypes, zcmurl, http)
     return ret;
 }
 
-exports.create = zcm_create_from_url;
+exports.create = zcm_create;

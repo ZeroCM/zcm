@@ -38,7 +38,7 @@ class ZCM
     #ifndef ZCM_EMBEDDED
     virtual inline void run();
     virtual inline void start();
-    virtual inline int stop();
+    virtual inline void stop();
     virtual inline void pause();
     virtual inline void resume();
     virtual inline int  handle();
@@ -110,6 +110,7 @@ class ZCM
 
   private:
     zcm_t* zcm;
+    int _err;
     std::vector<Subscription*> subscriptions;
 };
 
