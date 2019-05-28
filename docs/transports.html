@@ -333,7 +333,7 @@ To learn more about how to do this in C++, take a look at <code>zcm/transport/tr
 not supported. Instead, the user manually constructs a custom <code>zcm_trans_t*</code> and passes
 it directly to the core library with the following function:</p>
 
-<pre><code>zcm_t *zcm_create_trans(zcm_trans_t *zt);
+<pre><code>zcm_t *zcm_create_from_trans(zcm_trans_t *zt);
 </code></pre>
 
 <h2>Blocking vs Non-Blocking Message Handling</h2>
