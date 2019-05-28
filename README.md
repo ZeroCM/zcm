@@ -66,17 +66,17 @@ To learn how you can contribute to this project, check out [Contributing](docs/c
 
 ## Supported platforms and languages
  - Platforms
-  - GNU/Linux
-  - Web browsers supporting the Websocket API
-  - Any C89 capable embedded system
+   - GNU/Linux
+   - Web browsers supporting the Websocket API
+   - Any C89 capable embedded system
  - Languages
-  - C89 and greater
-  - C++
-  - Java
-  - MATLAB (using Java)
-  - NodeJS and Client-side Javascript
-  - Python
-  - Julia (both v1.0.3 and v0.6.4)
+   - C89 and greater
+   - C++
+   - Java
+   - MATLAB (using Java)
+   - NodeJS and Client-side Javascript
+   - Python
+   - Julia (both v1.0.3 and v0.6.4)
 
 ## Roadmap
  - Platform Support
