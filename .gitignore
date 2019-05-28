@@ -1,5 +1,5 @@
-!.gitignore
 *~
+*.swp
 *.pyc
 node_modules/
 build/
