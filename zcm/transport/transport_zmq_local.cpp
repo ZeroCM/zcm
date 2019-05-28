@@ -65,7 +65,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         // Make directory with all permissions
         mkdir(string("/tmp/" + subnet).c_str(), S_IRWXO | S_IRWXG | S_IRWXU);
 
-        ZCM_DEBUG("IPC Address: %s\n", subnet.c_str());
+        ZCM_DEBUG("ZMQ Subnet Address: %s\n", subnet.c_str());
 
         recvmsgBuffer = new uint8_t[recvmsgBufferSize];
 

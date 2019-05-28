@@ -1,5 +1,6 @@
 #include <iostream>
 #include <string>
+#include <set>
 #include "Common.hpp"
 #include "GetOpt.hpp"
 #include "util/StringUtil.hpp"
@@ -208,10 +209,16 @@ struct EmitModule : public Emitter
         emit(0, "    return methods;");
         emit(0, "}");
         emit(0, "");
-        unordered_set<string> packages;
-        for (auto& zs : zcm.structs)
-            if (zs.structname.package != "")
-                packages.insert(zs.structname.package);
+        set<string> packages;
+        for (auto& zs : zcm.structs) {
+            auto parts = StringUtil::split(zs.structname.package, '.');
+            string s = "";
+            for (const auto& part : parts) {
+                if (s != "") s += ".";
+                s += part;
+                packages.insert(s);
+            }
+        }
         for (auto& pkg : packages)
             emit(0, "exports.%s = {};", pkg.c_str());
         emit(0, "");

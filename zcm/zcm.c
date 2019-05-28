@@ -158,7 +158,7 @@ void zcm_cleanup(zcm_t* zcm)
 
 #ifndef ZCM_EMBEDDED
     switch (zcm->type) {
-        case ZCM_BLOCKING:    zcm_blocking_destroy   (zcm->impl); return;
+        case ZCM_BLOCKING:    zcm_blocking_destroy(zcm->impl);    return;
         case ZCM_NONBLOCKING: zcm_nonblocking_destroy(zcm->impl); return;
     }
 #else
@@ -218,7 +218,7 @@ zcm_sub_t* zcm_subscribe(zcm_t* zcm, const char* channel, zcm_msg_handler_t cb, 
 #ifndef ZCM_EMBEDDED
     switch (zcm->type) {
         case ZCM_BLOCKING:
-            ret = zcm_blocking_subscribe   (zcm->impl, channel, cb, usr);
+            ret = zcm_blocking_subscribe(zcm->impl, channel, cb, usr);
             break;
         case ZCM_NONBLOCKING:
             ret = zcm_nonblocking_subscribe(zcm->impl, channel, cb, usr);
@@ -237,7 +237,7 @@ int zcm_unsubscribe(zcm_t* zcm, zcm_sub_t* sub)
 #ifndef ZCM_EMBEDDED
     switch (zcm->type) {
         case ZCM_BLOCKING:
-            ret = zcm_blocking_unsubscribe   (zcm->impl, sub);
+            ret = zcm_blocking_unsubscribe(zcm->impl, sub);
             break;
         case ZCM_NONBLOCKING:
             ret = zcm_nonblocking_unsubscribe(zcm->impl, sub);
@@ -330,7 +330,7 @@ zcm_sub_t* zcm_try_subscribe(zcm_t* zcm, const char* channel, zcm_msg_handler_t 
             ret = zcm_blocking_try_subscribe(zcm->impl, channel, cb, usr);
             break;
         case ZCM_NONBLOCKING:
-            ret = zcm_nonblocking_subscribe (zcm->impl, channel, cb, usr);
+            ret = zcm_nonblocking_subscribe(zcm->impl, channel, cb, usr);
             break;
     }
 #else
@@ -349,7 +349,7 @@ int zcm_try_unsubscribe(zcm_t* zcm, zcm_sub_t* sub)
             ret = zcm_blocking_try_unsubscribe(zcm->impl, sub);
             break;
         case ZCM_NONBLOCKING:
-            ret = zcm_nonblocking_unsubscribe (zcm->impl, sub);
+            ret = zcm_nonblocking_unsubscribe(zcm->impl, sub);
             break;
     }
 #else
