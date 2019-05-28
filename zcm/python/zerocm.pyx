@@ -8,7 +8,7 @@ cdef extern from "Python.h":
     void PyEval_InitThreads()
 
 cdef extern from "zcm/zcm.h":
-    cdef enum zcm_return_codes:
+    cpdef enum zcm_return_codes:
         ZCM_EOK,
         ZCM_EINVALID,
         ZCM_EAGAIN,
