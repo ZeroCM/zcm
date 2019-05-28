@@ -159,14 +159,14 @@ inline Subscription* ZCM::subscribe(const std::string& channel,
         #ifndef ZCM_EMBEDDED
         fprintf(stderr, "ZCM instance not initialized. Ignoring call to subscribe()\n");
         #endif
-        zcm->err = ZCM_EINVALID;
+        _err = ZCM_EINVALID;
         return nullptr;
     }
 
     typedef Subscription SubType;
     SubType* sub = new SubType();
     if (!sub) {
-        zcm->err = ZCM_EMEMORY;
+        _err = ZCM_EMEMORY;
         return nullptr;
     }
     sub->usr = usr;
@@ -319,14 +319,14 @@ inline Subscription* ZCM::subscribe(const std::string& channel,
         #ifndef ZCM_EMBEDDED
         fprintf(stderr, "ZCM instance not initialized. Ignoring call to subscribe()\n");
         #endif
-        zcm->err = ZCM_EINVALID;
+        _err = ZCM_EINVALID;
         return nullptr;
     }
 
     typedef TypedHandlerSubscription<Msg, Handler> SubType;
     SubType* sub = new SubType();
     if (!sub) {
-        zcm->err = ZCM_EMEMORY;
+        _err = ZCM_EMEMORY;
         return nullptr;
     }
     sub->handler = handler;
@@ -347,14 +347,14 @@ inline Subscription* ZCM::subscribe(const std::string& channel,
         #ifndef ZCM_EMBEDDED
         fprintf(stderr, "ZCM instance not initialized. Ignoring call to subscribe()\n");
         #endif
-        zcm->err = ZCM_EINVALID;
+        _err = ZCM_EINVALID;
         return nullptr;
     }
 
     typedef HandlerSubscription<Handler> SubType;
     SubType* sub = new SubType();
     if (!sub) {
-        zcm->err = ZCM_EMEMORY;
+        _err = ZCM_EMEMORY;
         return nullptr;
     }
     sub->handler = handler;
@@ -376,14 +376,14 @@ inline Subscription* ZCM::subscribe(const std::string& channel,
         #ifndef ZCM_EMBEDDED
         fprintf(stderr, "ZCM instance not initialized. Ignoring call to subscribe()\n");
         #endif
-        zcm->err = ZCM_EINVALID;
+        _err = ZCM_EINVALID;
         return nullptr;
     }
 
     typedef TypedSubscription<Msg> SubType;
     SubType* sub = new SubType();
     if (!sub) {
-        zcm->err = ZCM_EMEMORY;
+        _err = ZCM_EMEMORY;
         return nullptr;
     }
     sub->usr = usr;
@@ -405,14 +405,14 @@ inline Subscription* ZCM::subscribe(const std::string& channel,
         #ifndef ZCM_EMBEDDED
         fprintf(stderr, "ZCM instance not initialized. Ignoring call to subscribe()\n");
         #endif
-        zcm->err = ZCM_EINVALID;
+        _err = ZCM_EINVALID;
         return nullptr;
     }
 
     typedef TypedFunctionalSubscription<Msg> SubType;
     SubType* sub = new SubType();
     if (!sub) {
-        zcm->err = ZCM_EMEMORY;
+        _err = ZCM_EMEMORY;
         return nullptr;
     }
     sub->usr = nullptr;

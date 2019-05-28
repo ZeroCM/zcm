@@ -424,7 +424,7 @@ int main(int argc, char *argv[])
     setvbuf(stdout, NULL, _IOFBF, 2048);
 
     // start zcm
-    zcm_t *zcm = zcm_create_from_url(args.zcmurl);
+    zcm_t *zcm = zcm_create(args.zcmurl);
     if (!zcm) {
         fprintf(stderr, "Couldn't initialize ZCM! Try providing a URL with the "
                         "-u opt or setting the ZCM_DEFAULT_URL envvar\n");
