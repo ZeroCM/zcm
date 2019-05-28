@@ -25,7 +25,7 @@ def build(ctx):
     # Do the same things, just with a global package prefix
     ctx.zcmgen(name         = 'examplezcmtypespfx',
                source       = ctx.path.ant_glob('**/*.zcm', excl='little_endian_t.zcm'),
-               lang         = ['c_stlib', 'c_shlib', 'cpp', 'java', 'python', 'nodejs', 'julia'],
+               lang         = ['c_stlib', 'c_shlib', 'cpp', 'java', 'python', 'julia'],
                pkgPrefix    = 'example.zcmtypes',
                javapkg      = 'javazcmtypespfx',
                juliapkg     = 'juliazcmtypespfx')

@@ -94,6 +94,8 @@ static bool isRegexChannel(const string& channel)
 struct zcm_blocking
 {
   private:
+    // XXX If we change this to a linked list implementation, we can probably
+    //     support subscribing/unsubscribing from within subscription callback handlers
     using SubList = vector<zcm_sub_t*>;
 
   public:
@@ -189,6 +191,7 @@ struct zcm_blocking
 
 zcm_blocking_t::zcm_blocking(zcm_t* z, zcm_trans_t* zt_)
 {
+    ZCM_ASSERT(z->type == ZCM_BLOCKING);
     zt = zt_;
     mtu = zcm_trans_get_mtu(zt);
 }
@@ -779,9 +782,14 @@ bool zcm_blocking_t::deleteFromSubList(SubList& slist, zcm_sub_t* sub)
 /////////////// C Interface Functions ////////////////
 extern "C" {
 
-zcm_blocking_t* zcm_blocking_create(zcm_t* z, zcm_trans_t* trans)
+int zcm_blocking_try_create(zcm_blocking_t** zcm, zcm_t* z, zcm_trans_t* trans)
 {
-    return new zcm_blocking_t(z, trans);
+    if (z->type != ZCM_BLOCKING) return ZCM_EINVALID;
+
+    *zcm = new zcm_blocking_t(z, trans);
+    if (!*zcm) return ZCM_EMEMORY;
+
+    return ZCM_EOK;
 }
 
 void zcm_blocking_destroy(zcm_blocking_t* zcm)
@@ -800,30 +808,14 @@ zcm_sub_t* zcm_blocking_subscribe(zcm_blocking_t* zcm, const char* channel,
     return zcm->subscribe(channel, cb, usr, true);
 }
 
-zcm_sub_t* zcm_blocking_try_subscribe(zcm_blocking_t* zcm, const char* channel,
-                                      zcm_msg_handler_t cb, void* usr)
-{
-    return zcm->subscribe(channel, cb, usr, false);
-}
-
 int zcm_blocking_unsubscribe(zcm_blocking_t* zcm, zcm_sub_t* sub)
 {
     return zcm->unsubscribe(sub, true);
 }
 
-int zcm_blocking_try_unsubscribe(zcm_blocking_t* zcm, zcm_sub_t* sub)
-{
-    return zcm->unsubscribe(sub, false);
-}
-
 void zcm_blocking_flush(zcm_blocking_t* zcm)
 {
     zcm->flush(true);
-}
-
-int  zcm_blocking_try_flush(zcm_blocking_t* zcm)
-{
-    return zcm->flush(false);
 }
 
 void zcm_blocking_run(zcm_blocking_t* zcm)
@@ -851,11 +843,6 @@ void zcm_blocking_stop(zcm_blocking_t* zcm)
     zcm->stop(true);
 }
 
-int  zcm_blocking_try_stop(zcm_blocking_t* zcm)
-{
-    return zcm->stop(false);
-}
-
 int zcm_blocking_handle(zcm_blocking_t* zcm)
 {
     return zcm->handle();
@@ -866,9 +853,38 @@ void zcm_blocking_set_queue_size(zcm_blocking_t* zcm, uint32_t sz)
     zcm->setQueueSize(sz, true);
 }
 
-int  zcm_blocking_try_set_queue_size(zcm_blocking_t* zcm, uint32_t sz)
+
+
+
+/****************************************************************************/
+/*    NOT FOR GENERAL USE. USED FOR LANGUAGE-SPECIFIC BINDINGS WITH VERY    */
+/*                     SPECIFIC THREADING CONSTRAINTS                       */
+/****************************************************************************/
+zcm_sub_t* zcm_blocking_try_subscribe(zcm_blocking_t* zcm, const char* channel,
+                                      zcm_msg_handler_t cb, void* usr)
+{
+    return zcm->subscribe(channel, cb, usr, false);
+}
+
+int zcm_blocking_try_unsubscribe(zcm_blocking_t* zcm, zcm_sub_t* sub)
+{
+    return zcm->unsubscribe(sub, false);
+}
+
+int zcm_blocking_try_flush(zcm_blocking_t* zcm)
+{
+    return zcm->flush(false);
+}
+
+int zcm_blocking_try_stop(zcm_blocking_t* zcm)
+{
+    return zcm->stop(false);
+}
+
+int zcm_blocking_try_set_queue_size(zcm_blocking_t* zcm, uint32_t sz)
 {
     return zcm->setQueueSize(sz, false);
 }
+/****************************************************************************/
 
 }

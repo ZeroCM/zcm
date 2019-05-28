@@ -5,6 +5,16 @@
 extern "C" {
 #endif
 
+/*
+ * Version: M.m.u
+ *   M: Major
+ *   m: Minor
+ *   u: Micro
+ */
+#define ZCM_MAJOR_VERSION 1
+#define ZCM_MINOR_VERSION 0
+#define ZCM_MICRO_VERSION 0
+
 #include <stdint.h>
 
 #include <assert.h>
@@ -22,14 +32,14 @@ enum zcm_type {
 };
 
 #define ZCM_RETURN_CODES \
-    X(ZCM_EOK,              0, "Okay, no errors"                       ) \
-    X(ZCM_EINVALID,         1, "Invalid arguments"                     ) \
-    X(ZCM_EAGAIN  ,         2, "Resource unavailable, try again"       ) \
-    X(ZCM_ECONNECT,         3, "Transport connection failed"           ) \
-    X(ZCM_EINTR   ,         4, "Operation was unexpectedly interrupted") \
-    X(ZCM_EUNKNOWN,         5, "Unknown error"                         ) \
-    X(ZCM_EMEMORY,          6, "Out of memory"                         ) \
-    X(ZCM_NUM_RETURN_CODES, 7, "Invalid return code"                   )
+    X(ZCM_EOK,               0, "Okay, no errors"                       ) \
+    X(ZCM_EINVALID,         -1, "Invalid arguments"                     ) \
+    X(ZCM_EAGAIN  ,         -2, "Resource unavailable, try again"       ) \
+    X(ZCM_ECONNECT,         -3, "Transport connection failed"           ) \
+    X(ZCM_EINTR   ,         -4, "Operation was unexpectedly interrupted") \
+    X(ZCM_EUNKNOWN,         -5, "Unknown error"                         ) \
+    X(ZCM_EMEMORY,          -6, "Out of memory"                         ) \
+    X(ZCM_NUM_RETURN_CODES,  7, "Invalid return code"                   )
 
 /* Return codes */
 enum zcm_return_codes {
@@ -58,7 +68,6 @@ struct zcm_t
 {
     enum zcm_type type;
     void*         impl;
-    int           err; /* the last error code */
 };
 
 /* ZCM Receive buffer for one message */
@@ -74,65 +83,43 @@ struct zcm_recv_buf_t
 int zcm_retcode_name_to_enum(const char* zcm_retcode_name);
 #endif
 
-/* Standard create/destroy functions. These will malloc() and free() the zcm_t object.
-   Sets zcm errno on failure */
+/* Standard create/destroy functions. These will malloc() and free() the zcm_t object. */
 #ifndef ZCM_EMBEDDED
 zcm_t* zcm_create(const char* url);
+int    zcm_try_create(zcm_t** z, const char* url);
 #endif
-zcm_t* zcm_create_trans(zcm_trans_t* zt);
+zcm_t* zcm_create_from_trans(zcm_trans_t* zt);
+int    zcm_try_create_from_trans(zcm_t** z, zcm_trans_t* zt);
 void   zcm_destroy(zcm_t* zcm);
 
 #ifndef ZCM_EMBEDDED
 /* Initialize a zcm object allocated by caller
-   Returns 0 on success, and -1 on failure
-   Sets zcm errno on failure */
+   Returns ZCM_EOK on success, error code on failure */
 int zcm_init(zcm_t* zcm, const char* url);
 #endif
 
 /* Initialize a zcm instance allocated by caller using a transport provided by caller
-   Returns 0 on success, and -1 on failure
-   Sets zcm errno on failure */
-int zcm_init_trans(zcm_t* zcm, zcm_trans_t* zt);
+   Returns ZCM_EOK on success, error code on failure */
+int zcm_init_from_trans(zcm_t* zcm, zcm_trans_t* zt);
 
 /* Cleanup a zcm object allocated by caller */
 void zcm_cleanup(zcm_t* zcm);
-
-/* Return the last error: a valid from enum zcm_return_codes */
-int zcm_errno(const zcm_t* zcm);
-
-/* Return the last error in string format */
-const char* zcm_strerror(const zcm_t* zcm);
 
 /* Returns the error string from the error number */
 const char* zcm_strerrno(int err);
 
 /* Subscribe to zcm messages
-   Returns a subscription object on success, and NULL on failure
-   Does NOT set zcm errno on failure */
+   Returns a subscription object on success, and NULL on failure */
 zcm_sub_t* zcm_subscribe(zcm_t* zcm, const char* channel, zcm_msg_handler_t cb, void* usr);
 
-/* Subscribe to zcm messages
-   Returns a subscription object on success, and NULL on failure.
-   Can fail to subscribe if zcm is already running
-   Does NOT set zcm errno on failure */
-zcm_sub_t* zcm_try_subscribe(zcm_t* zcm, const char* channel, zcm_msg_handler_t cb, void* usr);
-
 /* Unsubscribe to zcm messages, freeing the subscription object
-   Returns ZCM_EOK on success, error code on failure
-   Does NOT set zcm errno on failure */
+   Returns ZCM_EOK on success, error code on failure */
 int zcm_unsubscribe(zcm_t* zcm, zcm_sub_t* sub);
-
-/* Unsubscribe to zcm messages, freeing the subscription object
-   Returns ZCM_EOK on success, error code on failure
-   Can fail to subscribe if zcm is already running
-   Does NOT set zcm errno on failure */
-int zcm_try_unsubscribe(zcm_t* zcm, zcm_sub_t* sub);
 
 /* Publish a zcm message buffer. Note: the message may not be completely
    sent after this call has returned. To block until the messages are transmitted,
    call the zcm_flush() method.
-   Returns 0 on success, error code on failure
-   Sets zcm errno on failure */
+   Returns ZCM_EOK on success, error code on failure */
 int zcm_publish(zcm_t* zcm, const char* channel, const uint8_t* data, uint32_t len);
 
 /* Block until all published messages have been sent even if the underlying
@@ -140,17 +127,11 @@ int zcm_publish(zcm_t* zcm, const char* channel, const uint8_t* data, uint32_t l
    already been received sequentially in this thread. */
 void zcm_flush(zcm_t* zcm);
 
-/* Nonblocking version of flush (ZCM_EAGAIN if fail, ZCM_EOK if success) as defined
-   above. If you want to guarantee that this function returns ZCM_EOK at some point,
-   you should zcm_pause() first. */
-int  zcm_try_flush(zcm_t* zcm);
-
 #ifndef ZCM_EMBEDDED
 /* Blocking Mode Only: Functions for controlling the message dispatch loop */
 void zcm_run(zcm_t* zcm);
 void zcm_start(zcm_t* zcm);
 void zcm_stop(zcm_t* zcm);
-int  zcm_try_stop(zcm_t* zcm); /* returns ZCM_EOK on success, error code on failure */
 void zcm_pause(zcm_t* zcm); /* pauses message dispatch and publishing, not transport */
 void zcm_resume(zcm_t* zcm);
 int  zcm_handle(zcm_t* zcm); /* returns ZCM_EOK normally, error code on failure. */
@@ -163,7 +144,6 @@ int  zcm_handle(zcm_t* zcm); /* returns ZCM_EOK normally, error code on failure.
    messages will not be read from / sent to the transport, which could cause significant
    issues depending on the transport. */
 void zcm_set_queue_size(zcm_t* zcm, uint32_t numMsgs);
-int  zcm_try_set_queue_size(zcm_t* zcm, uint32_t numMsgs); /* returns ZCM_EOK or ZCM_EAGAIN */
 #endif
 
 /* Non-Blocking Mode Only: Functions checking and dispatching messages
@@ -171,15 +151,30 @@ int  zcm_try_set_queue_size(zcm_t* zcm, uint32_t numMsgs); /* returns ZCM_EOK or
    error code otherwise */
 int zcm_handle_nonblock(zcm_t* zcm);
 
-/*
- * Version: M.m.u
- *   M: Major
- *   m: Minor
- *   u: Micro
- */
-#define ZCM_MAJOR_VERSION 1
-#define ZCM_MINOR_VERSION 0
-#define ZCM_MICRO_VERSION 0
+
+
+
+/****************************************************************************/
+/*    NOT FOR GENERAL USE. USED FOR LANGUAGE-SPECIFIC BINDINGS WITH VERY    */
+/*                     SPECIFIC THREADING CONSTRAINTS                       */
+/****************************************************************************/
+/* Subscribe to zcm messages
+   Returns a subscription object on success, and NULL on failure.
+   Can fail to subscribe if zcm is already running */
+zcm_sub_t* zcm_try_subscribe(zcm_t* zcm, const char* channel, zcm_msg_handler_t cb, void* usr);
+/* Unsubscribe to zcm messages, freeing the subscription object
+   Returns ZCM_EOK on success, error code on failure
+   Can fail to subscribe if zcm is already running */
+int zcm_try_unsubscribe(zcm_t* zcm, zcm_sub_t* sub);
+/* Nonblocking version of flush (ZCM_EAGAIN if fail, ZCM_EOK if success) as defined
+   above. If you want to guarantee that this function returns ZCM_EOK at some point,
+   you should zcm_pause() first. */
+int zcm_try_flush(zcm_t* zcm);
+#ifndef ZCM_EMBEDDED
+int zcm_try_stop(zcm_t* zcm); /* returns ZCM_EOK on success, error code on failure */
+int zcm_try_set_queue_size(zcm_t* zcm, uint32_t numMsgs); /* returns ZCM_EOK or ZCM_EAGAIN */
+#endif
+/****************************************************************************/
 
 #ifdef __cplusplus
 }

@@ -39,7 +39,7 @@ int main(int argc, char *argv[])
         return 1;
 
     Handler handlerObject;
-    zcm.subscribe(".*", &Handler::handleMessage, &handlerObject);
+    auto subs = zcm.subscribe(".*", &Handler::handleMessage, &handlerObject);
 
     example_t my_data {};
     my_data.timestamp = 0;
@@ -61,11 +61,17 @@ int main(int argc, char *argv[])
     my_data.name = "example string";
     my_data.enabled = true;
 
+    zcm.start();
+
     while (1) {
         zcm.publish(CHANNEL, &my_data);
         zcm.publish("FOOBAR", &my_data);
-        usleep(1000*1000);
+        usleep(1e6);
     }
+
+    zcm.stop();
+
+    zcm.unsubscribe(subs);
 
     return 0;
 }

@@ -29,8 +29,6 @@ cdef extern from "zcm/zcm.h":
     zcm_t* zcm_create (const char* url)
     void   zcm_destroy(zcm_t* zcm)
 
-    int         zcm_errno   (zcm_t* zcm)
-    const char* zcm_strerror(zcm_t* zcm)
     const char* zcm_strerrno(int err)
 
     zcm_sub_t* zcm_try_subscribe  (zcm_t* zcm, const char* channel, zcm_msg_handler_t cb, void* usr)
@@ -102,10 +100,6 @@ cdef class ZCM:
         zcm_destroy(self.zcm)
     def good(self):
         return self.zcm != NULL
-    def err(self):
-        return zcm_errno(self.zcm)
-    def strerror(self):
-        return zcm_strerror(self.zcm).decode('utf-8')
     def strerrno(self, err):
         return zcm_strerrno(err).decode('utf-8')
     def subscribe_raw(self, str channel, handler):

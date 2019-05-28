@@ -305,7 +305,7 @@ Lastly, ZCM supports using a transport without registering. In this mode, URL pa
 not supported. Instead, the user manually constructs a custom `zcm_trans_t*` and passes
 it directly to the core library with the following function:
 
-    zcm_t *zcm_create_trans(zcm_trans_t *zt);
+    zcm_t *zcm_create_from_trans(zcm_trans_t *zt);
 
 ## Blocking vs Non-Blocking Message Handling
 
