@@ -144,7 +144,7 @@ function zcm(zcmtypes, zcmurl)
      */
     function publish(channel, msg)
     {
-        publish_raw(channel, zcmtypeHashMap[msg.__hash].encode(msg));
+        return publish_raw(channel, zcmtypeHashMap[msg.__hash].encode(msg));
     }
 
     /**
@@ -154,7 +154,7 @@ function zcm(zcmtypes, zcmurl)
      */
     function publish_raw(channel, data)
     {
-        libzcm.zcm_publish.async(z, channel, data, data.length, function (err, res) {});
+        return libzcm.zcm_publish(z, channel, data, data.length);
     }
 
     /**

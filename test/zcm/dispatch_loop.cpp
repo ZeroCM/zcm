@@ -34,7 +34,7 @@ static void controlThread(zcm_t *zcm)
 
 static void test_run()
 {
-    zcm_t *zcm = zcm_create_from_url("ipc");
+    zcm_t *zcm = zcm_create("ipc");
     assert(zcm);
 
     running = true;
@@ -52,7 +52,7 @@ static void test_run()
 
 static void test_spawn1()
 {
-    zcm_t *zcm = zcm_create_from_url("ipc");
+    zcm_t *zcm = zcm_create("ipc");
     assert(zcm);
 
     zcm_start(zcm);
@@ -63,7 +63,7 @@ static void test_spawn1()
 
 static void test_spawn2()
 {
-    zcm_t *zcm = zcm_create_from_url("ipc");
+    zcm_t *zcm = zcm_create("ipc");
     assert(zcm);
 
     zcm_start(zcm);
@@ -75,7 +75,7 @@ static void test_spawn2()
 
 static void test_handle()
 {
-    zcm_t *zcm = zcm_create_from_url("ipc");
+    zcm_t *zcm = zcm_create("ipc");
     assert(zcm);
 
     running = true;

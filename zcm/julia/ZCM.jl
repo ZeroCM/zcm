@@ -7,7 +7,6 @@ export encode,
 # Zcm functions
 export Zcm,
        good,
-       errno,
        strerrno,
        subscribe,
        unsubscribe,
@@ -139,17 +138,13 @@ end
 unsafe_convert(::Type{Ptr{Native.Zcm}}, zcm::Zcm) = zcm.zcm
 
 function good(zcm::Zcm)
-    (zcm.zcm != C_NULL) && (errno(zcm) == 0)
+    zcm.zcm != C_NULL
 end
 
-function errno(zcm::Zcm)
-    ccall(("zcm_errno", "libzcm"), Cint, (Ptr{Native.Zcm},), zcm)
-end
-
-function strerror(zcm::Zcm)
-    val =  ccall(("zcm_strerror", "libzcm"), Cstring, (Ptr{Native.Zcm},), zcm)
+function strerrno(err::Int)
+    val = ccall(("zcm_strerrno", "libzcm"), Cstring, (Cint,), Cint(err))
     if (val == C_NULL)
-        return "unable to get strerror"
+        return "unable to get strerrno"
     else
         return unsafe_string(val)
     end
@@ -240,9 +235,9 @@ function unsubscribe(zcm::Zcm, sub::Subscription)
 end
 
 function publish(zcm::Zcm, channel::AbstractString, data::Vector{UInt8})
-    return ccall(("zcm_publish", "libzcm"), Cint,
-                 (Ptr{Native.Zcm}, Cstring, Ptr{Nothing}, UInt32),
-                 zcm, convert(String, channel), data, length(data))
+    ccall(("zcm_publish", "libzcm"), Cint,
+          (Ptr{Native.Zcm}, Cstring, Ptr{Nothing}, UInt32),
+          zcm, convert(String, channel), data, length(data))
 end
 
 function publish(zcm::Zcm, channel::AbstractString, msg::AbstractZcmType)
@@ -294,7 +289,8 @@ end
 function set_queue_size(zcm::Zcm, num::Integer)
     sz = UInt32(num)
     while (true)
-        ret = ccall(("zcm_try_set_queue_size", "libzcm"), Cint, (Ptr{Native.Zcm}, UInt32), zcm, sz)
+        ret = ccall(("zcm_try_set_queue_size", "libzcm"), Cint,
+                    (Ptr{Native.Zcm}, UInt32), zcm, sz)
         if (ret == Cint(0))
             break
         else

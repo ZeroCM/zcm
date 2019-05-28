@@ -78,7 +78,7 @@ int main(int argc, const char *argv[])
 
     const char* transports[2] = {"ipc", "inproc"};
     for (i = 0; i < 2; ++i) {
-        zcm_t *zcm = zcm_create_from_url(transports[i]);
+        zcm_t *zcm = zcm_create(transports[i]);
         vprintf("Creating zcm %s\n", transports[i]);
         if (!zcm) {
             fprintf(stderr, "Failed to create zcm\n");

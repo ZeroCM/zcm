@@ -21,7 +21,7 @@ int main(int argc, char *argv[])
     char *data = malloc(DATASZ);
     memset(data, 0, DATASZ);
 
-    zcm_t *zcm = zcm_create_from_url(URL);
+    zcm_t *zcm = zcm_create(URL);
     assert(zcm);
 
     zcm_subscribe(zcm, CHANNEL, handler, NULL);

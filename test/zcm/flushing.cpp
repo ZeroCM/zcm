@@ -16,7 +16,7 @@ static void handler(const zcm_recv_buf_t *rbuf, const char *channel, void *usr)
 
 void subfunc()
 {
-    zcm_t *zcm = zcm_create_from_url("udpm://239.255.76.67:7667?ttl=0");
+    zcm_t *zcm = zcm_create("udpm://239.255.76.67:7667?ttl=0");
     zcm_subscribe(zcm, CHANNEL, handler, NULL);
 
     zcm_start(zcm);
@@ -41,7 +41,7 @@ int main()
     char data = 'A';
     for (size_t i = 0; i < N; i++) {
         // create, send, and destroy
-        zcm_t *zcm = zcm_create_from_url("udpm://239.255.76.67:7667?ttl=0");
+        zcm_t *zcm = zcm_create("udpm://239.255.76.67:7667?ttl=0");
         assert(zcm);
         zcm_publish(zcm, CHANNEL, &data, 1);
         zcm_flush(zcm);

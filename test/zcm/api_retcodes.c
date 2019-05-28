@@ -113,7 +113,7 @@ static void register_transports(void)
 
 static void test_fail_construct(void)
 {
-    ENSURE(NULL == zcm_create_from_url("test-fail"));
+    ENSURE(NULL == zcm_create("test-fail"));
     ENSURE(NULL == zcm_create_from_trans(NULL));
 
     zcm_t zcm;

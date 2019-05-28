@@ -44,7 +44,7 @@ void pub(zcm_t *zcm)
 
 void test1()
 {
-    zcm_t *zcm = zcm_create_from_url(URL);
+    zcm_t *zcm = zcm_create(URL);
 
     pid_t pid;
     pid = ::fork();
@@ -74,7 +74,7 @@ void test1()
 
 void test2()
 {
-    zcm_t *zcm = zcm_create_from_url(URL);
+    zcm_t *zcm = zcm_create(URL);
 
     // Try publishing once. This may start a thread, but a zcm_stop() before a fork
     // should be okay.
