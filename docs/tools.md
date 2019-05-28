@@ -351,7 +351,7 @@ of each image in our index in the order provided by the index.
     sys.path.insert(0, './build/types/')
     from image_t import image_t
 
-    from zcm import ZCM, LogFile, LogEvent
+    from zerocm import ZCM, LogFile, LogEvent
     log = LogFile('zcm.log', 'r')
 
     import json
