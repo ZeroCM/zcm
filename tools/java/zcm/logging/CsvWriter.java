@@ -17,7 +17,7 @@ import zcm.util.*;
 
 public class CsvWriter implements ZCMSubscriber
 {
-    private ZCM zcm;
+    private ZCM zcm = null;
     private ZCM.Subscription subs;
 
     private ZCMTypeDatabase handlers;
@@ -70,12 +70,12 @@ public class CsvWriter implements ZCMSubscriber
 
     private void verbosePrintln(String str)
     {
-        if(verbose) System.out.println(str);
+        if (verbose) System.out.println(str);
     }
 
     private void verbosePrint(String str)
     {
-        if(verbose) System.out.print(str);
+        if (verbose) System.out.print(str);
     }
 
     public void messageReceived(ZCM zcm, String channel, ZCMDataInputStream dins)
@@ -120,9 +120,18 @@ public class CsvWriter implements ZCMSubscriber
         Runtime.getRuntime().addShutdownHook(new Thread() {
             public void run() {
                 done = true;
-                zcm.stop();
-                zcm.unsubscribe(subs);
-                zcm.close();
+                if (zcm != null) {
+                    zcm.stop();
+                    zcm.unsubscribe(subs);
+                    zcm.close();
+                }
+                if (log != null) {
+                    try {
+                        log.close();
+                    } catch (IOException e) {
+                        System.err.println("Error closing input log");
+                    }
+                }
                 output.close();
                 System.out.print("\b\b  ");
                 System.out.println("Wrote " + numLinesWritten + " events");
@@ -130,9 +139,8 @@ public class CsvWriter implements ZCMSubscriber
             }
         });
 
-        zcm.start();
-
         if (log == null) {
+            zcm.start();
             while (true) try { Thread.sleep(1000); } catch(Exception e) {}
         } else {
             long lastPrintTime = 0;
