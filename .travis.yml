@@ -22,16 +22,12 @@ script:
   - ./waf distclean configure build &&
     ./waf distclean configure --use-all --use-third-party --use-clang --use-cxxtest --prefix=../tmp/ &&
     ./waf build &&
-    ./waf build &&
     ./waf install &&
-    source examples/env /home/travis/build/ZeroCM/tmp &&
+    source ./examples/env /home/travis/build/ZeroCM/tmp &&
     export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/home/travis/build/ZeroCM/tmp/lib/pkgconfig &&
     export PATH=$PATH:/home/travis/build/ZeroCM/tmp/bin &&
-    ./waf distclean configure --use-all --use-third-party --use-clang --use-cxxtest --use-examples --prefix=../tmp/ &&
-    ./waf build &&
-    ./waf build &&
-    ./waf install &&
-    ./build/test/runner &&
+    ./waf build_examples &&
+    ./waf distclean configure --use-all --use-third-party --use-clang --use-cxxtest --prefix=../tmp/ &&
     ./waf build_asan &&
     ./waf install_asan
 git:

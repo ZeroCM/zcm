@@ -17,9 +17,10 @@ out = 'build'
 # Allow import of custom tools
 sys.path.append('waftools')
 
-variants = {'local' : 'local',
-             'asan' : 'local',  ## Core Sanitizers (Address, Undefined-Behavior)
-             'tsan' : 'local',  ## Thread Sanitizer
+#                 name : machine_arch
+variants = {    'asan' : 'local',  ## Core Sanitizers (Address, Undefined-Behavior)
+                'tsan' : 'local',  ## Thread Sanitizer
+            'examples' : 'local',  ## Build zcm examples
 }
 
 def options(ctx):
@@ -28,11 +29,6 @@ def options(ctx):
     ctx.load('python')
     add_zcm_configure_options(ctx)
     add_zcm_build_options(ctx)
-
-
-    ctx.recurse('examples')
-
-
 
 def add_zcm_configure_options(ctx):
     gr = ctx.add_option_group('ZCM Configuration Options')
@@ -53,7 +49,6 @@ def add_zcm_configure_options(ctx):
     add_use_option('zmq',         'Enable ZeroMQ features')
     add_use_option('elf',         'Enable runtime loading of shared libs')
     add_use_option('third-party', 'Enable inclusion of 3rd party transports.')
-    add_use_option('examples',    'Enable building the examples.')
 
     gr.add_option('--hash-member-names',  dest='hash_member_names', default='false',
                   type='choice', choices=['true', 'false'],
@@ -88,15 +83,10 @@ def configure(ctx):
     ctx.load('compiler_c')
     ctx.load('compiler_cxx')
     ctx.recurse('config')
-    ctx.load('zcm-gen')
 
-    ctx.env.configuredEnv = []
+    ctx.env.variantsEnabledByConfigure = []
 
     process_zcm_configure_options(ctx)
-
-    if ctx.env.USING_EXAMPLES:
-        ctx.recurse('examples')
-
 
 def processCppVersion(ctx, f):
     version = ctx.cmd_and_log('grep VERSION %s | cut -d \' \' -f3' % (f),
@@ -125,9 +115,6 @@ def version(ctx):
 
     Logs.pprint('RED','ZCM Version: %s' % (versionZCM))
 
-    for e in ctx.env.configuredEnv:
-        ctx.setenv(e, env=ctx.env.derive()) # start with a copy instead of a new env
-
     return versionZCM
 
 def process_zcm_configure_options(ctx):
@@ -146,7 +133,6 @@ def process_zcm_configure_options(ctx):
     env.USING_ZMQ         = hasopt('use_zmq') and attempt_use_zmq(ctx)
     env.USING_ELF         = hasopt('use_elf') and attempt_use_elf(ctx)
     env.USING_THIRD_PARTY = getattr(opt, 'use_third_party') and attempt_use_third_party(ctx)
-    env.USING_EXAMPLES    = getattr(opt, 'use_examples')
 
     env.USING_TRANS_IPC    = hasopt('use_ipc')
     env.USING_TRANS_INPROC = hasopt('use_inproc')
@@ -164,6 +150,9 @@ def process_zcm_configure_options(ctx):
         raise WafError("Using ZeroMQ is required for some of the selected transports (--use-zmq)")
 
     env.VERSION = version(ctx)
+
+    for e in variants:
+        ctx.setenv(e, env=ctx.env.derive()) # start with a copy instead of a new env
 
     def print_entry(name, enabled, invertColors=False):
         Logs.pprint("NORMAL", "    {:20}".format(name), sep='')
@@ -290,8 +279,8 @@ def attempt_use_third_party(ctx):
 def attempt_use_clang(ctx):
     ctx.load('clang-custom')
     ctx.env.CLANG_VERSION = ctx.assert_clang_version(3.6)
-    ctx.env.configuredEnv.append('asan')
-    ctx.env.configuredEnv.append('tsan')
+    ctx.env.variantsEnabledByConfigure.append('asan')
+    ctx.env.variantsEnabledByConfigure.append('tsan')
     return True
 
 def process_zcm_build_options(ctx):
@@ -399,43 +388,26 @@ for x in variants:
             variant = x
 
 def build(ctx):
-    if ctx.variant:
-        if not ctx.variant in ctx.env.configuredEnv:
+    if ctx.variant and ctx.variant != 'examples':
+        if not ctx.variant in ctx.env.variantsEnabledByConfigure:
             ctx.fatal('Please configure for %s build' % (ctx.variant))
 
     if not ctx.env.ENVIRONMENT_SETUP:
         setup_environment(ctx)
 
-    ctx.recurse('scripts')
-    ctx.recurse('zcm')
-    ctx.recurse('config')
-    ctx.recurse('gen')
-    ctx.recurse('tools')
-    generate_signature(ctx)
 
-    # Figure out if the zcm-gen binary is either in the build directory or installed
-    zcm_gen_search_paths = [ctx.env.BINDIR]
-    if ctx.path.get_bld().find_node("gen") is not None:
-        zcm_gen_search_paths.append(ctx.path.get_bld().find_node("gen").abspath())
-    ctx.find_program('zcm-gen', var='ZCMGEN', mandatory=False, path_list=zcm_gen_search_paths)
-    ctx.env.ZCMGEN = ctx.env.ZCMGEN[0] if len(ctx.env.ZCMGEN) > 0 else None
+    if ctx.variant == 'examples':
+        ctx.recurse('examples')
+    else:
+        ctx.recurse('scripts')
+        ctx.recurse('zcm')
+        ctx.recurse('config')
+        ctx.recurse('gen')
+        ctx.recurse('tools')
+        generate_signature(ctx)
 
-    # If zcm-gen is found, build the tests and examples
-    if ctx.env.USING_CXXTEST:
-        if ctx.env.ZCMGEN:
-            ctx.recurse('test')
-            ctx.cxxtest(use = ['zcm', 'testzcmtypes', 'testzcmtypes_cpp', 'testzcmtypes_c_stlib'])
-        else:
-            Logs.warn("Skipping cxxtests because zcm-gen is neither build nor installed. "
-                      "Just run the build again.")
-
-    if ctx.env.USING_EXAMPLES:
-        if ctx.env.ZCMGEN:
-            ctx.recurse('examples')
-        else:
-            Logs.warn("Skipping examples because zcm-gen is neither build nor installed. "
-                      "Just run the build again.")
-
+    # RRR (Tom) can't do this ... tis a catch 22
+    # ctx.recurse('test')
 
 def distclean(ctx):
     ctx.exec_command('rm -f waftools/*.pyc')

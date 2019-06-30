@@ -9,6 +9,14 @@ from waflib.TaskGen import extension
 from waflib.Configure import conf
 
 def configure(ctx):
+    # Note: This tool will also work if zcm-gen is a tool built by this build if:
+    #       configuration:
+    #           ctx.env.ZCMGEN is set to the programs path prior to loading the zcm-gen tool
+    #       build:
+    #           all zcmtype generation happens after the tool is compiled.
+    #           That is, use ctx.add_group() while ctx.post_mode = waflib.Build.POST_LAZY
+    #           to separate zcm-gen compilation and zcmtype generation.
+    #
     # TODO: could improve this to actually use the waf node of the zcm-gen binary as in the
     #       ex. of building a compiler in the waf book (https://waf.io/book/#_advanced_scenarios)
     # TODO: We should do the above; changes to the zcm-gen binary do not force the regeneration
@@ -16,8 +24,12 @@ def configure(ctx):
     #       zcm-gen stays pretty static, but it is technically a build error.
     # TODO: The user MUST have uselib variables for zcm and zcmjar defined through their own
     #       configuration. We should add them here or move them into a different waf module
-    pass
 
+    # find program leaves the program itself in an array (probably for if there are multiple),
+    # but we only expect / want one
+    if not getattr(ctx.env, 'ZCMGEN', []):
+        ctx.find_program('zcm-gen', var='ZCMGEN', mandatory=True)
+        ctx.env.ZCMGEN = ctx.env.ZCMGEN[0]
 
 # ******* ZcmGen Task Generator *******
 # @conf
@@ -145,7 +157,7 @@ def outFileNames(ctx, bldpath, inFile, **kw):
     if 'nodejs' in lang:
         cmd['nodejs'] = '--node --npath %s' % (bldpath)
 
-    files = ctx.cmd_and_log('%s --output-files %s %s' % (zcmgen, ' '.join(cmd.values()), inFile),
+    files = ctx.cmd_and_log('zcm-gen --output-files %s %s' % (' '.join(cmd.values()), inFile),
                             output=waflib.Context.STDOUT,
                             quiet=waflib.Context.BOTH).strip().split()
 
@@ -244,15 +256,12 @@ def zcmgen(ctx, **kw):
              littleEndian = littleEndian,
              juliapkg     = juliapkg,
              javapkg      = javapkg)
-
-    # RRR I think the order of arguments needs to be reversed here (the API doc is unclear but according to 8.3.2. Explicit dependencies of the waf book)
     for s in tg.source:
         ctx.add_manual_dependency(s, zcmgen)
 
     if not building:
         return
 
-    # RRR why is the call to outFileNames needed here only for the c variants?
     if 'c_stlib' in lang or 'c_shlib' in lang:
         csrc = []
         for src in tg.source:

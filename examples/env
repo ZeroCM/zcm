@@ -18,10 +18,10 @@ export ASAN_SYMBOLIZER_PATH=/usr/bin/llvm-symbolizer
 export ASAN_OPTIONS=check_initialization_order=1
 export CLASSPATH=$CLASSPATH:$prefix/share/java/zcm.jar
 export CLASSPATH=$CLASSPATH:$prefix/share/java/zcm-tools.jar
-export CLASSPATH=$CLASSPATH:$THISDIR/build/build_examples/examples/types/examplezcmtypes.jar
-export CLASSPATH=$CLASSPATH:$THISDIR/build/build_examples/examples/types/examplezcmtypespfx.jar
-export CLASSPATH=$CLASSPATH:$THISDIR/build/build_examples/examples/java/example.jar
-export ZCM_SPY_LITE_PATH=$THISDIR/build/build_examples/examples/types/libexamplezcmtypes.so
+export CLASSPATH=$CLASSPATH:$THISDIR/build/types/examplezcmtypes.jar
+export CLASSPATH=$CLASSPATH:$THISDIR/build/types/examplezcmtypespfx.jar
+export CLASSPATH=$CLASSPATH:$THISDIR/build/java/example.jar
+export ZCM_SPY_LITE_PATH=$THISDIR/build/types/libexamplezcmtypes.so
 export ZCM_DEFAULT_URL=ipc
 export JULIA_LOAD_PATH="$JULIA_LOAD_PATH:$prefix/share/julia:$THISDIR/build/types"
 
