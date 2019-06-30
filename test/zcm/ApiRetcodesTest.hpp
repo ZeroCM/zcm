@@ -114,18 +114,22 @@ class ApiRetcodesTest : public CxxTest::TestSuite
 
     void testFailConstruct(void)
     {
-        TS_ASSERT_EQUALS(nullptr, zcm_create("test-fail"));
-        TS_ASSERT_EQUALS(nullptr, zcm_create_trans(NULL));
+        zcm_t* zcm_ptr;
+        TS_ASSERT_EQUALS(ZCM_ECONNECT, zcm_try_create(&zcm_ptr, "test-fail"));
+        TS_ASSERT_EQUALS(nullptr, zcm_ptr);
+
+        zcm_try_create_from_trans(&zcm_ptr, NULL);
+        TS_ASSERT_EQUALS(nullptr, zcm_ptr);
 
         zcm_t zcm;
 
         memset(&zcm, 0, sizeof(zcm));
-        TS_ASSERT_EQUALS(-1, zcm_init(&zcm, "test-fail"));
-        TS_ASSERT_EQUALS(ZCM_ECONNECT, zcm_errno(&zcm));
+        TS_ASSERT_EQUALS(ZCM_ECONNECT, zcm_init(&zcm, "test-fail"));
 
         memset(&zcm, 0, sizeof(zcm));
-        TS_ASSERT_EQUALS(-1, zcm_init_trans(&zcm, NULL));
-        TS_ASSERT_EQUALS(ZCM_ECONNECT, zcm_errno(&zcm));
+
+
+        TS_ASSERT_EQUALS(ZCM_EINVALID, zcm_try_create_from_trans(&zcm_ptr, NULL));
     }
 
     void testPublish(void)
@@ -143,13 +147,11 @@ class ApiRetcodesTest : public CxxTest::TestSuite
             memset(channel, 'A', ZCM_CHANNEL_MAXLEN);
             channel[ZCM_CHANNEL_MAXLEN] = '\0';
             TS_ASSERT_EQUALS(ZCM_EOK, zcm_publish(&zcm, channel, &data, 1));
-            TS_ASSERT_EQUALS(ZCM_EOK, zcm_errno(&zcm));
 
             /* channel size 1 passed the limit */
             channel[ZCM_CHANNEL_MAXLEN] = 'A';
             channel[ZCM_CHANNEL_MAXLEN+1] = '\0';
             TS_ASSERT_EQUALS(ZCM_EINVALID, zcm_publish(&zcm, channel, &data, 1));
-            TS_ASSERT_EQUALS(ZCM_EINVALID, zcm_errno(&zcm));
         }
 
         // Test data size limit checking
@@ -159,11 +161,9 @@ class ApiRetcodesTest : public CxxTest::TestSuite
 
             /* data size at limit */
             TS_ASSERT_EQUALS(ZCM_EOK, zcm_publish(&zcm, channel, data, GENERIC_MTU));
-            TS_ASSERT_EQUALS(ZCM_EOK, zcm_errno(&zcm));
 
             /* data size 1 passed the limit */
             TS_ASSERT_EQUALS(ZCM_EINVALID, zcm_publish(&zcm, channel, data, GENERIC_MTU+1));
-            TS_ASSERT_EQUALS(ZCM_EINVALID, zcm_errno(&zcm));
 
             free(data);
         }
@@ -184,7 +184,6 @@ class ApiRetcodesTest : public CxxTest::TestSuite
             uint8_t data = 'a';
             int ret = zcm_publish(&zcm, "CHANNEL", &data, 1);
             if (ret == ZCM_EAGAIN) {
-                TS_ASSERT_EQUALS(ZCM_EAGAIN, zcm_errno(&zcm));
                 goto done;
             }
         }

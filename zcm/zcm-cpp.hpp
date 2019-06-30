@@ -114,29 +114,6 @@ class ZCM
     std::vector<Subscription*> subscriptions;
 };
 
-// New class required to allow the Handler callbacks and std::string channel names
-class Subscription
-{
-    friend class ZCM;
-    void* rawSub;
-
-  protected:
-    void* usr;
-    void (*callback)(const ReceiveBuffer* rbuf, const std::string& channel, void* usr);
-
-  public:
-    virtual ~Subscription() {}
-
-    void* getRawSub() const
-    { return rawSub; }
-
-    inline void dispatch(const ReceiveBuffer* rbuf, const std::string& channel)
-    { (*callback)(rbuf, channel, usr); }
-
-    static inline void dispatch(const ReceiveBuffer* rbuf, const char* channel, void* usr)
-    { ((Subscription*)usr)->dispatch(rbuf, channel); }
-};
-
 // TODO: why not use or inherit from the existing zcm data structures for the below
 
 #ifndef ZCM_EMBEDDED
