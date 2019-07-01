@@ -14,6 +14,18 @@ if [[ $1 != "" ]]; then
     prefix=$1
 fi
 
+echo $PATH | grep -q $prefix/bin
+ret=$?
+if [ $ret -ne 0 ]; then
+    export PATH=$PATH:$prefix/bin
+fi
+
+echo $PKG_CONFIG_PATH | grep -q $prefix/lib/pkgconfig
+ret=$?
+if [ $ret -ne 0 ]; then
+    export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$prefix/lib/pkgconfig
+fi
+
 export ASAN_SYMBOLIZER_PATH=/usr/bin/llvm-symbolizer
 export ASAN_OPTIONS=check_initialization_order=1
 export CLASSPATH=$CLASSPATH:$prefix/share/java/zcm.jar

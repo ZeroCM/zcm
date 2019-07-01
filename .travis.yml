@@ -24,12 +24,14 @@ script:
     ./waf build &&
     ./waf install &&
     source ./examples/env /home/travis/build/ZeroCM/tmp &&
-    export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/home/travis/build/ZeroCM/tmp/lib/pkgconfig &&
-    export PATH=$PATH:/home/travis/build/ZeroCM/tmp/bin &&
+    ./waf configure --use-all --use-third-party --use-clang --use-cxxtest --prefix=../tmp/ &&
     ./waf build_examples &&
     ./waf distclean configure --use-all --use-third-party --use-clang --use-cxxtest --prefix=../tmp/ &&
     ./waf build_asan &&
-    ./waf install_asan
+    ./waf install_asan &&
+    source ./examples/env /home/travis/build/ZeroCM/tmp &&
+    ./waf configure --use-all --use-third-party --use-clang --use-cxxtest --prefix=../tmp/ &&
+    ./waf build_examples_asan
 git:
     depth: 1
 notifications:

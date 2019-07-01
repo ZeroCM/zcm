@@ -17,11 +17,12 @@ out = 'build'
 # Allow import of custom tools
 sys.path.append('waftools')
 
-#                 name : machine_arch
-variants = {    'asan' : 'local',  ## Core Sanitizers (Address, Undefined-Behavior)
-                'tsan' : 'local',  ## Thread Sanitizer
-            'examples' : 'local',  ## Build zcm examples
-}
+variants = [         'asan',  ## Core Sanitizers (Address, Undefined-Behavior)
+                     'tsan',  ## Thread Sanitizer
+                 'examples',  ## Build zcm examples
+            'examples_asan',  ## Build zcm examples in asan
+            'examples_tsan',  ## Build zcm examples in tsan
+            ]
 
 def options(ctx):
     ctx.load('compiler_c')
@@ -354,10 +355,10 @@ def setup_environment(ctx):
         ctx.setup_cxxtest()
 
     ## Building for asan?
-    if ctx.variant == 'asan':
+    if ctx.variant.endswith('asan'):
         setup_environment_asan(ctx)
     ## Building for tsan?
-    elif ctx.variant == 'tsan':
+    elif ctx.variant.endswith('tsan'):
         setup_environment_tsan(ctx)
     else:
         setup_environment_gnu(ctx)
@@ -388,15 +389,14 @@ for x in variants:
             variant = x
 
 def build(ctx):
-    if ctx.variant and ctx.variant != 'examples':
+    if ctx.variant and not ctx.variant.startswith('examples'):
         if not ctx.variant in ctx.env.variantsEnabledByConfigure:
             ctx.fatal('Please configure for %s build' % (ctx.variant))
 
     if not ctx.env.ENVIRONMENT_SETUP:
         setup_environment(ctx)
 
-
-    if ctx.variant == 'examples':
+    if ctx.variant.startswith('examples'):
         ctx.recurse('examples')
     else:
         ctx.recurse('scripts')
