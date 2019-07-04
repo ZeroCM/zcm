@@ -44,3 +44,5 @@ deploy:
   file: build/zcm.deb
   skip_cleanup: true
   draft: true
+  on:
+      branch: deb_packaging
