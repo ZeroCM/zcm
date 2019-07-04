@@ -19,22 +19,31 @@ before_install:
   - export PATH=$PATH:`pwd`/cxxtest/bin/; export LIBRARY_PATH=$LIBRARY_PATH:`pwd`/cxxtest/
 before_script: mkdir -p ../tmp/x64 && mkdir -p ../tmp/asan
 script:
-  - bash -c "./waf distclean configure build &&
-             ./waf distclean configure --use-all --use-third-party --use-dev --prefix=../tmp/x64 &&
-             ./waf build &&
-             ./waf install" &&
-    bash -c "source ./examples/env /home/travis/build/ZeroCM/tmp/x64 &&
-             ./waf build_examples &&
-             ./waf build_tests &&
-             ./build/tests/test/runner" &&
-    bash -c "./waf distclean configure --use-all --use-third-party --use-dev --prefix=../tmp/asan &&
-             ./waf build_asan &&
-             ./waf install_asan" &&
-    bash -c "source ./examples/env /home/travis/build/ZeroCM/tmp/asan &&
-             ./waf build_examples_asan &&
-             ./waf build_tests_asan &&
-             ./build/tests_asan/test/runner" &&
-    bash scripts/make_debian_package.sh
+  - ./waf distclean configure build &&
+    ./waf distclean configure --use-all --use-third-party --use-clang --use-cxxtest --prefix=../tmp/ &&
+    ./waf build &&
+    ./waf install &&
+    cd examples && source ./env /home/travis/build/ZeroCM/tmp &&
+    export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/home/travis/build/ZeroCM/tmp/lib/pkgconfig &&
+    export PATH=$PATH:/home/travis/build/ZeroCM/tmp/bin &&
+    ./waf distclean configure build && cd .. &&
+    ./waf distclean configure --use-all --use-third-party --use-clang --use-cxxtest --prefix=../tmp/ &&
+    ./waf build_asan &&
+    ./waf install_asan &&
+    cd examples && source ./env /home/travis/build/ZeroCM/tmp &&
+    export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/home/travis/build/ZeroCM/tmp/lib/pkgconfig &&
+    export PATH=$PATH:/home/travis/build/ZeroCM/tmp/bin &&
+    ./waf distclean configure --use-clang build_asan && cd .. &&
+    rm -rf build/ &&
+    scripts/make_debian_package.sh
+
+deploy:
+  provider: releases
+  api_key:
+    secure: "p2GCwPVDgNxXELi820HzC3A/TEzDAlyDL23fj8GV4ARsSGes8LsUaxqhjh5R5QrxaSQeB+SCakWZCK5DNPC4wUhU53zttFWrn3MCMhzeAu+Az816C7dmKeF9K52JLvKbjBOsQNCX4aogcMMfrK46bAqnMLr+1atWsPS/PvmwgH1rI6K+Khrv/gxqoCoZwIq3BcVsh9gbwo/mDT1XEwvfEs+z8vBw9+T+NDsCix877ciDCal1jdou0pLeSz896ZXoHznnLvWJEzyu07SdfXFEYC7yHBvo9cn7UUfUSVUOUN3WLAitqh9MnnLTzyXby22/IlctvDRl1o9R9ns+Zuqz+TMyfKKIk7ez6f4lZlxndTitdR3WH682ES9EX5NZKy2PvvtA7B2z5ksKpH74gjJfWQ9LbXq3xDjiqLS2l0yTsEqgX6B5nzXfbp5rCyKg9RWQpHbwvHu4nxzrimAfN+/TE3MNwtVzmNneFNKmsTv6JJzhSEL+uGGbqFjCr5tk23LmNppk58uvGb8tKn9UNesv909bTuKJBR1slBmJ9W6nEKt7+mxHsCqZk/DkQlgxugqryiMjr/s/s38qT68cAHz8il6zMBn7uOtjgV3yvSFUzFWbF0fo+ZQEN3UaLvgNftG2aSUaSvkLc5KY3OmyNbKuiHyIomuJ89/3TgLZP6YqtaM="
+  file: build/zcm.deb
+  skip_cleanup: true
+
 git:
     depth: 1
 notifications:
