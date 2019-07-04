@@ -87,6 +87,7 @@ def configure(ctx):
     ctx.load('compiler_c')
     ctx.load('compiler_cxx')
     ctx.recurse('config')
+    ctx.load('strip_on_install')
 
     ctx.env.variantsEnabledByConfigure = ['examples', 'tests']
 
@@ -414,6 +415,8 @@ def build(ctx):
         ctx.recurse('config')
         ctx.recurse('gen')
         ctx.recurse('tools')
+   	ctx.recurse('DEBIAN')
+	ctx.install_as('${PREFIX}/share/doc/zcm/copyright', 'LICENSE')
         generate_signature(ctx)
 
 
