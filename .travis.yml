@@ -17,7 +17,7 @@ before_install:
   - sudo ldconfig
   - git clone https://github.com/CxxTest/cxxtest.git
   - export PATH=$PATH:`pwd`/cxxtest/bin/; export LIBRARY_PATH=$LIBRARY_PATH:`pwd`/cxxtest/
-before_script: mkdir -p ../tmp/x64 && mkdir -p ../tmp/asan
+before_script: mkdir ../tmp
 script:
   - ./waf distclean configure build &&
     ./waf distclean configure --use-all --use-third-party --use-clang --use-cxxtest --prefix=../tmp/ &&
