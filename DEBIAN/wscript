@@ -1,0 +1,11 @@
+#! /usr/bin/env python
+# encoding: utf-8
+from waflib import Utils
+
+def build(ctx):
+    ctx(features='subst',
+        source='control.in',
+        target='control',
+        #install_path='${BINDIR}',
+        #chmod=Utils.O755,
+        always=True)
