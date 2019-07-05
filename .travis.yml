@@ -1,6 +1,8 @@
 language: c
 dist: bionic
 sudo: required
+git:
+  depth: 1
 before_install:
   # C++11
   - sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
