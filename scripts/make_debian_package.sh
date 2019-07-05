@@ -19,7 +19,7 @@ cd $BASEDIR
 
 # Build with python2 support and install to temporary $DEB_PACKAGE_ASSEMBLY_DIR/usr directory
 export PYTHON=/usr/bin/python2
-./waf configure --use-java --use-python --use-elf --use-clang --use-udpm --use-ipc --use-zmq --use-inproc --use-serial -d -s --prefix=$DEB_PACKAGE_ASSEMBLY_DIR/usr/
+./waf configure --use-all --use-third-party --use-clang -d -s --prefix=$DEB_PACKAGE_ASSEMBLY_DIR/usr/
 ./waf build
 ./waf install
 
@@ -27,7 +27,7 @@ export PYTHON=/usr/bin/python2
 # Note 1: This overrides most of the already existing files except for the python2 files in usr/lib/python2.7 <- this is to be considered an ugly hack but I found no other way to make waf build for python2 AND python3
 # Note 2: we use --targets=pyzcm to hopefully not build everything again
 export PYTHON=/usr/bin/python3
-./waf configure --use-java --use-python --use-elf --use-clang --use-udpm --use-ipc --use-zmq --use-inproc --use-serial -d -s --prefix=$DEB_PACKAGE_ASSEMBLY_DIR/usr/
+./waf configure --use-all --use-third-party --use-clang -d -s --prefix=$DEB_PACKAGE_ASSEMBLY_DIR/usr/
 ./waf build --targets=pyzcm
 ./waf install
 
