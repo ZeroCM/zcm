@@ -46,7 +46,6 @@ deploy:
     secure: "p2GCwPVDgNxXELi820HzC3A/TEzDAlyDL23fj8GV4ARsSGes8LsUaxqhjh5R5QrxaSQeB+SCakWZCK5DNPC4wUhU53zttFWrn3MCMhzeAu+Az816C7dmKeF9K52JLvKbjBOsQNCX4aogcMMfrK46bAqnMLr+1atWsPS/PvmwgH1rI6K+Khrv/gxqoCoZwIq3BcVsh9gbwo/mDT1XEwvfEs+z8vBw9+T+NDsCix877ciDCal1jdou0pLeSz896ZXoHznnLvWJEzyu07SdfXFEYC7yHBvo9cn7UUfUSVUOUN3WLAitqh9MnnLTzyXby22/IlctvDRl1o9R9ns+Zuqz+TMyfKKIk7ez6f4lZlxndTitdR3WH682ES9EX5NZKy2PvvtA7B2z5ksKpH74gjJfWQ9LbXq3xDjiqLS2l0yTsEqgX6B5nzXfbp5rCyKg9RWQpHbwvHu4nxzrimAfN+/TE3MNwtVzmNneFNKmsTv6JJzhSEL+uGGbqFjCr5tk23LmNppk58uvGb8tKn9UNesv909bTuKJBR1slBmJ9W6nEKt7+mxHsCqZk/DkQlgxugqryiMjr/s/s38qT68cAHz8il6zMBn7uOtjgV3yvSFUzFWbF0fo+ZQEN3UaLvgNftG2aSUaSvkLc5KY3OmyNbKuiHyIomuJ89/3TgLZP6YqtaM="
   file: build/zcm.deb
   skip_cleanup: true
-  draft: true
   on:
       branch: deb_packaging
 
