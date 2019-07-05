@@ -53,4 +53,4 @@ cd -
 ### PACK DEBIAN PACKAGE
 ##  Debian compliance: fakeroot is required to get correct uids and gids for all installed files
 fakeroot dpkg-deb -b $DEB_PACKAGE_ASSEMBLY_DIR
-mv $DEB_PACKAGE_ASSEMBLY_DIR.deb ./build/zcm.deb
+dpkg-name $DEB_PACKAGE_ASSEMBLY_DIR.deb
