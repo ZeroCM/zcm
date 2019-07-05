@@ -6,5 +6,5 @@ jardir=${datarootdir}/java
 Name: zcm
 Description: Zero Communications and Marshalling (ZCM) Java Tools
 Requires:
-Version: 1.0.0
+Version: @version@
 classpath=${jardir}/zcm-tools.jar
