@@ -3,6 +3,7 @@ dist: bionic
 sudo: required
 git:
   depth: 1
+
 before_install:
   # C++11
   - sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
@@ -48,3 +49,17 @@ deploy:
   draft: true
   on:
       branch: deb_packaging
+
+notifications:
+    webhooks:
+        urls:
+            - https://webhooks.gitter.im/e/e23128f14b1634065c82
+        on_success: change
+        on_failure: always
+        on_start: never
+    email:
+        recipients:
+            - jonathan.bendes@gmail.com
+        on_success: change
+        on_failure: always
+on_start: never
