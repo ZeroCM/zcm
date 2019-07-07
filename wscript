@@ -22,6 +22,9 @@ variants = [         'asan',  ## Core Sanitizers (Address, Undefined-Behavior)
                  'examples',  ## Build zcm examples
             'examples_asan',  ## Build zcm examples in asan
             'examples_tsan',  ## Build zcm examples in tsan
+                    'tests',  ## Build zcm tests
+               'tests_asan',  ## Build zcm tests in asan
+               'tests_tsan',  ## Build zcm tests in tsan
             ]
 
 def options(ctx):
@@ -382,14 +385,17 @@ def generate_signature(ctx):
 
 from waflib.Build import BuildContext, CleanContext, InstallContext, UninstallContext
 for x in variants:
-    for y in (BuildContext, CleanContext, InstallContext, UninstallContext):
+    contexts = [BuildContext, CleanContext]
+    if not x.startswith('examples') and not x.startswith('tests'):
+        contexts.extend([InstallContext, UninstallContext])
+    for y in contexts:
         name = y.__name__.replace('Context','').lower()
         class tmp(y):
             cmd = name + '_' + x
             variant = x
 
 def build(ctx):
-    if ctx.variant and not ctx.variant.startswith('examples'):
+    if ctx.variant and not (ctx.variant.startswith('examples') or ctx.variant.startswith('tests')):
         if not ctx.variant in ctx.env.variantsEnabledByConfigure:
             ctx.fatal('Please configure for %s build' % (ctx.variant))
 
@@ -398,6 +404,10 @@ def build(ctx):
 
     if ctx.variant.startswith('examples'):
         ctx.recurse('examples')
+    elif ctx.variant.startswith('tests'):
+        ctx.recurse('test')
+        if ctx.env.USING_CXXTEST:
+            ctx.cxxtest(use = ['zcm', 'testzcmtypes', 'testzcmtypes_cpp', 'testzcmtypes_c_stlib'])
     else:
         ctx.recurse('scripts')
         ctx.recurse('zcm')
@@ -406,8 +416,6 @@ def build(ctx):
         ctx.recurse('tools')
         generate_signature(ctx)
 
-    # RRR (Tom) can't do this ... tis a catch 22
-    # ctx.recurse('test')
 
 def distclean(ctx):
     ctx.exec_command('rm -f waftools/*.pyc')

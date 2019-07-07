@@ -26,6 +26,12 @@ if [ $ret -ne 0 ]; then
     export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$prefix/lib/pkgconfig
 fi
 
+echo $LD_LIBRARY_PATH | grep -q $prefix/lib
+ret=$?
+if [ $ret -ne 0 ]; then
+    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$prefix/lib/
+fi
+
 export ASAN_SYMBOLIZER_PATH=/usr/bin/llvm-symbolizer
 export ASAN_OPTIONS=check_initialization_order=1
 export CLASSPATH=$CLASSPATH:$prefix/share/java/zcm.jar

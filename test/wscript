@@ -1,6 +1,30 @@
 #! /usr/bin/env python
 # encoding: utf-8
 
+import os
+import waflib
+from waflib import Logs
+from waflib.Errors import WafError
+
+def configure(ctx):
+    ctx.check_cfg(package='zcm', args='--cflags --libs', uselib_store='zcm')
+    ctx.load('zcm-gen')
+
+
+def internal_specific_configure(ctx):
+    ctx.find_program('zcm-gen', var='ZCMGEN', mandatory=True)
+    ctx.env.ZCMGEN = ctx.env.ZCMGEN[0]
+
+
 def build(ctx):
+    try:
+        internal_specific_configure(ctx)
+        configure(ctx)
+    except:
+        print('')
+        Logs.pprint('RED', 'Error configuring Examples. Ensure that you have installed zcm first')
+        print('')
+        raise
+
     ctx.recurse('types')
     ctx.recurse('zcm')

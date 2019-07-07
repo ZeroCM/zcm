@@ -52,7 +52,6 @@ def internal_specific_configure(ctx):
 
 
 def build(ctx):
-    # RRR: only do this stuff if we are building, not if we are cleaning
     try:
         internal_specific_configure(ctx)
         configure(ctx)
