@@ -9,6 +9,8 @@
 #include <cinttypes>
 #include <unistd.h>
 
+#include "multi_file.hpp"
+
 
 using namespace std;
 
@@ -50,7 +52,7 @@ class Handler
         bytepacked_typed_received |= (int) msg->utime;
         num_typed_received++;
         printf("\n");
-//        MyStruct::greet(false, msg);
+        MyStruct::greet(false, msg);
         fflush(stdout);
     }
 };
