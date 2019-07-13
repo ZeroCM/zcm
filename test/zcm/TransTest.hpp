@@ -28,7 +28,9 @@ static zcm_trans_t *makeTransport()
     auto *u = zcm_url_create(url);
     auto *creator = zcm_transport_find(zcm_url_protocol(u));
     TSM_ASSERT("Failed to create transport", creator);
-    return creator(u);
+    zcm_trans_t* ret = creator(u);
+    zcm_url_destroy(u);
+    return ret;
 }
 
 static zcm_msg_t makeMasterMsg()
@@ -42,6 +44,11 @@ static zcm_msg_t makeMasterMsg()
         msg.buf[i] = (char)(i & 0xff);
 
     return msg;
+}
+
+static void deleteMasterMsg(zcm_msg_t* msg)
+{
+    free(msg->buf);
 }
 
 static void verifySame(zcm_msg_t *a, zcm_msg_t *b)
@@ -71,6 +78,8 @@ static void send()
         zcm_trans_sendmsg(trans, msg);
         usleep(1000000 / HZ);
     }
+    deleteMasterMsg(&msg);
+    zcm_trans_destroy(trans);
 }
 
 static void recv()
@@ -93,12 +102,14 @@ static void recv()
             verifySame(&master, &msg);
         }
     }
+    deleteMasterMsg(&master);
 //    uint64_t end = TimeUtil::utime();
 
 //    cout << "Received " << (i * 100 / MSG_COUNT) << "\% of the messages in "
 //         << ((end - start) / 1e6) << " seconds" <<  endl;
 
     running_send = false;
+    zcm_trans_destroy(trans);
 }
 
 class TransTest : public CxxTest::TestSuite
