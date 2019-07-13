@@ -4,7 +4,7 @@
 import os
 import waflib
 from waflib import Logs
-from waflib.Errors import WafError
+from waflib.Errors import ConfigurationError
 
 # Note: users should place the contents of this "configure" function into their waf "configure"
 #       function to load the necessary zcm libraries and binaries.
@@ -31,15 +31,10 @@ def configure(ctx):
     if ctx.check_java_class('zcm.zcm.ZCM', ctx.env.CLASSPATH_zcmjar) != 0:
         Logs.pprint('RED', 'You probably just need to `source ./env` and run `./waf configure ...`')
 
-    # RRR: Basically ... java integration into waf is sub-par. Even though we
-    #      are loading the zcm classpath from pkgconfig, you actually need the CLASSPATH
-    #      set with all the zcm jar files before you run the initial ./waf configure for
-    #      the java linking to actually work right. If we could get it to link properly
-    #      to the classpath that is getting set from the package config call above, we
-    #      could delete these 2 lines (they are just catching the problem early) and also
-    #      stop exporting the zcm.jar and zcmtools.jar to the classpath from the env file
-    if ctx.check_java_class('zcm.spy.Spy', ctx.env.CLASSPATH_zcmtoolsjar) != 0:
+    if ctx.check_java_class('zcm.spy.Spy',
+                            ctx.env.CLASSPATH_zcmtoolsjar + ":" + ctx.env.CLASSPATH_zcmjar) != 0:
         Logs.pprint('RED', 'You probably just need to `source ./env` and run `./waf configure ...`')
+        raise ConfigurationError('Failed to look up ZCM Java class')
 
     if not os.environ.get('ZCM_DEFAULT_URL'):
         Logs.pprint('RED', 'Examples rely on ZCM_DEFAULT_URL being defined. Try `source ./env`')
