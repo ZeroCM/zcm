@@ -395,6 +395,7 @@ for x in variants:
             variant = x
 
 def build(ctx):
+    # RRR: shouldn't be able to build examples_asan if not configured for asan
     if ctx.variant and not (ctx.variant.startswith('examples') or ctx.variant.startswith('tests')):
         if not ctx.variant in ctx.env.variantsEnabledByConfigure:
             ctx.fatal('Please configure for %s build' % (ctx.variant))

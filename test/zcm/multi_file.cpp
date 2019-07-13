@@ -1,5 +1,6 @@
 #include "multi_file.hpp"
 
+// RRR: looks like this library isn't getting linked to anymore, which is a problem
 // TODO: the comment below is not true. I removed all inline statements from zcm-cpp.hpp
 //       and it still compiled fine! I put this test on hold for now to review it later.
 
