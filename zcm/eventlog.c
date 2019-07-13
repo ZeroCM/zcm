@@ -180,8 +180,8 @@ static zcm_eventlog_event_t *zcm_event_read_helper(zcm_eventlog_t *l, int rewind
         fseeko (l->f, -4, SEEK_CUR);
     }
     if (rewindWhenDone) {
-        fseeko (l->f, -(sizeof(int64_t) * 2 + sizeof(int32_t) * 3 +
-                        le->datalen + le->channellen), SEEK_CUR);
+        fseeko (l->f, -(off_t)(sizeof(int64_t) * 2 + sizeof(int32_t) * 3 +
+                               le->datalen + le->channellen), SEEK_CUR);
     }
     return le;
 }

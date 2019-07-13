@@ -15,12 +15,17 @@ top = '.'
 out = 'build'
 
 # Allow import of custom tools
-sys.path.append('examples/waftools')
+sys.path.append('waftools')
 
-variants = {'local' : 'local',
-             'asan' : 'local',  ## Core Sanitizers (Address, Undefined-Behavior)
-             'tsan' : 'local',  ## Thread Sanitizer
-}
+variants = [         'asan',  ## Core Sanitizers (Address, Undefined-Behavior)
+                     'tsan',  ## Thread Sanitizer
+                 'examples',  ## Build zcm examples
+            'examples_asan',  ## Build zcm examples in asan
+            'examples_tsan',  ## Build zcm examples in tsan
+                    'tests',  ## Build zcm tests
+               'tests_asan',  ## Build zcm tests in asan
+               'tests_tsan',  ## Build zcm tests in tsan
+            ]
 
 def options(ctx):
     ctx.load('compiler_c')
@@ -81,11 +86,9 @@ def configure(ctx):
 
     ctx.load('compiler_c')
     ctx.load('compiler_cxx')
-    ctx.recurse('gen')
     ctx.recurse('config')
-    ctx.load('zcm-gen')
 
-    ctx.env.configuredEnv = []
+    ctx.env.variantsEnabledByConfigure = []
 
     process_zcm_configure_options(ctx)
 
@@ -115,9 +118,6 @@ def version(ctx):
         raise WafError("Version mismatch between core and nodejs")
 
     Logs.pprint('RED','ZCM Version: %s' % (versionZCM))
-
-    for e in ctx.env.configuredEnv:
-        ctx.setenv(e, env=ctx.env.derive()) # start with a copy instead of a new env
 
     return versionZCM
 
@@ -154,6 +154,9 @@ def process_zcm_configure_options(ctx):
         raise WafError("Using ZeroMQ is required for some of the selected transports (--use-zmq)")
 
     env.VERSION = version(ctx)
+
+    for e in variants:
+        ctx.setenv(e, env=ctx.env.derive()) # start with a copy instead of a new env
 
     def print_entry(name, enabled, invertColors=False):
         Logs.pprint("NORMAL", "    {:20}".format(name), sep='')
@@ -280,8 +283,8 @@ def attempt_use_third_party(ctx):
 def attempt_use_clang(ctx):
     ctx.load('clang-custom')
     ctx.env.CLANG_VERSION = ctx.assert_clang_version(3.6)
-    ctx.env.configuredEnv.append('asan')
-    ctx.env.configuredEnv.append('tsan')
+    ctx.env.variantsEnabledByConfigure.append('asan')
+    ctx.env.variantsEnabledByConfigure.append('tsan')
     return True
 
 def process_zcm_build_options(ctx):
@@ -355,10 +358,10 @@ def setup_environment(ctx):
         ctx.setup_cxxtest()
 
     ## Building for asan?
-    if ctx.variant == 'asan':
+    if ctx.variant.endswith('asan'):
         setup_environment_asan(ctx)
     ## Building for tsan?
-    elif ctx.variant == 'tsan':
+    elif ctx.variant.endswith('tsan'):
         setup_environment_tsan(ctx)
     else:
         setup_environment_gnu(ctx)
@@ -382,32 +385,40 @@ def generate_signature(ctx):
 
 from waflib.Build import BuildContext, CleanContext, InstallContext, UninstallContext
 for x in variants:
-    for y in (BuildContext, CleanContext, InstallContext, UninstallContext):
+    contexts = [BuildContext, CleanContext]
+    if not x.startswith('examples') and not x.startswith('tests'):
+        contexts.extend([InstallContext, UninstallContext])
+    for y in contexts:
         name = y.__name__.replace('Context','').lower()
         class tmp(y):
             cmd = name + '_' + x
             variant = x
 
 def build(ctx):
-    if ctx.variant:
-        if not ctx.variant in ctx.env.configuredEnv:
+    # RRR: shouldn't be able to build examples_asan if not configured for asan
+    if ctx.variant and not (ctx.variant.startswith('examples') or ctx.variant.startswith('tests')):
+        if not ctx.variant in ctx.env.variantsEnabledByConfigure:
             ctx.fatal('Please configure for %s build' % (ctx.variant))
 
     if not ctx.env.ENVIRONMENT_SETUP:
         setup_environment(ctx)
 
-    ctx.recurse('scripts')
-    ctx.recurse('zcm')
-    ctx.recurse('config')
-    ctx.recurse('gen')
-    ctx.recurse('tools')
-    generate_signature(ctx)
+    if ctx.variant.startswith('examples'):
+        ctx.recurse('examples')
+    elif ctx.variant.startswith('tests'):
+        ctx.recurse('test')
+        if ctx.env.USING_CXXTEST:
+            ctx.cxxtest(use = ['zcm', 'testzcmtypes', 'testzcmtypes_cpp', 'testzcmtypes_c_stlib',
+                               'multifile_lib'])
+    else:
+        ctx.recurse('scripts')
+        ctx.recurse('zcm')
+        ctx.recurse('config')
+        ctx.recurse('gen')
+        ctx.recurse('tools')
+        generate_signature(ctx)
 
-    ctx.add_group()
-
-    # RRR (Tom) can't do this ... tis a catch 22
-    # ctx.recurse('test')
 
 def distclean(ctx):
-    ctx.exec_command('rm -f examples/waftools/*.pyc')
+    ctx.exec_command('rm -f waftools/*.pyc')
     waflib.Scripting.distclean(ctx)

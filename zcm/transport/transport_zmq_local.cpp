@@ -92,6 +92,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             if (rc == -1) {
                 ZCM_DEBUG("failed to close pubsock: %s", zmq_strerror(errno));
             }
+
+            lockfile_unlock(address.c_str());
         }
 
         // Clean up all subscribe sockets
@@ -129,22 +131,6 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         assert(0 && "unreachable");
     }
 
-    bool acquirePubLockfile(const string& channel)
-    {
-        switch (type) {
-            case IPC: {
-                string lockfileName = "ipc:///tmp/" + subnet + "/" + IPC_NAME_PREFIX + channel;
-                return lockfile_trylock(lockfileName.c_str());
-            } break;
-            case INPROC: {
-                string lockfileName = "inproc://" + subnet + "/" + IPC_NAME_PREFIX + channel;
-                return lockfile_trylock(lockfileName.c_str());
-                return true;
-            } break;
-        }
-        assert(0 && "unreachable");
-    }
-
     // May return null if it cannot create a new pubsock
     void *pubsockFindOrCreate(const string& channel)
     {
@@ -152,7 +138,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         if (it != pubsocks.end())
             return it->second;
         // Before we create a pubsock, we need to acquire the lock file for this
-        if (!acquirePubLockfile(channel)) {
+        if (!lockfile_trylock(getAddress(channel).c_str())) {
             fprintf(stderr, "Failed to acquire publish lock on %s! "
                             "Are you attempting multiple publishers?\n",
                             channel.c_str());

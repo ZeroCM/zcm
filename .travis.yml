@@ -17,23 +17,23 @@ before_install:
   - sudo ldconfig
   - git clone https://github.com/CxxTest/cxxtest.git
   - export PATH=$PATH:`pwd`/cxxtest/bin/; export LIBRARY_PATH=$LIBRARY_PATH:`pwd`/cxxtest/
-before_script: mkdir ../tmp
+before_script: mkdir -p ../tmp/x64 && mkdir -p ../tmp/asan
 script:
-  - ./waf distclean configure build &&
-    ./waf distclean configure --use-all --use-third-party --use-clang --use-cxxtest --prefix=../tmp/ &&
-    ./waf build &&
-    ./waf install &&
-    cd examples && source ./env /home/travis/build/ZeroCM/tmp &&
-    export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/home/travis/build/ZeroCM/tmp/lib/pkgconfig &&
-    export PATH=$PATH:/home/travis/build/ZeroCM/tmp/bin &&
-    ./waf distclean configure build && cd .. &&
-    ./waf distclean configure --use-all --use-third-party --use-clang --use-cxxtest --prefix=../tmp/ &&
-    ./waf build_asan &&
-    ./waf install_asan &&
-    cd examples && source ./env /home/travis/build/ZeroCM/tmp &&
-    export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/home/travis/build/ZeroCM/tmp/lib/pkgconfig &&
-    export PATH=$PATH:/home/travis/build/ZeroCM/tmp/bin &&
-    ./waf distclean configure --use-clang build_asan && cd ..
+  - bash -c "./waf distclean configure build &&
+             ./waf distclean configure --use-all --use-third-party --use-dev --prefix=../tmp/x64 &&
+             ./waf build &&
+             ./waf install" &&
+    bash -c "source ./examples/env /home/travis/build/ZeroCM/tmp/x64 &&
+             ./waf build_examples &&
+             ./waf build_tests &&
+             ./build/tests/test/runner" &&
+    bash -c "./waf distclean configure --use-all --use-third-party --use-dev --prefix=../tmp/asan &&
+             ./waf build_asan &&
+             ./waf install_asan" &&
+    bash -c "source ./examples/env /home/travis/build/ZeroCM/tmp/asan &&
+             ./waf build_examples_asan &&
+             ./waf build_tests_asan &&
+             ./build/tests_asan/test/runner"
 git:
     depth: 1
 notifications:

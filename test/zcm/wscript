@@ -2,74 +2,8 @@
 # encoding: utf-8
 
 def build(ctx):
-    ctx.program(target = 'coretest',
-                use = 'default zcm',
-                source = 'coretest.cpp',
-                rpath = ctx.env.RPATH_zcm,
-                install_path = None)
-
-    ctx.program(target = 'sub_unsub_c',
-                use = 'default zcm testzcmtypes_c_stlib',
-                source = 'sub_unsub.c',
-                rpath = ctx.env.RPATH_zcm,
-                install_path = None)
-
     ctx.stlib(target = 'multifile_lib',
               use = 'default zcm testzcmtypes_cpp',
               source = 'multi_file.cpp',
               rpath = ctx.env.RPATH_zcm,
               install_path = None)
-
-    ctx.program(target = 'sub_unsub_cpp',
-                use = 'default zcm testzcmtypes_cpp multifile_lib',
-                source = 'sub_unsub.cpp',
-                rpath = ctx.env.RPATH_zcm,
-                install_path = None)
-
-    ctx.program(target = 'transtest',
-                use = 'default zcm',
-                source = 'transtest.cpp',
-                rpath = ctx.env.RPATH_zcm,
-                install_path = None)
-
-    ctx.program(target = 'api_retcodes',
-                use = 'default zcm',
-                source = 'api_retcodes.c',
-                rpath = ctx.env.RPATH_zcm,
-                install_path = None)
-
-    ctx.program(target = 'dispatch_loop',
-                use = 'default zcm',
-                source = 'dispatch_loop.cpp',
-                rpath = ctx.env.RPATH_zcm,
-                install_path = None)
-
-    ctx.program(target = 'forking',
-                use = 'default zcm',
-                source = 'forking.cpp',
-                rpath = ctx.env.RPATH_zcm,
-                install_path = None)
-
-    ctx.program(target = 'forking2',
-                use = 'default zcm',
-                source = 'forking2.cpp',
-                rpath = ctx.env.RPATH_zcm,
-                install_path = None)
-
-    ctx.program(target = 'flushing',
-                use = 'default zcm',
-                source = 'flushing.cpp',
-                rpath = ctx.env.RPATH_zcm,
-                install_path = None)
-
-    ctx.program(target = 'logtest',
-                use = 'default zcm',
-                source = 'logtest.cpp',
-                rpath = ctx.env.RPATH_zcm,
-                install_path = None)
-
-    ctx.program(target = 'trackers',
-                use = 'default zcm testzcmtypes_cpp',
-                source = 'tracker_test.cpp',
-                rpath = ctx.env.RPATH_zcm,
-                install_path = None)
