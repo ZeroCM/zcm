@@ -8,6 +8,7 @@ before_install:
   - sudo apt-get install -y --allow-unauthenticated g++-5
   - sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-5 90
   - sudo apt-get install clang-3.8
+  - sudo apt-get install realpath
   - ./scripts/install-deps.sh -i -s
   - sudo apt-get autoremove
   - sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-3.8 100
@@ -23,14 +24,14 @@ script:
              ./waf distclean configure --use-all --use-third-party --use-dev --prefix=../tmp/x64 &&
              ./waf build &&
              ./waf install" &&
-    bash -c "source ./examples/env /home/travis/build/ZeroCM/tmp/x64 &&
+    bash -c "source ./examples/env $(realpath ../tmp/x64) &&
              ./waf build_examples &&
              ./waf build_tests &&
              ./build/tests/test/runner" &&
     bash -c "./waf distclean configure --use-all --use-third-party --use-dev --prefix=../tmp/asan &&
              ./waf build_asan &&
              ./waf install_asan" &&
-    bash -c "source ./examples/env /home/travis/build/ZeroCM/tmp/asan &&
+    bash -c "source ./examples/env $(realpath ../tmp/asan) &&
              ./waf build_examples_asan &&
              ./waf build_tests_asan &&
              ./build/tests_asan/test/runner"
