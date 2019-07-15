@@ -23,14 +23,14 @@ script:
              ./waf distclean configure --use-all --use-third-party --use-dev --prefix=../tmp/x64 &&
              ./waf build &&
              ./waf install" &&
-    bash -c "source ./examples/env /home/travis/build/ZeroCM/tmp/x64 &&
+    bash -c "source ./examples/env $(realpath ../tmp/x64) &&
              ./waf build_examples &&
              ./waf build_tests &&
              ./build/tests/test/runner" &&
     bash -c "./waf distclean configure --use-all --use-third-party --use-dev --prefix=../tmp/asan &&
              ./waf build_asan &&
              ./waf install_asan" &&
-    bash -c "source ./examples/env /home/travis/build/ZeroCM/tmp/asan &&
+    bash -c "source ./examples/env $(realpath ../tmp/asan) &&
              ./waf build_examples_asan &&
              ./waf build_tests_asan &&
              ./build/tests_asan/test/runner"
