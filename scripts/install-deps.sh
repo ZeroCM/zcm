@@ -19,11 +19,13 @@ color_reset=`tput sgr0`
 
 STRICT=true
 SINGLE_MODE=false
+USE_JULIA=true
 JULIA_0_6_MODE=false
-while getopts "ijs" opt; do
+while getopts "ijms" opt; do
     case $opt in
         i) STRICT=false ;;
-        j) JULIA_0_6_MODE=true ;;
+        j) USE_JULIA=false ;;
+        m) JULIA_0_6_MODE=true ;;
         s) SINGLE_MODE=true ;;
         \?) exit 1 ;;
     esac
@@ -130,32 +132,34 @@ checkJuliaInstall()
         return 0
     fi
 }
-checkJuliaInstall
-ret=$?
-if [ $ret -ne 0 ]; then
-    echo "Installing julia"
-    tmpdir=$(mktemp -d)
-    pushd $tmpdir > /dev/null
+if $USE_JULIA; then
+    checkJuliaInstall
+    ret=$?
+    if [ $ret -ne 0 ]; then
+        echo "Installing julia"
+        tmpdir=$(mktemp -d)
+        pushd $tmpdir > /dev/null
 
-    if $JULIA_0_6_MODE; then
-        wget https://julialang-s3.julialang.org/bin/linux/x64/0.6/julia-0.6.4-linux-x86_64.tar.gz
-        tar -xaf julia-0.6.4-linux-x86_64.tar.gz
-        mv julia-9d11f62bcb $ROOTDIR/deps/julia
+        if $JULIA_0_6_MODE; then
+            wget https://julialang-s3.julialang.org/bin/linux/x64/0.6/julia-0.6.4-linux-x86_64.tar.gz
+            tar -xaf julia-0.6.4-linux-x86_64.tar.gz
+            mv julia-9d11f62bcb $ROOTDIR/deps/julia
+        else
+            wget https://julialang-s3.julialang.org/bin/linux/x64/1.0/julia-1.0.3-linux-x86_64.tar.gz
+            tar -xaf julia-1.0.3-linux-x86_64.tar.gz
+            mv julia-1.0.3 $ROOTDIR/deps/julia
+        fi
+
+        popd > /dev/null
+        rm -rf $tmpdir
+        echo "Julia has been downloaded to $ROOTDIR/deps"
+        echo -n "$color_bold$color_redf"
+        echo    "You must add the following to your ~/.bashrc:"
+        echo    "    PATH=\$PATH:$ROOTDIR/deps/julia/bin"
+        echo -n "$color_reset"
     else
-        wget https://julialang-s3.julialang.org/bin/linux/x64/1.0/julia-1.0.3-linux-x86_64.tar.gz
-        tar -xaf julia-1.0.3-linux-x86_64.tar.gz
-        mv julia-1.0.3 $ROOTDIR/deps/julia
+        echo "Found julia on system. Skipping install"
     fi
-
-    popd > /dev/null
-    rm -rf $tmpdir
-    echo "Julia has been downloaded to $ROOTDIR/deps"
-    echo -n "$color_bold$color_redf"
-    echo    "You must add the following to your ~/.bashrc:"
-    echo    "    PATH=\$PATH:$ROOTDIR/deps/julia/bin"
-    echo -n "$color_reset"
-else
-    echo "Found julia on system. Skipping install"
 fi
 
 echo "Updating db"
