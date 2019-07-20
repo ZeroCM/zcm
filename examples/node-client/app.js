@@ -82,10 +82,39 @@ function packageExample()
     }, 1000);
 }
 
+function encodeExample()
+{
+    var encSub;
+
+    const chan = "ENCODED_EXAMPLE";
+
+    const enc = new zcmtypes.example_t();
+    enc.timestamp   = 0;
+    enc.position    = [2, 4, 6];
+    enc.orientation = [0, 2, 4, 6];
+    enc.num_ranges  = 2;
+    enc.ranges      = [7, 6];
+    enc.name        = 'foobar string';
+    enc.enabled     = false;
+
+    z.subscribe(chan, zcmtypes.encoded_t, function(channel, msg){
+        const recEnc = zcmtypes.example_t.decode(new Buffer(msg.msg));
+    }, function successCb(_sub) { encSub = _sub; });
+
+    setInterval(function() {
+        var msg = new zcmtypes.encoded_t();
+        const buf = enc.encode();
+        msg.n = buf.length;
+        msg.msg = buf;
+        z.publish(chan, msg);
+    }, 1000);
+}
+
 basicExample();
 recursiveExample();
 multidimExample();
 packageExample();
+encodeExample();
 
 var typedSub = null;
 z.subscribe("RECURSIVE_EXAMPLE", zcmtypes.recursive_t, function(channel, msg) {
