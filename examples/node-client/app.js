@@ -98,7 +98,7 @@ function encodeExample()
     enc.enabled     = false;
 
     z.subscribe(chan, zcmtypes.encoded_t, function(channel, msg){
-        const recEnc = zcmtypes.example_t.decode(new Buffer(msg.msg));
+        const recEnc = zcmtypes.example_t.decode(msg.msg);
     }, function successCb(_sub) { encSub = _sub; });
 
     setInterval(function() {
