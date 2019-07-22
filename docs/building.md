@@ -77,23 +77,23 @@ Since they try to touch on as many usage cases of ZCM as possible,
 building them requires the installed ZCM libraries to have been configured with
 `--use-all`, as done above. Before the examples can be built, some environmental
 variables needs to be set.
-The easiest way to set these variable is to change into the examples folder and run:
+The easiest way to set these variables is to source the examples environment file:
 
-    source ./env
+    source ./examples/env
 
 Now use Waf as before to build the examples
 
     ./waf configure
-    ./waf build
+    ./waf build_examples
 
 You can now run the examples located inside the build folder.
 Try to run this inside one shell
 
-    ./build/cpp/sub
+    ./build/examples/examples/cpp/sub
 
 And in another shell
 
-    ./build/cpp/pub
+    ./build/examples/examples/cpp/pub
 
 The first shell should now start to print out the messages received.
 For a guide on how to use the ZCM tooling to monitor, log and playback the messages
