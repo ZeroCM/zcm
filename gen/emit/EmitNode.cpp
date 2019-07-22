@@ -28,8 +28,10 @@ static string getReaderFunc(const string& type)
         return "read32";
     } else if (type == "int16_t") {
         return "read16";
-    } else if (type == "int8_t" || type == "byte") {
+    } else if (type == "int8_t") {
         return "read8";
+    } else if (type == "byte") {
+        return "readU8";
     } else if (type == "boolean") {
          return "readBoolean";
     } else if (type == "string") {
@@ -51,8 +53,10 @@ static string getWriterFunc(const string& type)
         return "write32";
     } else if (type == "int16_t") {
         return "write16";
-    } else if (type == "int8_t" || type == "byte") {
+    } else if (type == "int8_t") {
         return "write8";
+    } else if (type == "byte") {
+        return "writeU8";
     } else if (type == "boolean") {
          return "writeBoolean";
     } else if (type == "string") {
@@ -95,7 +99,7 @@ struct EmitModule : public Emitter
         emit(0, "");
         emit(0, "function createReader(data)");
         emit(0, "{");
-        emit(0, "    var buf = data;");
+        emit(0, "    var buf = new Buffer(data);");
         emit(0, "    var offset = 0;");
         emit(0, "    var methods = {");
         emit(0, "        readDouble: function() {");
@@ -130,6 +134,11 @@ struct EmitModule : public Emitter
         emit(0, "        },");
         emit(0, "        read8: function() {");
         emit(0, "            var ret = buf.readInt8(offset);");
+        emit(0, "            offset += 1;");
+        emit(0, "            return ret;");
+        emit(0, "        },");
+        emit(0, "        readU8: function() {");
+        emit(0, "            var ret = buf.readUInt8(offset);");
         emit(0, "            offset += 1;");
         emit(0, "            return ret;");
         emit(0, "        },");
@@ -187,6 +196,10 @@ struct EmitModule : public Emitter
         emit(0, "        },");
         emit(0, "        write8: function(value) {");
         emit(0, "            buf.writeInt8(value, offset);");
+        emit(0, "            offset += 1;");
+        emit(0, "        },");
+        emit(0, "        writeU8: function(value) {");
+        emit(0, "            buf.writeUInt8(value, offset);");
         emit(0, "            offset += 1;");
         emit(0, "        },");
         emit(0, "        writeBoolean: function(value) {");

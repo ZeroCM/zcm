@@ -1,3 +1,4 @@
 !.gitignore
 public/js/zcm-client.js
 zcmtypes.js
+package-lock.json
