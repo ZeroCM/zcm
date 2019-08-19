@@ -114,7 +114,7 @@ if $USE_NODE; then
         wget -q -O$outfile https://raw.githubusercontent.com/creationix/nvm/v0.33.11/install.sh
         echo "Installing NVM"
         chmod +x $outfile
-        bash -i "$outfile"
+        bash -i -c "$outfile"
         rm $outfile
     fi
     echo "Installing node version 4.2.6"
