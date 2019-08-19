@@ -21,11 +21,13 @@ STRICT=true
 SINGLE_MODE=false
 USE_JULIA=true
 JULIA_0_6_MODE=false
+USE_NODE=true
 while getopts "ijms" opt; do
     case $opt in
         i) STRICT=false ;;
         j) USE_JULIA=false ;;
         m) JULIA_0_6_MODE=true ;;
+        n) USE_NODE=false ;;
         s) SINGLE_MODE=true ;;
         \?) exit 1 ;;
     esac
@@ -102,16 +104,16 @@ if [[ $ret -ne 0 && "$STRICT" == "true" ]]; then
 fi
 
 ## Node
-bash -i -c "which node" > /dev/null 2>&1
-nodeExists=$?
-if [ $nodeExists -ne 0 ]; then
-    echo "Installing NVM"
-    unset NVM_DIR
-    NVM_INSTALL=$(wget -qO- https://raw.githubusercontent.com/creationix/nvm/v0.33.11/install.sh)
-    echo "$NVM_INSTALL" | bash -i
+if $USE_NODE; then
+    bash -i -c "nvm --version" > /dev/null 2>&1
+    nvmExists=$?
+    if [ $nvmExists -ne 0 ]; then
+        echo "Installing NVM"
+        unset NVM_DIR
+        NVM_INSTALL=$(wget -qO- https://raw.githubusercontent.com/creationix/nvm/v0.33.11/install.sh)
+        echo "$NVM_INSTALL" | bash -i
+    fi
     bash -i -c "nvm install 4.2.6 && nvm alias default 4.2.6"
-else
-    echo "Found node on system. Skipping install"
 fi
 
 ## Julia
