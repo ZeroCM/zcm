@@ -117,6 +117,7 @@ if $USE_NODE; then
         bash -i "$outfile"
         rm $outfile
     fi
+    echo "Installing node version 4.2.6"
     bash -i -c "nvm install 4.2.6 && nvm alias default 4.2.6"
 fi
 
