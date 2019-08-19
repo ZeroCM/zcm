@@ -108,10 +108,14 @@ if $USE_NODE; then
     bash -i -c "nvm --version" > /dev/null 2>&1
     nvmExists=$?
     if [ $nvmExists -ne 0 ]; then
-        echo "Installing NVM"
+        echo "Downloading NVM"
         unset NVM_DIR
-        NVM_INSTALL=$(wget -qO- https://raw.githubusercontent.com/creationix/nvm/v0.33.11/install.sh)
-        echo "$NVM_INSTALL" | bash -i
+        outfile=$(mktemp)
+        wget -q -O$outfile https://raw.githubusercontent.com/creationix/nvm/v0.33.11/install.sh
+        echo "Installing NVM"
+        chmod +x $outfile
+        bash -i "$outfile"
+        rm $outfile
     fi
     bash -i -c "nvm install 4.2.6 && nvm alias default 4.2.6"
 fi
