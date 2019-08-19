@@ -105,7 +105,7 @@ fi
 
 ## Node
 if $USE_NODE; then
-    bash -i -c "nvm --version" > /dev/null 2>&1
+    bash -c "export NVM_DIR=\$HOME/.nvm; [ -s \"\$NVM_DIR/nvm.sh\" ] && \\. \"\$NVM_DIR/nvm.sh\"; nvm --version" > /dev/null 2>&1
     nvmExists=$?
     if [ $nvmExists -ne 0 ]; then
         echo "Downloading NVM"
@@ -118,7 +118,7 @@ if $USE_NODE; then
         rm $outfile
     fi
     echo "Installing node version 4.2.6"
-    bash -i -c "nvm install 4.2.6 && nvm alias default 4.2.6"
+    bash -c "export NVM_DIR=\$HOME/.nvm; [ -s \"\$NVM_DIR/nvm.sh\" ] && \\. \"\$NVM_DIR/nvm.sh\"; nvm install 4.2.6 && nvm alias default 4.2.6"
 fi
 
 ## Julia
