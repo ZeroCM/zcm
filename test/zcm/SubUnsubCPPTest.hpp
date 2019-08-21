@@ -80,7 +80,7 @@ class SubUnsubCPPTest : public CxxTest::TestSuite
             zcm::Subscription *sub = zcm.subscribe("TEST", &Handler::generic_handle, &handler);
             TSM_ASSERT("Failed to subscribe", sub);
 
-            if(transport == "ipc") // RRR TODO: it is clearly a bug of the ipc transport that it needs this first message to be published (it never arrives)
+            if(transport == "ipc") // TODO: it is clearly a bug of the ipc transport that it needs this first message to be published (it never arrives)
                 zcm.publish("TEST", data, sizeof(char));
 
             // zmq sockets are documented as taking a small but perceptible amount of time
@@ -127,7 +127,7 @@ class SubUnsubCPPTest : public CxxTest::TestSuite
             ex_data.enabled = 1;
 
             zcm::Subscription *ex_sub = zcm.subscribe("EXAMPLE", &Handler::example_t_handle, &handler);
-            if(transport == "ipc") // RRR TODO: it is clearly a bug of the ipc transport that it needs this first message to be published (it never arrives)
+            if(transport == "ipc") // TODO: it is clearly a bug of the ipc transport that it needs this first message to be published (it never arrives)
                 zcm.publish("EXAMPLE", &ex_data);
 
 
