@@ -89,7 +89,7 @@ def configure(ctx):
     ctx.recurse('config')
     ctx.load('strip_on_install')
 
-    ctx.env.variantsEnabledByConfigure = []
+    ctx.env.variantsEnabledByConfigure = ['examples', 'tests']
 
     process_zcm_configure_options(ctx)
 
@@ -284,8 +284,8 @@ def attempt_use_third_party(ctx):
 def attempt_use_clang(ctx):
     ctx.load('clang-custom')
     ctx.env.CLANG_VERSION = ctx.assert_clang_version(3.6)
-    ctx.env.variantsEnabledByConfigure.append('asan')
-    ctx.env.variantsEnabledByConfigure.append('tsan')
+    ctx.env.variantsEnabledByConfigure.extend(['asan', 'examples_asan', 'tests_asan'])
+    ctx.env.variantsEnabledByConfigure.extend(['tsan', 'examples_tsan', 'tests_tsan'])
     return True
 
 def process_zcm_build_options(ctx):
@@ -396,10 +396,8 @@ for x in variants:
             variant = x
 
 def build(ctx):
-    # RRR: shouldn't be able to build examples_asan if not configured for asan
-    if ctx.variant and not (ctx.variant.startswith('examples') or ctx.variant.startswith('tests')):
-        if not ctx.variant in ctx.env.variantsEnabledByConfigure:
-            ctx.fatal('Please configure for %s build' % (ctx.variant))
+    if ctx.variant and not ctx.variant in ctx.env.variantsEnabledByConfigure:
+        ctx.fatal('Please configure for %s build' % (ctx.variant))
 
     if not ctx.env.ENVIRONMENT_SETUP:
         setup_environment(ctx)

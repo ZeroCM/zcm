@@ -68,7 +68,7 @@ exports.ZCM_NUM_RETURN_CODES = ZCM_NUM_RETURN_CODES;
  * Callback that handles data received on the zcm transport which this program has subscribed to
  * @callback dispatchRawCallback
  * @param {string} channel - the zcm channel
- * @param {Buffer} data - raw data that can be decoded into a zcmtype
+ * @param {array} data - raw data that can be decoded into a zcmtype
  */
 
 /**
@@ -108,7 +108,7 @@ function makeDispatcher(cb)
         offset += int32Size;
 
         var dataBuf = ref.reinterpret(data, len);
-        cb(channel, new Buffer(dataBuf));
+        cb(channel, dataBuf);
     }
 }
 
@@ -140,7 +140,7 @@ function zcm(zcmtypes, zcmurl)
      * @param {string} channel - the zcm channel to publish on
      * @param {string} type - the zcmtype of messages on the channel (must be a generated
      *                        type from zcmtypes.js)
-     * @param {Buffer} msg - the decoded message (must be a zcmtype)
+     * @param {zcmtype instance} msg - the decoded message (must be a zcmtype)
      */
     function publish(channel, msg)
     {
@@ -150,7 +150,7 @@ function zcm(zcmtypes, zcmurl)
     /**
      * Publishes a zcm message on the created transport
      * @param {string} channel - the zcm channel to publish on
-     * @param {Buffer} data - the encoded message (use the encode function of a generated zcmtype)
+     * @param {array} data - the encoded message (use the encode function of a generated zcmtype)
      */
     function publish_raw(channel, data)
     {
