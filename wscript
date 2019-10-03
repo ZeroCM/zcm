@@ -230,7 +230,7 @@ def attempt_use_julia(ctx):
         Logs.pprint('NORMAL', '{:41}:'.format('Julia version identified as'), sep='')
         Logs.pprint('GREEN', '%s' % version)
 
-        if version != '0.6.4' and version != '1.0.3':
+        if version != b'0.6.4' and version != b'1.0.3':
             raise WafError('Wrong Julia version, requires 0.6.4 or 1.0.3\nfound %s' % version)
 
         # Note: because of how the include structure **internal** to the julia 1.0 uv headers
@@ -245,7 +245,7 @@ def attempt_use_julia(ctx):
                                           (ctx.env.julia, '\\\"julia\\\"'),
                                           shell=True, stderr=open(os.devnull,'wb'))
 
-        ctx.env.INCLUDES_julia = res.strip().strip('"')
+        ctx.env.INCLUDES_julia = res.decode().strip().strip('"')
         Logs.pprint('NORMAL', '{:41}:'.format('Julia include path identified as'), sep='')
         Logs.pprint('GREEN', '%s' % ctx.env.INCLUDES_julia)
     except subprocess.CalledProcessError as e:
