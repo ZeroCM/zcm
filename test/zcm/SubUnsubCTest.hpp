@@ -71,7 +71,7 @@ class SubUnsubCTest : public CxxTest::TestSuite
             bytepacked_received = 0;
             zcm_sub_t *sub = zcm_subscribe(zcm, "TEST", generic_handler, NULL);
             TSM_ASSERT("Subscription failed", sub);
-            if(transport == "ipc") // RRR TODO: it is clearly a bug of the ipc transport that it needs this first message to be published (it never arrives)
+            if(transport == "ipc") // TODO: it is clearly a bug of the ipc transport that it needs this first message to be published (it never arrives)
                 TSM_ASSERT_EQUALS("Publishing failed!", zcm_publish(zcm, "TEST", data, sizeof(char)), ZCM_EOK);
 
             // zmq sockets are documented as taking a small but perceptible amount of time
@@ -119,7 +119,7 @@ class SubUnsubCTest : public CxxTest::TestSuite
             example_t_subscription_t *ex_sub = example_t_subscribe(zcm, "EXAMPLE",
                                                                    example_t_handler, NULL);
             TSM_ASSERT("Failed to subscribe", ex_sub);
-            if(transport == "ipc") // RRR TODO: it is clearly a bug of the ipc transport that it needs this first message to be published (it never arrives)
+            if(transport == "ipc") // TODO: it is clearly a bug of the ipc transport that it needs this first message to be published (it never arrives)
                 TSM_ASSERT_EQUALS("Failed to publish", example_t_publish(zcm, "EXAMPLE", &ex_data), ZCM_EOK);
 
             // zmq sockets are documented as taking a small but perceptible amount of time
