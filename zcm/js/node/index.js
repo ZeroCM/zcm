@@ -116,6 +116,7 @@ function zcm(zcmtypes, zcmurl)
 {
     const parent = this;
 
+    parent.currSubId = 0;
     parent.subscriptions = {};
     parent.zcmtypeHashMap = {};
     // Note: recursive to handle packages (which are set as objects in the zcmtypes exports)
@@ -199,13 +200,14 @@ function zcm(zcmtypes, zcmurl)
                 setTimeout(sub, 0);
                 return;
             }
-            parent.subscriptions[subs] = {
+            const id = parent.currSubId++;
+            parent.subscriptions[parent.currSubId] = {
+              "id"                : id,
               "subscription"      : subs,
               "nativeCallbackPtr" : funcPtr,
               "dispatcher"        : dispatcher
             }
-            successCb(parent.subscriptions[subs]);
-            console.log('****', parent.subscriptions);
+            successCb(parent.subscriptions[id]);
         }, 0);
     }
 
@@ -216,14 +218,14 @@ function zcm(zcmtypes, zcmurl)
      */
     zcm.prototype.unsubscribe = function(sub, successCb)
     {
-        if (!(sub in parent.subscriptions)) return;
+        if (!(sub.id in parent.subscriptions)) return;
         setTimeout(function unsub() {
             var ret = libzcm.zcm_try_unsubscribe(z, sub.subscription);
             if (ret != ZCM_EOK) {
                 setTimeout(unsub, 0);
                 return;
             }
-            delete parent.subscriptions[sub.subscription];
+            delete parent.subscriptions[sub.id];
             if (successCb) successCb();
         }, 0)
     }
