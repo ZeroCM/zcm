@@ -117,13 +117,11 @@ multidimExample();
 packageExample();
 encodeExample();
 
-var typedSub = null;
 z.subscribe("RECURSIVE_EXAMPLE", zcmtypes.recursive_t, function(channel, msg) {
     console.log("Typed message received on channel " + channel);
     assert('e' in msg && 'timestamp' in msg.e &&
            msg.e.timestamp == zcmtypes.example_t.test_const_32_max_hex, "Wrong msg received");
 }, function successCb (_sub) {
-    typedSub = _sub;
 });
 
 var typedSub2 = null;

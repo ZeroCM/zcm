@@ -114,7 +114,10 @@ function makeDispatcher(cb)
 
 function zcm(zcmtypes, zcmurl)
 {
-    var zcmtypeHashMap = {};
+    const parent = this;
+
+    parent.subscriptions = {};
+    parent.zcmtypeHashMap = {};
     // Note: recursive to handle packages (which are set as objects in the zcmtypes exports)
     function rehashTypes(zcmtypes) {
         for (var type in zcmtypes) {
@@ -123,7 +126,7 @@ function zcm(zcmtypes, zcmurl)
                 rehashTypes(zcmtypes[type]);
                 continue;
             }
-            zcmtypeHashMap[zcmtypes[type].__get_hash_recursive()] = zcmtypes[type];
+            parent.zcmtypeHashMap[zcmtypes[type].__get_hash_recursive()] = zcmtypes[type];
         }
     }
     rehashTypes(zcmtypes);
@@ -133,8 +136,6 @@ function zcm(zcmtypes, zcmurl)
         return null;
     }
 
-    libzcm.zcm_start(z);
-
     /**
      * Publishes a zcm message on the created transport
      * @param {string} channel - the zcm channel to publish on
@@ -142,9 +143,9 @@ function zcm(zcmtypes, zcmurl)
      *                        type from zcmtypes.js)
      * @param {zcmtype instance} msg - the decoded message (must be a zcmtype)
      */
-    function publish(channel, msg)
+    zcm.prototype.publish = function(channel, msg)
     {
-        return publish_raw(channel, zcmtypeHashMap[msg.__hash].encode(msg));
+        return publish_raw(channel, parent.zcmtypeHashMap[msg.__hash].encode(msg));
     }
 
     /**
@@ -165,13 +166,13 @@ function zcm(zcmtypes, zcmurl)
      * @param {dispatchDecodedCallback} cb - callback to handle received messages
      * @param {successCb} successCb - callback for successful subscription
      */
-    function subscribe(channel, _type, cb, successCb)
+    zcm.prototype.subscribe = function(channel, _type, cb, successCb)
     {
         if (_type) {
             // Note: this lookup is because the type that is given by a client doesn't have
             //       the necessary functions, so we need to look up our complete class here
             var hash = bigint.isInstance(_type.__hash) ?  _type.__hash.toString() : _type.__hash;
-            var type = zcmtypeHashMap[hash];
+            var type = parent.zcmtypeHashMap[hash];
             var sub = subscribe_raw(channel, function (channel, data) {
                 var msg = type.decode(data)
                 if (msg != null) cb(channel, msg);
@@ -198,9 +199,13 @@ function zcm(zcmtypes, zcmurl)
                 setTimeout(sub, 0);
                 return;
             }
-            successCb({"subscription"      : subs,
-                       "nativeCallbackPtr" : funcPtr,
-                       "dispatcher"        : dispatcher});
+            parent.subscriptions[subs] = {
+              "subscription"      : subs,
+              "nativeCallbackPtr" : funcPtr,
+              "dispatcher"        : dispatcher
+            }
+            successCb(parent.subscriptions[subs]);
+            console.log('****', parent.subscriptions);
         }, 0);
     }
 
@@ -209,14 +214,16 @@ function zcm(zcmtypes, zcmurl)
      * @param {subscriptionRef} subscription - ref to the subscription to be unsubscribed from
      * @param {successCb} successCb - callback for successful unsubscription
      */
-    function unsubscribe(subscription, successCb)
+    zcm.prototype.unsubscribe = function(sub, successCb)
     {
+        if (!(sub in parent.subscriptions)) return;
         setTimeout(function unsub() {
-            var ret = libzcm.zcm_try_unsubscribe(z, subscription.subscription);
+            var ret = libzcm.zcm_try_unsubscribe(z, sub.subscription);
             if (ret != ZCM_EOK) {
                 setTimeout(unsub, 0);
                 return;
             }
+            delete parent.subscriptions[sub.subscription];
             if (successCb) successCb();
         }, 0)
     }
@@ -225,7 +232,7 @@ function zcm(zcmtypes, zcmurl)
      * Forces all incoming and outgoing messages to be flushed to their handlers / to the transport.
      * @params {doneCb} doneCb - callback for successful flush
      */
-    function flush(doneCb)
+    zcm.prototype.flush = function(doneCb)
     {
         setTimeout(function f() {
             var ret = libzcm.zcm_try_flush(z);
@@ -240,7 +247,7 @@ function zcm(zcmtypes, zcmurl)
     /**
      * Starts the zcm internal threads. Called by default on creation
      */
-    function start()
+    zcm.prototype.start = function()
     {
         libzcm.zcm_start(z);
     }
@@ -249,7 +256,7 @@ function zcm(zcmtypes, zcmurl)
      * Stops the zcm internal threads.
      * @params {stoppedCb} stoppedCb - callback for successful stop
      */
-    function stop(stoppedCb)
+    zcm.prototype.stop = function(stoppedCb)
     {
         setTimeout(function s() {
             var ret = libzcm.zcm_try_stop(z);
@@ -264,7 +271,7 @@ function zcm(zcmtypes, zcmurl)
     /**
      * Pauses transport publishing and message dispatch
      */
-    function pause()
+    zcm.prototype.pause = function()
     {
         libzcm.zcm_pause(z);
     }
@@ -272,7 +279,7 @@ function zcm(zcmtypes, zcmurl)
     /**
      * Resumes transport publishing and message dispatch
      */
-    function resume()
+    zcm.prototype.resume = function()
     {
         libzcm.zcm_resume(z);
     }
@@ -280,7 +287,7 @@ function zcm(zcmtypes, zcmurl)
     /**
      * Sets the recv and send queue sizes within zcm
      */
-    function setQueueSize(sz, cb)
+    zcm.prototype.setQueueSize = function(sz, cb)
     {
         setTimeout(function s() {
             var ret = libzcm.zcm_try_set_queue_size(z, sz);
@@ -292,22 +299,18 @@ function zcm(zcmtypes, zcmurl)
         }, 0)
     }
 
-    return {
-        publish:        publish,
-        subscribe:      subscribe,
-        unsubscribe:    unsubscribe,
-        flush:          flush,
-        start:          start,
-        stop:           stop,
-        pause:          pause,
-        resume:         resume,
-        setQueueSize:   setQueueSize,
-    };
+    process.on('exit', function() {
+      Object.keys(parent.subscriptions).forEach((sub) => {
+        parent.unsubscribe(parent.subscriptions[sub]);
+      });
+    });
+
+    parent.start();
 }
 
 function zcm_create(zcmtypes, zcmurl, http)
 {
-    var ret = zcm(zcmtypes, zcmurl);
+    var ret = new zcm(zcmtypes, zcmurl);
 
     if (http) {
         var io = require('socket.io')(http);
