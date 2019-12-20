@@ -647,6 +647,46 @@ struct EmitJuliaType : public Emitter
         emit(0, "");
     }
 
+    void emitFieldnames()
+    {
+        auto* sn = zs.structname.shortname.c_str();
+
+        emit(0, "function ZCM.fieldnames(::Type{%s})", sn);
+        emit(1, "return (", sn);
+
+        // data members
+        for (size_t i = 0; i < zs.members.size(); ++i) {
+            const char* comma = ",";
+            if (i == zs.members.size() - 1)
+                comma = "";
+            emit(2, ":%s%s", zs.members[i].membername.c_str(), comma);
+        }
+
+        emit(1, ")", sn);
+        emit(0, "end");
+        emit(0, "");
+    }
+
+    void emitConstFieldnames()
+    {
+        auto* sn = zs.structname.shortname.c_str();
+
+        emit(0, "function ZCM.constfieldnames(::Type{%s})", sn);
+        emit(1, "return (", sn);
+
+        // data members
+        for (size_t i = 0; i < zs.constants.size(); ++i) {
+            const char* comma = ",";
+            if (i == zs.members.size() - 1)
+                comma = "";
+            emit(2, ":%s%s", zs.constants[i].membername.c_str(), comma);
+        }
+
+        emit(1, ")", sn);
+        emit(0, "end");
+        emit(0, "");
+    }
+
     int emitType()
     {
         emitBlockStart();
@@ -656,6 +696,8 @@ struct EmitJuliaType : public Emitter
         emitEncode();
         emitDecodeOne();
         emitDecode();
+        emitFieldnames();
+        emitConstFieldnames();
         emitBlockEnd();
         return 0;
     }
