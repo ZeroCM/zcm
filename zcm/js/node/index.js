@@ -200,13 +200,14 @@ function zcm(zcmtypes, zcmurl)
                 setTimeout(sub, 0);
                 return;
             }
-            const id = parent.currSubId++;
+            const id = parent.currSubId;
             parent.subscriptions[parent.currSubId] = {
               "id"                : id,
               "subscription"      : subs,
               "nativeCallbackPtr" : funcPtr,
               "dispatcher"        : dispatcher
             }
+            parent.currSubId++;
             successCb(parent.subscriptions[id]);
         }, 0);
     }
