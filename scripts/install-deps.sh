@@ -39,7 +39,7 @@ PKGS=''
 PIP_PKGS=''
 
 ## Dependency dependencies
-PKGS+='wget '
+PKGS+='mlocate wget '
 
 ## Waf dependencies
 PKGS+='pkg-config '
