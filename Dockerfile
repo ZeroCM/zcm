@@ -10,7 +10,6 @@ COPY scripts/ $ZCM_HOME/scripts
 RUN bash -c '$ZCM_HOME/scripts/install-deps.sh -i -s'
 
 COPY config/ $ZCM_HOME/config
-COPY deps/ $ZCM_HOME/deps
 COPY docs/ $ZCM_HOME/docs
 COPY examples/ $ZCM_HOME/examples
 COPY gen/ $ZCM_HOME/gen
