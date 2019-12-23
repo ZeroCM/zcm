@@ -656,10 +656,8 @@ struct EmitJuliaType : public Emitter
 
         // data members
         for (size_t i = 0; i < zs.members.size(); ++i) {
-            const char* comma = ",";
-            if (i == zs.members.size() - 1)
-                comma = "";
-            emit(2, ":%s%s", zs.members[i].membername.c_str(), comma);
+            // Trailing commas are ok for tuples and actually required for single element tuples
+            emit(2, ":%s,", zs.members[i].membername.c_str());
         }
 
         emit(1, ")", sn);
@@ -676,10 +674,8 @@ struct EmitJuliaType : public Emitter
 
         // data members
         for (size_t i = 0; i < zs.constants.size(); ++i) {
-            const char* comma = ",";
-            if (i == zs.members.size() - 1)
-                comma = "";
-            emit(2, ":%s%s", zs.constants[i].membername.c_str(), comma);
+            // Trailing commas are ok for tuples and actually required for single element tuples
+            emit(2, ":%s,", zs.constants[i].membername.c_str());
         }
 
         emit(1, ")", sn);
