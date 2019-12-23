@@ -3,7 +3,9 @@ module ZCM
 # AbstractZcmType functions
 export encode,
        decode,
-       getHash
+       getHash,
+       fieldnames,
+       constfieldnames
 # Zcm functions
 export Zcm,
        good,
@@ -27,6 +29,7 @@ export Zcm,
        write_event
 
 import Base: flush,
+             fieldnames,
              unsafe_convert
 
 @static if VERSION < v"0.7.0-"
@@ -49,6 +52,8 @@ function getHash(::Type{AbstractZcmType}) end
 function _get_hash_recursive(::Type{AbstractZcmType}, parents::Array{String}) end
 function _encode_one(msg::AbstractZcmType, buf) end
 function _decode_one(::Type{AbstractZcmType}, buf) end
+function fieldnames(::Type{AbstractZcmType}) end
+function constfieldnames(::Type{AbstractZcmType}) end
 # TODO: would be nice to have getEncodedSize() and _getEncodedSizeNoHash()
 
 
