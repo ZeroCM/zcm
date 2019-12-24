@@ -117,13 +117,13 @@ multidimExample();
 packageExample();
 encodeExample();
 
-var typedSub = null;
+// Intentionally not saving the subscription here to make sure we don't
+// segfault due to not tracking the subscription in user-space
 z.subscribe("RECURSIVE_EXAMPLE", zcmtypes.recursive_t, function(channel, msg) {
     console.log("Typed message received on channel " + channel);
     assert('e' in msg && 'timestamp' in msg.e &&
            msg.e.timestamp == zcmtypes.example_t.test_const_32_max_hex, "Wrong msg received");
 }, function successCb (_sub) {
-    typedSub = _sub;
 });
 
 var typedSub2 = null;
@@ -142,7 +142,6 @@ z.subscribe(".*", null, function(channel, msg) {
 
 process.on('exit', function() {
     if (sub) z.unsubscribe(sub);
-    if (typedSub) z.unsubscribe(typedSub);
     if (typedSub2) z.unsubscribe(typedSub2);
 });
 
