@@ -302,12 +302,6 @@ function zcm(zcmtypes, zcmurl)
         }, 0)
     }
 
-    process.on('exit', function() {
-      Object.keys(parent.subscriptions).forEach((sub) => {
-        parent.unsubscribe(parent.subscriptions[sub]);
-      });
-    });
-
     parent.start();
 }
 
