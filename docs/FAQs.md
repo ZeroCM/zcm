@@ -44,7 +44,7 @@ to pass the work to another thread or in your main-loop if using `zcm_handle`.
 
 
 ### In NodeJS, why do my server-side subscriptions randomly stop working or segfault?
-## This is no longer an issue and is addressed on ZCM master
+#### **This is no longer an issue and is addressed on ZCM master**
 
 NodeJS' garbage collector will come around and clean up a subscription unless
 that subscription is referenced elsewhere in your code. The easiest way to get
