@@ -33,6 +33,7 @@ using namespace std;
 #define START_BUF_SIZE (1 << 20)
 #define ZMQ_IO_THREADS 1
 #define IPC_NAME_PREFIX "zcm-channel-zmq-ipc-"
+#define IPC_NAME_PREFIX_LEN (sizeof(IPC_NAME_PREFIX) - 1)
 
 enum Type { IPC, INPROC, };
 
@@ -205,21 +206,31 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         return sock;
     }
 
-    void ipcScanForNewChannels()
+    void ipcScanForNewChannels(const string& dirname = "")
     {
-        const char *prefix = IPC_NAME_PREFIX;
-        size_t prefixLen = strlen(IPC_NAME_PREFIX);
-
+        string abspath = "/tmp/" +
+                         (subnet == "" ? subnet : (subnet + "/")) +
+                         dirname;
         DIR *d;
         dirent *ent;
 
-        if (!(d = opendir(string("/tmp/" + subnet).c_str())))
+        if (!(d = opendir(abspath.c_str())))
             return;
 
-        // RRR (Bendes): Need to fix this to scan recursively
         while ((ent = readdir(d)) != nullptr) {
-            if (strncmp(ent->d_name, prefix, prefixLen) == 0) {
-                string channel(ent->d_name + prefixLen);
+            string dname = ent->d_name;
+            if (dname == ".." || dname == ".")
+                continue;
+
+            string path = (dirname == "" ? "" : (dirname + "/")) + dname;
+
+            if (ent->d_type == DT_DIR) {
+                ipcScanForNewChannelsRecursively(path);
+                continue;
+            }
+
+            if (strncmp(path.c_str(), IPC_NAME_PREFIX, IPC_NAME_PREFIX_LEN) == 0) {
+                string channel(path.c_str() + IPC_NAME_PREFIX_LEN);
                 void *sock = subsockFindOrCreate(channel, false);
                 if (sock == nullptr) {
                     ZCM_DEBUG("failed to open subsock in scanForNewChannels(%s)",
@@ -227,7 +238,6 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
                 }
             }
         }
-
         closedir(d);
     }
 
