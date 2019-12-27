@@ -225,7 +225,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             string path = (dirname == "" ? "" : (dirname + "/")) + dname;
 
             if (ent->d_type == DT_DIR) {
-                ipcScanForNewChannelsRecursively(path);
+                ipcScanForNewChannels(path);
                 continue;
             }
 
