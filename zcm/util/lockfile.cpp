@@ -1,5 +1,6 @@
 #include "zcm/util/lockfile.h"
 #include "zcm/util/debug.h"
+#include "util/FileUtil.hpp"
 
 #include <stdlib.h>
 #include <sys/types.h>
@@ -11,6 +12,7 @@
 
 #include <cstring>
 #include <string>
+
 using namespace std;
 
 #define DEFAULT_LOCK_DIR "/var/lock/zcm"
@@ -32,16 +34,8 @@ static string makeLockfilePath(const string& name)
 
     const char* dir = std::getenv("ZCM_LOCK_DIR");
     if (dir) ret = dir;
-
-    int err = mkdir(ret.c_str(), S_IRWXO | S_IRWXG | S_IRWXU);
-    if (err < 0 && errno != EEXIST) {
-        ZCM_DEBUG("Unable to create lockfile directory");
-        return "";
-    }
-
     if (ret == "") return ret;
-
-    if (ret[ret.size() - 1] != '/') ret += "/";
+    if (ret.back() != '/') ret += "/";
 
     ret += LOCK_PREFIX;
 
@@ -50,11 +44,15 @@ static string makeLockfilePath(const string& name)
         idx = 5;
     for (; idx < name.size(); idx++) {
         auto c = name[idx];
-        if (c == '/')
-            ret += string(1, '_');
-        else
-            ret += string(1, c);
+        ret += string(1, c);
     }
+
+    int err = FileUtil::makeDirsForFile(ret);
+    if (err < 0 && errno != EEXIST) {
+        ZCM_DEBUG("Unable to create lockfile directory: %s", ret.c_str());
+        return "";
+    }
+
     return ret;
 }
 

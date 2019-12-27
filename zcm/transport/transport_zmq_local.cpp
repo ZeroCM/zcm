@@ -8,6 +8,7 @@
 #include <zmq.h>
 
 #include "util/TimeUtil.hpp"
+#include "util/FileUtil.hpp"
 
 #include <unistd.h>
 #include <dirent.h>
@@ -120,13 +121,20 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         delete[] recvmsgBuffer;
     }
 
+    string getPath(const string& channel)
+    {
+        return "/tmp/" +
+               (subnet == "" ? + "" : (subnet + "/")) +
+               IPC_NAME_PREFIX + channel;
+    }
+
     string getAddress(const string& channel)
     {
         switch (type) {
             case IPC:
-                return "ipc:///tmp/" + subnet + "/" + IPC_NAME_PREFIX + channel;
+                return "ipc://" + getPath(channel);
             case INPROC:
-                return "inproc://" + subnet + "/" + IPC_NAME_PREFIX + channel;
+                return "inproc://" + getPath(channel);
         }
         assert(0 && "unreachable");
     }
@@ -149,6 +157,15 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             ZCM_DEBUG("failed to create pubsock: %s", zmq_strerror(errno));
             return nullptr;
         }
+
+        string path = getPath(channel);
+        ZCM_DEBUG("Path: %s", path.c_str());
+        int err = FileUtil::makeDirsForFile(path);
+        if (err < 0 && errno != EEXIST) {
+            ZCM_DEBUG("Unable to create directory for socket bind: %s", path.c_str());
+            return nullptr;
+        }
+
         string address = getAddress(channel);
         int rc = zmq_bind(sock, address.c_str());
         if (rc == -1) {
@@ -196,10 +213,11 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         DIR *d;
         dirent *ent;
 
-        if (!(d=opendir(string("/tmp/" + subnet).c_str())))
+        if (!(d = opendir(string("/tmp/" + subnet).c_str())))
             return;
 
-        while ((ent=readdir(d)) != nullptr) {
+        // RRR (Bendes): Need to fix this to scan recursively
+        while ((ent = readdir(d)) != nullptr) {
             if (strncmp(ent->d_name, prefix, prefixLen) == 0) {
                 string channel(ent->d_name + prefixLen);
                 void *sock = subsockFindOrCreate(channel, false);
