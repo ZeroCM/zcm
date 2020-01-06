@@ -30,7 +30,7 @@ int main(int argc, char *argv[])
     my_data.enabled = true;
 
     while (1) {
-        zcm.publish("EXAMPLE", &my_data);
+        zcm.publish("EXAMPLE/Test", &my_data);
         for (auto& val : my_data.position) val++;
         usleep(1000*1000);
     }

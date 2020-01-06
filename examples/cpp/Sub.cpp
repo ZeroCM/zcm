@@ -37,7 +37,7 @@ int main(int argc, char *argv[])
         return 1;
 
     Handler handlerObject;
-    zcm.subscribe("EXAMPLE", &Handler::handleMessage, &handlerObject);
+    zcm.subscribe("EXAMPLE/Test", &Handler::handleMessage, &handlerObject);
     zcm.subscribe("FOOBAR", &Handler::handleMessage, &handlerObject);
     zcm.run();
 
