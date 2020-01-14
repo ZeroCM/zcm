@@ -26,6 +26,7 @@ RUN bash -c 'export JAVA_HOME=$(readlink -f /usr/bin/javac | sed "s:/bin/javac::
              [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" && \
              export PATH=$PATH:$ZCM_HOME/deps/julia/bin && \
              cd $ZCM_HOME && \
-             ./waf distclean configure --use-all && \
+             ./waf distclean configure --use-all --use-dev && \
              ./waf build && \
-             ./waf install'
+             ./waf install && \
+             ./waf build_examples'
