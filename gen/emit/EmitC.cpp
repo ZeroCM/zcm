@@ -474,7 +474,9 @@ struct EmitSource : public Emit
             int indent = 2+std::max(0, (int)zm.dimensions.size() - 1);
             emit(indent, "thislen = __%s_encode_%sarray(buf, offset + pos, maxlen - pos, %s, %s);",
                  zm.type.nameUnderscoreCStr(),
-                 zcm.gopt->getBool("little-endian-encoding") ? "little_endian_" : "",
+                 zcm.gopt->getBool("little-endian-encoding") &&
+                     zcm.isPrimitiveType(zm.type.nameUnderscore()) ?
+                     "little_endian_" : "",
                  makeAccessor(zm, "p", (int)zm.dimensions.size() - 1).c_str(),
                  makeArraySize(zm, "p", (int)zm.dimensions.size() - 1).c_str());
             emit(indent, "if (thislen < 0) return thislen; else pos += thislen;");
@@ -526,7 +528,9 @@ struct EmitSource : public Emit
             int indent = 2+std::max(0, (int)zm.dimensions.size() - 1);
             emit(indent, "thislen = __%s_decode_%sarray(buf, offset + pos, maxlen - pos, %s, %s);",
                  zm.type.nameUnderscoreCStr(),
-                 zcm.gopt->getBool("little-endian-encoding") ? "little_endian_" : "",
+                 zcm.gopt->getBool("little-endian-encoding") &&
+                     zcm.isPrimitiveType(zm.type.nameUnderscore()) ?
+                     "little_endian_" : "",
                  makeAccessor(zm, "p", (int)zm.dimensions.size() - 1).c_str(),
                  makeArraySize(zm, "p", (int)zm.dimensions.size() - 1).c_str());
             emit(indent, "if (thislen < 0) return thislen; else pos += thislen;");
