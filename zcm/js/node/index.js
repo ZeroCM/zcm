@@ -132,8 +132,8 @@ function zcm(zcmtypes, zcmurl)
     }
     rehashTypes(zcmtypes);
 
-    var z = libzcm.zcm_create(zcmurl);
-    if (z.isNull()) {
+    parent.z = libzcm.zcm_create(zcmurl);
+    if (parent.z.isNull()) {
         return null;
     }
 
@@ -156,7 +156,7 @@ function zcm(zcmtypes, zcmurl)
      */
     function publish_raw(channel, data)
     {
-        return libzcm.zcm_publish(z, channel, data, data.length);
+        return libzcm.zcm_publish(parent.z, channel, data, data.length);
     }
 
     /**
@@ -195,7 +195,7 @@ function zcm(zcmtypes, zcmurl)
         var dispatcher = makeDispatcher(cb);
         var funcPtr = ffi.Callback('void', [recvBufRef, 'string', 'pointer'], dispatcher);
         setTimeout(function sub() {
-            var subs = libzcm.zcm_try_subscribe(z, channel, funcPtr, null);
+            var subs = libzcm.zcm_try_subscribe(parent.z, channel, funcPtr, null);
             if (ref.isNull(subs)) {
                 setTimeout(sub, 0);
                 return;
@@ -221,7 +221,7 @@ function zcm(zcmtypes, zcmurl)
     {
         if (!(sub.id in parent.subscriptions)) return;
         setTimeout(function unsub() {
-            var ret = libzcm.zcm_try_unsubscribe(z, sub.subscription);
+            var ret = libzcm.zcm_try_unsubscribe(parent.z, sub.subscription);
             if (ret != ZCM_EOK) {
                 setTimeout(unsub, 0);
                 return;
@@ -238,7 +238,7 @@ function zcm(zcmtypes, zcmurl)
     zcm.prototype.flush = function(doneCb)
     {
         setTimeout(function f() {
-            var ret = libzcm.zcm_try_flush(z);
+            var ret = libzcm.zcm_try_flush(parent.z);
             if (ret != ZCM_EOK) {
                 setTimeout(f, 0);
                 return;
@@ -252,7 +252,7 @@ function zcm(zcmtypes, zcmurl)
      */
     zcm.prototype.start = function()
     {
-        libzcm.zcm_start(z);
+        libzcm.zcm_start(parent.z);
     }
 
     /**
@@ -262,7 +262,7 @@ function zcm(zcmtypes, zcmurl)
     zcm.prototype.stop = function(stoppedCb)
     {
         setTimeout(function s() {
-            var ret = libzcm.zcm_try_stop(z);
+            var ret = libzcm.zcm_try_stop(parent.z);
             if (ret != ZCM_EOK) {
                 setTimeout(s, 0);
                 return;
@@ -276,7 +276,7 @@ function zcm(zcmtypes, zcmurl)
      */
     zcm.prototype.pause = function()
     {
-        libzcm.zcm_pause(z);
+        libzcm.zcm_pause(parent.z);
     }
 
     /**
@@ -284,7 +284,7 @@ function zcm(zcmtypes, zcmurl)
      */
     zcm.prototype.resume = function()
     {
-        libzcm.zcm_resume(z);
+        libzcm.zcm_resume(parent.z);
     }
 
     /**
@@ -293,13 +293,18 @@ function zcm(zcmtypes, zcmurl)
     zcm.prototype.setQueueSize = function(sz, cb)
     {
         setTimeout(function s() {
-            var ret = libzcm.zcm_try_set_queue_size(z, sz);
+            var ret = libzcm.zcm_try_set_queue_size(parent.z, sz);
             if (ret != ZCM_EOK) {
                 setTimeout(s, 0);
                 return;
             }
             if (cb) cb();
         }, 0)
+    }
+
+    zcm.prototype.destroy = function()
+    {
+        libzcm.zcm_destroy(parent.z);
     }
 
     parent.start();

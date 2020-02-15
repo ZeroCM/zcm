@@ -143,6 +143,7 @@ z.subscribe(".*", null, function(channel, msg) {
 process.on('exit', function() {
     if (sub) z.unsubscribe(sub);
     if (typedSub2) z.unsubscribe(typedSub2);
+    z.destroy();
 });
 
 http.listen(3000, function(){
