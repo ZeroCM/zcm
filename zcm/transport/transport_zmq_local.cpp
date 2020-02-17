@@ -8,7 +8,6 @@
 #include <zmq.h>
 
 #include "util/TimeUtil.hpp"
-#include "util/FileUtil.hpp"
 
 #include <unistd.h>
 #include <dirent.h>
@@ -33,7 +32,6 @@ using namespace std;
 #define START_BUF_SIZE (1 << 20)
 #define ZMQ_IO_THREADS 1
 #define IPC_NAME_PREFIX "zcm-channel-zmq-ipc-"
-#define IPC_NAME_PREFIX_LEN (sizeof(IPC_NAME_PREFIX) - 1)
 
 enum Type { IPC, INPROC, };
 
@@ -122,20 +120,13 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         delete[] recvmsgBuffer;
     }
 
-    string getPath(const string& channel)
-    {
-        return "/tmp/" +
-               (subnet == "" ? + "" : (subnet + "/")) +
-               IPC_NAME_PREFIX + channel;
-    }
-
     string getAddress(const string& channel)
     {
         switch (type) {
             case IPC:
-                return "ipc://" + getPath(channel);
+                return "ipc:///tmp/" + subnet + "/" + IPC_NAME_PREFIX + channel;
             case INPROC:
-                return "inproc://" + getPath(channel);
+                return "inproc://" + subnet + "/" + IPC_NAME_PREFIX + channel;
         }
         assert(0 && "unreachable");
     }
@@ -158,15 +149,6 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             ZCM_DEBUG("failed to create pubsock: %s", zmq_strerror(errno));
             return nullptr;
         }
-
-        string path = getPath(channel);
-        ZCM_DEBUG("Path: %s", path.c_str());
-        int err = FileUtil::makeDirsForFile(path);
-        if (err < 0 && errno != EEXIST) {
-            ZCM_DEBUG("Unable to create directory for socket bind: %s", path.c_str());
-            return nullptr;
-        }
-
         string address = getAddress(channel);
         int rc = zmq_bind(sock, address.c_str());
         if (rc == -1) {
@@ -206,31 +188,20 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         return sock;
     }
 
-    void ipcScanForNewChannels(const string& dirname = "")
+    void ipcScanForNewChannels()
     {
-        string abspath = "/tmp/" +
-                         (subnet == "" ? subnet : (subnet + "/")) +
-                         dirname;
+        const char *prefix = IPC_NAME_PREFIX;
+        size_t prefixLen = strlen(IPC_NAME_PREFIX);
+
         DIR *d;
         dirent *ent;
 
-        if (!(d = opendir(abspath.c_str())))
+        if (!(d=opendir(string("/tmp/" + subnet).c_str())))
             return;
 
-        while ((ent = readdir(d)) != nullptr) {
-            string dname = ent->d_name;
-            if (dname == ".." || dname == ".")
-                continue;
-
-            string path = (dirname == "" ? "" : (dirname + "/")) + dname;
-
-            if (ent->d_type == DT_DIR) {
-                ipcScanForNewChannels(path);
-                continue;
-            }
-
-            if (strncmp(path.c_str(), IPC_NAME_PREFIX, IPC_NAME_PREFIX_LEN) == 0) {
-                string channel(path.c_str() + IPC_NAME_PREFIX_LEN);
+        while ((ent=readdir(d)) != nullptr) {
+            if (strncmp(ent->d_name, prefix, prefixLen) == 0) {
+                string channel(ent->d_name + prefixLen);
                 void *sock = subsockFindOrCreate(channel, false);
                 if (sock == nullptr) {
                     ZCM_DEBUG("failed to open subsock in scanForNewChannels(%s)",
@@ -238,6 +209,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
                 }
             }
         }
+
         closedir(d);
     }
 
