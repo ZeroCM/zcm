@@ -32,24 +32,21 @@ namespace FileUtil
         return ::rename(old.c_str(), new_.c_str());
     }
 
-    static inline int mkdirWithParents(const string& path, mode_t mode)
+    static inline void mkdirWithParents(const string& path, mode_t mode)
     {
-        auto parts = StringUtil::split(path, '/');
-        string dirPath = "";
-        for (size_t i = 0; i < parts.size(); ++i) {
-            const auto& p = parts[i];
-            if (p == "") {
-                dirPath += "/";
-                continue;
+        for (size_t i = 0; i < path.size(); i++) {
+            if (path[i]=='/') {
+                char *dirpath = (char *) malloc(i+1);
+                strncpy(dirpath, path.c_str(), i);
+                dirpath[i] = '\0';
+
+                mkdir(dirpath, mode);
+                free(dirpath);
+
+                i++; // skip the '/'
             }
-            dirPath += p;
-            int err = mkdir(dirPath.c_str(), mode);
-            if (err < 0 && errno != EEXIST) {
-                return err;
-            }
-            dirPath += "/";
         }
-        return 0;
+        mkdir(path.c_str(), mode);
     }
 
     static inline string dirname(const string& path)
@@ -61,8 +58,8 @@ namespace FileUtil
         return ret;
     }
 
-    static int makeDirsForFile(const string& path)
+    static void makeDirsForFile(const string& path)
     {
-        return mkdirWithParents(dirname(path), 0755);
+        mkdirWithParents(dirname(path), 0755);
     }
 }
