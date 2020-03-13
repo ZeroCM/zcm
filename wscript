@@ -226,7 +226,7 @@ def attempt_use_julia(ctx):
     try:
         version = subprocess.check_output('%s --version | cut -d \' \' -f3' %
                                           ctx.env.julia, shell=True, stderr=open(os.devnull,'wb'))
-        version = version.strip()
+        version = version.decode('utf-8').strip()
 
         Logs.pprint('NORMAL', '{:41}:'.format('Julia version identified as'), sep='')
         Logs.pprint('GREEN', '%s' % version)
@@ -246,7 +246,7 @@ def attempt_use_julia(ctx):
                                           (ctx.env.julia, '\\\"julia\\\"'),
                                           shell=True, stderr=open(os.devnull,'wb'))
 
-        ctx.env.INCLUDES_julia = res.strip().strip('"')
+        ctx.env.INCLUDES_julia = res.decode('utf-8').strip().strip('"')
         Logs.pprint('NORMAL', '{:41}:'.format('Julia include path identified as'), sep='')
         Logs.pprint('GREEN', '%s' % ctx.env.INCLUDES_julia)
     except subprocess.CalledProcessError as e:

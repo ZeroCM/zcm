@@ -16,7 +16,7 @@ def assert_clang_version(ctx, minVer):
     msg = 'Checking for Clang version'
     res = '.'.join(map(str,ver_i))
 
-    if (ver_i < minVer):
+    if (float(res) < minVer):
         ctx.msg(msg, res, color='RED')
         ctx.fatal('clang version is too old')
     else:
