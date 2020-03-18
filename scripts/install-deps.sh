@@ -128,7 +128,7 @@ checkJuliaInstall()
     juliaExists=$?
     juliaVersion=$(echo "$juliaVersion" | xargs | cut -d ' ' -f 3)
 
-    expectedVersion="1.0.3"
+    expectedVersion="1.3.1"
     if $JULIA_0_6_MODE; then
         expectedVersion="0.6.4"
     fi
@@ -152,9 +152,9 @@ if $USE_JULIA; then
             tar -xaf julia-0.6.4-linux-x86_64.tar.gz
             mv julia-9d11f62bcb $ROOTDIR/deps/julia
         else
-            wget https://julialang-s3.julialang.org/bin/linux/x64/1.0/julia-1.0.3-linux-x86_64.tar.gz
-            tar -xaf julia-1.0.3-linux-x86_64.tar.gz
-            mv julia-1.0.3 $ROOTDIR/deps/julia
+            wget https://julialang-s3.julialang.org/bin/linux/x64/1.3/julia-1.3.1-linux-x86_64.tar.gz
+            tar -xaf julia-1.3.1-linux-x86_64.tar.gz
+            mv julia-1.3.1 $ROOTDIR/deps/julia
         fi
 
         popd > /dev/null
