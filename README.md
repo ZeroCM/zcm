@@ -76,7 +76,7 @@ To learn how you can contribute to this project, check out [Contributing](docs/c
    - MATLAB (using Java)
    - NodeJS and Client-side Javascript
    - Python
-   - Julia (both v1.0.3 and v0.6.4)
+   - Julia (both v1.3.1 and v0.6.4)
 
 ## Roadmap
  - Platform Support
