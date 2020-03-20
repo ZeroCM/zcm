@@ -42,6 +42,7 @@ static inline void SubscriptionDispatch(const ReceiveBuffer* rbuf, const char* c
 inline ZCM::ZCM()
 {
     zcm = zcm_create(nullptr);
+    _err = ZCM_EOK;
 }
 #endif
 
@@ -49,6 +50,7 @@ inline ZCM::ZCM()
 inline ZCM::ZCM(const std::string& transport)
 {
     zcm = zcm_create(transport.c_str());
+    _err = ZCM_EOK;
 }
 #endif
 
