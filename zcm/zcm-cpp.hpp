@@ -110,7 +110,7 @@ class ZCM
 
   private:
     zcm_t* zcm;
-    int _err = ZCM_EOK;
+    int _err;
     std::vector<Subscription*> subscriptions;
 };
 
