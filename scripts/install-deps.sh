@@ -154,6 +154,7 @@ if $USE_JULIA; then
         else
             wget https://julialang-s3.julialang.org/bin/linux/x64/1.3/julia-1.3.1-linux-x86_64.tar.gz
             tar -xaf julia-1.3.1-linux-x86_64.tar.gz
+            rm -rf $ROOTDIR/deps/julia
             mv julia-1.3.1 $ROOTDIR/deps/julia
         fi
 
