@@ -150,6 +150,7 @@ if $USE_JULIA; then
         if $JULIA_0_6_MODE; then
             wget https://julialang-s3.julialang.org/bin/linux/x64/0.6/julia-0.6.4-linux-x86_64.tar.gz
             tar -xaf julia-0.6.4-linux-x86_64.tar.gz
+            rm -rf $ROOTDIR/deps/julia
             mv julia-9d11f62bcb $ROOTDIR/deps/julia
         else
             wget https://julialang-s3.julialang.org/bin/linux/x64/1.3/julia-1.3.1-linux-x86_64.tar.gz
