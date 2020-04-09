@@ -292,6 +292,7 @@ def zcmgen(ctx, **kw):
     if 'cpp' in lang:
         ctx(target          = uselib_name + '_cpp',
             rule            = 'touch ${TGT}',
+            use             = ['zcm'],
             export_includes = inc)
 
     if 'java' in lang:
