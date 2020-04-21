@@ -328,7 +328,7 @@ class TypedHandlerSubscription : public TypedSubscription<Msg>, HandlerSubscript
     {
         // Unfortunately, we need to add "this" here to handle template inheritance:
         // https://isocpp.org/wiki/faq/templates#nondependent-name-lookup-members
-        if (this->readMsg(rbuf) != 0) return;
+        if (this->readMsg(rbuf, channel) != 0) return;
         (this->handler->*typedHandlerCallback)(rbuf, channel, &this->msgMem);
     }
 };
