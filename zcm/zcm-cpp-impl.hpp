@@ -215,12 +215,13 @@ class TypedSubscription : public virtual Subscription
   public:
     virtual ~TypedSubscription() {}
 
-    inline int readMsg(const ReceiveBuffer* rbuf)
+    inline int readMsg(const ReceiveBuffer* rbuf, const std::string& channel)
     {
         int status = msgMem.decode(rbuf->data, 0, rbuf->data_size);
         if (status < 0) {
             #ifndef ZCM_EMBEDDED
-            fprintf (stderr, "error %d decoding %s!!!\n", status, Msg::getTypeName());
+            fprintf (stderr, "Error %d decoding %s on channel \"%s\"\n",
+                             status, Msg::getTypeName(), channel.c_str());
             #endif
             return -1;
         }
@@ -229,7 +230,7 @@ class TypedSubscription : public virtual Subscription
 
     inline void typedDispatch(const ReceiveBuffer* rbuf, const std::string& channel)
     {
-        if (readMsg(rbuf) != 0) return;
+        if (readMsg(rbuf, channel) != 0) return;
         (*typedCallback)(rbuf, channel, &msgMem, usr);
     }
 };
@@ -257,12 +258,13 @@ class TypedFunctionalSubscription : public virtual Subscription
   public:
     virtual ~TypedFunctionalSubscription() {}
 
-    inline int readMsg(const ReceiveBuffer* rbuf)
+    inline int readMsg(const ReceiveBuffer* rbuf, const std::string& channel)
     {
         int status = msgMem.decode(rbuf->data, 0, rbuf->data_size);
         if (status < 0) {
             #ifndef ZCM_EMBEDDED
-            fprintf (stderr, "error %d decoding %s!!!\n", status, Msg::getTypeName());
+            fprintf (stderr, "Error %d decoding %s on channel \"%s\"\n",
+                             status, Msg::getTypeName(), channel.c_str());
             #endif
             return -1;
         }
@@ -271,7 +273,7 @@ class TypedFunctionalSubscription : public virtual Subscription
 
     inline void typedDispatch(const ReceiveBuffer* rbuf, const std::string& channel)
     {
-        if (readMsg(rbuf) != 0) return;
+        if (readMsg(rbuf, channel) != 0) return;
         cb(rbuf, channel, &msgMem);
     }
 };
@@ -326,7 +328,7 @@ class TypedHandlerSubscription : public TypedSubscription<Msg>, HandlerSubscript
     {
         // Unfortunately, we need to add "this" here to handle template inheritance:
         // https://isocpp.org/wiki/faq/templates#nondependent-name-lookup-members
-        if (this->readMsg(rbuf) != 0) return;
+        if (this->readMsg(rbuf, channel) != 0) return;
         (this->handler->*typedHandlerCallback)(rbuf, channel, &this->msgMem);
     }
 };
