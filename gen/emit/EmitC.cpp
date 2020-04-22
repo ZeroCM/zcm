@@ -161,6 +161,8 @@ struct EmitHeader : public Emit
         }
 
         // output constants
+        emit(0, "#define %s_IS_LITTLE_ENDIAN %s", tnUpper.c_str(),
+                zcm.gopt->getBool("little-endian-encoding") ? "1" : "0");
         for (auto& zc : zs.constants) {
             assert(ZCMGen::isLegalConstType(zc.type));
             string suffix = (zc.type == "int64_t") ? "LL" : "";

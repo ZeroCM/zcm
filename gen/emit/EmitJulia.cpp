@@ -221,6 +221,7 @@ struct EmitJuliaType : public Emitter
             emit(1, "# **********************");
             emit(1, "# Constants");
             emit(1, "# **********************\n");
+            emit(1, "%-30s::Bool", "IS_LITTLE_ENDIAN");
             for (auto& zc : zs.constants) {
                 assert(ZCMGen::isLegalConstType(zc.type));
                 string mt = mapTypeName(zc.type);
@@ -254,6 +255,9 @@ struct EmitJuliaType : public Emitter
             emit(2, "# **********************");
             emit(2, "# Constants");
             emit(2, "# **********************\n");
+
+            emit(2, "self.IS_LITTLE_ENDIAN::Bool = %s",
+                    zcm.gopt->getBool("little-endian-encoding") ? "true" : "false");
 
             for (auto& zc : zs.constants) {
                 assert(ZCMGen::isLegalConstType(zc.type));

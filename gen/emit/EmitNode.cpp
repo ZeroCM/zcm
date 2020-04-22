@@ -628,6 +628,9 @@ struct EmitModule : public Emitter
 
     void emitConstants(const ZCMStruct& zs, const string& prefix, size_t indent = 0)
     {
+        emit(indent, "%s.IS_LITTLE_ENDIAN = %s;", prefix.c_str(),
+                     zcm.gopt->getBool("little-endian-encoding") ? "true" : "false");
+
         for (size_t i = 0; i < zs.constants.size(); ++i) {
             static string hexPrefix = "0x";
             if (zs.constants[i].type == "int64_t") {
