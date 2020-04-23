@@ -64,37 +64,56 @@ class Tracker
     //       and what you can do with things like std::true_type and the like)
     template <typename F> struct hasUtime {
         struct Fallback { int utime; }; // introduce member name "utime"
+        struct FallbackFn { uint64_t getUtime() const; }; // introduce member name "utime"
         struct Derived : F, Fallback {};
+        struct DerivedFn : F, FallbackFn {};
 
         template <typename C, C> struct ChT;
 
         template<typename C> static char (&f(ChT<int Fallback::*, &C::utime>*))[1];
-        template<typename C> static char (&f(...))[2];
+        template<typename C> static char (&f(ChT<int FallbackFn::*, &C::getUtime>*))[2];
+        template<typename C> static char (&f(...))[3];
 
-        static constexpr bool present = sizeof(f<Derived>(0)) == 2;
+        static constexpr int which = sizeof(f<Derived>(0));
     };
 
     // Continuing the craziness. Template specialization allows for storing a
     // host utime with a msg if there is no msg.utime field
-    template<typename F, bool>
-    struct MsgWithUtime;
+    template<typename F, int>
+    class MsgWithUtime;
 
     template<typename F>
-    struct MsgWithUtime<F, true> : public F {
+    class MsgWithUtime<F, 3> : public F
+    {
+      public:
+        uint64_t getUtime() const { return F::utime; }
         MsgWithUtime(const F& msg, uint64_t utime) : F(msg) {}
         MsgWithUtime(const MsgWithUtime& msg) : F(msg) {}
         virtual ~MsgWithUtime() {}
     };
 
     template<typename F>
-    struct MsgWithUtime<F, false> : public F {
+    class MsgWithUtime<F, 2> : public F
+    {
+      public:
+        uint64_t getUtime() const { return F::getUtime(); }
+        MsgWithUtime(const F& msg, uint64_t utime) : F(msg) {}
+        MsgWithUtime(const MsgWithUtime& msg) : F(msg) {}
+        virtual ~MsgWithUtime() {}
+    };
+
+    template<typename F>
+    class MsgWithUtime<F, 1> : public F
+    {
         uint64_t utime;
+      public:
+        uint64_t getUtime() const { return utime; }
         MsgWithUtime(const F& msg, uint64_t utime) : F(msg), utime(utime) {}
         MsgWithUtime(const MsgWithUtime& msg) : F(msg), utime(msg.utime) {}
         virtual ~MsgWithUtime() {}
     };
 
-    typedef MsgWithUtime<T, hasUtime<T>::present> MsgType;
+    typedef MsgWithUtime<T, hasUtime<T>::which> MsgType;
 
     // *****************************************************************************
 
@@ -129,7 +148,7 @@ class Tracker
         while (!done) {
             callbackCv.wait(lk, [&](){ return callbackMsg || done; });
             if (done) return;
-            onMsg(callbackMsg, callbackMsg->utime, usr);
+            onMsg(callbackMsg, callbackMsg->getUtime(), usr);
             // Intentionally not deleting callbackMsg as it is the
             // responsibility of the callback to delete the memory
             callbackMsg = nullptr;
@@ -169,7 +188,7 @@ class Tracker
     {
         uint64_t tmp = getMsgUtime((const T*)msg);
         if (tmp != UINT64_MAX) return tmp;
-        return msg->utime;
+        return msg->getUtime();
     }
 
     Tracker(double maxTimeErr = 0.25, size_t maxMsgs = 1,
@@ -182,8 +201,10 @@ class Tracker
         T tmp;
         std::string name = demangle(getType(tmp));
 
-        if (hasUtime<T>::present == true) {
-            ZCM_DEBUG("Message trackers using 'utime' field of zcmtype ", name);
+        if (hasUtime<T>::which == 2) {
+            ZCM_DEBUG("Message trackers using 'utime' field of type ", name);
+        } else if (hasUtime<T>::which == 3) {
+            ZCM_DEBUG("Message trackers using 'getUtime' function of type ", name);
         } else {
             ZCM_DEBUG("Message trackers using local system receive utime for ",
                       "tracking zcmtype ", name);
@@ -259,7 +280,6 @@ class Tracker
             //       the function
             auto* m = *iter;
             uint64_t mUtime = getMsgUtime(m);
-            if (mUtime == UINT64_MAX) mUtime = m->utime;
 
             if (mUtime <= utime && (_m0 == nullptr || mUtime > m0Utime)) {
                 _m0 = m;
