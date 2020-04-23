@@ -28,6 +28,8 @@ sub2 = subscribe(zcm, "EXAMPLE", untyped_handler)
 
 msg = little_endian_t()
 
+@assert (msg.IS_LITTLE_ENDIAN == 1) "Type must be little endian"
+
 start(zcm)
 
 msg.timestamp = 0;
