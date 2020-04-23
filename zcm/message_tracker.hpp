@@ -295,6 +295,7 @@ class Tracker
             //       the function
             auto* m = *iter;
             uint64_t mUtime = getMsgUtime(m);
+            if (mUtime == UINT64_MAX) mUtime = m->utime;
 
             if (mUtime <= utime && (_m0 == nullptr || mUtime > m0Utime)) {
                 _m0 = m;
