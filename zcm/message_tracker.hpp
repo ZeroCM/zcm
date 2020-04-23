@@ -57,36 +57,51 @@ class Tracker
 
   private:
     // *****************************************************************************
-    // Insanely hacky trick to determine at compile time if a zcmtype has a
-    // field called "utime"
-    // TODO: I think c++11 has some utilities to make this a bit easier (I have not
-    //       looked into them much at all, but worth looking at <type_traits>
-    //       and what you can do with things like std::true_type and the like)
-    template <typename F> struct hasUtime {
-        struct Fallback { int utime; }; // introduce member name "utime"
-        struct Derived : F, Fallback {};
+    // SFINAE gets hard to read sometimes. The point of these 2 classes is to determine
+    // if the input type has a "utime" or a "getUtime" field.
+    template <typename MsgType> struct hasUtime {
+        struct Fallback { int utime; }; // empty class with member "utime"
+        struct Derived : MsgType, Fallback {}; // ambiguity if MsgType has "utime"
 
-        template <typename C, C> struct ChT;
+        // Struct that takes a type and an instance of that type as an argument
+        // We'll use this with type = "pointer to element in class" and the instance
+        // to be the "utime" field
+        template <typename MemberType, MemberType> struct Check;
+        // neg test : specifically checking to see if the "utime" field in the type
+        //            we are testing actually points to the "utime" field in Fallback
+        template <typename TypeToTest>
+        static constexpr bool test(Check<int Fallback::*, &TypeToTest::utime> *)
+        { return false; }
+        // pos test : really just a fallback to the negative test
+        template <typename TypeToTest> static constexpr bool test(...)
+        { return true; }
 
-        template<typename C> static char (&f(ChT<int Fallback::*, &C::utime>*))[1];
-        template<typename C> static char (&f(...))[2];
-
-        static constexpr bool present = sizeof(f<Derived>(0)) == 2;
+        // using 0 as an argument here because it can cast to a Check<...>*
+        static constexpr bool present = test<Derived>(0);
     };
-    template <typename F> struct hasUtimeFn {
-        struct Fallback { int getUtime; }; // introduce member name "utime"
-        struct Derived : F, Fallback {};
+    template <typename MsgType> struct hasUtimeFn {
+        struct Fallback { int getUtime; }; // empty class with member "getUtime"
+        struct Derived : MsgType, Fallback {}; // ambiguity if MsgType has "getUtime"
 
-        template <typename C, C> struct ChT;
+        // Struct that takes a type and an instance of that type as an argument
+        // We'll use this with type = "pointer to element in class" and the instance
+        // to be the "getUtime" field
+        template <typename MemberType, MemberType> struct Check;
+        // neg test : specifically checking to see if the "getUtime" field in the type
+        //            we are testing actually points to the "getUtime" field in Fallback
+        template <typename TypeToTest>
+        static constexpr bool test(Check<int Fallback::*, &TypeToTest::getUtime> *)
+        { return false; }
+        // pos test : really just a fallback to the negative test
+        template <typename TypeToTest> static constexpr bool test(...)
+        { return true; }
 
-        template<typename C> static char (&f(ChT<int Fallback::*, &C::getUtime>*))[1];
-        template<typename C> static char (&f(...))[2];
-
-        static constexpr bool present = sizeof(f<Derived>(0)) == 2;
+        // using 0 as an argument here because it can cast to a Check<...>*
+        static constexpr bool present = test<Derived>(0);
     };
 
-    // Continuing the craziness. Template specialization allows for storing a
-    // host utime with a msg if there is no msg.utime field
+    // We'l use the above SFINAE member finders to determine if we should
+    // use the
     template<typename F, bool, bool>
     struct MsgWithUtime;
 
@@ -300,6 +315,8 @@ class Tracker
             //       the function
             auto* m = *iter;
             uint64_t mUtime = getMsgUtime(m);
+            // RRR: feels weird that this is using the base type instead of the augmented utime type
+            //      what was the reasoning behind this
             if (mUtime == UINT64_MAX) mUtime = MsgType::getUtime(*m);
 
             if (mUtime <= utime && (_m0 == nullptr || mUtime > m0Utime)) {
