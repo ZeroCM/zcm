@@ -64,56 +64,71 @@ class Tracker
     //       and what you can do with things like std::true_type and the like)
     template <typename F> struct hasUtime {
         struct Fallback { int utime; }; // introduce member name "utime"
-        struct FallbackFn { uint64_t getUtime() const; }; // introduce member name "utime"
         struct Derived : F, Fallback {};
-        struct DerivedFn : F, FallbackFn {};
 
         template <typename C, C> struct ChT;
 
         template<typename C> static char (&f(ChT<int Fallback::*, &C::utime>*))[1];
-        template<typename C> static char (&f(ChT<int FallbackFn::*, &C::getUtime>*))[2];
-        template<typename C> static char (&f(...))[3];
+        template<typename C> static char (&f(...))[2];
 
-        static constexpr int which = sizeof(f<Derived>(0));
+        static constexpr bool present = sizeof(f<Derived>(0)) == 2;
+    };
+    template <typename F> struct hasUtimeFn {
+        struct Fallback { int getUtime; }; // introduce member name "utime"
+        struct Derived : F, Fallback {};
+
+        template <typename C, C> struct ChT;
+
+        template<typename C> static char (&f(ChT<int Fallback::*, &C::getUtime>*))[1];
+        template<typename C> static char (&f(...))[2];
+
+        static constexpr bool present = sizeof(f<Derived>(0)) == 2;
     };
 
     // Continuing the craziness. Template specialization allows for storing a
     // host utime with a msg if there is no msg.utime field
-    template<typename F, int>
-    class MsgWithUtime;
+    template<typename F, bool, bool>
+    struct MsgWithUtime;
 
     template<typename F>
-    class MsgWithUtime<F, 3> : public F
+    struct MsgWithUtime<F, true, false> : public F
     {
-      public:
+        MsgWithUtime(const F& msg, uint64_t utime) : F(msg) {}
+        MsgWithUtime(const MsgWithUtime& msg) : F(msg) {}
         uint64_t getUtime() const { return F::utime; }
+        virtual ~MsgWithUtime() {}
+    };
+
+    template<typename F>
+    struct MsgWithUtime<F, true, true> : public F
+    {
         MsgWithUtime(const F& msg, uint64_t utime) : F(msg) {}
         MsgWithUtime(const MsgWithUtime& msg) : F(msg) {}
         virtual ~MsgWithUtime() {}
     };
 
     template<typename F>
-    class MsgWithUtime<F, 2> : public F
+    struct MsgWithUtime<F, false, true> : public F
     {
-      public:
-        uint64_t getUtime() const { return F::getUtime(); }
         MsgWithUtime(const F& msg, uint64_t utime) : F(msg) {}
         MsgWithUtime(const MsgWithUtime& msg) : F(msg) {}
         virtual ~MsgWithUtime() {}
     };
 
     template<typename F>
-    class MsgWithUtime<F, 1> : public F
+    struct MsgWithUtime<F, false, false> : public F
     {
+      private:
         uint64_t utime;
+
       public:
-        uint64_t getUtime() const { return utime; }
         MsgWithUtime(const F& msg, uint64_t utime) : F(msg), utime(utime) {}
         MsgWithUtime(const MsgWithUtime& msg) : F(msg), utime(msg.utime) {}
+        uint64_t getUtime() const { return utime; }
         virtual ~MsgWithUtime() {}
     };
 
-    typedef MsgWithUtime<T, hasUtime<T>::which> MsgType;
+    typedef MsgWithUtime<T, hasUtime<T>::present, hasUtimeFn<T>::present> MsgType;
 
     // *****************************************************************************
 
@@ -201,10 +216,10 @@ class Tracker
         T tmp;
         std::string name = demangle(getType(tmp));
 
-        if (hasUtime<T>::which == 2) {
+        if (hasUtimeFn<T>::present == true) {
+            ZCM_DEBUG("Message trackers using 'getUtime()' function of type ", name);
+        } else if (hasUtime<T>::present == true) {
             ZCM_DEBUG("Message trackers using 'utime' field of type ", name);
-        } else if (hasUtime<T>::which == 3) {
-            ZCM_DEBUG("Message trackers using 'getUtime' function of type ", name);
         } else {
             ZCM_DEBUG("Message trackers using local system receive utime for ",
                       "tracking zcmtype ", name);
