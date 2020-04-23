@@ -93,28 +93,28 @@ class Tracker
     template<typename F>
     struct MsgWithUtime<F, true, false> : public F
     {
-        MsgWithUtime(const F& msg) : F(msg) {}
-        MsgWithUtime(const F& msg, uint64_t utime) : MsgWithUtime(msg) {}
+        MsgWithUtime(const F& msg, uint64_t utime) : F(msg) {}
         MsgWithUtime(const MsgWithUtime& msg) : F(msg) {}
         uint64_t getUtime() const { return F::utime; }
+        static uint64_t getUtime(const F& msg) { return msg.utime; }
         virtual ~MsgWithUtime() {}
     };
 
     template<typename F>
     struct MsgWithUtime<F, true, true> : public F
     {
-        MsgWithUtime(const F& msg) : F(msg) {}
-        MsgWithUtime(const F& msg, uint64_t utime) : MsgWithUtime(msg) {}
+        MsgWithUtime(const F& msg, uint64_t utime) : F(msg) {}
         MsgWithUtime(const MsgWithUtime& msg) : F(msg) {}
+        static uint64_t getUtime(const F& msg) { return msg.getUtime(); }
         virtual ~MsgWithUtime() {}
     };
 
     template<typename F>
     struct MsgWithUtime<F, false, true> : public F
     {
-        MsgWithUtime(const F& msg) : F(msg) {}
-        MsgWithUtime(const F& msg, uint64_t utime) : MsgWithUtime(msg) {}
+        MsgWithUtime(const F& msg, uint64_t utime) : F(msg) {}
         MsgWithUtime(const MsgWithUtime& msg) : F(msg) {}
+        static uint64_t getUtime(const F& msg) { return msg.getUtime(); }
         virtual ~MsgWithUtime() {}
     };
 
@@ -128,6 +128,8 @@ class Tracker
         MsgWithUtime(const F& msg, uint64_t utime) : F(msg), utime(utime) {}
         MsgWithUtime(const MsgWithUtime& msg) : F(msg), utime(msg.utime) {}
         uint64_t getUtime() const { return utime; }
+        static uint64_t getUtime(const F& msg)
+        { ZCM_ASSERT(false && "Cannot use this function on types with no utime"); }
         virtual ~MsgWithUtime() {}
     };
 
@@ -298,10 +300,7 @@ class Tracker
             //       the function
             auto* m = *iter;
             uint64_t mUtime = getMsgUtime(m);
-            if (mUtime == UINT64_MAX) {
-                MsgType tmp(*m);
-                mUtime = tmp.getUtime();
-            }
+            if (mUtime == UINT64_MAX) mUtime = MsgType::getUtime(*m);
 
             if (mUtime <= utime && (_m0 == nullptr || mUtime > m0Utime)) {
                 _m0 = m;
