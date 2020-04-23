@@ -93,7 +93,8 @@ class Tracker
     template<typename F>
     struct MsgWithUtime<F, true, false> : public F
     {
-        MsgWithUtime(const F& msg, uint64_t utime) : F(msg) {}
+        MsgWithUtime(const F& msg) : F(msg) {}
+        MsgWithUtime(const F& msg, uint64_t utime) : MsgWithUtime(msg) {}
         MsgWithUtime(const MsgWithUtime& msg) : F(msg) {}
         uint64_t getUtime() const { return F::utime; }
         virtual ~MsgWithUtime() {}
@@ -102,7 +103,8 @@ class Tracker
     template<typename F>
     struct MsgWithUtime<F, true, true> : public F
     {
-        MsgWithUtime(const F& msg, uint64_t utime) : F(msg) {}
+        MsgWithUtime(const F& msg) : F(msg) {}
+        MsgWithUtime(const F& msg, uint64_t utime) : MsgWithUtime(msg) {}
         MsgWithUtime(const MsgWithUtime& msg) : F(msg) {}
         virtual ~MsgWithUtime() {}
     };
@@ -110,7 +112,8 @@ class Tracker
     template<typename F>
     struct MsgWithUtime<F, false, true> : public F
     {
-        MsgWithUtime(const F& msg, uint64_t utime) : F(msg) {}
+        MsgWithUtime(const F& msg) : F(msg) {}
+        MsgWithUtime(const F& msg, uint64_t utime) : MsgWithUtime(msg) {}
         MsgWithUtime(const MsgWithUtime& msg) : F(msg) {}
         virtual ~MsgWithUtime() {}
     };
@@ -295,7 +298,10 @@ class Tracker
             //       the function
             auto* m = *iter;
             uint64_t mUtime = getMsgUtime(m);
-            if (mUtime == UINT64_MAX) mUtime = m->getUtime();
+            if (mUtime == UINT64_MAX) {
+                MsgType tmp(*m);
+                mUtime = tmp.getUtime();
+            }
 
             if (mUtime <= utime && (_m0 == nullptr || mUtime > m0Utime)) {
                 _m0 = m;
