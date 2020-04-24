@@ -380,6 +380,9 @@ struct EmitStruct : public Emitter
 
         //////////////////////////////////////////////////////////////
         // CONSTANTS
+
+        emit(1, "public static final boolean IS_LITTLE_ENDIAN = %s;",
+                zcm.gopt->getBool("little-endian-encoding") ? "true" : "false");
         for (auto& zc : zs.constants) {
             assert(ZCMGen::isLegalConstType(zc.type));
 

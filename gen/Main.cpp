@@ -62,6 +62,7 @@ int main(int argc, char* argv[])
             return res;
 
     unordered_set<string> reservedTokens;
+    reservedTokens.insert("IS_LITTLE_ENDIAN");
     merge(reservedTokens, getReservedKeywordsC());
     merge(reservedTokens, getReservedKeywordsCpp());
     merge(reservedTokens, getReservedKeywordsJava());

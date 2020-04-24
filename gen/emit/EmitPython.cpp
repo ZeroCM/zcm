@@ -68,6 +68,8 @@ struct PyEmitStruct : public Emitter
         emit(0, "");
 
         // CONSTANTS
+        emit(1, "IS_LITTLE_ENDIAN = %s;",
+                zcm.gopt->getBool("little-endian-encoding") ? "True" : "False");
         for (auto& zc : zs.constants) {
             assert(ZCMGen::isLegalConstType(zc.type));
             emit(1, "%s = %s", zc.membername.c_str(), zc.valstr.c_str());
