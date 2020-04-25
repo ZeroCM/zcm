@@ -1,5 +1,5 @@
 Package: zcm
-Version: @version@-1
+Version: @version@
 Maintainer: Jonathan Bendes <jonathan@skyspecs.com>
 Section: devel
 Priority: optional
