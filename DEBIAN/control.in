@@ -5,7 +5,7 @@ Section: devel
 Priority: optional
 Build-Essential: yes
 Architecture: amd64
-Depends: default-jre, libzmq5, python, python3, libc6
+Depends: default-jre, libzmq5, python, python3, libc6, libelf1
 Description: Zero Communications and Marshalling Library
- Communication middleware for various transport layer.
+ Communication middleware for various transport layers.
 
