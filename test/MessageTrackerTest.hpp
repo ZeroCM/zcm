@@ -194,6 +194,79 @@ class MessageTrackerTest : public CxxTest::TestSuite
          }
     }
 
+    void testUtimeFunc()
+    {
+        struct test_t {
+            uint64_t test;
+            test_t(uint64_t test = 0) : test(test) {}
+            uint64_t getUtime() const { return test; }
+            virtual ~test_t() {}
+        };
+
+        zcm::Tracker<test_t> mt(0.25, 3);
+
+        test_t tst1(100);
+        TS_ASSERT_EQUALS(mt.newMsg(tst1, 1), 100);
+
+        test_t tst2(200);
+        TS_ASSERT_EQUALS(mt.newMsg(tst2, 2), 200);
+
+        test_t tst3(300);
+        TS_ASSERT_EQUALS(mt.newMsg(tst3, 3), 300);
+
+        auto *msg = mt.get(200);
+        TS_ASSERT_EQUALS(msg->getUtime(), 200);
+        delete msg;
+    }
+
+    void testUtimeField()
+    {
+        struct test_t {
+            uint64_t utime;
+            test_t(uint64_t utime = 0) : utime(utime) {}
+            virtual ~test_t() {}
+        };
+
+        zcm::Tracker<test_t> mt(0.25, 3);
+
+        test_t tst1(100);
+        TS_ASSERT_EQUALS(mt.newMsg(tst1, 1), 100);
+
+        test_t tst2(200);
+        TS_ASSERT_EQUALS(mt.newMsg(tst2, 2), 200);
+
+        test_t tst3(300);
+        TS_ASSERT_EQUALS(mt.newMsg(tst3, 3), 300);
+
+        auto *msg = mt.get(200);
+        TS_ASSERT_EQUALS(msg->utime, 200);
+        delete msg;
+    }
+
+    void testNoUtime()
+    {
+        struct test_t {
+            int test;
+            test_t(int test = 0) : test(test) {}
+            virtual ~test_t() {}
+        };
+
+        zcm::Tracker<test_t> mt(0.25, 3);
+
+        test_t tst1(10);
+        TS_ASSERT_EQUALS(mt.newMsg(tst1, 1), 1);
+
+        test_t tst2(20);
+        TS_ASSERT_EQUALS(mt.newMsg(tst2, 2), 2);
+
+        test_t tst3(30);
+        TS_ASSERT_EQUALS(mt.newMsg(tst3, 3), 3);
+
+        auto *msg = mt.get(2);
+        TS_ASSERT_EQUALS(msg->test, 20);
+        delete msg;
+    }
+
     //void testNoUtime()
     //{
         //struct test_t {

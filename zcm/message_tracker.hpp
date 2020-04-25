@@ -70,14 +70,12 @@ class Tracker
         // neg test : specifically checking to see if the "utime" field in the type
         //            we are testing actually points to the "utime" field in Fallback
         template <typename TypeToTest>
-        static constexpr bool test(Check<int Fallback::*, &TypeToTest::utime> *)
-        { return false; }
+        static char (&test(Check<int Fallback::*, &TypeToTest::utime>*))[1];
         // pos test : really just a fallback to the negative test
-        template <typename TypeToTest> static constexpr bool test(...)
-        { return true; }
+        template <typename TypeToTest>
+        static char (&test(...))[2];
 
-        // using 0 as an argument here because it can cast to a Check<...>*
-        static constexpr bool present = test<Derived>(0);
+        static constexpr bool present = sizeof(test<Derived>(0)) == 2;
     };
     template <typename MsgType> struct hasUtimeFn {
         struct Fallback { int getUtime; }; // empty class with member "getUtime"
@@ -90,14 +88,13 @@ class Tracker
         // neg test : specifically checking to see if the "getUtime" field in the type
         //            we are testing actually points to the "getUtime" field in Fallback
         template <typename TypeToTest>
-        static constexpr bool test(Check<int Fallback::*, &TypeToTest::getUtime> *)
-        { return false; }
+        static char (&test(Check<int Fallback::*, &TypeToTest::getUtime>*))[1];
         // pos test : really just a fallback to the negative test
-        template <typename TypeToTest> static constexpr bool test(...)
-        { return true; }
+        template <typename TypeToTest>
+        static char (&test(...))[2];
 
         // using 0 as an argument here because it can cast to a Check<...>*
-        static constexpr bool present = test<Derived>(0);
+        static constexpr bool present = sizeof(test<Derived>(0)) == 2;
     };
 
     // We'l use the above SFINAE member finders to determine if we should
@@ -111,7 +108,7 @@ class Tracker
         MsgWithUtime(const F& msg, uint64_t utime) : F(msg) {}
         MsgWithUtime(const MsgWithUtime& msg) : F(msg) {}
         uint64_t getUtime() const { return F::utime; }
-        static uint64_t getUtime(const F& msg) { return msg.utime; }
+        static uint64_t getMsgUtime(const F& msg) { return msg.utime; }
         virtual ~MsgWithUtime() {}
     };
 
@@ -120,7 +117,7 @@ class Tracker
     {
         MsgWithUtime(const F& msg, uint64_t utime) : F(msg) {}
         MsgWithUtime(const MsgWithUtime& msg) : F(msg) {}
-        static uint64_t getUtime(const F& msg) { return msg.getUtime(); }
+        static uint64_t getMsgUtime(const F& msg) { return msg.getUtime(); }
         virtual ~MsgWithUtime() {}
     };
 
@@ -129,7 +126,7 @@ class Tracker
     {
         MsgWithUtime(const F& msg, uint64_t utime) : F(msg) {}
         MsgWithUtime(const MsgWithUtime& msg) : F(msg) {}
-        static uint64_t getUtime(const F& msg) { return msg.getUtime(); }
+        static uint64_t getMsgUtime(const F& msg) { return msg.getUtime(); }
         virtual ~MsgWithUtime() {}
     };
 
@@ -143,7 +140,8 @@ class Tracker
         MsgWithUtime(const F& msg, uint64_t utime) : F(msg), utime(utime) {}
         MsgWithUtime(const MsgWithUtime& msg) : F(msg), utime(msg.utime) {}
         uint64_t getUtime() const { return utime; }
-        static uint64_t getUtime(const F& msg)
+        static uint64_t getMsgUtime(const MsgWithUtime& msg) { return msg.utime; }
+        static uint64_t getMsgUtime(const F& msg)
         { ZCM_ASSERT(false && "Cannot use this function on types with no utime"); }
         virtual ~MsgWithUtime() {}
     };
@@ -317,7 +315,7 @@ class Tracker
             uint64_t mUtime = getMsgUtime(m);
             // RRR: feels weird that this is using the base type instead of the augmented utime type
             //      what was the reasoning behind this
-            if (mUtime == UINT64_MAX) mUtime = MsgType::getUtime(*m);
+            if (mUtime == UINT64_MAX) mUtime = MsgType::getMsgUtime(*m);
 
             if (mUtime <= utime && (_m0 == nullptr || mUtime > m0Utime)) {
                 _m0 = m;
