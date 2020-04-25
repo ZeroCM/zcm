@@ -9,9 +9,20 @@ jobs:
   build:
     name: Create Release
     runs-on: ubuntu-16.04
+    defaults:
+      run:
+        shell: bash -l {0}
     steps:
       - name: Checkout code
         uses: actions/checkout@master
+      - name: env
+        run: |
+            echo "::add-path::$(pwd)/deps/julia/bin"
+      - name: deps
+        run: ./scripts/install-deps.sh -i -s
+      - name: Build Deb
+        run: |
+          ./scripts/make_debian_package.sh
       - name: Read CHANGELOG
         id: changelog
         run: |
@@ -27,9 +38,6 @@ jobs:
           body: ${{ steps.changelog.outputs.body }}
           draft: true
           prerelease: true
-      - name: Build Deb
-        run: |
-          ./scripts/make_debian_package.sh
       - name: Upload Deb
         id: upload-release-asset
         uses: actions/upload-release-asset@v1
@@ -39,3 +47,4 @@ jobs:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ./build/deb_package_root.deb
           asset_name: zcm.deb
+          asset_content_type: application/octet-stream
