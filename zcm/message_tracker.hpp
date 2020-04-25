@@ -57,44 +57,96 @@ class Tracker
 
   private:
     // *****************************************************************************
-    // Insanely hacky trick to determine at compile time if a zcmtype has a
-    // field called "utime"
-    // TODO: I think c++11 has some utilities to make this a bit easier (I have not
-    //       looked into them much at all, but worth looking at <type_traits>
-    //       and what you can do with things like std::true_type and the like)
-    template <typename F> struct hasUtime {
-        struct Fallback { int utime; }; // introduce member name "utime"
-        struct Derived : F, Fallback {};
+    // SFINAE gets hard to read sometimes. The point of these 2 classes is to determine
+    // if the input type has a "utime" or a "getUtime" field.
+    template <typename MsgType> struct hasUtime {
+        struct Fallback { int utime; }; // empty class with member "utime"
+        struct Derived : MsgType, Fallback {}; // ambiguity if MsgType has "utime"
 
-        template <typename C, C> struct ChT;
+        // Struct that takes a type and an instance of that type as an argument
+        // We'll use this with type = "pointer to element in class" and the instance
+        // to be the "utime" field
+        template <typename MemberType, MemberType> struct Check;
+        // neg test : specifically checking to see if the "utime" field in the type
+        //            we are testing actually points to the "utime" field in Fallback
+        template <typename TypeToTest>
+        static char (&test(Check<int Fallback::*, &TypeToTest::utime>*))[1];
+        // pos test : really just a fallback to the negative test
+        template <typename TypeToTest>
+        static char (&test(...))[2];
 
-        template<typename C> static char (&f(ChT<int Fallback::*, &C::utime>*))[1];
-        template<typename C> static char (&f(...))[2];
+        static constexpr bool present = sizeof(test<Derived>(0)) == 2;
+    };
+    template <typename MsgType> struct hasUtimeFn {
+        struct Fallback { int getUtime; }; // empty class with member "getUtime"
+        struct Derived : MsgType, Fallback {}; // ambiguity if MsgType has "getUtime"
 
-        static constexpr bool present = sizeof(f<Derived>(0)) == 2;
+        // Struct that takes a type and an instance of that type as an argument
+        // We'll use this with type = "pointer to element in class" and the instance
+        // to be the "getUtime" field
+        template <typename MemberType, MemberType> struct Check;
+        // neg test : specifically checking to see if the "getUtime" field in the type
+        //            we are testing actually points to the "getUtime" field in Fallback
+        template <typename TypeToTest>
+        static char (&test(Check<int Fallback::*, &TypeToTest::getUtime>*))[1];
+        // pos test : really just a fallback to the negative test
+        template <typename TypeToTest>
+        static char (&test(...))[2];
+
+        // using 0 as an argument here because it can cast to a Check<...>*
+        static constexpr bool present = sizeof(test<Derived>(0)) == 2;
     };
 
-    // Continuing the craziness. Template specialization allows for storing a
-    // host utime with a msg if there is no msg.utime field
-    template<typename F, bool>
+    // We'l use the above SFINAE member finders to determine if we should
+    // use the
+    template<typename F, bool, bool>
     struct MsgWithUtime;
 
     template<typename F>
-    struct MsgWithUtime<F, true> : public F {
+    struct MsgWithUtime<F, true, false> : public F
+    {
         MsgWithUtime(const F& msg, uint64_t utime) : F(msg) {}
         MsgWithUtime(const MsgWithUtime& msg) : F(msg) {}
+        uint64_t getUtime() const { return F::utime; }
+        static uint64_t getMsgUtime(const F& msg) { return msg.utime; }
         virtual ~MsgWithUtime() {}
     };
 
     template<typename F>
-    struct MsgWithUtime<F, false> : public F {
-        uint64_t utime;
-        MsgWithUtime(const F& msg, uint64_t utime) : F(msg), utime(utime) {}
-        MsgWithUtime(const MsgWithUtime& msg) : F(msg), utime(msg.utime) {}
+    struct MsgWithUtime<F, true, true> : public F
+    {
+        MsgWithUtime(const F& msg, uint64_t utime) : F(msg) {}
+        MsgWithUtime(const MsgWithUtime& msg) : F(msg) {}
+        static uint64_t getMsgUtime(const F& msg) { return msg.getUtime(); }
         virtual ~MsgWithUtime() {}
     };
 
-    typedef MsgWithUtime<T, hasUtime<T>::present> MsgType;
+    template<typename F>
+    struct MsgWithUtime<F, false, true> : public F
+    {
+        MsgWithUtime(const F& msg, uint64_t utime) : F(msg) {}
+        MsgWithUtime(const MsgWithUtime& msg) : F(msg) {}
+        static uint64_t getMsgUtime(const F& msg) { return msg.getUtime(); }
+        virtual ~MsgWithUtime() {}
+    };
+
+    template<typename F>
+    struct MsgWithUtime<F, false, false> : public F
+    {
+      private:
+        uint64_t utime;
+
+      public:
+        MsgWithUtime(const F& msg, uint64_t utime) : F(msg), utime(utime) {}
+        MsgWithUtime(const MsgWithUtime& msg) : F(msg), utime(msg.utime) {}
+        uint64_t getUtime() const { return utime; }
+        static uint64_t getMsgUtime(const MsgWithUtime& msg) { return msg.utime; }
+        static uint64_t getMsgUtime(const F& msg)
+        { ZCM_ASSERT(false && "Cannot use this function on types with no utime"); }
+        virtual ~MsgWithUtime() {}
+    };
+
+    typedef MsgWithUtime<T, hasUtime<T>::present, hasUtimeFn<T>::present> MsgType;
 
     // *****************************************************************************
 
@@ -129,7 +181,7 @@ class Tracker
         while (!done) {
             callbackCv.wait(lk, [&](){ return callbackMsg || done; });
             if (done) return;
-            onMsg(callbackMsg, callbackMsg->utime, usr);
+            onMsg(callbackMsg, callbackMsg->getUtime(), usr);
             // Intentionally not deleting callbackMsg as it is the
             // responsibility of the callback to delete the memory
             callbackMsg = nullptr;
@@ -169,7 +221,7 @@ class Tracker
     {
         uint64_t tmp = getMsgUtime((const T*)msg);
         if (tmp != UINT64_MAX) return tmp;
-        return msg->utime;
+        return msg->getUtime();
     }
 
     Tracker(double maxTimeErr = 0.25, size_t maxMsgs = 1,
@@ -182,8 +234,10 @@ class Tracker
         T tmp;
         std::string name = demangle(getType(tmp));
 
-        if (hasUtime<T>::present == true) {
-            ZCM_DEBUG("Message trackers using 'utime' field of zcmtype ", name);
+        if (hasUtimeFn<T>::present == true) {
+            ZCM_DEBUG("Message trackers using 'getUtime()' function of type ", name);
+        } else if (hasUtime<T>::present == true) {
+            ZCM_DEBUG("Message trackers using 'utime' field of type ", name);
         } else {
             ZCM_DEBUG("Message trackers using local system receive utime for ",
                       "tracking zcmtype ", name);
@@ -259,7 +313,9 @@ class Tracker
             //       the function
             auto* m = *iter;
             uint64_t mUtime = getMsgUtime(m);
-            if (mUtime == UINT64_MAX) mUtime = m->utime;
+            // RRR: feels weird that this is using the base type instead of the augmented utime type
+            //      what was the reasoning behind this
+            if (mUtime == UINT64_MAX) mUtime = MsgType::getMsgUtime(*m);
 
             if (mUtime <= utime && (_m0 == nullptr || mUtime > m0Utime)) {
                 _m0 = m;
