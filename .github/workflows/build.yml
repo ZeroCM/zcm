@@ -1,0 +1,57 @@
+name: Build
+on:
+  # Trigger the workflow on push or pull request,
+  # but only for the master branch
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-16.04
+    defaults:
+      run:
+        shell: bash -l {0}
+    steps:
+      - uses: actions/checkout@v2
+      - name: env
+        run: |
+            echo "::add-path::$(pwd)/deps/julia/bin"
+      - name: prefix
+        run: |
+            mkdir -p ../tmp/x64
+            mkdir -p ../tmp/asan
+      - name: deps
+        run: ./scripts/install-deps.sh -i -s
+      - name: build
+        run: |
+            ./waf distclean configure build
+      - name: build all
+        run: |
+            ./waf distclean
+            ./waf configure --use-all --use-third-party --use-dev --prefix=../tmp/x64
+            ./waf build
+            ./waf install
+      - name: build examples
+        run: |
+            source ./examples/env $(realpath ../tmp/x64)
+            ./waf build_examples
+            ./waf build_tests
+            ./build/tests/test/runner
+      - name: build asan
+        run: |
+            ./waf distclean
+            ./waf configure --use-all --use-third-party --use-dev --prefix=../tmp/asan
+            ./waf build_asan
+            ./waf install_asan
+      - name: build asan examples
+        run: |
+            source ./examples/env $(realpath ../tmp/asan)
+            ./waf build_examples_asan
+            ./waf build_tests_asan
+            ./build/tests_asan/test/runner
