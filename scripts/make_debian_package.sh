@@ -1,5 +1,8 @@
 #!/bin/bash
 
+set -euo pipefail
+IFS=$'\n\t'
+
 ## SETUP
 
 # In this directory we assemble the deb package. Later we call dpkg-deb on it to pack the package.
@@ -7,7 +10,9 @@ DEB_PACKAGE_ASSEMBLY_DIR=./build/deb_package_root
 mkdir -p $DEB_PACKAGE_ASSEMBLY_DIR/usr/
 
 # Required to find java
-export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64/
+if [ -z ${JAVA_HOME+x} ]; then
+    export JAVA_HOME=$(readlink -f /usr/bin/javac | sed "s:/bin/javac::")
+fi
 
 # Change to the directory containing the source code
 THISDIR=$(dirname "$(readlink -f "$0")")
@@ -17,9 +22,11 @@ cd $BASEDIR
 
 ## BUILD
 
+./waf configure distclean
+
 # Build with python2 support and install to temporary $DEB_PACKAGE_ASSEMBLY_DIR/usr directory
 export PYTHON=/usr/bin/python2
-./waf configure --use-all --use-third-party --use-clang -d -s --prefix=$DEB_PACKAGE_ASSEMBLY_DIR/usr/
+./waf configure --use-all --use-third-party --prefix=$DEB_PACKAGE_ASSEMBLY_DIR/usr/
 ./waf build
 ./waf install
 
@@ -29,7 +36,7 @@ export PYTHON=/usr/bin/python2
 #         I found no other way to make waf build for python2 AND python3
 # Note 2: we use --targets=pyzcm to hopefully not build everything again
 export PYTHON=/usr/bin/python3
-./waf configure --use-all --use-third-party --use-clang -d -s --prefix=$DEB_PACKAGE_ASSEMBLY_DIR/usr/
+./waf configure --use-all --use-third-party --prefix=$DEB_PACKAGE_ASSEMBLY_DIR/usr/
 ./waf build --targets=pyzcm
 ./waf install
 
@@ -48,7 +55,7 @@ cd $DEB_PACKAGE_ASSEMBLY_DIR
 #       find to print an error such as:
 #       "find: ‘./usr/lib/python3.6/site-packages’: No such file or directory".
 # It works anyways ...
-find -type d -wholename '*python*/site-packages' -execdir mv ./site-packages ./dist-packages \;
+find -type d -wholename '*python*/site-packages' -execdir mv ./site-packages ./dist-packages \; || true
 
 # There are a number of files in which the install prefix appears such as the java
 # launchers in usr/bin and the package-config files.

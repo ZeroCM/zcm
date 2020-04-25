@@ -21,8 +21,11 @@ jobs:
       - name: deps
         run: ./scripts/install-deps.sh -i -s
       - name: Build Deb
+        id: builddeb
         run: |
           ./scripts/make_debian_package.sh
+          echo "::set-output name=pkgpath::$(find build -name '*.deb')"
+          echo "::set-output name=pkgname::$(basename $(find build -name '*.deb'))"
       - name: Read CHANGELOG
         id: changelog
         run: |
@@ -45,6 +48,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./build/deb_package_root.deb
-          asset_name: zcm.deb
+          asset_path: ${{ steps.builddeb.outputs.pkgpath }}
+          asset_name: ${{ steps.builddeb.outputs.pkgname }}
           asset_content_type: application/octet-stream
