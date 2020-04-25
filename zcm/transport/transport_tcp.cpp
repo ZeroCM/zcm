@@ -436,7 +436,7 @@ public:
     {
         ZCM_DEBUG("Making socket!");
         auto *trans = new ZCM_TRANS_CLASSNAME(newsock);
-        return zcm_create_trans(trans);
+        return zcm_create_from_trans(trans);
     }
 
 private:
