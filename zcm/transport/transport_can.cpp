@@ -138,9 +138,39 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         return ret;
     }
 
+    static size_t sendFrame(const uint8_t* data, size_t nData, void* usr)
+    {
+        ZCM_TRANS_CLASSNAME* me = cast((zcm_trans_t*) usr);
+
+        struct can_frame frame;
+        frame.can_id = me->msgId | CAN_EFF_FLAG;
+
+        size_t ret = 0;
+        while (ret < nData && ret < 8) {
+            frame.data[ret] = data[ret];
+            ret++;
+        }
+        frame.can_dlc = ret;
+
+        if (write(me->soc, &frame, sizeof(struct can_frame)) != sizeof(struct can_frame)) {
+            fprintf(stderr, "Failed to write data\n");
+            return -1;
+        }
+
+        return ret;
+    }
+
     static size_t put(const uint8_t* data, size_t nData, void* usr)
     {
-        return 0;
+        size_t ret = 0;
+
+        while (ret < nData) {
+            size_t left = nData - ret;
+            size_t written = sendFrame(&data[ret], left, usr);
+            if (written <= 0) return ret;
+            ret += written;
+        }
+        return ret;
     }
 
     static uint64_t timestamp_now(void* usr)
@@ -156,7 +186,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     {
         int ret = zcm_trans_sendmsg(this->gst, msg);
         if (ret != ZCM_EOK) return ret;
-        return ZCM_EOK;
+        return serial_update_tx(this->gst);
     }
 
     int recvmsgEnable(const char* channel, bool enable)
@@ -236,5 +266,7 @@ static zcm_trans_t *create(zcm_url_t* url)
     return nullptr;
 }
 
+#ifdef USING_TRANS_SERIAL
 const TransportRegister ZCM_TRANS_CLASSNAME::reg(
     "can", "Trans description (especially url components)", create);
+#endif

@@ -69,6 +69,7 @@ def add_zcm_configure_options(ctx):
     add_trans_option('ipc',    'Enable the IPC transport (Requires ZeroMQ)')
     add_trans_option('udpm',   'Enable the UDP Multicast transport (LCM-compatible)')
     add_trans_option('serial', 'Enable the Serial transport')
+    add_trans_option('can',    'Enable the Canbus transport')
 
 def add_zcm_build_options(ctx):
     gr = ctx.add_option_group('ZCM Build Options')
@@ -143,6 +144,7 @@ def process_zcm_configure_options(ctx):
     env.USING_TRANS_INPROC = hasopt('use_inproc')
     env.USING_TRANS_UDPM   = hasopt('use_udpm')
     env.USING_TRANS_SERIAL = hasopt('use_serial')
+    env.USING_TRANS_CAN    = hasopt('use_can')
 
     env.HASH_TYPENAME      = getattr(opt, 'hash_typename')
     env.HASH_MEMBER_NAMES  = getattr(opt, 'hash_member_names')
