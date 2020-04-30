@@ -415,8 +415,8 @@ def build(ctx):
         ctx.recurse('config')
         ctx.recurse('gen')
         ctx.recurse('tools')
-   	ctx.recurse('DEBIAN')
-	ctx.install_as('${PREFIX}/share/doc/zcm/copyright', 'LICENSE')
+        ctx.recurse('DEBIAN')
+        ctx.install_as('${PREFIX}/share/doc/zcm/copyright', 'LICENSE')
         generate_signature(ctx)
 
 
