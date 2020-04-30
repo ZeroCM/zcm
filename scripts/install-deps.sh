@@ -54,7 +54,7 @@ PKGS+='libzmq3-dev '
 PKGS+='default-jdk default-jre '
 
 ## Python
-PKGS+='python python-pip '
+PKGS+='python3 python3-pip '
 PIP_PKGS+='Cython '
 
 ## LibElf
@@ -89,14 +89,7 @@ else
     sudo apt-get install -yq $PKGS
 fi
 
-sudo pip install --upgrade pip
-ret=$?
-if [[ $ret -ne 0 && "$STRICT" == "true" ]]; then
-    echo "Failed to upgrade pip"
-    exit $ret
-fi
-
-sudo pip install $PIP_PKGS
+pip3 install --user $PIP_PKGS
 ret=$?
 if [[ $ret -ne 0 && "$STRICT" == "true" ]]; then
     echo "Failed to install pip packages"
