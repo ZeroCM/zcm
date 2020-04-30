@@ -8,7 +8,7 @@ def configure(ctx):
 
 @conf
 def assert_clang_version(ctx, minVer):
-    reg = re.compile(r'.*clang version ([0-9].[0-9]).*',re.M)
+    reg = re.compile(r'.*clang version ([0-9]*.[0-9]*).*',re.M)
     out = ctx.cmd_and_log(ctx.env['CLANG']+['--version'])
     ver_s = reg.findall(out)[0].split('.')
     ver_i = tuple([int(s) for s in ver_s[0:2]])
