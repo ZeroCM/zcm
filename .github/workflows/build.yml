@@ -17,6 +17,8 @@ jobs:
     defaults:
       run:
         shell: bash -l {0}
+    env:
+        PYTHON: /usr/bin/python3
     steps:
       - uses: actions/checkout@v2
       - name: env
