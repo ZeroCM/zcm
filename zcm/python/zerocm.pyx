@@ -170,7 +170,7 @@ cdef class LogEvent:
         self.timestamp = time
     def getTimestamp(self):
         return self.timestamp
-    def setChannel(self, basestring chan):
+    def setChannel(self, str chan):
         self.channel = chan.encode('utf-8')
     def getChannel(self):
         return self.channel.decode('utf-8')
