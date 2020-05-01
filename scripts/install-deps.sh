@@ -140,14 +140,19 @@ if $USE_JULIA; then
         tmpdir=$(mktemp -d)
         pushd $tmpdir > /dev/null
 
+        ARCH=$(uname -m | sed -e s/i.86/i686/ -e s/x86_64/x86_64/ -e s/aarch64/aarch64/)
+        FOLDER=$(echo "$ARCH" | sed -e s/x86_64/x64/ -e s/i686/x86/ -e s/aarch64/aarch64/
+
+        echo "Installing julia for $ARCH"
+
         if $JULIA_0_6_MODE; then
-            wget https://julialang-s3.julialang.org/bin/linux/x64/0.6/julia-0.6.4-linux-x86_64.tar.gz
-            tar -xaf julia-0.6.4-linux-x86_64.tar.gz
+            wget https://julialang-s3.julialang.org/bin/linux/$FOLDER/0.6/julia-0.6.4-linux-$ARCH.tar.gz
+            tar -xaf julia-0.6.4-linux-$ARCH.tar.gz
             rm -rf $ROOTDIR/deps/julia
             mv julia-9d11f62bcb $ROOTDIR/deps/julia
         else
-            wget https://julialang-s3.julialang.org/bin/linux/x64/1.3/julia-1.3.1-linux-x86_64.tar.gz
-            tar -xaf julia-1.3.1-linux-x86_64.tar.gz
+            wget https://julialang-s3.julialang.org/bin/linux/$FOLDER/1.3/julia-1.3.1-linux-$ARCH.tar.gz
+            tar -xaf julia-1.3.1-linux-$ARCH.tar.gz
             rm -rf $ROOTDIR/deps/julia
             mv julia-1.3.1 $ROOTDIR/deps/julia
         fi
