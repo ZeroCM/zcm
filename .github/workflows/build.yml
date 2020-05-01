@@ -17,11 +17,14 @@ jobs:
     defaults:
       run:
         shell: bash -l {0}
+    env:
+        PYTHON: /usr/bin/python3
     steps:
       - uses: actions/checkout@v2
       - name: env
         run: |
             echo "::add-path::$(pwd)/deps/julia/bin"
+            echo "::add-path::/home/runner/.local/bin"
       - name: prefix
         run: |
             mkdir -p ../tmp/x64
