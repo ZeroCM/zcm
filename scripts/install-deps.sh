@@ -141,7 +141,7 @@ if $USE_JULIA; then
         pushd $tmpdir > /dev/null
 
         ARCH=$(uname -m | sed -e s/i.86/i686/ -e s/x86_64/x86_64/ -e s/aarch64/aarch64/)
-        FOLDER=$(echo "$ARCH" | sed -e s/x86_64/x64/ -e s/i686/x86/ -e s/aarch64/aarch64/
+        FOLDER=$(echo "$ARCH" | sed -e s/x86_64/x64/ -e s/i686/x86/ -e s/aarch64/aarch64/)
 
         echo "Installing julia for $ARCH"
 
