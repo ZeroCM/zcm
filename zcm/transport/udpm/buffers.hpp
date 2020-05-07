@@ -94,6 +94,11 @@ struct Buffer
 
 struct Message
 {
+    // RRR: not sure it matters, like at all (because this is udpm) but initializing
+    //      in the decl like this I believe is what made the zcm-cpp.hpp stuff not
+    //      compile for TIVA because it's a newer syntax. Moving these initializations
+    //      into the constructor would be more supported (definitely like explicit
+    //      initializer lists over the memset though I'd say).
     i64               utime = 0;          // timestamp of first datagram receipt
 
     const char       *channel = nullptr;  // points into 'buf'
