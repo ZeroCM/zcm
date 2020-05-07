@@ -9,6 +9,8 @@ COPY scripts/ $ZCM_HOME/scripts
 
 RUN bash -c '$ZCM_HOME/scripts/install-deps.sh -i -s'
 
+COPY LICENSE $ZCM_HOME/LICENSE
+COPY DEBIAN/ $ZCM_HOME/DEBIAN
 COPY config/ $ZCM_HOME/config
 COPY docs/ $ZCM_HOME/docs
 COPY examples/ $ZCM_HOME/examples
@@ -22,6 +24,8 @@ COPY wscript $ZCM_HOME/wscript
 COPY zcm/ $ZCM_HOME/zcm
 
 RUN bash -c 'export JAVA_HOME=$(readlink -f /usr/bin/javac | sed "s:/bin/javac::") && \
+             export PYTHON=/usr/bin/python3 && \
+             export PATH=$PATH:~/.local/bin && \
              export NVM_DIR=$HOME/.nvm && \
              [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" && \
              export PATH=$PATH:$ZCM_HOME/deps/julia/bin && \
