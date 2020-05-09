@@ -130,7 +130,7 @@ def outFileNames(ctx, bldpath, inFile, **kw):
     juliagenpkgs = kw.get('juliagenpkgs', False)
 
     lang = kw.get('lang', [])
-    if isinstance(lang, basestring):
+    if isinstance(lang, str):
         lang = lang.split(' ')
 
     if (not lang) and (not juliagenpkgs):
@@ -206,7 +206,7 @@ def zcmgen(ctx, **kw):
     juliagenpkgs  = kw.get('juliagenpkgs', False)
 
     lang = kw.get('lang', [])
-    if isinstance(lang, basestring):
+    if isinstance(lang, str):
         lang = lang.split(' ')
 
     if ((not lang) and (not juliagenpkgs)):

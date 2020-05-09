@@ -94,32 +94,32 @@ struct Buffer
 
 struct Message
 {
-    i64               utime;       // timestamp of first datagram receipt
+    i64               utime = 0;          // timestamp of first datagram receipt
 
-    const char       *channel;     // points into 'buf'
-    size_t            channellen;  // length of channel
+    const char       *channel = nullptr;  // points into 'buf'
+    size_t            channellen = 0;     // length of channel
 
-    char             *data;        // points into 'buf'
-    size_t            datalen;     // length of data
+    char             *data = nullptr;     // points into 'buf'
+    size_t            datalen = 0;        // length of data
 
     // Backing store buffer that contains the actual data
-    Buffer buf;
+    Buffer buf = {};
 
-    Message() { memset(this, 0, sizeof(*this)); }
+    Message() { }
 };
 
 struct Packet
 {
-    i64             utime;      // timestamp of first datagram receipt
-    size_t          sz;         // size received
+    i64             utime = 0;      // timestamp of first datagram receipt
+    size_t          sz = 0;         // size received
 
-    struct sockaddr from;       // sender
-    socklen_t       fromlen;
+    struct sockaddr from = {};      // sender
+    socklen_t       fromlen = {};
 
     // Backing store buffer that contains the actual data
-    Buffer          buf;
+    Buffer          buf = {};
 
-    Packet() { memset(this, 0, sizeof(*this)); }
+    Packet() {}
     MsgHeaderShort *asHeaderShort() { return (MsgHeaderShort*)buf.data; }
     MsgHeaderLong  *asHeaderLong()  { return (MsgHeaderLong* )buf.data; }
 };
