@@ -85,6 +85,10 @@ class ZCM
                                    void* usr);
 
     #if __cplusplus > 199711L
+    inline Subscription* subscribe(const std::string& channel,
+                                   std::function<void (const ReceiveBuffer* rbuf,
+                                                       const std::string& channel)> cb);
+
     template <class Msg>
     inline Subscription* subscribe(const std::string& channel,
                                    std::function<void (const ReceiveBuffer* rbuf,

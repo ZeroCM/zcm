@@ -284,6 +284,30 @@ static inline void TypedFunctionalSubscriptionDispatch(const ReceiveBuffer* rbuf
 {
     ((TypedFunctionalSubscription<Msg>*)usr)->typedDispatch(rbuf, channel);
 }
+
+// Virtual inheritance to avoid ambiguous base class problem http://stackoverflow.com/a/139329
+class FunctionalSubscription : public virtual Subscription
+{
+    friend class ZCM;
+
+  protected:
+    std::function<void (const ReceiveBuffer* rbuf,
+                        const std::string& channel)> cb;
+
+  public:
+    virtual ~FunctionalSubscription() {}
+
+    inline void dispatch(const ReceiveBuffer* rbuf, const std::string& channel)
+    {
+        cb(rbuf, channel);
+    }
+};
+
+static inline void FunctionalSubscriptionDispatch(const ReceiveBuffer* rbuf,
+                                                  const char* channel, void* usr)
+{
+    ((FunctionalSubscription*)usr)->dispatch(rbuf, channel);
+}
 #endif
 
 // Virtual inheritance to avoid ambiguous base class problem http://stackoverflow.com/a/139329
@@ -447,6 +471,31 @@ inline Subscription* ZCM::subscribe(const std::string& channel,
     sub->usr = nullptr;
     sub->cb = cb;
     subscribeRaw(sub->rawSub, channel, &TypedFunctionalSubscriptionDispatch<Msg>, sub);
+
+    subscriptions.push_back(sub);
+    return sub;
+}
+
+inline Subscription* ZCM::subscribe(const std::string& channel,
+                                    std::function<void (const ReceiveBuffer* rbuf,
+                                                        const std::string& channel)> cb)
+{
+    if (!zcm) {
+        #ifndef ZCM_EMBEDDED
+        fprintf(stderr, "ZCM instance not initialized. Ignoring call to subscribe()\n");
+        #endif
+        _err = ZCM_EINVALID;
+        return nullptr;
+    }
+
+    FunctionalSubscription* sub = new FunctionalSubscription();
+    if (!sub) {
+        _err = ZCM_EMEMORY;
+        return nullptr;
+    }
+    sub->usr = nullptr;
+    sub->cb = cb;
+    subscribeRaw(sub->rawSub, channel, &FunctionalSubscriptionDispatch, sub);
 
     subscriptions.push_back(sub);
     return sub;
