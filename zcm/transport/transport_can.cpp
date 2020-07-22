@@ -34,6 +34,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     string address;
 
     int soc = -1;
+    bool socSettingsGood = false;
     struct sockaddr_can addr;
 	struct ifreq ifr;
 
@@ -103,6 +104,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
                                               &ZCM_TRANS_CLASSNAME::timestamp_now,
                                               nullptr,
                                               MTU, MTU * 10);
+        socSettingsGood = true;
     }
 
     ~ZCM_TRANS_CLASSNAME()
@@ -116,7 +118,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
     bool good()
     {
-        return soc != -1;
+        return soc != -1 && socSettingsGood;
     }
 
     static size_t get(uint8_t* data, size_t nData, void* usr)
