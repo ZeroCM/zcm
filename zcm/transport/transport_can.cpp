@@ -270,5 +270,6 @@ static zcm_trans_t *create(zcm_url_t* url)
 
 #ifdef USING_TRANS_SERIAL
 const TransportRegister ZCM_TRANS_CLASSNAME::reg(
-    "can", "Trans description (especially url components)", create);
+    "can", "Transfer data via a socket CAN connection on a single id "
+           "(e.g. 'can://can0?msgid=65536')", create);
 #endif
