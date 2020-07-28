@@ -170,6 +170,8 @@ incoming messages (zcm\_run doesn't normally return):
 
     zcm_run(zcm);
 
+Alternatively you can call `zcm_start(zcm);` to spawn a new thread that calls `zcm_run(zcm);`
+
 And that's it! Here's the full program (subscribe.c):
 
     #include <stdio.h>
@@ -189,6 +191,13 @@ And that's it! Here's the full program (subscribe.c):
         msg_t_subscribe(zcm, "HELLO_WORLD", callback_handler, NULL);
 
         zcm_run(zcm);
+
+        // Can also call zcm_start(zcm); to spawn a new thread that calls zcm_run(zcm);
+        //
+        // zcm_start(zcm)
+        // while(!done) { do stuff; sleep; }
+        // zcm_stop(zcm);
+        //
 
         zcm_destroy(zcm);
         return 0;
