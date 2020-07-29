@@ -313,8 +313,6 @@ class Tracker
             //       the function
             auto* m = *iter;
             uint64_t mUtime = getMsgUtime(m);
-            // RRR: feels weird that this is using the base type instead of the augmented utime type
-            //      what was the reasoning behind this
             if (mUtime == UINT64_MAX) mUtime = MsgType::getMsgUtime(*m);
 
             if (mUtime <= utime && (_m0 == nullptr || mUtime > m0Utime)) {
