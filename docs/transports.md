@@ -46,6 +46,11 @@ be used to *summon* the transport:
     <td><code>  serial://&lt;path-to-device&gt;?baud=&lt;baud&gt;       </code></td>
     <td><code>  zcm_create("serial:///dev/ttyUSB0?baud=115200")         </code></td>
   </tr>
+  <tr>
+    <td>        CAN                                                     </td>
+    <td><code>  can://&lt;interface&gt;?msgid=&lt;id&gt;             </code></td>
+    <td><code>  zcm_create("can://can0?msgid=65536")                 </code></td>
+  </tr>
 </table>
 
 When no url is provided (i.e. `zcm_create(NULL)`), the `ZCM_DEFAULT_URL` environment variable is
