@@ -1,6 +1,7 @@
 #include "zcm/transport.h"
 #include "zcm/transport_registrar.h"
 #include "zcm/transport_register.hpp"
+#include "zcm/util/debug.h"
 
 #include "generic_serial_transport.h"
 
@@ -13,6 +14,7 @@
 #include <cstdio>
 #include <cassert>
 #include <unordered_map>
+#include <algorithm>
 
 #include <net/if.h>
 #include <sys/ioctl.h>
@@ -30,7 +32,7 @@ using namespace std;
 struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 {
     unordered_map<string, string> options;
-    int msgId;
+    uint msgId;
     string address;
 
     int soc = -1;
@@ -38,7 +40,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     struct sockaddr_can addr;
 	struct ifreq ifr;
 
-    zcm_trans_t* gst;
+    zcm_trans_t* gst = nullptr;
 
     string* findOption(const string& s)
     {
@@ -60,11 +62,13 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         msgId = 0;
         auto* msgIdStr = findOption("msgid");
         if (!msgIdStr) {
-            fprintf(stderr, "Msg Id unspecified\n");
+            ZCM_DEBUG("Msg Id unspecified");
             return;
         } else {
-            msgId = atoi(msgIdStr->c_str());
-            if (msgId < 0) {
+            char *endptr;
+            msgId = strtoul(msgIdStr->c_str(), &endptr, 10);
+            if (*endptr != '\0') {
+                ZCM_DEBUG("Msg Id unspecified");
                 return;
             }
         }
@@ -72,7 +76,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         address = zcm_url_address(url);
 
         if ((soc = socket(PF_CAN, SOCK_RAW, CAN_RAW)) < 0) {
-            fprintf(stderr, "Unable to make socket\n");
+            ZCM_DEBUG("Unable to make socket");
 		    return;
 	    }
 
@@ -84,7 +88,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         addr.can_ifindex = ifr.ifr_ifindex;
 
         if (bind(soc, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
-            fprintf(stderr, "Failed to bind\n");
+            ZCM_DEBUG("Failed to bind");
             return;
         }
 
@@ -94,7 +98,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         rfilter[0].can_mask = (CAN_EFF_FLAG | CAN_RTR_FLAG | CAN_EFF_MASK);
 
         if (setsockopt(soc, SOL_CAN_RAW, CAN_RAW_FILTER, &rfilter, sizeof(rfilter)) < 0) {
-            fprintf(stderr, "Failed to set filter\n");
+            ZCM_DEBUG("Failed to set filter");
             return;
         }
 
@@ -111,7 +115,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     {
         if (gst) zcm_trans_generic_serial_destroy(gst);
         if (soc != -1 && close(soc) < 0) {
-            fprintf(stderr, "Failed to close\n");
+            ZCM_DEBUG("Failed to close");
 	    }
         soc = -1;
     }
@@ -132,11 +136,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             return 0;
         }
 
-        size_t ret = 0;
-        while (ret < nData && ret < frame.can_dlc) {
-            data[ret] = frame.data[ret];
-            ret++;
-        }
+        size_t ret = min(nData, (size_t) frame.can_dlc);
+        memcpy(data, frame.data, ret);
         return ret;
     }
 
@@ -147,15 +148,12 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         struct can_frame frame;
         frame.can_id = me->msgId | CAN_EFF_FLAG;
 
-        size_t ret = 0;
-        while (ret < nData && ret < 8) {
-            frame.data[ret] = data[ret];
-            ret++;
-        }
+        size_t ret = min(nData, (size_t) 8);
         frame.can_dlc = ret;
+        memcpy(frame.data, data, ret);
 
         if (write(me->soc, &frame, sizeof(struct can_frame)) != sizeof(struct can_frame)) {
-            fprintf(stderr, "Failed to write data\n");
+            ZCM_DEBUG("Failed to write data");
             return -1;
         }
 
@@ -203,7 +201,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             (timeoutMs % 1000) * 1000    /* micros */
         };
         if (setsockopt (soc, SOL_SOCKET, SO_RCVTIMEO, (char *)&tm, sizeof(tm)) < 0) {
-            fprintf(stderr, "Failed to settimeout\n");
+            ZCM_DEBUG("Failed to settimeout");
             return ZCM_EUNKNOWN;
         }
 
