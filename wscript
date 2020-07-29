@@ -189,6 +189,7 @@ def process_zcm_configure_options(ctx):
     print_entry("inproc", env.USING_TRANS_INPROC)
     print_entry("udpm",   env.USING_TRANS_UDPM)
     print_entry("serial", env.USING_TRANS_SERIAL)
+    print_entry("can",    env.USING_TRANS_CAN)
 
     Logs.pprint('BLUE', '\nType Configuration:')
     print_entry("hash-typename", env.HASH_TYPENAME == 'true')
