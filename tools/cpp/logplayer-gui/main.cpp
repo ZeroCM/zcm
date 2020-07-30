@@ -16,12 +16,6 @@ using namespace std;
 
 static atomic_int done {0};
 
-static void sighandler(int signal)
-{
-    done++;
-    if (done == 3) exit(1);
-}
-
 struct Args
 {
     string filename = "";
@@ -88,6 +82,7 @@ struct LogPlayer
     zcm::LogFile *zcmIn  = nullptr;
     zcm::ZCM     *zcmOut = nullptr;
 
+    GtkApplication *app;
     GtkWidget *window;
     GtkWidget *btnPlay;
     GtkWidget *btnStep;
@@ -102,6 +97,7 @@ struct LogPlayer
     GtkWidget *btnToggle;
 
     uint64_t totalTimeUs;
+    uint64_t firstMsgUtime;
 
     mutex zcmLk;
     condition_variable cv;
@@ -109,7 +105,10 @@ struct LogPlayer
     double speedTarget = 1.0;
     gchar speedStr[100];
     bool ignoreMicroScrubEvts = false;
-    uint64_t currTimeUs;
+    bool ignoreMacroScrubEvts = false;
+    uint64_t currTimeUs = 0;
+    uint64_t requestTimeUs = numeric_limits<uint64_t>::max();
+    unordered_map<string, pair<string, bool>> channelMap;
 
     LogPlayer() { }
 
@@ -118,6 +117,8 @@ struct LogPlayer
         if (zcmIn)  { delete zcmIn;  }
         if (zcmOut) { delete zcmOut; }
     }
+
+    void wakeup() { cv.notify_all(); }
 
     bool initializeZcm()
     {
@@ -136,10 +137,12 @@ struct LogPlayer
         }
 
         const zcm::LogEvent* leStart = zcmIn->readNextEvent();
-        uint64_t firstMsgUtime = (uint64_t)leStart->timestamp;
+        firstMsgUtime = (uint64_t)leStart->timestamp;
 
-        zcmIn->seekToTimestamp(numeric_limits<uint64_t>::max());
+        zcmIn->seekToTimestamp(numeric_limits<int64_t>::max());
+
         const zcm::LogEvent* leEnd = zcmIn->readPrevEvent();
+        if (!leEnd) leEnd = zcmIn->readPrevEvent(); // In case log was cut off at end
         assert(leEnd);
 
         uint64_t lastMsgUtime = (uint64_t)leEnd->timestamp;
@@ -170,6 +173,21 @@ struct LogPlayer
         gtk_widget_set_sensitive(sclMicroScrub, enable);
         gtk_widget_set_sensitive(tblData, enable);
         gtk_widget_set_sensitive(btnToggle, enable);
+    }
+
+    static gboolean zcmUpdateGui(LogPlayer *me)
+    {
+        if (!me->window) return FALSE;
+
+        float perc;
+        {
+            unique_lock<mutex> lk(me->zcmLk);
+            perc = (float) (me->currTimeUs - me->firstMsgUtime) / (float) me->totalTimeUs;
+        }
+        me->ignoreMacroScrubEvts = true;
+        gtk_range_set_value(GTK_RANGE(me->sclMacroScrub), perc);
+
+        return FALSE;
     }
 
     static void add_sample_data(GtkListStore *store)
@@ -252,8 +270,15 @@ struct LogPlayer
 
     static void macroScrub(GtkRange *range, LogPlayer *me)
     {
+        if (me->ignoreMacroScrubEvts) {
+            me->ignoreMacroScrubEvts = false;
+            return;
+        }
         gdouble pos = gtk_range_get_value(range);
-        g_print("Macro scrub: %f\n", pos);
+        {
+            unique_lock<mutex> lk(me->zcmLk);
+            me->requestTimeUs = me->firstMsgUtime + pos * me->totalTimeUs;
+        }
     }
 
     static void microScrub(GtkRange *range, LogPlayer *me)
@@ -262,8 +287,7 @@ struct LogPlayer
             me->ignoreMicroScrubEvts = false;
             return;
         }
-        gdouble pos = gtk_range_get_value(range);
-        g_print("Micro scrub: %f\n", pos);
+        //gdouble pos = gtk_range_get_value(range);
         me->ignoreMicroScrubEvts = true;
         gtk_range_set_value(range, 0);
     }
@@ -308,7 +332,7 @@ struct LogPlayer
             unique_lock<mutex> lk(me->zcmLk);
             me->isPlaying = !me->isPlaying;
             isPlaying = me->isPlaying;
-            me->cv.notify_all();
+            me->wakeup();
         }
         if (isPlaying) {
             gtk_button_set_label(GTK_BUTTON(widget), "Pause");
@@ -324,12 +348,14 @@ struct LogPlayer
 
     static void slow(GtkWidget *widget, LogPlayer *me)
     {
+        unique_lock<mutex> lk(me->zcmLk);
         me->speedTarget /= 2;
         me->updateSpeed();
     }
 
     static void fast(GtkWidget *widget, LogPlayer *me)
     {
+        unique_lock<mutex> lk(me->zcmLk);
         me->speedTarget *= 2;
         me->updateSpeed();
     }
@@ -419,24 +445,32 @@ struct LogPlayer
         me->tblData = gtk_tree_view_new();
         gtk_tree_view_set_headers_visible(GTK_TREE_VIEW(me->tblData), TRUE);
 
-        GtkListStore *store = gtk_list_store_new(NUM_COLUMNS, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_BOOLEAN);
+        GtkListStore *store = gtk_list_store_new(NUM_COLUMNS,
+                                                 G_TYPE_STRING, G_TYPE_STRING, G_TYPE_BOOLEAN);
         gtk_tree_view_set_model(GTK_TREE_VIEW(me->tblData), GTK_TREE_MODEL(store));
         g_object_unref(store);
 
         GtkCellRenderer *logChanRenderer = gtk_cell_renderer_text_new();
-        GtkTreeViewColumn *colLogChan = gtk_tree_view_column_new_with_attributes("Log Channel", logChanRenderer, "text", LOG_CHAN_COLUMN, NULL);
+        GtkTreeViewColumn *colLogChan =
+            gtk_tree_view_column_new_with_attributes("Log Channel", logChanRenderer,
+                                                     "text", LOG_CHAN_COLUMN, NULL);
         gtk_tree_view_column_set_resizable(colLogChan, TRUE);
         gtk_tree_view_append_column(GTK_TREE_VIEW(me->tblData), colLogChan);
 
         GtkCellRenderer *playbackChanRenderer = gtk_cell_renderer_text_new();
         g_object_set(playbackChanRenderer, "editable", TRUE, NULL);
         g_signal_connect(playbackChanRenderer, "edited", G_CALLBACK(playbackChanEdit), store);
-        GtkTreeViewColumn *colPlaybackChan = gtk_tree_view_column_new_with_attributes("Playback Channel", playbackChanRenderer, "text", PLAY_CHAN_COLUMN, NULL);
+        GtkTreeViewColumn *colPlaybackChan =
+            gtk_tree_view_column_new_with_attributes("Playback Channel",
+                                                     playbackChanRenderer, "text",
+                                                     PLAY_CHAN_COLUMN, NULL);
         gtk_tree_view_column_set_resizable(colPlaybackChan, TRUE);
         gtk_tree_view_append_column(GTK_TREE_VIEW(me->tblData), colPlaybackChan);
 
         GtkCellRenderer *enableRenderer = gtk_cell_renderer_toggle_new();
-        GtkTreeViewColumn *colEnable = gtk_tree_view_column_new_with_attributes("Enable", enableRenderer, "active", ENABLED_COLUMN, NULL);
+        GtkTreeViewColumn *colEnable =
+            gtk_tree_view_column_new_with_attributes("Enable", enableRenderer,
+                                                     "active", ENABLED_COLUMN, NULL);
         gtk_tree_view_column_set_resizable(colEnable, TRUE);
         g_signal_connect(enableRenderer, "toggled", G_CALLBACK(channelEnable), store);
         gtk_tree_view_append_column(GTK_TREE_VIEW(me->tblData), colEnable);
@@ -472,29 +506,60 @@ struct LogPlayer
 
     void playThrFunc()
     {
-        const zcm::LogEvent* le = zcmIn->readNextEvent();
-        uint64_t nowUs = TimeUtil::utime();
+        zcmIn->seekToTimestamp(0);
 
-        // timestamp when first message is dispatched; will be overwritten in the loop
-        uint64_t firstDispatchUtime = nowUs;
-        uint64_t firstMsgUtime = (uint64_t)le->timestamp;
+        uint64_t lastDispatchUtime = numeric_limits<uint64_t>::max();;;
+        uint64_t lastLogUtime = numeric_limits<uint64_t>::max();;
+        float lastSpeedTarget = numeric_limits<float>::max();
 
-        do {
+        const zcm::LogEvent *le;
+
+        while (true) {
+
+            float _speedTarget;
+            bool wasPaused = false;
+            uint64_t _requestTimeUs;
 
             {
                 unique_lock<mutex> lk(zcmLk);
-                cv.wait_for(lk, chrono::milliseconds(500), [&](){ return !done && isPlaying; });
-            }
-            if (done) break;
+                cv.wait_for(lk, chrono::milliseconds(500), [&](){
+                    bool wakeup = done || isPlaying;
+                    wasPaused |= !wakeup;
+                    return wakeup;
+                });
+                if (done) break;
+                if (!isPlaying) continue;
 
-            nowUs = TimeUtil::utime();
+                _speedTarget = speedTarget;
+
+                _requestTimeUs = requestTimeUs;
+                requestTimeUs = numeric_limits<uint64_t>::max();
+            }
+
+            bool reset = _speedTarget != lastSpeedTarget || wasPaused;
+
+            if (_requestTimeUs != numeric_limits<uint64_t>::max()) {
+                zcmIn->seekToTimestamp(_requestTimeUs);
+                reset = true;
+            }
+
+            le = zcmIn->readNextEvent();
+            if (!le) break;
+
+            uint64_t nowUs = TimeUtil::utime();
+
+            if (reset) {
+                lastLogUtime = le->timestamp;
+                lastDispatchUtime = nowUs;
+                lastSpeedTarget = _speedTarget;
+            }
 
             // Total time difference from now to publishing the first message
             // is zero in first run
-            uint64_t localDiffUs = nowUs - firstDispatchUtime;
+            uint64_t localDiffUs = nowUs - lastDispatchUtime;
             // Total difference of timestamps of the current and first message
-            uint64_t logDiffUs = (uint64_t) le->timestamp - firstMsgUtime;
-            uint64_t logDiffSpeedUs = logDiffUs / speedTarget;
+            uint64_t logDiffUs = (uint64_t) le->timestamp - lastLogUtime;
+            uint64_t logDiffSpeedUs = logDiffUs / _speedTarget;
             uint64_t diffUs = logDiffSpeedUs > localDiffUs ? logDiffSpeedUs - localDiffUs : 0;
             // Ensure nanosleep wakes up before the range of uncertainty of
             // the OS scheduler would impact our sleep time. Then we busy wait
@@ -509,34 +574,45 @@ struct LogPlayer
             // Sleep until we're supposed to wake up and busy wait
             if (diffUs > 0) nanosleep(&delay, nullptr);
             // Busy wait the rest
-            while (logDiffSpeedUs > TimeUtil::utime() - firstDispatchUtime);
+            while (logDiffSpeedUs > TimeUtil::utime() - lastDispatchUtime);
 
-            auto publish = [&](){
-                if (args.verbose)
-                    printf("%.3f Channel %-20s size %d\n", le->timestamp / 1e6,
-                           le->channel.c_str(), le->datalen);
+            if (args.verbose)
+                printf("%.3f Channel %-20s size %d\n", le->timestamp / 1e6,
+                       le->channel.c_str(), le->datalen);
 
-                zcmOut->publish(le->channel, le->data, le->datalen);
-            };
+            zcmOut->publish(le->channel, le->data, le->datalen);
 
-            publish();
+            {
+                unique_lock<mutex> lk(zcmLk);
+                currTimeUs = (uint64_t) le->timestamp;
+            }
 
-        } while ((le = zcmIn->readNextEvent()) && !done);
+            g_idle_add((GSourceFunc)zcmUpdateGui, this);
+        }
+
+        {
+            unique_lock<mutex> lk(zcmLk);
+            if (app) g_application_quit(G_APPLICATION(app));
+        }
     }
 
     int run()
     {
         thread thr(&LogPlayer::playThrFunc, this);
 
-        GtkApplication *app;
         int status;
 
         app = gtk_application_new("org.zcm.logplayer", G_APPLICATION_FLAGS_NONE);
         g_signal_connect(app, "activate", G_CALLBACK(activate), this);
-        status = g_application_run(G_APPLICATION(app), 0, {});
-        g_object_unref(app);
+        status = g_application_run(G_APPLICATION(app), 0, NULL);
 
         done = 1;
+
+        {
+            unique_lock<mutex> lk(zcmLk);
+            g_object_unref(app);
+            app = NULL;
+        }
 
         thr.join();
 
@@ -544,9 +620,17 @@ struct LogPlayer
     }
 };
 
+static LogPlayer lp;
+
+static void sighandler(int signal)
+{
+    done++;
+    if (done == 3) exit(1);
+    lp.wakeup();
+}
+
 int main(int argc, char *argv[])
 {
-    LogPlayer lp;
     if (!lp.init(argc, argv)) return 1;
 
     // Register signal handlers
@@ -554,9 +638,5 @@ int main(int argc, char *argv[])
     signal(SIGQUIT, sighandler);
     signal(SIGTERM, sighandler);
 
-    int ret = lp.run();
-
-    cout << "zcm-logplayer done" << endl;
-
-    return ret;
+    return lp.run();
 }
