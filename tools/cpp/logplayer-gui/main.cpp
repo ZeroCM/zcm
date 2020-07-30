@@ -128,6 +128,24 @@ struct LogPlayer
 
     void wakeup() { cv.notify_all(); }
 
+    bool toggleChannelPublish(GtkTreeIter iter)
+    {
+        GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(tblData));
+        gchar *name;
+        gtk_tree_model_get(model, &iter, LOG_CHAN_COLUMN, &name, -1);
+
+        bool enabled;
+        {
+            unique_lock<mutex> lk(zcmLk);
+            channelMap[name].enabled = !channelMap[name].enabled;
+            enabled = channelMap[name].enabled;
+        }
+
+        gtk_list_store_set(GTK_LIST_STORE(model), &iter, ENABLED_COLUMN, enabled, -1);
+
+        return enabled;
+    }
+
     bool initializeZcm()
     {
         zcmOut = new zcm::ZCM(args.zcmUrlOut);
@@ -185,17 +203,18 @@ struct LogPlayer
 
     void addChannels(unordered_map<string, ChannelInfo> channelMap)
     {
-        GtkTreeModel *model;
-
-        model = gtk_tree_view_get_model(GTK_TREE_VIEW(tblData));
+        GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(tblData));
 
         for (const auto& c : channelMap) {
             if (c.second.addedToGui) continue;
             GtkTreeIter iter;
             gtk_list_store_append(GTK_LIST_STORE(model), &iter);
-            gtk_list_store_set(GTK_LIST_STORE(model), &iter, LOG_CHAN_COLUMN, c.first.c_str(), -1);
-            gtk_list_store_set(GTK_LIST_STORE(model), &iter, PLAY_CHAN_COLUMN, c.second.pubChannel.c_str(), -1);
-            gtk_list_store_set(GTK_LIST_STORE(model), &iter, ENABLED_COLUMN, c.second.enabled, -1);
+            gtk_list_store_set(GTK_LIST_STORE(model), &iter,
+                               LOG_CHAN_COLUMN, c.first.c_str(), -1);
+            gtk_list_store_set(GTK_LIST_STORE(model), &iter,
+                               PLAY_CHAN_COLUMN, c.second.pubChannel.c_str(), -1);
+            gtk_list_store_set(GTK_LIST_STORE(model), &iter,
+                               ENABLED_COLUMN, c.second.enabled, -1);
         }
     }
 
@@ -234,22 +253,14 @@ struct LogPlayer
 
     static void toggle(GtkWidget *widget, LogPlayer *me)
     {
-        g_print("Toggle\n");
-
         GtkTreeSelection *selection;
         GtkTreeModel     *model;
         GtkTreeIter       iter;
 
         selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(me->tblData));
 
-        if (gtk_tree_selection_get_selected(selection, &model, &iter)) {
-            gchar *name;
-            gtk_tree_model_get(model, &iter, PLAY_CHAN_COLUMN, &name, -1);
-            g_print ("selected row is: %s\n", name);
-            g_free(name);
-        } else {
-            g_print ("no row selected.\n");
-        }
+        if (gtk_tree_selection_get_selected(selection, &model, &iter))
+            me->toggleChannelPublish(iter);
     }
 
     static void playbackChanEdit(GtkCellRendererText *cell,
@@ -267,25 +278,14 @@ struct LogPlayer
         g_print("Remapped channel \"%s\" to \"%s\"\n", oldChan, newChan);
     }
 
-    static void channelEnable(GtkCellRendererToggle *cell, gchar *path, GtkListStore *model)
+    static void channelEnable(GtkCellRendererToggle *cell, gchar *path, LogPlayer *me)
     {
+        GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(me->tblData));
+
         GtkTreeIter iter;
-        gboolean active;
-        gchar *chan;
-
-        active = gtk_cell_renderer_toggle_get_active(cell);
-
         gtk_tree_model_get_iter_from_string(GTK_TREE_MODEL(model), &iter, path);
 
-        gtk_tree_model_get(GTK_TREE_MODEL(model), &iter, PLAY_CHAN_COLUMN, &chan, -1);
-
-        if (active) {
-            gtk_list_store_set(GTK_LIST_STORE(model), &iter, ENABLED_COLUMN, FALSE, -1);
-            g_print("Disabling channel: %s\n", chan);
-        } else {
-            gtk_list_store_set(GTK_LIST_STORE(model), &iter, ENABLED_COLUMN, TRUE, -1);
-            g_print("Enabling channel: %s\n", chan);
-        }
+        me->toggleChannelPublish(iter);
     }
 
     static void macroScrub(GtkRange *range, LogPlayer *me)
@@ -492,7 +492,7 @@ struct LogPlayer
             gtk_tree_view_column_new_with_attributes("Enable", enableRenderer,
                                                      "active", ENABLED_COLUMN, NULL);
         gtk_tree_view_column_set_resizable(colEnable, TRUE);
-        g_signal_connect(enableRenderer, "toggled", G_CALLBACK(channelEnable), store);
+        g_signal_connect(enableRenderer, "toggled", G_CALLBACK(channelEnable), me);
         gtk_tree_view_append_column(GTK_TREE_VIEW(me->tblData), colEnable);
 
         gtk_grid_attach(GTK_GRID(grid), me->tblData, 0, 4, 6, 1);
@@ -600,15 +600,18 @@ struct LogPlayer
                 printf("%.3f Channel %-20s size %d\n", le->timestamp / 1e6,
                        le->channel.c_str(), le->datalen);
 
-            zcmOut->publish(le->channel, le->data, le->datalen);
-
             ChannelInfo c;
-            c.pubChannel = le->channel;
-            c.enabled = false;
-            c.addedToGui = false;
 
-            if (!channelMap.count(le->channel))
+            if (!channelMap.count(le->channel)) {
+                c.pubChannel = le->channel;
+                c.enabled = true;
+                c.addedToGui = false;
                 channelMap[le->channel] = c;
+            }
+
+            c = channelMap[le->channel];
+
+            if (c.enabled) zcmOut->publish(c.pubChannel.c_str(), le->data, le->datalen);
 
             {
                 unique_lock<mutex> lk(zcmLk);
