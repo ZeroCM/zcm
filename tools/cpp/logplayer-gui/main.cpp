@@ -7,6 +7,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <chrono>
+#include <unordered_map>
 
 #include <zcm/zcm-cpp.hpp>
 
@@ -108,9 +109,16 @@ struct LogPlayer
     bool ignoreMacroScrubEvts = false;
     uint64_t currTimeUs = 0;
     uint64_t requestTimeUs = numeric_limits<uint64_t>::max();
-    unordered_map<string, pair<string, bool>> channelMap;
 
-    LogPlayer() { }
+    struct ChannelInfo
+    {
+        string pubChannel;
+        bool enabled;
+        bool addedToGui;
+    };
+    unordered_map<string, ChannelInfo> channelMap;
+
+    LogPlayer() {}
 
     ~LogPlayer()
     {
@@ -175,28 +183,40 @@ struct LogPlayer
         gtk_widget_set_sensitive(btnToggle, enable);
     }
 
+    void addChannels(unordered_map<string, ChannelInfo> channelMap)
+    {
+        GtkTreeModel *model;
+
+        model = gtk_tree_view_get_model(GTK_TREE_VIEW(tblData));
+
+        for (const auto& c : channelMap) {
+            if (c.second.addedToGui) continue;
+            GtkTreeIter iter;
+            gtk_list_store_append(GTK_LIST_STORE(model), &iter);
+            gtk_list_store_set(GTK_LIST_STORE(model), &iter, LOG_CHAN_COLUMN, c.first.c_str(), -1);
+            gtk_list_store_set(GTK_LIST_STORE(model), &iter, PLAY_CHAN_COLUMN, c.second.pubChannel.c_str(), -1);
+            gtk_list_store_set(GTK_LIST_STORE(model), &iter, ENABLED_COLUMN, c.second.enabled, -1);
+        }
+    }
+
     static gboolean zcmUpdateGui(LogPlayer *me)
     {
         if (!me->window) return FALSE;
 
+        unordered_map<string, ChannelInfo> _channelMap;
         float perc;
         {
             unique_lock<mutex> lk(me->zcmLk);
             perc = (float) (me->currTimeUs - me->firstMsgUtime) / (float) me->totalTimeUs;
+            _channelMap = me->channelMap;
+            for (auto& c : me->channelMap) c.second.addedToGui = true;
         }
         me->ignoreMacroScrubEvts = true;
         gtk_range_set_value(GTK_RANGE(me->sclMacroScrub), perc);
 
-        return FALSE;
-    }
+        me->addChannels(_channelMap);
 
-    static void add_sample_data(GtkListStore *store)
-    {
-        GtkTreeIter iter;
-        gtk_list_store_append(store, &iter);
-        gtk_list_store_set(store, &iter, LOG_CHAN_COLUMN, "TEST_LOG_CHAN", -1);
-        gtk_list_store_set(store, &iter, PLAY_CHAN_COLUMN, "TEST_PLAYBACK_CHAN", -1);
-        gtk_list_store_set(store, &iter, ENABLED_COLUMN, TRUE, -1);
+        return FALSE;
     }
 
     void updateSpeed()
@@ -496,9 +516,9 @@ struct LogPlayer
 
         me->enableUI(me->zcmIn && me->zcmIn->good());
         //*
-        add_sample_data(store);
-        add_sample_data(store);
-        add_sample_data(store);
+        // add_sample_data(store);
+        // add_sample_data(store);
+        // add_sample_data(store);
         // */
 
         gtk_widget_show_all(me->window);
@@ -581,6 +601,14 @@ struct LogPlayer
                        le->channel.c_str(), le->datalen);
 
             zcmOut->publish(le->channel, le->data, le->datalen);
+
+            ChannelInfo c;
+            c.pubChannel = le->channel;
+            c.enabled = false;
+            c.addedToGui = false;
+
+            if (!channelMap.count(le->channel))
+                channelMap[le->channel] = c;
 
             {
                 unique_lock<mutex> lk(zcmLk);
