@@ -60,6 +60,9 @@ PIP_PKGS+='Cython '
 ## LibElf
 PKGS+='libelf-dev libelf1 '
 
+## Gtk+3
+PKGS+='libgtk-3-dev '
+
 ## CxxTest
 PKGS+='cxxtest '
 

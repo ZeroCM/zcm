@@ -13,3 +13,6 @@ def build(ctx):
         ctx.recurse('transcoder');
         ctx.recurse('logger');
         ctx.recurse('bridge');
+
+    if ctx.env.USING_GTK3:
+        ctx.recurse('logplayer-gui');

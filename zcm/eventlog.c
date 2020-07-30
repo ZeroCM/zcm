@@ -97,29 +97,24 @@ int zcm_eventlog_seek_to_timestamp(zcm_eventlog_t *l, int64_t timestamp)
     double frac;                    // current position
 
     while (1) {
-        frac = 0.5*(frac1+frac2);
-        off_t offset = (off_t)(frac*file_len);
-        fseeko (l->f, offset, SEEK_SET);
-        cur_time = get_next_event_time (l);
+        frac = 0.5 * (frac1 + frac2);
+        off_t offset = (off_t)(frac * file_len);
+        fseeko(l->f, offset, SEEK_SET);
+        cur_time = get_next_event_time(l);
         if (cur_time < 0)
             return -1;
 
-        if ((frac > frac2) || (frac < frac1) || (frac1>=frac2))
+        if ((frac > frac2) || (frac < frac1) || (frac1 >= frac2))
             break;
 
         double df = frac-prev_frac;
-        if (df < 0)
-            df = -df;
-        if (df < 1e-12)
-            break;
+        if (df < 0) df = -df;
+        if (df < 1e-12) break;
 
-        if (cur_time == timestamp)
-            break;
+        if (cur_time == timestamp) break;
 
-        if (cur_time < timestamp)
-            frac1 = frac;
-        else
-            frac2 = frac;
+        if (cur_time < timestamp) frac1 = frac;
+        else frac2 = frac;
 
         prev_frac = frac;
     }
