@@ -473,6 +473,7 @@ struct LogPlayer
         g_signal_connect(me->window, "destroy", G_CALLBACK(windowDestroy), me);
         gtk_window_set_title(GTK_WINDOW(me->window), "Zcm Log Player");
         gtk_window_set_default_size(GTK_WINDOW(me->window), 450, 275);
+        gtk_window_set_position(GTK_WINDOW(me->window), GTK_WIN_POS_MOUSE);
         gtk_container_set_border_width(GTK_CONTAINER(me->window), 1);
         gtk_widget_add_events(me->window, GDK_BUTTON_PRESS_MASK);
 
@@ -590,9 +591,9 @@ struct LogPlayer
         g_signal_connect(enableRenderer, "toggled", G_CALLBACK(channelEnable), me);
         gtk_tree_view_append_column(GTK_TREE_VIEW(me->tblData), colEnable);
 
-        //GtkWidget *scrolled_window = gtk_scrolled_window_new(NULL, NULL);
-        //gtk_container_add(GTK_CONTAINER(scrolled_window), me->tblData);
-        gtk_grid_attach(GTK_GRID(grid), me->tblData, 0, 4, 6, 1);
+        GtkWidget *scrolled_window = gtk_scrolled_window_new(NULL, NULL);
+        gtk_container_add(GTK_CONTAINER(scrolled_window), me->tblData);
+        gtk_grid_attach(GTK_GRID(grid), scrolled_window, 0, 4, 6, 1);
 
         me->btnToggle = gtk_button_new_with_label("Toggle Selected");
         g_signal_connect(me->btnToggle, "clicked", G_CALLBACK(toggle), me);
@@ -612,11 +613,6 @@ struct LogPlayer
         gtk_grid_attach(GTK_GRID(grid), me->txtPrefix, 2, 5, 4, 1);
 
         me->enableUI(me->zcmIn && me->zcmIn->good());
-        //*
-        // add_sample_data(store);
-        // add_sample_data(store);
-        // add_sample_data(store);
-        // */
 
         gtk_widget_show_all(me->window);
     }
