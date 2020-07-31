@@ -103,8 +103,12 @@ struct LogPlayer
     uint64_t totalTimeUs;
     uint64_t firstMsgUtime;
 
+    mutex redrawLk;
+    condition_variable redrawCv;
+    bool redrawNow;
+
     mutex zcmLk;
-    condition_variable cv;
+    condition_variable zcmCv;
     int isPlaying = 0;
     double speedTarget = 1.0;
     double currSpeed = 0.0;
@@ -131,7 +135,11 @@ struct LogPlayer
         if (zcmOut) { delete zcmOut; }
     }
 
-    void wakeup() { cv.notify_all(); }
+    void wakeup()
+    {
+        zcmCv.notify_all();
+        redrawCv.notify_all();
+    }
 
     bool toggleChannelPublish(GtkTreeIter iter)
     {
@@ -244,6 +252,7 @@ struct LogPlayer
         double currTimeS;
         double totalTimeS;
         float perc;
+        bool isPlaying;
         {
             unique_lock<mutex> lk(me->zcmLk);
 
@@ -257,6 +266,8 @@ struct LogPlayer
             totalTimeS = me->totalTimeUs / 1e6;
 
             currSpeed = me->currSpeed;
+
+            isPlaying = me->isPlaying;
         }
         {
             unique_lock<mutex> lk(me->windowLk);
@@ -276,6 +287,12 @@ struct LogPlayer
 
             g_snprintf(buf, 50, "%.2f x", currSpeed);
             gtk_label_set_text(GTK_LABEL(me->lblCurrSpeed), buf);
+
+            if (isPlaying) {
+                gtk_button_set_label(GTK_BUTTON(me->btnPlay), "Pause");
+            } else {
+                gtk_button_set_label(GTK_BUTTON(me->btnPlay), "Play");
+            }
 
             me->addChannels(_channelMap);
         }
@@ -623,16 +640,45 @@ struct LogPlayer
         if (window) gtk_window_close(GTK_WINDOW(window));
     }
 
+    void redraw()
+    {
+        {
+            unique_lock<mutex> lk(redrawLk);
+            redrawNow = true;
+        }
+        redrawCv.notify_all();
+    }
+
+    void redrawThrFunc()
+    {
+        timespec delay;
+        delay.tv_sec = 0;
+        delay.tv_nsec = 3e7;
+        while (true) {
+            {
+                unique_lock<mutex> lk(redrawLk);
+                redrawCv.wait(lk, [&](){ return done || redrawNow; });
+                if (done) return;
+                redrawNow = false;
+            }
+            g_idle_add((GSourceFunc)zcmUpdateGui, this);
+            nanosleep(&delay, nullptr);
+        }
+    }
+
     void playThrFunc()
     {
+        thread thr(&LogPlayer::redrawThrFunc, this);
+
         // Wait for zcm log to become available
         while (true) {
             unique_lock<mutex> lk(zcmLk);
-            cv.wait_for(lk, chrono::milliseconds(500), [&](){
+            zcmCv.wait(lk, [&](){
                 return (zcmIn && zcmIn->good()) || done;
             });
             if (done) {
                 quit();
+                thr.join();
                 return;
             }
             if (zcmIn && zcmIn->good()) break;
@@ -647,7 +693,7 @@ struct LogPlayer
 
         const zcm::LogEvent *le;
 
-        g_idle_add((GSourceFunc)zcmUpdateGui, this);
+        redraw();
 
         uint64_t lastLoopUtime = numeric_limits<uint64_t>::max();
 
@@ -659,7 +705,7 @@ struct LogPlayer
             uint64_t _requestTimeUs;
             {
                 unique_lock<mutex> lk(zcmLk);
-                cv.wait_for(lk, chrono::milliseconds(500), [&](){
+                zcmCv.wait(lk, [&](){
                     bool wakeup = done ||
                                   isPlaying ||
                                   requestTimeUs != numeric_limits<uint64_t>::max();
@@ -685,7 +731,12 @@ struct LogPlayer
             }
 
             le = zcmIn->readNextEvent();
-            if (!le) break;
+            if (!le) {
+                unique_lock<mutex> lk(zcmLk);
+                isPlaying = false;
+                redraw();
+                continue;
+            }
 
             uint64_t nowUs = TimeUtil::utime();
             if (lastLoopUtime == numeric_limits<uint64_t>::max()) lastLoopUtime = nowUs;
@@ -700,7 +751,7 @@ struct LogPlayer
             if (!_isPlaying) {
                 unique_lock<mutex> lk(zcmLk);
                 currMsgUtime = (uint64_t) le->timestamp;
-                g_idle_add((GSourceFunc)zcmUpdateGui, this);
+                redraw();
                 continue;
             }
 
@@ -720,7 +771,8 @@ struct LogPlayer
             // late by determines how far behind we are on speed
             double speed = logDiffSpeedUs >= localDiffUs ?
                            _speedTarget :
-                           _speedTarget / (localDiffUs / logDiffSpeedUs);
+                           (float) logDiffSpeedUs / (float) localDiffUs * _speedTarget;
+
             double obsDt = (nowUs - lastLoopUtime) / 1e6;
             currSpeed.newObs(speed, obsDt);
 
@@ -774,12 +826,13 @@ struct LogPlayer
                 }
             }
 
-            g_idle_add((GSourceFunc)zcmUpdateGui, this);
+            redraw();
 
             lastLoopUtime = nowUs;
         }
 
         quit();
+        thr.join();
     }
 
     int run()
@@ -792,6 +845,7 @@ struct LogPlayer
         int ret = g_application_run(G_APPLICATION(app), 0, NULL);
 
         done = 1;
+        wakeup();
 
         g_object_unref(app);
 
