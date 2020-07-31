@@ -91,7 +91,6 @@ struct LogPlayer
     GtkWidget *lblSpeed;
     GtkWidget *btnFaster;
     GtkWidget *lblCurrTime;
-    GtkWidget *lblActualSpeed;
     GtkWidget *sclMacroScrub;
     GtkWidget *sclMicroScrub;
     GtkWidget *tblData;
@@ -104,11 +103,12 @@ struct LogPlayer
     condition_variable cv;
     int isPlaying = 0;
     double speedTarget = 1.0;
-    gchar speedStr[100];
     bool ignoreMicroScrubEvts = false;
     bool ignoreMacroScrubEvts = false;
-    uint64_t currTimeUs = 0;
+    uint64_t currMsgUtime = 0;
     uint64_t requestTimeUs = numeric_limits<uint64_t>::max();
+    bool stepRequest = false;
+    string stepPrefix;
 
     struct ChannelInfo
     {
@@ -223,15 +223,23 @@ struct LogPlayer
         if (!me->window) return FALSE;
 
         unordered_map<string, ChannelInfo> _channelMap;
+        double currTimeS;
+        double totalTimeS;
         float perc;
         {
             unique_lock<mutex> lk(me->zcmLk);
-            perc = (float) (me->currTimeUs - me->firstMsgUtime) / (float) me->totalTimeUs;
+            perc = (float) (me->currMsgUtime - me->firstMsgUtime) / (float) me->totalTimeUs;
             _channelMap = me->channelMap;
             for (auto& c : me->channelMap) c.second.addedToGui = true;
+            currTimeS = (me->currMsgUtime - me->firstMsgUtime) / 1e6;
+            totalTimeS = me->totalTimeUs / 1e6;
         }
         me->ignoreMacroScrubEvts = true;
         gtk_range_set_value(GTK_RANGE(me->sclMacroScrub), perc);
+
+        gchar currTimeStr[50];
+        g_snprintf(currTimeStr, 50, "%.2f s / %.2f s", currTimeS, totalTimeS);
+        gtk_label_set_text(GTK_LABEL(me->lblCurrTime), currTimeStr);
 
         me->addChannels(_channelMap);
 
@@ -240,7 +248,8 @@ struct LogPlayer
 
     void updateSpeed()
     {
-        g_snprintf(speedStr, 100, "%.3f", speedTarget);
+        gchar speedStr[20];
+        g_snprintf(speedStr, 20, "%.3f", speedTarget);
         gtk_label_set_text(GTK_LABEL(lblSpeed), speedStr);
     }
 
@@ -248,7 +257,12 @@ struct LogPlayer
     {
         const gchar *prefix;
         prefix = gtk_entry_get_text(GTK_ENTRY(editable));
-        g_print("Prefix: %s\n", prefix);
+        {
+            unique_lock<mutex> lk(me->zcmLk);
+            me->stepPrefix = prefix;
+            me->stepRequest = false;
+            me->isPlaying = false;
+        }
     }
 
     static void toggle(GtkWidget *widget, LogPlayer *me)
@@ -363,7 +377,20 @@ struct LogPlayer
 
     static void step(GtkWidget *widget, LogPlayer *me)
     {
-        g_print("Stepping\n");
+        bool isPlaying;;
+        {
+            unique_lock<mutex> lk(me->zcmLk);
+            if (!me->stepPrefix.empty()) {
+                me->stepRequest = true;
+                me->isPlaying = true;
+            }
+            isPlaying = me->isPlaying;
+        }
+        if (isPlaying) {
+            gtk_button_set_label(GTK_BUTTON(me->btnPlay), "Pause");
+        } else {
+            gtk_button_set_label(GTK_BUTTON(me->btnPlay), "Play");
+        }
     }
 
     static void slow(GtkWidget *widget, LogPlayer *me)
@@ -457,11 +484,6 @@ struct LogPlayer
         gtk_widget_set_halign(me->lblCurrTime, GTK_ALIGN_CENTER);
         gtk_grid_attach(GTK_GRID(grid), me->lblCurrTime, 0, 3, 1, 1);
 
-        me->lblActualSpeed = gtk_label_new("0.00x");
-        gtk_widget_set_hexpand(me->lblActualSpeed, TRUE);
-        gtk_widget_set_halign(me->lblActualSpeed, GTK_ALIGN_CENTER);
-        gtk_grid_attach(GTK_GRID(grid), me->lblActualSpeed, 1, 3, 1, 1);
-
         me->tblData = gtk_tree_view_new();
         gtk_tree_view_set_headers_visible(GTK_TREE_VIEW(me->tblData), TRUE);
 
@@ -495,6 +517,8 @@ struct LogPlayer
         g_signal_connect(enableRenderer, "toggled", G_CALLBACK(channelEnable), me);
         gtk_tree_view_append_column(GTK_TREE_VIEW(me->tblData), colEnable);
 
+        GtkWidget *scrolled_window = gtk_scrolled_window_new(NULL, NULL);
+        gtk_container_add(GTK_CONTAINER(scrolled_window), me->tblData);
         gtk_grid_attach(GTK_GRID(grid), me->tblData, 0, 4, 6, 1);
 
         me->btnToggle = gtk_button_new_with_label("Toggle Selected");
@@ -615,7 +639,9 @@ struct LogPlayer
 
             {
                 unique_lock<mutex> lk(zcmLk);
-                currTimeUs = (uint64_t) le->timestamp;
+                currMsgUtime = (uint64_t) le->timestamp;
+                if (stepRequest && le->channel.rfind(stepPrefix, 0) == 0)
+                    isPlaying = false;
             }
 
             g_idle_add((GSourceFunc)zcmUpdateGui, this);
