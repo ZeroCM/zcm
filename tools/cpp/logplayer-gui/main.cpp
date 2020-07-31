@@ -83,7 +83,7 @@ struct LogPlayer
     zcm::LogFile *zcmIn  = nullptr;
     zcm::ZCM     *zcmOut = nullptr;
 
-    GtkApplication *app;
+    mutex windowLk;
     GtkWidget *window;
     GtkWidget *btnPlay;
     GtkWidget *btnStep;
@@ -220,8 +220,6 @@ struct LogPlayer
 
     static gboolean zcmUpdateGui(LogPlayer *me)
     {
-        if (!me->window) return FALSE;
-
         unordered_map<string, ChannelInfo> _channelMap;
         double currTimeS;
         double totalTimeS;
@@ -234,14 +232,20 @@ struct LogPlayer
             currTimeS = (me->currMsgUtime - me->firstMsgUtime) / 1e6;
             totalTimeS = me->totalTimeUs / 1e6;
         }
-        me->ignoreMacroScrubEvts = true;
-        gtk_range_set_value(GTK_RANGE(me->sclMacroScrub), perc);
+        {
+            unique_lock<mutex> lk(me->windowLk);
 
-        gchar currTimeStr[50];
-        g_snprintf(currTimeStr, 50, "%.2f s / %.2f s", currTimeS, totalTimeS);
-        gtk_label_set_text(GTK_LABEL(me->lblCurrTime), currTimeStr);
+            if (!me->window) return FALSE;
 
-        me->addChannels(_channelMap);
+            me->ignoreMacroScrubEvts = true;
+            gtk_range_set_value(GTK_RANGE(me->sclMacroScrub), perc);
+
+            gchar currTimeStr[50];
+            g_snprintf(currTimeStr, 50, "%.2f s / %.2f s", currTimeS, totalTimeS);
+            gtk_label_set_text(GTK_LABEL(me->lblCurrTime), currTimeStr);
+
+            me->addChannels(_channelMap);
+        }
 
         return FALSE;
     }
@@ -288,8 +292,6 @@ struct LogPlayer
 
         gtk_tree_model_get(GTK_TREE_MODEL(model), &iter, PLAY_CHAN_COLUMN, &oldChan, -1);
         gtk_list_store_set(GTK_LIST_STORE(model), &iter, PLAY_CHAN_COLUMN, newChan, -1);
-
-        g_print("Remapped channel \"%s\" to \"%s\"\n", oldChan, newChan);
     }
 
     static void channelEnable(GtkCellRendererToggle *cell, gchar *path, LogPlayer *me)
@@ -349,7 +351,7 @@ struct LogPlayer
             g_free(filename);
         }
 
-        gtk_widget_destroy (dialog);
+        gtk_widget_destroy(dialog);
     }
 
     static gboolean openLog(GtkWidget *widget, GdkEventButton *event, LogPlayer* me)
@@ -407,11 +409,28 @@ struct LogPlayer
         me->updateSpeed();
     }
 
+    static gboolean windowDelete(GtkWidget *widget, GdkEvent *event, LogPlayer *me)
+    {
+        unique_lock<mutex> lk(me->windowLk);
+        me->window = NULL;
+        return FALSE;
+    }
+
+    static void windowDestroy(GtkWidget *widget, LogPlayer *me)
+    {
+        unique_lock<mutex> lk(me->windowLk);
+        me->window = NULL;
+    }
+
     static void activate(GtkApplication *app, LogPlayer *me)
     {
+        unique_lock<mutex> lk(me->windowLk);
+
         me->window = gtk_application_window_new(app);
+        g_signal_connect(me->window, "delete-event", G_CALLBACK(windowDelete), me);
+        g_signal_connect(me->window, "destroy", G_CALLBACK(windowDestroy), me);
         gtk_window_set_title(GTK_WINDOW(me->window), "Zcm Log Player");
-        //gtk_window_set_default_size(GTK_WINDOW(me->window), 475, 275);
+        gtk_window_set_default_size(GTK_WINDOW(me->window), 475, 275);
         gtk_container_set_border_width(GTK_CONTAINER(me->window), 1);
         gtk_widget_add_events(me->window, GDK_BUTTON_PRESS_MASK);
 
@@ -485,6 +504,8 @@ struct LogPlayer
         gtk_grid_attach(GTK_GRID(grid), me->lblCurrTime, 0, 3, 1, 1);
 
         me->tblData = gtk_tree_view_new();
+        gtk_widget_set_vexpand(me->tblData, TRUE);
+        gtk_widget_set_valign(me->tblData, GTK_ALIGN_FILL);
         gtk_tree_view_set_headers_visible(GTK_TREE_VIEW(me->tblData), TRUE);
 
         GtkListStore *store = gtk_list_store_new(NUM_COLUMNS,
@@ -501,7 +522,7 @@ struct LogPlayer
 
         GtkCellRenderer *playbackChanRenderer = gtk_cell_renderer_text_new();
         g_object_set(playbackChanRenderer, "editable", TRUE, NULL);
-        g_signal_connect(playbackChanRenderer, "edited", G_CALLBACK(playbackChanEdit), store);
+        g_signal_connect(playbackChanRenderer, "edited", G_CALLBACK(playbackChanEdit), me);
         GtkTreeViewColumn *colPlaybackChan =
             gtk_tree_view_column_new_with_attributes("Playback Channel",
                                                      playbackChanRenderer, "text",
@@ -517,8 +538,8 @@ struct LogPlayer
         g_signal_connect(enableRenderer, "toggled", G_CALLBACK(channelEnable), me);
         gtk_tree_view_append_column(GTK_TREE_VIEW(me->tblData), colEnable);
 
-        GtkWidget *scrolled_window = gtk_scrolled_window_new(NULL, NULL);
-        gtk_container_add(GTK_CONTAINER(scrolled_window), me->tblData);
+        //GtkWidget *scrolled_window = gtk_scrolled_window_new(NULL, NULL);
+        //gtk_container_add(GTK_CONTAINER(scrolled_window), me->tblData);
         gtk_grid_attach(GTK_GRID(grid), me->tblData, 0, 4, 6, 1);
 
         me->btnToggle = gtk_button_new_with_label("Toggle Selected");
@@ -648,32 +669,28 @@ struct LogPlayer
         }
 
         {
-            unique_lock<mutex> lk(zcmLk);
-            if (app) g_application_quit(G_APPLICATION(app));
+            unique_lock<mutex> lk(windowLk);
+            cout << "Quitting player thread" << endl;
+            if (window) gtk_window_close(GTK_WINDOW(window));
         }
     }
 
     int run()
     {
+        GtkApplication *app = gtk_application_new("org.zcm.logplayer", G_APPLICATION_FLAGS_NONE);
+
         thread thr(&LogPlayer::playThrFunc, this);
 
-        int status;
-
-        app = gtk_application_new("org.zcm.logplayer", G_APPLICATION_FLAGS_NONE);
         g_signal_connect(app, "activate", G_CALLBACK(activate), this);
-        status = g_application_run(G_APPLICATION(app), 0, NULL);
+        int ret = g_application_run(G_APPLICATION(app), 0, NULL);
 
         done = 1;
 
-        {
-            unique_lock<mutex> lk(zcmLk);
-            g_object_unref(app);
-            app = NULL;
-        }
+        g_object_unref(app);
 
         thr.join();
 
-        return status;
+        return ret;
     }
 };
 
