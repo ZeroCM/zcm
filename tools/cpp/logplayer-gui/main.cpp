@@ -12,6 +12,7 @@
 #include <zcm/zcm-cpp.hpp>
 
 #include "util/TimeUtil.hpp"
+#include "zcm/util/Filter.hpp"
 
 using namespace std;
 
@@ -85,16 +86,19 @@ struct LogPlayer
 
     mutex windowLk;
     GtkWidget *window;
+    GtkWidget *lblLogName;
     GtkWidget *btnPlay;
     GtkWidget *btnStep;
     GtkWidget *btnSlower;
-    GtkWidget *lblSpeed;
+    GtkWidget *lblSpeedTarget;
     GtkWidget *btnFaster;
     GtkWidget *lblCurrTime;
+    GtkWidget *lblCurrSpeed;
     GtkWidget *sclMacroScrub;
     GtkWidget *sclMicroScrub;
     GtkWidget *tblData;
     GtkWidget *btnToggle;
+    GtkWidget *txtPrefix;
 
     uint64_t totalTimeUs;
     uint64_t firstMsgUtime;
@@ -103,6 +107,7 @@ struct LogPlayer
     condition_variable cv;
     int isPlaying = 0;
     double speedTarget = 1.0;
+    double currSpeed = 0.0;
     bool ignoreMicroScrubEvts = false;
     bool ignoreMacroScrubEvts = false;
     uint64_t currMsgUtime = 0;
@@ -148,22 +153,35 @@ struct LogPlayer
 
     bool initializeZcm()
     {
-        zcmOut = new zcm::ZCM(args.zcmUrlOut);
-        if (!zcmOut->good()) {
-            cerr << "Error: Failed to open zcm: '" << args.zcmUrlOut << "'" << endl;
-            return false;
-        }
-
         if (args.filename.empty()) return false;
 
         zcmIn = new zcm::LogFile(args.filename, "r");
         if (!zcmIn->good()) {
+            delete zcmIn;
+            zcmIn = nullptr;
             cerr << "Error: Failed to open '" << args.filename << "'" << endl;
             return false;
         }
 
         const zcm::LogEvent* leStart = zcmIn->readNextEvent();
+        if (!leStart) {
+            delete zcmIn;
+            zcmIn = nullptr;
+            cerr << "Error: Unable to find valid event in logfile: '" << args.filename << "'" << endl;
+            return false;
+        }
         firstMsgUtime = (uint64_t)leStart->timestamp;
+        currMsgUtime = firstMsgUtime;
+
+        zcmOut = new zcm::ZCM(args.zcmUrlOut);
+        if (!zcmOut->good()) {
+            delete zcmOut;
+            zcmOut = nullptr;
+            delete zcmIn;
+            zcmIn = nullptr;
+            cerr << "Error: Failed to open zcm: '" << args.zcmUrlOut << "'" << endl;
+            return false;
+        }
 
         zcmIn->seekToTimestamp(numeric_limits<int64_t>::max());
 
@@ -199,6 +217,7 @@ struct LogPlayer
         gtk_widget_set_sensitive(sclMicroScrub, enable);
         gtk_widget_set_sensitive(tblData, enable);
         gtk_widget_set_sensitive(btnToggle, enable);
+        gtk_widget_set_sensitive(txtPrefix, enable);
     }
 
     void addChannels(unordered_map<string, ChannelInfo> channelMap)
@@ -221,28 +240,42 @@ struct LogPlayer
     static gboolean zcmUpdateGui(LogPlayer *me)
     {
         unordered_map<string, ChannelInfo> _channelMap;
+        double currSpeed;
         double currTimeS;
         double totalTimeS;
         float perc;
         {
             unique_lock<mutex> lk(me->zcmLk);
+
             perc = (float) (me->currMsgUtime - me->firstMsgUtime) / (float) me->totalTimeUs;
+
             _channelMap = me->channelMap;
             for (auto& c : me->channelMap) c.second.addedToGui = true;
+
             currTimeS = (me->currMsgUtime - me->firstMsgUtime) / 1e6;
+
             totalTimeS = me->totalTimeUs / 1e6;
+
+            currSpeed = me->currSpeed;
         }
         {
             unique_lock<mutex> lk(me->windowLk);
 
             if (!me->window) return FALSE;
 
-            me->ignoreMacroScrubEvts = true;
-            gtk_range_set_value(GTK_RANGE(me->sclMacroScrub), perc);
+            float lastPerc = gtk_range_get_value(GTK_RANGE(me->sclMacroScrub));
+            if (perc != lastPerc) {
+                me->ignoreMacroScrubEvts = true;
+                gtk_range_set_value(GTK_RANGE(me->sclMacroScrub), perc);
+            }
 
-            gchar currTimeStr[50];
-            g_snprintf(currTimeStr, 50, "%.2f s / %.2f s", currTimeS, totalTimeS);
-            gtk_label_set_text(GTK_LABEL(me->lblCurrTime), currTimeStr);
+            gchar buf[50];
+
+            g_snprintf(buf, 50, "%.2f s / %.2f s", currTimeS, totalTimeS);
+            gtk_label_set_text(GTK_LABEL(me->lblCurrTime), buf);
+
+            g_snprintf(buf, 50, "%.2f x", currSpeed);
+            gtk_label_set_text(GTK_LABEL(me->lblCurrSpeed), buf);
 
             me->addChannels(_channelMap);
         }
@@ -250,11 +283,11 @@ struct LogPlayer
         return FALSE;
     }
 
-    void updateSpeed()
+    void updateSpeedTarget()
     {
         gchar speedStr[20];
         g_snprintf(speedStr, 20, "%.3f", speedTarget);
-        gtk_label_set_text(GTK_LABEL(lblSpeed), speedStr);
+        gtk_label_set_text(GTK_LABEL(lblSpeedTarget), speedStr);
     }
 
     static void prefixChanged(GtkEditable *editable, LogPlayer *me)
@@ -315,6 +348,7 @@ struct LogPlayer
             unique_lock<mutex> lk(me->zcmLk);
             me->requestTimeUs = me->firstMsgUtime + pos * me->totalTimeUs;
         }
+        me->wakeup();
     }
 
     static void microScrub(GtkRange *range, LogPlayer *me)
@@ -323,42 +357,58 @@ struct LogPlayer
             me->ignoreMicroScrubEvts = false;
             return;
         }
-        //gdouble pos = gtk_range_get_value(range);
+        gdouble pos = gtk_range_get_value(range);
         me->ignoreMicroScrubEvts = true;
         gtk_range_set_value(range, 0);
-    }
-
-    void selectLog()
-    {
-        assert(args.filename == "");
-
-        GtkWidget *dialog = gtk_file_chooser_dialog_new("Open File",
-                                                        GTK_WINDOW(window),
-                                                        GTK_FILE_CHOOSER_ACTION_OPEN,
-                                                        "Cancel",
-                                                        GTK_RESPONSE_CANCEL,
-                                                        "Open",
-                                                        GTK_RESPONSE_ACCEPT,
-                                                        NULL);
-        gint res = gtk_dialog_run(GTK_DIALOG(dialog));
-
-        if (res == GTK_RESPONSE_ACCEPT) {
-            char *filename;
-            GtkFileChooser *chooser = GTK_FILE_CHOOSER(dialog);
-            filename = gtk_file_chooser_get_filename(chooser);
-            args.filename = string(filename);
-            g_print("Opening log: %s\n", args.filename.c_str());
-            g_free(filename);
+        {
+            unique_lock<mutex> lk(me->zcmLk);
+            me->requestTimeUs = me->currMsgUtime + pos * 1e6;
         }
-
-        gtk_widget_destroy(dialog);
+        me->wakeup();
     }
 
     static gboolean openLog(GtkWidget *widget, GdkEventButton *event, LogPlayer* me)
     {
-        if (event->type == GDK_2BUTTON_PRESS)
-            me->selectLog();
-        return TRUE;
+        gboolean ret = TRUE;
+        if (event->type == GDK_2BUTTON_PRESS) {
+            assert(me->args.filename == "");
+
+            GtkWidget *dialog = gtk_file_chooser_dialog_new("Open File",
+                                                            GTK_WINDOW(me->window),
+                                                            GTK_FILE_CHOOSER_ACTION_OPEN,
+                                                            "Cancel",
+                                                            GTK_RESPONSE_CANCEL,
+                                                            "Open",
+                                                            GTK_RESPONSE_ACCEPT,
+                                                            NULL);
+            gint res = gtk_dialog_run(GTK_DIALOG(dialog));
+
+            if (res == GTK_RESPONSE_ACCEPT) {
+                char *filename;
+                GtkFileChooser *chooser = GTK_FILE_CHOOSER(dialog);
+                filename = gtk_file_chooser_get_filename(chooser);
+
+                bool zcmEnabled;
+                {
+                    unique_lock<mutex> lk(me->zcmLk);
+                    me->args.filename = string(filename);
+                    zcmEnabled = me->initializeZcm();
+                    if (!zcmEnabled) me->args.filename = "";
+                }
+
+                if (zcmEnabled) {
+                    gtk_label_set_text(GTK_LABEL(me->lblLogName), basename(filename));
+                    me->enableUI(true);
+                    me->wakeup();
+                    ret = FALSE;
+                }
+
+                g_free(filename);
+            }
+
+            gtk_widget_destroy(dialog);
+        }
+        return ret;
     }
 
     static void playPause(GtkWidget *widget, LogPlayer *me)
@@ -379,34 +429,26 @@ struct LogPlayer
 
     static void step(GtkWidget *widget, LogPlayer *me)
     {
-        bool isPlaying;;
         {
             unique_lock<mutex> lk(me->zcmLk);
-            if (!me->stepPrefix.empty()) {
-                me->stepRequest = true;
-                me->isPlaying = true;
-            }
-            isPlaying = me->isPlaying;
+            me->stepRequest = true;
+            me->isPlaying = true;
         }
-        if (isPlaying) {
-            gtk_button_set_label(GTK_BUTTON(me->btnPlay), "Pause");
-        } else {
-            gtk_button_set_label(GTK_BUTTON(me->btnPlay), "Play");
-        }
+        gtk_button_set_label(GTK_BUTTON(me->btnPlay), "Pause");
     }
 
     static void slow(GtkWidget *widget, LogPlayer *me)
     {
         unique_lock<mutex> lk(me->zcmLk);
         me->speedTarget /= 2;
-        me->updateSpeed();
+        me->updateSpeedTarget();
     }
 
     static void fast(GtkWidget *widget, LogPlayer *me)
     {
         unique_lock<mutex> lk(me->zcmLk);
         me->speedTarget *= 2;
-        me->updateSpeed();
+        me->updateSpeedTarget();
     }
 
     static gboolean windowDelete(GtkWidget *widget, GdkEvent *event, LogPlayer *me)
@@ -430,7 +472,7 @@ struct LogPlayer
         g_signal_connect(me->window, "delete-event", G_CALLBACK(windowDelete), me);
         g_signal_connect(me->window, "destroy", G_CALLBACK(windowDestroy), me);
         gtk_window_set_title(GTK_WINDOW(me->window), "Zcm Log Player");
-        gtk_window_set_default_size(GTK_WINDOW(me->window), 475, 275);
+        gtk_window_set_default_size(GTK_WINDOW(me->window), 450, 275);
         gtk_container_set_border_width(GTK_CONTAINER(me->window), 1);
         gtk_widget_add_events(me->window, GDK_BUTTON_PRESS_MASK);
 
@@ -443,12 +485,17 @@ struct LogPlayer
         gtk_grid_attach(GTK_GRID(grid), evtLogName, 0, 0, 1, 1);
         gtk_widget_set_events(evtLogName, GDK_BUTTON_PRESS_MASK);
 
-        GtkWidget *lblLogName = gtk_label_new("Double click to load");
-        gtk_widget_set_hexpand(lblLogName, TRUE);
-        gtk_widget_set_halign(lblLogName, GTK_ALIGN_CENTER);
-        g_signal_connect(G_OBJECT(evtLogName), "button_press_event",
-                         G_CALLBACK(openLog), me);
-        gtk_container_add(GTK_CONTAINER(evtLogName), lblLogName);
+        const char* logName = "Double click to load";
+        if (!me->args.filename.empty()) logName = basename(me->args.filename.c_str());
+        me->lblLogName = gtk_label_new(logName);
+        gtk_widget_set_hexpand(me->lblLogName, TRUE);
+        gtk_widget_set_halign(me->lblLogName, GTK_ALIGN_CENTER);
+        if (me->args.filename.empty()) {
+            g_signal_connect(G_OBJECT(evtLogName),
+                             "button_press_event",
+                             G_CALLBACK(openLog), me);
+        }
+        gtk_container_add(GTK_CONTAINER(evtLogName), me->lblLogName);
 
 
         me->btnPlay = gtk_button_new_with_label("Play");
@@ -469,11 +516,11 @@ struct LogPlayer
         gtk_widget_set_halign(me->btnSlower, GTK_ALIGN_END);
         gtk_grid_attach(GTK_GRID(grid), me->btnSlower, 3, 0, 1, 1);
 
-        me->lblSpeed = gtk_label_new("");
-        me->updateSpeed();
-        gtk_widget_set_hexpand(me->lblSpeed, TRUE);
-        gtk_widget_set_halign(me->lblSpeed, GTK_ALIGN_CENTER);
-        gtk_grid_attach(GTK_GRID(grid), me->lblSpeed, 4, 0, 1, 1);
+        me->lblSpeedTarget = gtk_label_new("");
+        me->updateSpeedTarget();
+        gtk_widget_set_hexpand(me->lblSpeedTarget, TRUE);
+        gtk_widget_set_halign(me->lblSpeedTarget, GTK_ALIGN_CENTER);
+        gtk_grid_attach(GTK_GRID(grid), me->lblSpeedTarget, 4, 0, 1, 1);
 
         me->btnFaster = gtk_button_new_with_label(">>");
         g_signal_connect(me->btnFaster, "clicked", G_CALLBACK(fast), me);
@@ -500,8 +547,13 @@ struct LogPlayer
 
         me->lblCurrTime = gtk_label_new("0 s");
         gtk_widget_set_hexpand(me->lblCurrTime, TRUE);
-        gtk_widget_set_halign(me->lblCurrTime, GTK_ALIGN_CENTER);
+        gtk_widget_set_halign(me->lblCurrTime, GTK_ALIGN_START);
         gtk_grid_attach(GTK_GRID(grid), me->lblCurrTime, 0, 3, 1, 1);
+
+        me->lblCurrSpeed = gtk_label_new("1.0x");
+        gtk_widget_set_hexpand(me->lblCurrSpeed, TRUE);
+        gtk_widget_set_halign(me->lblCurrSpeed, GTK_ALIGN_START);
+        gtk_grid_attach(GTK_GRID(grid), me->lblCurrSpeed, 1, 3, 1, 1);
 
         me->tblData = gtk_tree_view_new();
         gtk_widget_set_vexpand(me->tblData, TRUE);
@@ -553,11 +605,11 @@ struct LogPlayer
         gtk_widget_set_halign(lblPrefix, GTK_ALIGN_CENTER);
         gtk_grid_attach(GTK_GRID(grid), lblPrefix, 1, 5, 1, 1);
 
-        GtkWidget *txtPrefix = gtk_entry_new();
-        gtk_widget_set_hexpand(txtPrefix, TRUE);
-        gtk_widget_set_halign(txtPrefix, GTK_ALIGN_CENTER);
-        g_signal_connect(txtPrefix, "changed", G_CALLBACK(prefixChanged), me);
-        gtk_grid_attach(GTK_GRID(grid), txtPrefix, 2, 5, 4, 1);
+        me->txtPrefix = gtk_entry_new();
+        gtk_widget_set_hexpand(me->txtPrefix, TRUE);
+        gtk_widget_set_halign(me->txtPrefix, GTK_ALIGN_CENTER);
+        g_signal_connect(me->txtPrefix, "changed", G_CALLBACK(prefixChanged), me);
+        gtk_grid_attach(GTK_GRID(grid), me->txtPrefix, 2, 5, 4, 1);
 
         me->enableUI(me->zcmIn && me->zcmIn->good());
         //*
@@ -569,31 +621,59 @@ struct LogPlayer
         gtk_widget_show_all(me->window);
     }
 
+    void quit()
+    {
+        unique_lock<mutex> lk(windowLk);
+        if (window) gtk_window_close(GTK_WINDOW(window));
+    }
+
     void playThrFunc()
     {
+        // Wait for zcm log to become available
+        while (true) {
+            unique_lock<mutex> lk(zcmLk);
+            cv.wait_for(lk, chrono::milliseconds(500), [&](){
+                return (zcmIn && zcmIn->good()) || done;
+            });
+            if (done) {
+                quit();
+                return;
+            }
+            if (zcmIn && zcmIn->good()) break;
+        }
+
         zcmIn->seekToTimestamp(0);
 
         uint64_t lastDispatchUtime = numeric_limits<uint64_t>::max();;;
         uint64_t lastLogUtime = numeric_limits<uint64_t>::max();;
         float lastSpeedTarget = numeric_limits<float>::max();
+        zcm::Filter currSpeed(zcm::Filter::convergenceTimeToNatFreq(0.5, 0.8), 0.8);
 
         const zcm::LogEvent *le;
 
+        g_idle_add((GSourceFunc)zcmUpdateGui, this);
+
+        uint64_t lastLoopUtime = numeric_limits<uint64_t>::max();
+
         while (true) {
 
+            bool _isPlaying;
             float _speedTarget;
             bool wasPaused = false;
             uint64_t _requestTimeUs;
-
             {
                 unique_lock<mutex> lk(zcmLk);
                 cv.wait_for(lk, chrono::milliseconds(500), [&](){
-                    bool wakeup = done || isPlaying;
+                    bool wakeup = done ||
+                                  isPlaying ||
+                                  requestTimeUs != numeric_limits<uint64_t>::max();
                     wasPaused |= !wakeup;
                     return wakeup;
                 });
                 if (done) break;
-                if (!isPlaying) continue;
+                if (!(isPlaying || requestTimeUs != numeric_limits<uint64_t>::max())) continue;
+
+                _isPlaying = isPlaying;
 
                 _speedTarget = speedTarget;
 
@@ -612,32 +692,56 @@ struct LogPlayer
             if (!le) break;
 
             uint64_t nowUs = TimeUtil::utime();
+            if (lastLoopUtime == numeric_limits<uint64_t>::max()) lastLoopUtime = nowUs;
 
             if (reset) {
                 lastLogUtime = le->timestamp;
                 lastDispatchUtime = nowUs;
                 lastSpeedTarget = _speedTarget;
+                currSpeed.reset();
             }
 
-            // Total time difference from now to publishing the first message
-            // is zero in first run
+            if (!_isPlaying) {
+                unique_lock<mutex> lk(zcmLk);
+                currMsgUtime = (uint64_t) le->timestamp;
+                g_idle_add((GSourceFunc)zcmUpdateGui, this);
+                continue;
+            }
+
             uint64_t localDiffUs = nowUs - lastDispatchUtime;
-            // Total difference of timestamps of the current and first message
+
+            // Total difference of timestamps of the current and
+            // first message (after speed or play/pause changes)
             uint64_t logDiffUs = (uint64_t) le->timestamp - lastLogUtime;
+
+            // How much real time should have elapsed given the speed target
             uint64_t logDiffSpeedUs = logDiffUs / _speedTarget;
+
             uint64_t diffUs = logDiffSpeedUs > localDiffUs ? logDiffSpeedUs - localDiffUs : 0;
+
+            // If we're early to publish the next message, then we're
+            // achieving _speedTarget. If we're late, then how much we're
+            // late by determines how far behind we are on speed
+            double speed = logDiffSpeedUs >= localDiffUs ?
+                           _speedTarget :
+                           _speedTarget / (localDiffUs / logDiffSpeedUs);
+            double obsDt = (nowUs - lastLoopUtime) / 1e6;
+            currSpeed.newObs(speed, obsDt);
+
             // Ensure nanosleep wakes up before the range of uncertainty of
             // the OS scheduler would impact our sleep time. Then we busy wait
             const uint64_t busyWaitUs = args.highAccuracyMode ? 10000 : 0;
             diffUs = diffUs > busyWaitUs ? diffUs - busyWaitUs : 0;
-            // Introducing time differences to starting times rather than last loop
-            // times eliminates linear increase of delay when message are published
-            timespec delay;
-            delay.tv_sec = (long int) diffUs / 1000000;
-            delay.tv_nsec = (long int) (diffUs - (delay.tv_sec * 1000000)) * 1000;
 
             // Sleep until we're supposed to wake up and busy wait
-            if (diffUs > 0) nanosleep(&delay, nullptr);
+            if (diffUs > 0) {
+                // Introducing time differences to starting times rather than last loop
+                // times eliminates linear increase of delay when message are published
+                timespec delay;
+                delay.tv_sec = (long int) diffUs / 1000000;
+                delay.tv_nsec = (long int) (diffUs - (delay.tv_sec * 1000000)) * 1000;
+                nanosleep(&delay, nullptr);
+            }
             // Busy wait the rest
             while (logDiffSpeedUs > TimeUtil::utime() - lastDispatchUtime);
 
@@ -660,19 +764,26 @@ struct LogPlayer
 
             {
                 unique_lock<mutex> lk(zcmLk);
+
                 currMsgUtime = (uint64_t) le->timestamp;
-                if (stepRequest && le->channel.rfind(stepPrefix, 0) == 0)
-                    isPlaying = false;
+
+                this->currSpeed = currSpeed[zcm::Filter::LOW_PASS];
+
+                if (stepRequest) {
+                    if (stepPrefix.empty()) {
+                        isPlaying = false;
+                    } else if (le->channel.rfind(stepPrefix, 0) == 0) {
+                        isPlaying = false;
+                    }
+                }
             }
 
             g_idle_add((GSourceFunc)zcmUpdateGui, this);
+
+            lastLoopUtime = nowUs;
         }
 
-        {
-            unique_lock<mutex> lk(windowLk);
-            cout << "Quitting player thread" << endl;
-            if (window) gtk_window_close(GTK_WINDOW(window));
-        }
+        quit();
     }
 
     int run()
