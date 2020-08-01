@@ -406,6 +406,21 @@ struct LogPlayer
         me->toggleChannelPublish(iter);
     }
 
+    void bookmark()
+    {
+        float perc;
+        {
+            unique_lock<mutex> lk(zcmLk);
+            perc = (float) (currMsgUtime - firstMsgUtime) / (float) totalTimeUs;
+        }
+        gtk_scale_add_mark(GTK_SCALE(sclMacroScrub), perc, GTK_POS_TOP, NULL);
+    }
+
+    static void bookmarkClicked(GtkWidget *bookmark, LogPlayer *me)
+    {
+        me->bookmark();
+    }
+
     static void macroScrub(GtkRange *range, LogPlayer *me)
     {
         if (me->ignoreMacroScrubEvts > 0) {
@@ -651,6 +666,7 @@ struct LogPlayer
         GtkWidget *miBookmark = gtk_menu_item_new_with_label("Bookmark");
         gtk_widget_show(miBookmark);
         gtk_menu_shell_append(GTK_MENU_SHELL(me->menuScrub), miBookmark);
+        g_signal_connect(miBookmark, "activate", G_CALLBACK(bookmarkClicked), me);
 
         GtkAdjustment *adjMacroScrub = gtk_adjustment_new(0, 0, 1, 0.01, 0.1, 0);
         me->sclMacroScrub = gtk_scale_new(GTK_ORIENTATION_HORIZONTAL, adjMacroScrub);
