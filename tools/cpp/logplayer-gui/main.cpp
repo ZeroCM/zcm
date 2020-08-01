@@ -19,6 +19,11 @@ using namespace std;
 
 static atomic_int done {0};
 
+static double map(double a, double inMin, double inMax, double outMin, double outMax)
+{
+    return (a - inMin) * (outMax - outMin) / (inMax - inMin) + outMin;
+}
+
 struct Args
 {
     string filename = "";
@@ -97,12 +102,19 @@ struct LogPlayer
     GtkWidget *lblCurrSpeed;
     GtkWidget *sclMacroScrub;
     GtkWidget *sclMicroScrub;
+    GtkWidget *menuScrub;
     GtkWidget *tblData;
     GtkWidget *btnToggle;
     GtkWidget *txtPrefix;
 
     uint64_t totalTimeUs;
     uint64_t firstMsgUtime;
+
+    double microScrubCurr = 0;
+    double microScrubMin = 0;
+    double microScrubMax = 1;
+    bool microScrubWasPlayingOnStart;
+    bool microScrubIsDragging = false;
 
     mutex redrawLk;
     condition_variable redrawCv;
@@ -113,12 +125,16 @@ struct LogPlayer
     int isPlaying = 0;
     double speedTarget = 1.0;
     double currSpeed = 0.0;
-    bool ignoreMicroScrubEvts = false;
-    bool ignoreMacroScrubEvts = false;
+    int ignoreMicroScrubEvts = 0;
+    int ignoreMacroScrubEvts = 0;
+    uint64_t microPivotTimeUs;
     uint64_t currMsgUtime = 0;
     uint64_t requestTimeUs = numeric_limits<uint64_t>::max();
     bool stepRequest = false;
     string stepPrefix;
+
+    static constexpr int GDK_LEFT_CLICK = 1;
+    static constexpr int GDK_RIGHT_CLICK = 3;
 
     struct ChannelInfo
     {
@@ -275,15 +291,45 @@ struct LogPlayer
 
             if (!me->window) return FALSE;
 
-            float lastPerc = gtk_range_get_value(GTK_RANGE(me->sclMacroScrub));
-            if (perc != lastPerc) {
-                me->ignoreMacroScrubEvts = true;
-                gtk_range_set_value(GTK_RANGE(me->sclMacroScrub), perc);
+            auto changeIgnore = [](GtkRange *range, int &ignoreCount, float val){
+                float lastVal = gtk_range_get_value(range);
+                if (val != lastVal) {
+                    ignoreCount++;
+                    gtk_range_set_value(range, val);
+                }
+            };
+
+            changeIgnore(GTK_RANGE(me->sclMacroScrub), me->ignoreMacroScrubEvts, perc);
+
+            if (currTimeS < 1) {
+                me->microScrubMin = -currTimeS;
+                me->microScrubMax = 1;
+                float displayVal = map(me->microScrubCurr,
+                                       me->microScrubMin, me->microScrubMax, 0, 1);
+                if (!me->microScrubIsDragging)
+                    changeIgnore(GTK_RANGE(me->sclMicroScrub),
+                                 me->ignoreMicroScrubEvts, displayVal);
+            } else if (currTimeS > totalTimeS - 1) {
+                me->microScrubMin = -1;
+                me->microScrubMax = totalTimeS - currTimeS;
+                float displayVal = map(me->microScrubCurr,
+                                       me->microScrubMin, me->microScrubMax, 0, 1);
+                if (!me->microScrubIsDragging)
+                    changeIgnore(GTK_RANGE(me->sclMicroScrub),
+                                 me->ignoreMicroScrubEvts, displayVal);
+            } else {
+                me->microScrubMin = -1;
+                me->microScrubMax = 1;
+                float displayVal = map(me->microScrubCurr,
+                                       me->microScrubMin, me->microScrubMax, 0, 1);
+                if (!me->microScrubIsDragging)
+                    changeIgnore(GTK_RANGE(me->sclMicroScrub),
+                                 me->ignoreMicroScrubEvts, displayVal);
             }
 
             gchar buf[50];
 
-            g_snprintf(buf, 50, "%.3f s / %.3f s", currTimeS, totalTimeS);
+            g_snprintf(buf, 50, "%9.3f s / %.3f s", currTimeS, totalTimeS);
             gtk_label_set_text(GTK_LABEL(me->lblCurrTime), buf);
 
             g_snprintf(buf, 50, "%.2f x", currSpeed);
@@ -362,8 +408,8 @@ struct LogPlayer
 
     static void macroScrub(GtkRange *range, LogPlayer *me)
     {
-        if (me->ignoreMacroScrubEvts) {
-            me->ignoreMacroScrubEvts = false;
+        if (me->ignoreMacroScrubEvts > 0) {
+            me->ignoreMacroScrubEvts--;
             return;
         }
         gdouble pos = gtk_range_get_value(range);
@@ -374,20 +420,69 @@ struct LogPlayer
         me->wakeup();
     }
 
+    static gboolean macroScrubClicked(GtkRange *range, GdkEvent *event, LogPlayer *me)
+    {
+        if (event->type == GDK_BUTTON_PRESS) {
+            GdkEventButton *bevent = (GdkEventButton *) event;
+            if (bevent->button == GDK_RIGHT_CLICK) {
+                gtk_menu_popup_at_pointer(GTK_MENU(me->menuScrub), event);
+                return TRUE;
+            }
+        }
+        return FALSE;
+    }
+
     static void microScrub(GtkRange *range, LogPlayer *me)
     {
-        if (me->ignoreMicroScrubEvts) {
-            me->ignoreMicroScrubEvts = false;
+        if (me->ignoreMicroScrubEvts > 0) {
+            me->ignoreMicroScrubEvts--;
             return;
         }
-        gdouble pos = gtk_range_get_value(range);
-        me->ignoreMicroScrubEvts = true;
-        gtk_range_set_value(range, 0);
+        gdouble pos = gtk_range_get_value(GTK_RANGE(range));
+        pos = map(pos, 0, 1, me->microScrubMin, me->microScrubMax);
         {
             unique_lock<mutex> lk(me->zcmLk);
-            me->requestTimeUs = me->currMsgUtime + pos * 1e6;
+            me->requestTimeUs = me->microPivotTimeUs + pos * 1e6;
         }
         me->wakeup();
+        return;
+    }
+
+    static gboolean microScrubClicked(GtkWidget *range, GdkEvent *event, LogPlayer *me)
+    {
+        cout << event->type << endl;
+        if (event->type == GDK_KEY_PRESS) {
+            unique_lock<mutex> lk(me->zcmLk);
+            me->microPivotTimeUs = me->currMsgUtime;
+        } else if (event->type == GDK_BUTTON_PRESS) {
+            GdkEventButton *bevent = (GdkEventButton*) event;
+            if (bevent->button == GDK_RIGHT_CLICK) {
+                gtk_menu_popup_at_pointer(GTK_MENU(me->menuScrub), event);
+                return TRUE;
+            } else if (bevent->button == GDK_LEFT_CLICK) {
+                me->microScrubIsDragging = true;
+                {
+                    unique_lock<mutex> lk(me->zcmLk);
+                    me->microPivotTimeUs = me->currMsgUtime;
+                    me->microScrubWasPlayingOnStart = me->isPlaying;
+                    me->isPlaying = false;
+                }
+            }
+        } else if (event->type == GDK_BUTTON_RELEASE) {
+            GdkEventButton *bevent = (GdkEventButton *) event;
+            if (bevent->button == GDK_LEFT_CLICK) {
+                me->microScrubIsDragging = false;
+                float pos = map(0, me->microScrubMin, me->microScrubMax, 0, 1);
+                me->ignoreMicroScrubEvts++;
+                gtk_range_set_value(GTK_RANGE(me->sclMicroScrub), pos);
+                {
+                    unique_lock<mutex> lk(me->zcmLk);
+                    me->isPlaying = me->microScrubWasPlayingOnStart;
+                }
+                me->wakeup();
+            }
+        }
+        return FALSE;
     }
 
     static gboolean openLog(GtkWidget *widget, GdkEventButton *event, LogPlayer* me)
@@ -420,7 +515,8 @@ struct LogPlayer
                 }
 
                 if (zcmEnabled) {
-                    gtk_label_set_text(GTK_LABEL(me->lblLogName), StringUtil::basename(filename).c_str());
+                    gtk_label_set_text(GTK_LABEL(me->lblLogName),
+                                       StringUtil::basename(filename).c_str());
                     me->enableUI(true);
                     me->wakeup();
                     ret = FALSE;
@@ -499,7 +595,6 @@ struct LogPlayer
         gtk_window_set_default_size(GTK_WINDOW(me->window), 450, 275);
         gtk_window_set_position(GTK_WINDOW(me->window), GTK_WIN_POS_MOUSE);
         gtk_container_set_border_width(GTK_CONTAINER(me->window), 1);
-        gtk_widget_add_events(me->window, GDK_BUTTON_PRESS_MASK);
 
         GtkWidget *grid = gtk_grid_new();
         gtk_container_add(GTK_CONTAINER(me->window), grid);
@@ -508,10 +603,10 @@ struct LogPlayer
         GtkWidget *evtLogName = gtk_event_box_new();
         gtk_event_box_set_above_child(GTK_EVENT_BOX(evtLogName), TRUE);
         gtk_grid_attach(GTK_GRID(grid), evtLogName, 0, 0, 1, 1);
-        gtk_widget_set_events(evtLogName, GDK_BUTTON_PRESS_MASK);
 
         string logName = "Double click to load";
-        if (!me->args.filename.empty()) logName = StringUtil::basename(me->args.filename.c_str()).c_str();
+        if (!me->args.filename.empty())
+            logName = StringUtil::basename(me->args.filename.c_str()).c_str();
         me->lblLogName = gtk_label_new(logName.c_str());
         gtk_widget_set_hexpand(me->lblLogName, TRUE);
         gtk_widget_set_halign(me->lblLogName, GTK_ALIGN_CENTER);
@@ -553,32 +648,49 @@ struct LogPlayer
         gtk_widget_set_halign(me->btnFaster, GTK_ALIGN_START);
         gtk_grid_attach(GTK_GRID(grid), me->btnFaster, 5, 0, 1, 1);
 
+        me->menuScrub = gtk_menu_new();
+        GtkWidget *miBookmark = gtk_menu_item_new_with_label("Bookmark");
+        gtk_widget_show(miBookmark);
+        gtk_menu_shell_append(GTK_MENU_SHELL(me->menuScrub), miBookmark);
+
         GtkAdjustment *adjMacroScrub = gtk_adjustment_new(0, 0, 1, 0.01, 0.1, 0);
         me->sclMacroScrub = gtk_scale_new(GTK_ORIENTATION_HORIZONTAL, adjMacroScrub);
         gtk_scale_set_draw_value(GTK_SCALE(me->sclMacroScrub), FALSE);
         gtk_widget_set_hexpand(me->sclMacroScrub, TRUE);
         gtk_widget_set_valign(me->sclMacroScrub, GTK_ALIGN_FILL);
+        g_signal_connect(me->sclMacroScrub, "button-press-event",
+                         G_CALLBACK(macroScrubClicked), me);
+        g_signal_connect(me->sclMacroScrub, "button-release-event",
+                         G_CALLBACK(macroScrubClicked), me);
         g_signal_connect(me->sclMacroScrub, "value-changed", G_CALLBACK(macroScrub), me);
         gtk_grid_attach(GTK_GRID(grid), me->sclMacroScrub, 0, 1, 6, 1);
 
-        GtkAdjustment *adjMicroScrub = gtk_adjustment_new(0, -1, 1, 0.01, 0.1, 0);
+        GtkAdjustment *adjMicroScrub = gtk_adjustment_new(0, 0, 1, 0.01, 0.1, 0);
         me->sclMicroScrub = gtk_scale_new(GTK_ORIENTATION_HORIZONTAL, adjMicroScrub);
         gtk_scale_set_draw_value(GTK_SCALE(me->sclMicroScrub), FALSE);
         gtk_scale_set_has_origin(GTK_SCALE(me->sclMicroScrub), FALSE);
         gtk_widget_set_hexpand(me->sclMicroScrub, TRUE);
         gtk_widget_set_valign(me->sclMicroScrub, GTK_ALIGN_FILL);
+        g_signal_connect(me->sclMicroScrub, "button-press-event",
+                         G_CALLBACK(microScrubClicked), me);
+        g_signal_connect(me->sclMicroScrub, "button-release-event",
+                         G_CALLBACK(microScrubClicked), me);
+        g_signal_connect(me->sclMicroScrub, "key-press-event",
+                         G_CALLBACK(microScrubClicked), me);
+        g_signal_connect(me->sclMicroScrub, "key-release-event",
+                         G_CALLBACK(microScrubClicked), me);
         g_signal_connect(me->sclMicroScrub, "value-changed", G_CALLBACK(microScrub), me);
         gtk_grid_attach(GTK_GRID(grid), me->sclMicroScrub, 0, 2, 6, 1);
 
         me->lblCurrTime = gtk_label_new("0 s");
         gtk_widget_set_hexpand(me->lblCurrTime, TRUE);
         gtk_widget_set_halign(me->lblCurrTime, GTK_ALIGN_START);
-        gtk_grid_attach(GTK_GRID(grid), me->lblCurrTime, 0, 3, 1, 1);
+        gtk_grid_attach(GTK_GRID(grid), me->lblCurrTime, 0, 3, 2, 1);
 
         me->lblCurrSpeed = gtk_label_new("1.0x");
         gtk_widget_set_hexpand(me->lblCurrSpeed, TRUE);
         gtk_widget_set_halign(me->lblCurrSpeed, GTK_ALIGN_START);
-        gtk_grid_attach(GTK_GRID(grid), me->lblCurrSpeed, 1, 3, 1, 1);
+        gtk_grid_attach(GTK_GRID(grid), me->lblCurrSpeed, 2, 3, 1, 1);
 
         me->tblData = gtk_tree_view_new();
         gtk_widget_set_vexpand(me->tblData, TRUE);
