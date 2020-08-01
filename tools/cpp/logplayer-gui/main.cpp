@@ -334,15 +334,20 @@ struct LogPlayer
 
     static void playbackChanEdit(GtkCellRendererText *cell,
                                  gchar *path, gchar *newChan,
-                                 GtkListStore *model)
+                                 LogPlayer *me)
     {
-        GtkTreeIter iter;
-        gchar *oldChan;
+        GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(me->tblData));
 
+        GtkTreeIter iter;
         gtk_tree_model_get_iter_from_string(GTK_TREE_MODEL(model), &iter, path);
 
-        gtk_tree_model_get(GTK_TREE_MODEL(model), &iter, PLAY_CHAN_COLUMN, &oldChan, -1);
+        gchar *chan;
+        gtk_tree_model_get(GTK_TREE_MODEL(model), &iter, LOG_CHAN_COLUMN, &chan, -1);
         gtk_list_store_set(GTK_LIST_STORE(model), &iter, PLAY_CHAN_COLUMN, newChan, -1);
+        {
+            unique_lock<mutex> lk(me->zcmLk);
+            me->channelMap[chan].pubChannel = newChan;
+        }
     }
 
     static void channelEnable(GtkCellRendererToggle *cell, gchar *path, LogPlayer *me)
