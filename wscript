@@ -184,6 +184,7 @@ def process_zcm_configure_options(ctx):
     print_entry("Julia",       env.USING_JULIA)
     print_entry("ZeroMQ",      env.USING_ZMQ)
     print_entry("Elf",         env.USING_ELF)
+    print_entry("GTK",         env.USING_GTK3)
     print_entry("Third Party", env.USING_THIRD_PARTY)
 
     Logs.pprint('BLUE', '\nTransport Configuration:')
