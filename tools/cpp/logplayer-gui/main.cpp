@@ -437,7 +437,12 @@ struct LogPlayer
 
     static gboolean macroScrubClicked(GtkRange *range, GdkEvent *event, LogPlayer *me)
     {
-        if (event->type == GDK_BUTTON_PRESS) {
+        if (event->type == GDK_KEY_PRESS) {
+            GdkEventKey *kevent = (GdkEventKey*) event;
+            if (kevent->keyval == GDK_KEY_b) {
+                me->bookmark();
+            }
+        } else if (event->type == GDK_BUTTON_PRESS) {
             GdkEventButton *bevent = (GdkEventButton *) event;
             if (bevent->button == GDK_RIGHT_CLICK) {
                 gtk_menu_popup_at_pointer(GTK_MENU(me->menuScrub), event);
@@ -609,6 +614,8 @@ struct LogPlayer
         gtk_window_set_default_size(GTK_WINDOW(me->window), 450, 275);
         gtk_window_set_position(GTK_WINDOW(me->window), GTK_WIN_POS_MOUSE);
         gtk_container_set_border_width(GTK_CONTAINER(me->window), 1);
+        gtk_widget_add_events(me->window, GDK_KEY_PRESS_MASK);
+        g_signal_connect(me->window, "key-press-event", G_CALLBACK(macroScrubClicked), me);
 
         GtkWidget *grid = gtk_grid_new();
         gtk_container_add(GTK_CONTAINER(me->window), grid);
@@ -668,7 +675,7 @@ struct LogPlayer
         gtk_menu_shell_append(GTK_MENU_SHELL(me->menuScrub), miBookmark);
         g_signal_connect(miBookmark, "activate", G_CALLBACK(bookmarkClicked), me);
 
-        GtkAdjustment *adjMacroScrub = gtk_adjustment_new(0, 0, 1, 0.01, 0.1, 0);
+        GtkAdjustment *adjMacroScrub = gtk_adjustment_new(0, 0, 1, 0.01, 0.05, 0);
         me->sclMacroScrub = gtk_scale_new(GTK_ORIENTATION_HORIZONTAL, adjMacroScrub);
         gtk_scale_set_draw_value(GTK_SCALE(me->sclMacroScrub), FALSE);
         gtk_widget_set_hexpand(me->sclMacroScrub, TRUE);
@@ -677,10 +684,12 @@ struct LogPlayer
                          G_CALLBACK(macroScrubClicked), me);
         g_signal_connect(me->sclMacroScrub, "button-release-event",
                          G_CALLBACK(macroScrubClicked), me);
+        g_signal_connect(me->sclMacroScrub, "key-press-event",
+                         G_CALLBACK(macroScrubClicked), me);
         g_signal_connect(me->sclMacroScrub, "value-changed", G_CALLBACK(macroScrub), me);
         gtk_grid_attach(GTK_GRID(grid), me->sclMacroScrub, 0, 1, 6, 1);
 
-        GtkAdjustment *adjMicroScrub = gtk_adjustment_new(0, 0, 1, 0.01, 0.1, 0);
+        GtkAdjustment *adjMicroScrub = gtk_adjustment_new(0, 0, 1, 0.01, 0.05, 0);
         me->sclMicroScrub = gtk_scale_new(GTK_ORIENTATION_HORIZONTAL, adjMicroScrub);
         gtk_scale_set_draw_value(GTK_SCALE(me->sclMicroScrub), FALSE);
         gtk_scale_set_has_origin(GTK_SCALE(me->sclMicroScrub), FALSE);
@@ -691,8 +700,6 @@ struct LogPlayer
         g_signal_connect(me->sclMicroScrub, "button-release-event",
                          G_CALLBACK(microScrubClicked), me);
         g_signal_connect(me->sclMicroScrub, "key-press-event",
-                         G_CALLBACK(microScrubClicked), me);
-        g_signal_connect(me->sclMicroScrub, "key-release-event",
                          G_CALLBACK(microScrubClicked), me);
         g_signal_connect(me->sclMicroScrub, "value-changed", G_CALLBACK(microScrub), me);
         gtk_grid_attach(GTK_GRID(grid), me->sclMicroScrub, 0, 2, 6, 1);
