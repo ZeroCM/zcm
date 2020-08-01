@@ -450,7 +450,6 @@ struct LogPlayer
 
     static gboolean microScrubClicked(GtkWidget *range, GdkEvent *event, LogPlayer *me)
     {
-        cout << event->type << endl;
         if (event->type == GDK_KEY_PRESS) {
             unique_lock<mutex> lk(me->zcmLk);
             me->microPivotTimeUs = me->currMsgUtime;
