@@ -368,14 +368,14 @@ struct LogPlayer
 
     static void toggle(GtkWidget *widget, LogPlayer *me)
     {
-        GtkTreeSelection *selection;
-        GtkTreeModel     *model;
-        GtkTreeIter       iter;
+        auto toggleChan = [](GtkTreeModel *model, GtkTreePath *path,
+                             GtkTreeIter *iter, gpointer usr) {
+            LogPlayer *me = (LogPlayer*) usr;
+            me->toggleChannelPublish(*iter);
+        };
 
-        selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(me->tblData));
-
-        if (gtk_tree_selection_get_selected(selection, &model, &iter))
-            me->toggleChannelPublish(iter);
+        GtkTreeSelection *selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(me->tblData));
+        gtk_tree_selection_selected_foreach(selection, toggleChan, me);
     }
 
     static void playbackChanEdit(GtkCellRendererText *cell,
@@ -696,6 +696,9 @@ struct LogPlayer
         gtk_widget_set_valign(me->tblData, GTK_ALIGN_FILL);
         gtk_tree_view_set_headers_visible(GTK_TREE_VIEW(me->tblData), TRUE);
 
+        GtkTreeSelection *selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(me->tblData));
+        gtk_tree_selection_set_mode(selection, GTK_SELECTION_MULTIPLE);
+
         GtkListStore *store = gtk_list_store_new(NUM_COLUMNS,
                                                  G_TYPE_STRING, G_TYPE_STRING, G_TYPE_BOOLEAN);
         gtk_tree_view_set_model(GTK_TREE_VIEW(me->tblData), GTK_TREE_MODEL(store));
@@ -706,6 +709,7 @@ struct LogPlayer
         GtkTreeViewColumn *colLogChan =
             gtk_tree_view_column_new_with_attributes("Log Channel", logChanRenderer,
                                                      "text", LOG_CHAN_COLUMN, NULL);
+        gtk_tree_view_column_set_expand(colLogChan, TRUE);
         gtk_tree_view_column_set_resizable(colLogChan, TRUE);
         gtk_tree_view_append_column(GTK_TREE_VIEW(me->tblData), colLogChan);
 
@@ -717,6 +721,7 @@ struct LogPlayer
                                                      playbackChanRenderer, "text",
                                                      PLAY_CHAN_COLUMN, NULL);
         gtk_tree_view_column_set_resizable(colPlaybackChan, TRUE);
+        gtk_tree_view_column_set_expand(colPlaybackChan, TRUE);
         gtk_tree_view_append_column(GTK_TREE_VIEW(me->tblData), colPlaybackChan);
 
         GtkCellRenderer *enableRenderer = gtk_cell_renderer_toggle_new();
@@ -724,6 +729,7 @@ struct LogPlayer
             gtk_tree_view_column_new_with_attributes("Enable", enableRenderer,
                                                      "active", ENABLED_COLUMN, NULL);
         gtk_tree_view_column_set_resizable(colEnable, TRUE);
+        gtk_tree_view_column_set_expand(colPlaybackChan, TRUE);
         g_signal_connect(enableRenderer, "toggled", G_CALLBACK(channelEnable), me);
         gtk_tree_view_append_column(GTK_TREE_VIEW(me->tblData), colEnable);
 
