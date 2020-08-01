@@ -583,6 +583,7 @@ struct LogPlayer
         GtkListStore *store = gtk_list_store_new(NUM_COLUMNS,
                                                  G_TYPE_STRING, G_TYPE_STRING, G_TYPE_BOOLEAN);
         gtk_tree_view_set_model(GTK_TREE_VIEW(me->tblData), GTK_TREE_MODEL(store));
+        gtk_tree_sortable_set_sort_column_id(GTK_TREE_SORTABLE(store), 0, GTK_SORT_ASCENDING);
         g_object_unref(store);
 
         GtkCellRenderer *logChanRenderer = gtk_cell_renderer_text_new();
