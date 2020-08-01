@@ -282,7 +282,7 @@ struct LogPlayer
 
             gchar buf[50];
 
-            g_snprintf(buf, 50, "%.2f s / %.2f s", currTimeS, totalTimeS);
+            g_snprintf(buf, 50, "%.3f s / %.3f s", currTimeS, totalTimeS);
             gtk_label_set_text(GTK_LABEL(me->lblCurrTime), buf);
 
             g_snprintf(buf, 50, "%.2f x", currSpeed);
@@ -451,6 +451,7 @@ struct LogPlayer
             me->stepRequest = true;
             me->isPlaying = true;
         }
+        me->wakeup();
         gtk_button_set_label(GTK_BUTTON(me->btnPlay), "Pause");
     }
 
@@ -820,8 +821,10 @@ struct LogPlayer
                 if (stepRequest) {
                     if (stepPrefix.empty()) {
                         isPlaying = false;
+                        stepRequest = false;
                     } else if (le->channel.rfind(stepPrefix, 0) == 0) {
                         isPlaying = false;
+                        stepRequest = false;
                     }
                 }
             }
