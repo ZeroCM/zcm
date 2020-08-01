@@ -1,17 +1,18 @@
 #include <atomic>
+#include <chrono>
+#include <condition_variable>
 #include <getopt.h>
 #include <gtk/gtk.h>
 #include <iostream>
 #include <limits>
-#include <thread>
 #include <mutex>
-#include <condition_variable>
-#include <chrono>
+#include <thread>
 #include <unordered_map>
 
 #include <zcm/zcm-cpp.hpp>
 
 #include "util/TimeUtil.hpp"
+#include "util/StringUtil.hpp"
 #include "zcm/util/Filter.hpp"
 
 using namespace std;
@@ -414,7 +415,7 @@ struct LogPlayer
                 }
 
                 if (zcmEnabled) {
-                    gtk_label_set_text(GTK_LABEL(me->lblLogName), basename(filename));
+                    gtk_label_set_text(GTK_LABEL(me->lblLogName), StringUtil::basename(filename).c_str());
                     me->enableUI(true);
                     me->wakeup();
                     ret = FALSE;
@@ -504,9 +505,9 @@ struct LogPlayer
         gtk_grid_attach(GTK_GRID(grid), evtLogName, 0, 0, 1, 1);
         gtk_widget_set_events(evtLogName, GDK_BUTTON_PRESS_MASK);
 
-        const char* logName = "Double click to load";
-        if (!me->args.filename.empty()) logName = basename(me->args.filename.c_str());
-        me->lblLogName = gtk_label_new(logName);
+        string logName = "Double click to load";
+        if (!me->args.filename.empty()) logName = StringUtil::basename(me->args.filename.c_str()).c_str();
+        me->lblLogName = gtk_label_new(logName.c_str());
         gtk_widget_set_hexpand(me->lblLogName, TRUE);
         gtk_widget_set_halign(me->lblLogName, GTK_ALIGN_CENTER);
         if (me->args.filename.empty()) {

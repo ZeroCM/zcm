@@ -6,6 +6,7 @@ using std::vector;
 #include <sstream>
 #include <cassert>
 #include <cstring>
+#include <libgen.h>
 
 namespace StringUtil
 {
@@ -116,4 +117,10 @@ namespace StringUtil
 
     static inline string dotsToSlashes(const string& s)
     { return replace(s, '.', '/'); }
+
+    static std::string basename(const std::string& path)
+    {
+        std::string cpy = path;
+        return std::string(::basename((char*)cpy.c_str()));
+    }
 }
