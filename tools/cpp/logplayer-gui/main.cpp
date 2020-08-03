@@ -1,6 +1,8 @@
 #include <atomic>
+#include <cctype>
 #include <chrono>
 #include <condition_variable>
+#include <fstream>
 #include <getopt.h>
 #include <gtk/gtk.h>
 #include <iostream>
@@ -152,6 +154,32 @@ struct LogPlayer
         if (zcmOut) { delete zcmOut; }
     }
 
+    void loadPreferences()
+    {
+        string jlpPath = args.filename + ".jlp";
+
+        fstream jlpFile;
+        jlpFile.open(jlpPath.c_str(), ios::in);
+        if (!jlpFile.is_open()) return; // no jlp file is fine
+
+        string line;
+        while (getline(jlpFile, line)) {
+            auto toks = StringUtil::split(line, ' ');
+            if (toks.size() < 1) continue;
+            if (toks[0] == "BOOKMARK") {
+                if (toks.size() < 3) continue;
+                // addBookmark(toks[1], toks[2]);
+            } else if (toks[0] == "CHANNEL") {
+                if (toks.size() < 4) continue;
+                channelMap[toks[1]].pubChannel = toks[2];
+                channelMap[toks[1]].enabled = string(toks[3]) == "true";
+            } else {
+                cerr << "Unsupported JLP directive: " << line << endl;
+            }
+        }
+        jlpFile.close();
+    }
+
     void wakeup()
     {
         zcmCv.notify_all();
@@ -218,6 +246,8 @@ struct LogPlayer
 
         assert(lastMsgUtime > firstMsgUtime);
         totalTimeUs = lastMsgUtime - firstMsgUtime;
+
+        loadPreferences();
 
         return true;
     }
