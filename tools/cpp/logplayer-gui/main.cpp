@@ -118,6 +118,7 @@ struct LogPlayer
     double microScrubMax = 1;
     bool microScrubWasPlayingOnStart;
     bool microScrubIsDragging = false;
+    bool macroScrubIsDragging = false;
 
     mutex redrawLk;
     condition_variable redrawCv;
@@ -411,7 +412,8 @@ struct LogPlayer
                 }
             };
 
-            changeIgnore(GTK_RANGE(me->sclMacroScrub), me->ignoreMacroScrubEvts, perc);
+            if (!me->macroScrubIsDragging)
+                changeIgnore(GTK_RANGE(me->sclMacroScrub), me->ignoreMacroScrubEvts, perc);
 
             if (currTimeS < 1) {
                 me->microScrubMin = -currTimeS;
@@ -560,6 +562,13 @@ struct LogPlayer
             if (bevent->button == GDK_RIGHT_CLICK) {
                 gtk_menu_popup_at_pointer(GTK_MENU(me->menuScrub), event);
                 return TRUE;
+            } else if (bevent->button == GDK_LEFT_CLICK) {
+                me->macroScrubIsDragging = true;
+            }
+        } else if (event->type == GDK_BUTTON_RELEASE) {
+            GdkEventButton *bevent = (GdkEventButton *) event;
+            if (bevent->button == GDK_LEFT_CLICK) {
+                me->macroScrubIsDragging = false;
             }
         }
         return FALSE;
