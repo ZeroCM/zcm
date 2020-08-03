@@ -129,6 +129,8 @@ struct LogPlayer
     bool microScrubIsDragging = false;
     bool macroScrubIsDragging = false;
 
+    bool bDown = false;
+
     mutex redrawLk;
     condition_variable redrawCv;
     bool redrawNow;
@@ -177,9 +179,9 @@ struct LogPlayer
     struct Bookmark
     {
         BookmarkType type;
-        float logTimePerc;
+        double logTimePerc;
         bool addedToGui;
-        Bookmark(BookmarkType type, float logTimePerc) :
+        Bookmark(BookmarkType type, double logTimePerc) :
             type(type), logTimePerc(logTimePerc), addedToGui(false)
         {}
     };
@@ -263,14 +265,15 @@ struct LogPlayer
         redrawCv.notify_all();
     }
 
-    void addBookmark(BookmarkType type, float logTimePerc, bool saveFile)
+    void addBookmark(BookmarkType type, double logTimePerc, bool saveFile)
     {
         bookmarks.emplace_back(type, logTimePerc);
         {
             unique_lock<mutex> lk(windowLk);
             if (window) {
                 gtk_scale_add_mark(GTK_SCALE(sclMacroScrub),
-                                   bookmarks.back().logTimePerc, GTK_POS_TOP, NULL);
+                                   bookmarks.back().logTimePerc, GTK_POS_TOP,
+                                   to_string(bookmarks.size() - 1).c_str());
                 bookmarks.back().addedToGui = true;
             }
         }
@@ -390,12 +393,12 @@ struct LogPlayer
         double currSpeed;
         double currTimeS;
         double totalTimeS;
-        float perc;
+        double perc;
         bool isPlaying;
         {
             unique_lock<mutex> lk(me->zcmLk);
 
-            perc = (float) (me->currMsgUtime - me->firstMsgUtime) / (float) me->totalTimeUs;
+            perc = (double) (me->currMsgUtime - me->firstMsgUtime) / (double) me->totalTimeUs;
 
             _channelMap = me->channelMap;
             for (auto& c : me->channelMap) c.second.addedToGui = true;
@@ -413,8 +416,8 @@ struct LogPlayer
 
             if (!me->window) return FALSE;
 
-            auto changeIgnore = [](GtkRange *range, int &ignoreCount, float val){
-                float lastVal = gtk_range_get_value(range);
+            auto changeIgnore = [](GtkRange *range, int &ignoreCount, double val){
+                double lastVal = gtk_range_get_value(range);
                 if (val != lastVal) {
                     ignoreCount++;
                     gtk_range_set_value(range, val);
@@ -427,7 +430,7 @@ struct LogPlayer
             if (currTimeS < 1) {
                 me->microScrubMin = -currTimeS;
                 me->microScrubMax = 1;
-                float displayVal = mathMap(me->microScrubCurr,
+                double displayVal = mathMap(me->microScrubCurr,
                                        me->microScrubMin, me->microScrubMax, 0, 1);
                 if (!me->microScrubIsDragging)
                     changeIgnore(GTK_RANGE(me->sclMicroScrub),
@@ -435,7 +438,7 @@ struct LogPlayer
             } else if (currTimeS > totalTimeS - 1) {
                 me->microScrubMin = -1;
                 me->microScrubMax = totalTimeS - currTimeS;
-                float displayVal = mathMap(me->microScrubCurr,
+                double displayVal = mathMap(me->microScrubCurr,
                                        me->microScrubMin, me->microScrubMax, 0, 1);
                 if (!me->microScrubIsDragging)
                     changeIgnore(GTK_RANGE(me->sclMicroScrub),
@@ -443,7 +446,7 @@ struct LogPlayer
             } else {
                 me->microScrubMin = -1;
                 me->microScrubMax = 1;
-                float displayVal = mathMap(me->microScrubCurr,
+                double displayVal = mathMap(me->microScrubCurr,
                                        me->microScrubMin, me->microScrubMax, 0, 1);
                 if (!me->microScrubIsDragging)
                     changeIgnore(GTK_RANGE(me->sclMicroScrub),
@@ -532,10 +535,10 @@ struct LogPlayer
 
     void bookmark()
     {
-        float perc;
+        double perc;
         {
             unique_lock<mutex> lk(zcmLk);
-            perc = (float) (currMsgUtime - firstMsgUtime) / (float) totalTimeUs;
+            perc = (double) (currMsgUtime - firstMsgUtime) / (double) totalTimeUs;
         }
         addBookmark(BookmarkType::PLAIN, perc, true);
     }
@@ -545,6 +548,98 @@ struct LogPlayer
         me->bookmark();
     }
 
+    void requestTime(uint64_t logUtime)
+    {
+        {
+            unique_lock<mutex> lk(zcmLk);
+            requestTimeUs = logUtime;
+        }
+        wakeup();
+    }
+
+    static gboolean keyPress(GtkWidget *widget, GdkEvent *event, LogPlayer *me)
+    {
+        if (event->type == GDK_KEY_PRESS) {
+            GdkEventKey *kevent = (GdkEventKey*) event;
+            switch (kevent->keyval) {
+                case GDK_KEY_b:
+                    if (!me->bDown) {
+                        me->bDown = true;
+                        me->bookmark();
+                    }
+                    break;
+                case GDK_KEY_KP_0:
+                case GDK_KEY_0:
+                    if (me->bookmarks.size() <= 0) break;
+                    me->requestTime(me->firstMsgUtime +
+                                    me->bookmarks[0].logTimePerc * me->totalTimeUs);
+                    break;
+                case GDK_KEY_KP_1:
+                case GDK_KEY_1:
+                    if (me->bookmarks.size() <= 1) break;
+                    me->requestTime(me->firstMsgUtime +
+                                    me->bookmarks[1].logTimePerc * me->totalTimeUs);
+                    break;
+                case GDK_KEY_KP_2:
+                case GDK_KEY_2:
+                    if (me->bookmarks.size() <= 2) break;
+                    me->requestTime(me->firstMsgUtime +
+                                    me->bookmarks[2].logTimePerc * me->totalTimeUs);
+                    break;
+                case GDK_KEY_KP_3:
+                case GDK_KEY_3:
+                    if (me->bookmarks.size() <= 3) break;
+                    me->requestTime(me->firstMsgUtime +
+                                    me->bookmarks[3].logTimePerc * me->totalTimeUs);
+                    break;
+                case GDK_KEY_KP_4:
+                case GDK_KEY_4:
+                    if (me->bookmarks.size() <= 4) break;
+                    me->requestTime(me->firstMsgUtime +
+                                    me->bookmarks[4].logTimePerc * me->totalTimeUs);
+                    break;
+                case GDK_KEY_KP_5:
+                case GDK_KEY_5:
+                    if (me->bookmarks.size() <= 5) break;
+                    me->requestTime(me->firstMsgUtime +
+                                    me->bookmarks[5].logTimePerc * me->totalTimeUs);
+                    break;
+                case GDK_KEY_KP_6:
+                case GDK_KEY_6:
+                    if (me->bookmarks.size() <= 6) break;
+                    me->requestTime(me->firstMsgUtime +
+                                    me->bookmarks[6].logTimePerc * me->totalTimeUs);
+                    break;
+                case GDK_KEY_KP_7:
+                case GDK_KEY_7:
+                    if (me->bookmarks.size() <= 7) break;
+                    me->requestTime(me->firstMsgUtime +
+                                    me->bookmarks[7].logTimePerc * me->totalTimeUs);
+                    break;
+                case GDK_KEY_KP_8:
+                case GDK_KEY_8:
+                    if (me->bookmarks.size() <= 8) break;
+                    me->requestTime(me->firstMsgUtime +
+                                    me->bookmarks[8].logTimePerc * me->totalTimeUs);
+                    break;
+                case GDK_KEY_KP_9:
+                case GDK_KEY_9:
+                    if (me->bookmarks.size() <= 9) break;
+                    me->requestTime(me->firstMsgUtime +
+                                    me->bookmarks[9].logTimePerc * me->totalTimeUs);
+                    break;
+            }
+        } else if (event->type == GDK_KEY_RELEASE) {
+            GdkEventKey *kevent = (GdkEventKey*) event;
+            switch (kevent->keyval) {
+                case GDK_KEY_b:
+                    me->bDown = false;
+                    break;
+            }
+        }
+        return FALSE;
+    }
+
     static void macroScrub(GtkRange *range, LogPlayer *me)
     {
         if (me->ignoreMacroScrubEvts > 0) {
@@ -552,21 +647,12 @@ struct LogPlayer
             return;
         }
         gdouble pos = gtk_range_get_value(range);
-        {
-            unique_lock<mutex> lk(me->zcmLk);
-            me->requestTimeUs = me->firstMsgUtime + pos * me->totalTimeUs;
-        }
-        me->wakeup();
+        me->requestTime(me->firstMsgUtime + pos * me->totalTimeUs);
     }
 
     static gboolean macroScrubClicked(GtkRange *range, GdkEvent *event, LogPlayer *me)
     {
-        if (event->type == GDK_KEY_PRESS) {
-            GdkEventKey *kevent = (GdkEventKey*) event;
-            if (kevent->keyval == GDK_KEY_b) {
-                me->bookmark();
-            }
-        } else if (event->type == GDK_BUTTON_PRESS) {
+        if (event->type == GDK_BUTTON_PRESS) {
             GdkEventButton *bevent = (GdkEventButton *) event;
             if (bevent->button == GDK_RIGHT_CLICK) {
                 gtk_menu_popup_at_pointer(GTK_MENU(me->menuScrub), event);
@@ -591,11 +677,7 @@ struct LogPlayer
         }
         gdouble pos = gtk_range_get_value(GTK_RANGE(range));
         pos = mathMap(pos, 0, 1, me->microScrubMin, me->microScrubMax);
-        {
-            unique_lock<mutex> lk(me->zcmLk);
-            me->requestTimeUs = me->microPivotTimeUs + pos * 1e6;
-        }
-        me->wakeup();
+        me->requestTime(me->microPivotTimeUs + pos * 1e6);
         return;
     }
 
@@ -622,7 +704,7 @@ struct LogPlayer
             GdkEventButton *bevent = (GdkEventButton *) event;
             if (bevent->button == GDK_LEFT_CLICK) {
                 me->microScrubIsDragging = false;
-                float pos = mathMap(0, me->microScrubMin, me->microScrubMax, 0, 1);
+                double pos = mathMap(0, me->microScrubMin, me->microScrubMax, 0, 1);
                 me->ignoreMicroScrubEvts++;
                 gtk_range_set_value(GTK_RANGE(me->sclMicroScrub), pos);
                 {
@@ -746,7 +828,10 @@ struct LogPlayer
         gtk_window_set_position(GTK_WINDOW(me->window), GTK_WIN_POS_MOUSE);
         gtk_container_set_border_width(GTK_CONTAINER(me->window), 1);
         gtk_widget_add_events(me->window, GDK_KEY_PRESS_MASK);
-        g_signal_connect(me->window, "key-press-event", G_CALLBACK(macroScrubClicked), me);
+        g_signal_connect(me->window, "key-press-event",
+                         G_CALLBACK(keyPress), me);
+        g_signal_connect(me->window, "key-release-event",
+                         G_CALLBACK(keyPress), me);
 
         GtkWidget *grid = gtk_grid_new();
         gtk_container_add(GTK_CONTAINER(me->window), grid);
@@ -814,8 +899,6 @@ struct LogPlayer
         g_signal_connect(me->sclMacroScrub, "button-press-event",
                          G_CALLBACK(macroScrubClicked), me);
         g_signal_connect(me->sclMacroScrub, "button-release-event",
-                         G_CALLBACK(macroScrubClicked), me);
-        g_signal_connect(me->sclMacroScrub, "key-press-event",
                          G_CALLBACK(macroScrubClicked), me);
         g_signal_connect(me->sclMacroScrub, "value-changed", G_CALLBACK(macroScrub), me);
         gtk_grid_attach(GTK_GRID(grid), me->sclMacroScrub, 0, 1, 6, 1);
@@ -910,9 +993,11 @@ struct LogPlayer
 
         if (me->zcmIn && me->zcmIn->good()) {
             me->enableUI(true);
-            for (auto& b : me->bookmarks) {
+            for (size_t i = 0; i < me->bookmarks.size(); ++i) {
+                auto &b = me->bookmarks[i];
                 gtk_scale_add_mark(GTK_SCALE(me->sclMacroScrub),
-                                   b.logTimePerc, GTK_POS_TOP, NULL);
+                                   b.logTimePerc, GTK_POS_TOP,
+                                   to_string(i).c_str());
                 b.addedToGui = true;
             }
         } else {
