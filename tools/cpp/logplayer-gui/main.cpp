@@ -5,11 +5,12 @@
 #include <fstream>
 #include <getopt.h>
 #include <gtk/gtk.h>
+#include <iomanip>
 #include <iostream>
 #include <limits>
 #include <mutex>
 #include <thread>
-#include <unordered_map>
+#include <map>
 
 #include <zcm/zcm-cpp.hpp>
 
@@ -21,7 +22,7 @@ using namespace std;
 
 static atomic_int done {0};
 
-static double map(double a, double inMin, double inMax, double outMin, double outMax)
+static double mathMap(double a, double inMin, double inMax, double outMin, double outMax)
 {
     return (a - inMin) * (outMax - outMin) / (inMax - inMin) + outMin;
 }
@@ -152,13 +153,24 @@ struct LogPlayer
         if (type == "RREPEAT") return BookmarkType::RREPEAT;
         return BookmarkType::NUM_BOOKMARK_TYPES;
     }
+    static string bookmarkTypeToSting(BookmarkType type)
+    {
+        switch (type) {
+            case BookmarkType::PLAIN: return "PLAIN";
+            case BookmarkType::LREPEAT: return "LREPEAT";
+            case BookmarkType::RREPEAT: return "RREPEAT";
+            case BookmarkType::NUM_BOOKMARK_TYPES: assert(false && "Shouldn't be possible");
+        }
+        assert(false && "Shouldn't be possible");
+        return "";
+    }
     struct Bookmark
     {
         BookmarkType type;
-        uint64_t logUtime;
+        float logTimePerc;
         bool addedToGui;
-        Bookmark(BookmarkType type, uint64_t logUtime) :
-            type(type), logUtime(logUtime), addedToGui(false)
+        Bookmark(BookmarkType type, float logTimePerc) :
+            type(type), logTimePerc(logTimePerc), addedToGui(false)
         {}
     };
     vector<Bookmark> bookmarks;
@@ -169,7 +181,7 @@ struct LogPlayer
         bool enabled;
         bool addedToGui;
     };
-    unordered_map<string, ChannelInfo> channelMap;
+    map<string, ChannelInfo> channelMap;
 
     LogPlayer() {}
 
@@ -196,10 +208,9 @@ struct LogPlayer
                 BookmarkType type = bookmarkTypeFromSting(toks[1]);
                 if (type == BookmarkType::NUM_BOOKMARK_TYPES) continue;
                 char *endptr;
-                double logPerc = std::strtod(toks[2].c_str(), &endptr);
+                double logTimePerc = std::strtod(toks[2].c_str(), &endptr);
                 if (endptr == toks[2].c_str()) continue;
-                uint64_t logUtime = logPerc * totalTimeUs + firstMsgUtime;
-                addBookmark(type, logUtime);
+                addBookmark(type, logTimePerc, false);
             } else if (toks[0] == "CHANNEL") {
                 if (toks.size() < 4) continue;
                 channelMap[toks[1]].pubChannel = toks[2];
@@ -211,23 +222,49 @@ struct LogPlayer
         jlpFile.close();
     }
 
+    void savePreferences()
+    {
+        string jlpPath = args.filename + ".jlp";
+
+        ofstream jlpFile;
+        jlpFile.open(jlpPath.c_str(), ios::out);
+        if (!jlpFile.is_open()) return; // no jlp file is fine
+
+        for (const auto& b : bookmarks) {
+            jlpFile << "BOOKMARK "
+                    << bookmarkTypeToSting(b.type) << " "
+                    << std::setprecision(std::numeric_limits<long double>::digits10 + 1)
+                    << std::fixed << b.logTimePerc << endl;
+        }
+
+        for (const auto& c : channelMap) {
+            jlpFile << "CHANNEL "
+                    << c.first << " "
+                    << c.second.pubChannel << " "
+                    << (c.second.enabled ? "true" : "false") << endl;
+        }
+
+        jlpFile.close();
+    }
+
     void wakeup()
     {
         zcmCv.notify_all();
         redrawCv.notify_all();
     }
 
-    void addBookmark(BookmarkType type, uint64_t logUtime)
+    void addBookmark(BookmarkType type, float logTimePerc, bool saveFile)
     {
-        bookmarks.emplace_back(type, logUtime);
-        float perc = (float) (logUtime - firstMsgUtime) / (float) totalTimeUs;
+        bookmarks.emplace_back(type, logTimePerc);
         {
             unique_lock<mutex> lk(windowLk);
             if (window) {
-                gtk_scale_add_mark(GTK_SCALE(sclMacroScrub), perc, GTK_POS_TOP, NULL);
+                gtk_scale_add_mark(GTK_SCALE(sclMacroScrub),
+                                   bookmarks.back().logTimePerc, GTK_POS_TOP, NULL);
                 bookmarks.back().addedToGui = true;
             }
         }
+        if (saveFile) savePreferences();
     }
 
     bool toggleChannelPublish(GtkTreeIter iter)
@@ -242,6 +279,7 @@ struct LogPlayer
             channelMap[name].enabled = !channelMap[name].enabled;
             enabled = channelMap[name].enabled;
         }
+        savePreferences();
 
         gtk_list_store_set(GTK_LIST_STORE(model), &iter, ENABLED_COLUMN, enabled, -1);
 
@@ -319,7 +357,7 @@ struct LogPlayer
         gtk_widget_set_sensitive(txtPrefix, enable);
     }
 
-    void addChannels(unordered_map<string, ChannelInfo> channelMap)
+    void addChannels(map<string, ChannelInfo> channelMap)
     {
         GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(tblData));
 
@@ -338,7 +376,7 @@ struct LogPlayer
 
     static gboolean zcmUpdateGui(LogPlayer *me)
     {
-        unordered_map<string, ChannelInfo> _channelMap;
+        map<string, ChannelInfo> _channelMap;
         double currSpeed;
         double currTimeS;
         double totalTimeS;
@@ -378,7 +416,7 @@ struct LogPlayer
             if (currTimeS < 1) {
                 me->microScrubMin = -currTimeS;
                 me->microScrubMax = 1;
-                float displayVal = map(me->microScrubCurr,
+                float displayVal = mathMap(me->microScrubCurr,
                                        me->microScrubMin, me->microScrubMax, 0, 1);
                 if (!me->microScrubIsDragging)
                     changeIgnore(GTK_RANGE(me->sclMicroScrub),
@@ -386,7 +424,7 @@ struct LogPlayer
             } else if (currTimeS > totalTimeS - 1) {
                 me->microScrubMin = -1;
                 me->microScrubMax = totalTimeS - currTimeS;
-                float displayVal = map(me->microScrubCurr,
+                float displayVal = mathMap(me->microScrubCurr,
                                        me->microScrubMin, me->microScrubMax, 0, 1);
                 if (!me->microScrubIsDragging)
                     changeIgnore(GTK_RANGE(me->sclMicroScrub),
@@ -394,7 +432,7 @@ struct LogPlayer
             } else {
                 me->microScrubMin = -1;
                 me->microScrubMax = 1;
-                float displayVal = map(me->microScrubCurr,
+                float displayVal = mathMap(me->microScrubCurr,
                                        me->microScrubMin, me->microScrubMax, 0, 1);
                 if (!me->microScrubIsDragging)
                     changeIgnore(GTK_RANGE(me->sclMicroScrub),
@@ -468,6 +506,7 @@ struct LogPlayer
             unique_lock<mutex> lk(me->zcmLk);
             me->channelMap[chan].pubChannel = newChan;
         }
+        me->savePreferences();
     }
 
     static void channelEnable(GtkCellRendererToggle *cell, gchar *path, LogPlayer *me)
@@ -482,12 +521,12 @@ struct LogPlayer
 
     void bookmark()
     {
-        uint64_t _currMsgUtime;
+        float perc;
         {
             unique_lock<mutex> lk(zcmLk);
-            _currMsgUtime = currMsgUtime;
+            perc = (float) (currMsgUtime - firstMsgUtime) / (float) totalTimeUs;
         }
-        addBookmark(BookmarkType::PLAIN, _currMsgUtime);
+        addBookmark(BookmarkType::PLAIN, perc, true);
     }
 
     static void bookmarkClicked(GtkWidget *bookmark, LogPlayer *me)
@@ -533,7 +572,7 @@ struct LogPlayer
             return;
         }
         gdouble pos = gtk_range_get_value(GTK_RANGE(range));
-        pos = map(pos, 0, 1, me->microScrubMin, me->microScrubMax);
+        pos = mathMap(pos, 0, 1, me->microScrubMin, me->microScrubMax);
         {
             unique_lock<mutex> lk(me->zcmLk);
             me->requestTimeUs = me->microPivotTimeUs + pos * 1e6;
@@ -565,7 +604,7 @@ struct LogPlayer
             GdkEventButton *bevent = (GdkEventButton *) event;
             if (bevent->button == GDK_LEFT_CLICK) {
                 me->microScrubIsDragging = false;
-                float pos = map(0, me->microScrubMin, me->microScrubMax, 0, 1);
+                float pos = mathMap(0, me->microScrubMin, me->microScrubMax, 0, 1);
                 me->ignoreMicroScrubEvts++;
                 gtk_range_set_value(GTK_RANGE(me->sclMicroScrub), pos);
                 {
@@ -854,8 +893,8 @@ struct LogPlayer
         if (me->zcmIn && me->zcmIn->good()) {
             me->enableUI(true);
             for (auto& b : me->bookmarks) {
-                float perc = (float) (b.logUtime - me->firstMsgUtime) / (float) me->totalTimeUs;
-                gtk_scale_add_mark(GTK_SCALE(me->sclMacroScrub), perc, GTK_POS_TOP, NULL);
+                gtk_scale_add_mark(GTK_SCALE(me->sclMacroScrub),
+                                   b.logTimePerc, GTK_POS_TOP, NULL);
                 b.addedToGui = true;
             }
         } else {
