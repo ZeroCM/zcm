@@ -207,7 +207,7 @@ static zcm_eventlog_event_t *zcm_event_read_helper(zcm_eventlog_t *l, int rewind
     }
 
 done:
-    if (rewindWhenDone) fseeko (l->f, -(off_t)(numRead), SEEK_CUR);
+    if (rewindWhenDone) fseeko (l->f, -(off_t)(numRead + 4), SEEK_CUR);
     return le;
 }
 
