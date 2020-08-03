@@ -560,7 +560,19 @@ struct LogPlayer
     static gboolean keyPress(GtkWidget *widget, GdkEvent *event, LogPlayer *me)
     {
         if (event->type == GDK_KEY_PRESS) {
+
             GdkEventKey *kevent = (GdkEventKey*) event;
+
+            if (kevent->keyval == GDK_KEY_Escape) {
+                gtk_window_set_focus(GTK_WINDOW(me->window), me->btnPlay);
+                GtkTreeSelection *selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(me->tblData));
+                gtk_tree_selection_unselect_all(selection);
+            }
+
+            GtkWidget *focusWidget = gtk_window_get_focus(GTK_WINDOW(me->window));
+            if (focusWidget == me->txtPrefix || focusWidget == me->tblData)
+                return FALSE;
+
             switch (kevent->keyval) {
                 case GDK_KEY_b:
                     if (!me->bDown) {
