@@ -22,6 +22,15 @@ using namespace std;
 
 static atomic_int done {0};
 
+#if GTK_MINOR_VERSION < (22)
+static void gtk_menu_popup_at_pointer(GtkMenu *menu, GdkEvent *event)
+{
+    assert(event->type == GDK_BUTTON_PRESS);
+    GdkEventButton *bevent = (GdkEventButton *) event;
+    gtk_menu_popup(menu, NULL, NULL, NULL, NULL, bevent->button, bevent->time);
+}
+#endif
+
 static double mathMap(double a, double inMin, double inMax, double outMin, double outMax)
 {
     return (a - inMin) * (outMax - outMin) / (inMax - inMin) + outMin;
