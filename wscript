@@ -52,6 +52,7 @@ def add_zcm_configure_options(ctx):
     add_use_option('julia',       'Enable julia features')
     add_use_option('zmq',         'Enable ZeroMQ features')
     add_use_option('elf',         'Enable runtime loading of shared libs')
+    add_use_option('gtk',         'Enable tools made with gtk')
     add_use_option('third-party', 'Enable inclusion of 3rd party transports.')
 
     gr.add_option('--hash-member-names',  dest='hash_member_names', default='false',
@@ -138,6 +139,7 @@ def process_zcm_configure_options(ctx):
     env.USING_JULIA       = hasopt('use_julia') and attempt_use_julia(ctx)
     env.USING_ZMQ         = hasopt('use_zmq') and attempt_use_zmq(ctx)
     env.USING_ELF         = hasopt('use_elf') and attempt_use_elf(ctx)
+    env.USING_GTK3        = hasopt('use_gtk') and attempt_use_gtk(ctx)
     env.USING_THIRD_PARTY = getattr(opt, 'use_third_party') and attempt_use_third_party(ctx)
 
     env.USING_TRANS_IPC    = hasopt('use_ipc')
@@ -182,6 +184,7 @@ def process_zcm_configure_options(ctx):
     print_entry("Julia",       env.USING_JULIA)
     print_entry("ZeroMQ",      env.USING_ZMQ)
     print_entry("Elf",         env.USING_ELF)
+    print_entry("GTK",         env.USING_GTK3)
     print_entry("Third Party", env.USING_THIRD_PARTY)
 
     Logs.pprint('BLUE', '\nTransport Configuration:')
@@ -269,6 +272,10 @@ def attempt_use_elf(ctx):
     if not os.path.exists('/usr/include/libelf.h'):
         raise WafError('Failed to find libelf')
     ctx.env.LIB_elf = ['elf', 'dl']
+    return True
+
+def attempt_use_gtk(ctx):
+    ctx.check_cfg(package='gtk+-3.0', args='--cflags --libs', uselib_store='gtk+3')
     return True
 
 def attempt_use_third_party(ctx):

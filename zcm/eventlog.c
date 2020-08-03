@@ -97,29 +97,24 @@ int zcm_eventlog_seek_to_timestamp(zcm_eventlog_t *l, int64_t timestamp)
     double frac;                    // current position
 
     while (1) {
-        frac = 0.5*(frac1+frac2);
-        off_t offset = (off_t)(frac*file_len);
-        fseeko (l->f, offset, SEEK_SET);
-        cur_time = get_next_event_time (l);
+        frac = 0.5 * (frac1 + frac2);
+        off_t offset = (off_t)(frac * file_len);
+        fseeko(l->f, offset, SEEK_SET);
+        cur_time = get_next_event_time(l);
         if (cur_time < 0)
             return -1;
 
-        if ((frac > frac2) || (frac < frac1) || (frac1>=frac2))
+        if ((frac > frac2) || (frac < frac1) || (frac1 >= frac2))
             break;
 
-        double df = frac-prev_frac;
-        if (df < 0)
-            df = -df;
-        if (df < 1e-12)
-            break;
+        double df = frac - prev_frac;
+        if (df < 0) df = -df;
+        if (df < 1e-12) break;
 
-        if (cur_time == timestamp)
-            break;
+        if (cur_time == timestamp) break;
 
-        if (cur_time < timestamp)
-            frac1 = frac;
-        else
-            frac2 = frac;
+        if (cur_time < timestamp) frac1 = frac;
+        else frac2 = frac;
 
         prev_frac = frac;
     }
@@ -129,42 +124,72 @@ int zcm_eventlog_seek_to_timestamp(zcm_eventlog_t *l, int64_t timestamp)
 
 static zcm_eventlog_event_t *zcm_event_read_helper(zcm_eventlog_t *l, int rewindWhenDone)
 {
+    size_t numRead = 0;
+
     zcm_eventlog_event_t *le =
         (zcm_eventlog_event_t*) calloc(1, sizeof(zcm_eventlog_event_t));
 
-    if (0 != fread64(l->f, &le->eventnum) ||
-        0 != fread64(l->f, &le->timestamp) ||
-        0 != fread32(l->f, &le->channellen) ||
-        0 != fread32(l->f, &le->datalen)) {
+    if (fread64(l->f, &le->eventnum)) {
         free(le);
-        return NULL;
+        le = NULL;
+        goto done;
     }
+    numRead += 8;
+
+    if (fread64(l->f, &le->timestamp)) {
+        free(le);
+        le = NULL;
+        goto done;
+    }
+    numRead += 8;
+
+    if (fread32(l->f, &le->channellen)) {
+        free(le);
+        le = NULL;
+        goto done;
+    }
+    numRead += 4;
+
+    if (fread32(l->f, &le->datalen)) {
+        free(le);
+        le = NULL;
+        goto done;
+    }
+    numRead += 4;
 
     // Sanity check the channel length and data length
     if (le->channellen <= 0 || le->channellen >= 1000) {
         fprintf(stderr, "Log event has invalid channel length: %d\n", le->channellen);
         free(le);
-        return NULL;
+        le = NULL;
+        goto done;
     }
     if (le->datalen < 0) {
         fprintf(stderr, "Log event has invalid data length: %d\n", le->datalen);
         free(le);
-        return NULL;
+        le = NULL;
+        goto done;
     }
 
     le->channel = (char *) calloc(1, le->channellen+1);
-    if (fread(le->channel, 1, le->channellen, l->f) != (size_t) le->channellen) {
+    size_t readRet = fread(le->channel, 1, le->channellen, l->f);
+    numRead += readRet;
+    if (readRet != (size_t) le->channellen) {
         free(le->channel);
         free(le);
-        return NULL;
+        le = NULL;
+        goto done;
     }
 
     le->data = calloc(1, le->datalen+1);
-    if (fread(le->data, 1, le->datalen, l->f) != (size_t) le->datalen) {
+    readRet = fread(le->data, 1, le->datalen, l->f);
+    numRead += readRet;
+    if (readRet != (size_t) le->datalen) {
         free(le->channel);
         free(le->data);
         free(le);
-        return NULL;
+        le = NULL;
+        goto done;
     }
 
     // Check that there's a valid event or the EOF after this event.
@@ -175,14 +200,14 @@ static zcm_eventlog_event_t *zcm_event_read_helper(zcm_eventlog_t *l, int rewind
             free(le->channel);
             free(le->data);
             free(le);
+            le = NULL;
             return NULL;
         }
         fseeko (l->f, -4, SEEK_CUR);
     }
-    if (rewindWhenDone) {
-        fseeko (l->f, -(off_t)(sizeof(int64_t) * 2 + sizeof(int32_t) * 3 +
-                               le->datalen + le->channellen), SEEK_CUR);
-    }
+
+done:
+    if (rewindWhenDone) fseeko (l->f, -(off_t)(numRead + 4), SEEK_CUR);
     return le;
 }
 
