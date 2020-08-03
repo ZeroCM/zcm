@@ -138,6 +138,31 @@ struct LogPlayer
     static constexpr int GDK_LEFT_CLICK = 1;
     static constexpr int GDK_RIGHT_CLICK = 3;
 
+    enum class BookmarkType
+    {
+        PLAIN,
+        LREPEAT,
+        RREPEAT,
+        NUM_BOOKMARK_TYPES
+    };
+    static BookmarkType bookmarkTypeFromSting(const string& type)
+    {
+        if (type == "PLAIN") return BookmarkType::PLAIN;
+        if (type == "LREPEAT") return BookmarkType::LREPEAT;
+        if (type == "RREPEAT") return BookmarkType::RREPEAT;
+        return BookmarkType::NUM_BOOKMARK_TYPES;
+    }
+    struct Bookmark
+    {
+        BookmarkType type;
+        uint64_t logUtime;
+        bool addedToGui;
+        Bookmark(BookmarkType type, uint64_t logUtime) :
+            type(type), logUtime(logUtime), addedToGui(false)
+        {}
+    };
+    vector<Bookmark> bookmarks;
+
     struct ChannelInfo
     {
         string pubChannel;
@@ -168,7 +193,13 @@ struct LogPlayer
             if (toks.size() < 1) continue;
             if (toks[0] == "BOOKMARK") {
                 if (toks.size() < 3) continue;
-                // addBookmark(toks[1], toks[2]);
+                BookmarkType type = bookmarkTypeFromSting(toks[1]);
+                if (type == BookmarkType::NUM_BOOKMARK_TYPES) continue;
+                char *endptr;
+                double logPerc = std::strtod(toks[2].c_str(), &endptr);
+                if (endptr == toks[2].c_str()) continue;
+                uint64_t logUtime = logPerc * totalTimeUs + firstMsgUtime;
+                addBookmark(type, logUtime);
             } else if (toks[0] == "CHANNEL") {
                 if (toks.size() < 4) continue;
                 channelMap[toks[1]].pubChannel = toks[2];
@@ -184,6 +215,19 @@ struct LogPlayer
     {
         zcmCv.notify_all();
         redrawCv.notify_all();
+    }
+
+    void addBookmark(BookmarkType type, uint64_t logUtime)
+    {
+        bookmarks.emplace_back(type, logUtime);
+        float perc = (float) (logUtime - firstMsgUtime) / (float) totalTimeUs;
+        {
+            unique_lock<mutex> lk(windowLk);
+            if (window) {
+                gtk_scale_add_mark(GTK_SCALE(sclMacroScrub), perc, GTK_POS_TOP, NULL);
+                bookmarks.back().addedToGui = true;
+            }
+        }
     }
 
     bool toggleChannelPublish(GtkTreeIter iter)
@@ -438,12 +482,12 @@ struct LogPlayer
 
     void bookmark()
     {
-        float perc;
+        uint64_t _currMsgUtime;
         {
             unique_lock<mutex> lk(zcmLk);
-            perc = (float) (currMsgUtime - firstMsgUtime) / (float) totalTimeUs;
+            _currMsgUtime = currMsgUtime;
         }
-        gtk_scale_add_mark(GTK_SCALE(sclMacroScrub), perc, GTK_POS_TOP, NULL);
+        addBookmark(BookmarkType::PLAIN, _currMsgUtime);
     }
 
     static void bookmarkClicked(GtkWidget *bookmark, LogPlayer *me)
@@ -807,7 +851,16 @@ struct LogPlayer
         g_signal_connect(me->txtPrefix, "changed", G_CALLBACK(prefixChanged), me);
         gtk_grid_attach(GTK_GRID(grid), me->txtPrefix, 2, 5, 4, 1);
 
-        me->enableUI(me->zcmIn && me->zcmIn->good());
+        if (me->zcmIn && me->zcmIn->good()) {
+            me->enableUI(true);
+            for (auto& b : me->bookmarks) {
+                float perc = (float) (b.logUtime - me->firstMsgUtime) / (float) me->totalTimeUs;
+                gtk_scale_add_mark(GTK_SCALE(me->sclMacroScrub), perc, GTK_POS_TOP, NULL);
+                b.addedToGui = true;
+            }
+        } else {
+            me->enableUI(false);
+        }
 
         gtk_widget_show_all(me->window);
     }
