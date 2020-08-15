@@ -1,23 +1,21 @@
 #include "zcm/util/lockfile.h"
 #include "zcm/util/debug.h"
 
-#include <stdlib.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <pwd.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <signal.h>
-
 #include <cstring>
+#include <fcntl.h>
+#include <pwd.h>
+#include <signal.h>
+#include <stdlib.h>
 #include <string>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <unordered_map>
+
 using namespace std;
 
 #define DEFAULT_LOCK_DIR "/var/lock/zcm"
 #define LOCK_PREFIX "LCK.."
-
-#include <unordered_map>
-static unordered_map<string, int> fds;
 
 static bool startsWith(const string& s, const string& pre)
 {
@@ -61,58 +59,40 @@ static string makeLockfilePath(const string& name)
     return ret;
 }
 
-static int openLockfile(const string& name)
+lockfile_t* lockfile_trylock(const char *name)
 {
-    if (!fds.count(name)) {
-        auto path = makeLockfilePath(name);
-        int fd = open(path.c_str(), O_WRONLY | O_CREAT, 0666);
-        if (fd < 0) return -1;
-        fds[name] = fd;
-    }
-    return fds[name];
-}
-
-static bool isLocked(const string& name)
-{
-    int fd = openLockfile(name);
-    if (fd < 0) return true;
-
-    int ret = lockf(fd, F_TEST, 0);
-
-    return ret == 0;
-}
-
-
-bool lockfile_trylock(const char *name)
-{
-    int fd = openLockfile(name);
+    auto path = makeLockfilePath(name);
+    int fd = open(path.c_str(), O_WRONLY | O_CREAT, 0666);
     if (fd < 0) {
         ZCM_DEBUG("Unable to open lockfile: '%s'", name);
-        return false;
+        return nullptr;
     }
 
-    int ret = lockf(fd, F_TLOCK, 0);
-    if (ret < 0) {
+    int lkRet = lockf(fd, F_TLOCK, 0);
+    if (lkRet < 0) {
         ZCM_DEBUG("Failed to lock lockfile '%s'. Error: %s", name, strerror(errno));
-        return false;
+        close(fd);
+        return nullptr;
     }
 
-    return true;
+    lockfile_t *ret = new lockfile_t;
+    ret->fd = fd;
+    ret->name = strdup(name);
+    return ret;
 }
 
-void lockfile_unlock(const char *name)
+void lockfile_unlock(lockfile_t* lf)
 {
-    int fd = openLockfile(name);
-    if (fd < 0) return;
-
-    int ret = lockf(fd, F_ULOCK, 0);
+    int ret = lockf(lf->fd, F_ULOCK, 0);
     if (ret < 0)
-        ZCM_DEBUG("Failed to unlock lockfile '%s'. Error: %s", name, strerror(errno));
+        ZCM_DEBUG("Failed to unlock lockfile '%s'. Error: %s", lf->name, strerror(errno));
 
-    close(fd);
-    fds.erase(name);
+    close(lf->fd);
 
-    int err = unlink(makeLockfilePath(name).c_str());
+    int err = unlink(makeLockfilePath(lf->name).c_str());
     if (err < 0)
-        ZCM_DEBUG("Failed to unlink lockfile '%s'. Error: %s", name, strerror(errno));
+        ZCM_DEBUG("Failed to unlink lockfile '%s'. Error: %s", lf->name, strerror(errno));
+
+    free(lf->name);
+    delete lf;
 }
