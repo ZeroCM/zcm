@@ -109,7 +109,8 @@ void lockfile_unlock(const char *name)
     if (ret < 0)
         ZCM_DEBUG("Failed to unlock lockfile '%s'. Error: %s", name, strerror(errno));
 
-    close(fds[name]);
+    close(fd);
+    fds.erase(name);
 
     int err = unlink(makeLockfilePath(name).c_str());
     if (err < 0)
