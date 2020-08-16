@@ -54,3 +54,21 @@ jobs:
           asset_path: ${{ steps.builddeb.outputs.pkgpath }}
           asset_name: ${{ steps.builddeb.outputs.pkgname }}
           asset_content_type: application/octet-stream
+  npm:
+    name: Npm Publish
+    runs-on: ubuntu-16.04
+    defaults:
+      run:
+        shell: bash -l {0}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Setup node
+        uses: actions/setup-node@v1
+        with:
+          node-version: '12.x'
+          registry-url: 'https://registry.npmjs.org'
+      - name: Publish Npm Package
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: cd zcm/js/node && npm publish
