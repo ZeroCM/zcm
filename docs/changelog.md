@@ -1,1 +1,7 @@
-First official release!
+Added python3 support
+Dropped official python2 support, though it should still work
+Building for arm (aarch64)
+Untyped functional subscriptions in c++
+Improved documentation
+Added can transport based on socketcan
+New zcm-logplayer-gui based on gtk3

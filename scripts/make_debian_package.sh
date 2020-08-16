@@ -1,7 +1,27 @@
 #!/bin/bash
 
-set -euo pipefail
-IFS=$'\n\t'
+#### Find the script directory regardless of symlinks, etc
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do # resolve $SOURCE until the file is no longer a symlink
+    DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+    SOURCE="$(readlink "$SOURCE")"
+    [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+    # if $SOURCE was a relative symlink, we need to resolve it relative
+    # to the path where the symlink file was located
+done
+THISDIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+ROOTDIR=${THISDIR%/scripts}
+####
+
+
+#### We want to exit with an error code if anything goes wrong
+set -uo pipefail
+function command_failed() {
+    errcode=$?
+    echo -e "\nERROR: Command on line ${BASH_LINENO[0]} failed ($errcode): $BASH_COMMAND\n"
+    exit $errcode
+}
+trap command_failed ERR
 
 ## SETUP
 
@@ -15,29 +35,14 @@ if [ -z ${JAVA_HOME+x} ]; then
 fi
 
 # Change to the directory containing the source code
-THISDIR=$(dirname "$(readlink -f "$0")")
-BASEDIR=$(dirname $THISDIR)
-cd $BASEDIR
+cd $ROOTDIR
 
 
 ## BUILD
-
 ./waf configure distclean
 
-# Build with python2 support and install to temporary $DEB_PACKAGE_ASSEMBLY_DIR/usr directory
-export PYTHON=/usr/bin/python2
 ./waf configure --use-all --use-third-party --prefix=$DEB_PACKAGE_ASSEMBLY_DIR/usr/
 ./waf build
-./waf install
-
-# Build again for python3 and install to the temporary $DEB_PACKAGE_ASSEMBLY_DIR/usr directory.
-# Note 1: This overrides most of the already existing files except for the python2
-#         files in usr/lib/python2.7 <- this is to be considered an ugly hack but
-#         I found no other way to make waf build for python2 AND python3
-# Note 2: we use --targets=pyzcm to hopefully not build everything again
-export PYTHON=/usr/bin/python3
-./waf configure --use-all --use-third-party --prefix=$DEB_PACKAGE_ASSEMBLY_DIR/usr/
-./waf build --targets=pyzcm
 ./waf install
 
 
