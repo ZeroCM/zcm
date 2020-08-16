@@ -5,16 +5,17 @@ ENV ZCM_HOME /zcm
 
 RUN apt-get update && apt-get install -y sudo apt-utils
 
-COPY scripts/ $ZCM_HOME/scripts
+COPY ./scripts/install-deps.sh $ZCM_HOME/scripts/install-deps.sh
 
 RUN bash -c '$ZCM_HOME/scripts/install-deps.sh -i -s'
 
-COPY LICENSE $ZCM_HOME/LICENSE
 COPY DEBIAN/ $ZCM_HOME/DEBIAN
+COPY LICENSE $ZCM_HOME/LICENSE
 COPY config/ $ZCM_HOME/config
 COPY docs/ $ZCM_HOME/docs
 COPY examples/ $ZCM_HOME/examples
 COPY gen/ $ZCM_HOME/gen
+COPY scripts/ $ZCM_HOME/scripts
 COPY test/ $ZCM_HOME/test
 COPY tools/ $ZCM_HOME/tools
 COPY util/ $ZCM_HOME/util
