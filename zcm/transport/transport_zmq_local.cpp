@@ -19,6 +19,7 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
+#include <utility>
 #include <mutex>
 #include <thread>
 #include <sys/stat.h>
@@ -42,7 +43,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
     string subnet;
 
-    unordered_map<string, void*> pubsocks;
+    unordered_map<string, pair<void*,lockfile_t*>> pubsocks;
     // socket pair contains the socket + whether it was subscribed to explicitly or not
     unordered_map<string, pair<void*, bool>> subsocks;
     bool recvAllChannels = false;
@@ -83,17 +84,17 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         for (auto it = pubsocks.begin(); it != pubsocks.end(); ++it) {
             address = getAddress(it->first);
 
-            rc = zmq_unbind(it->second, address.c_str());
+            rc = zmq_unbind(it->second.first, address.c_str());
             if (rc == -1) {
                 ZCM_DEBUG("failed to unbind pubsock: %s", zmq_strerror(errno));
             }
 
-            rc = zmq_close(it->second);
+            rc = zmq_close(it->second.first);
             if (rc == -1) {
                 ZCM_DEBUG("failed to close pubsock: %s", zmq_strerror(errno));
             }
 
-            lockfile_unlock(address.c_str());
+            lockfile_unlock(it->second.second);
         }
 
         // Clean up all subscribe sockets
@@ -136,9 +137,10 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     {
         auto it = pubsocks.find(channel);
         if (it != pubsocks.end())
-            return it->second;
+            return it->second.first;
         // Before we create a pubsock, we need to acquire the lock file for this
-        if (!lockfile_trylock(getAddress(channel).c_str())) {
+        lockfile_t *lf = lockfile_trylock(getAddress(channel).c_str());
+        if (!lf) {
             fprintf(stderr, "Failed to acquire publish lock on %s! "
                             "Are you attempting multiple publishers?\n",
                             channel.c_str());
@@ -147,15 +149,18 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         void *sock = zmq_socket(ctx, ZMQ_PUB);
         if (sock == nullptr) {
             ZCM_DEBUG("failed to create pubsock: %s", zmq_strerror(errno));
+            lockfile_unlock(lf);
             return nullptr;
         }
         string address = getAddress(channel);
         int rc = zmq_bind(sock, address.c_str());
         if (rc == -1) {
             ZCM_DEBUG("failed to bind pubsock: %s", zmq_strerror(errno));
+            lockfile_unlock(lf);
             return nullptr;
         }
-        pubsocks.emplace(channel, sock);
+        pair<void*, lockfile_t*> p {sock, lf};
+        pubsocks.emplace(channel, p);
         return sock;
     }
 
