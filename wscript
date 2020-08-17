@@ -110,14 +110,18 @@ def processNodeVersion(ctx, f):
     return version
 
 def version(ctx):
-    versionNODE = processNodeVersion(ctx, 'zcm/js/node/package.json')
-    versionZCM  = processCppVersion(ctx, 'zcm/zcm.h')
-    versionGEN  = processCppVersion(ctx, 'gen/version.h')
+    versionNODE_EX = processNodeVersion(ctx, 'examples/node-client/package.json')
+    versionNODE    = processNodeVersion(ctx, 'zcm/js/node/package.json')
+    versionZCM     = processCppVersion(ctx, 'zcm/zcm.h')
+    versionGEN     = processCppVersion(ctx, 'gen/version.h')
 
     if versionZCM != versionGEN:
         raise WafError("Version mismatch between core and zcm gen")
 
     if versionZCM != versionNODE:
+        raise WafError("Version mismatch between core and nodejs")
+
+    if versionZCM != versionNODE_EX:
         raise WafError("Version mismatch between core and nodejs")
 
     Logs.pprint('RED','ZCM Version: %s' % (versionZCM))
