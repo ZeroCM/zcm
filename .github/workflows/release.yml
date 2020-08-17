@@ -32,7 +32,12 @@ jobs:
       - name: Read CHANGELOG
         id: changelog
         run: |
-          echo "::set-output name=body::$(cat docs/changelog.md)"
+          CHANGELOG=$(cat docs/changelog.md) && \
+          CHANGELOG="${CHANGELOG//'%'/'%25'}" && \
+          CHANGELOG="${CHANGELOG//$'\n'/'%0A'}" && \
+          CHANGELOG="${CHANGELOG//$'\r'/'%0D'}" && \
+          export CHANGELOG && \
+          echo "::set-output name=body::$CHANGELOG"
       - name: Create Release
         id: create_release
         uses: actions/create-release@latest
@@ -42,7 +47,7 @@ jobs:
           tag_name: ${{ github.ref }}
           release_name: Release ${{ github.ref }}
           body: ${{ steps.changelog.outputs.body }}
-          draft: false
+          draft: true
           prerelease: false
       - name: Upload Deb
         id: upload-release-asset
