@@ -1,13 +1,13 @@
 {
   "name": "zerocm",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "Bindings to Zero Communications and Marshalling",
   "dependencies": {
     "big-integer": "^1.6.25",
-    "ffi": "^2.2.0",
-    "ref": "^1.3.3",
-    "ref-array": "^1.2.0",
-    "ref-struct": "^1.1.0",
+    "ffi-napi": "^3.0.1",
+    "ref-array-napi": "^1.2.1",
+    "ref-napi": "^3.0.0",
+    "ref-struct-napi": "^1.1.1",
     "socket.io": "^1.5.1"
   }
 }

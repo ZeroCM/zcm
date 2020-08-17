@@ -4,10 +4,10 @@
  * Could/Should be more efficent, but it should
  * suffice in the short-term
  ******************************************************/
-var ffi = require('ffi');
-var ref = require('ref');
-var StructType = require('ref-struct');
-var ArrayType = require('ref-array');
+var ffi = require('ffi-napi');
+var ref = require('ref-napi');
+var StructType = require('ref-struct-napi');
+var ArrayType = require('ref-array-napi');
 var bigint = require('big-integer');
 var assert = require('assert');
 

@@ -6,3 +6,4 @@ Improved documentation
 Added can transport based on socketcan
 New zcm-logplayer-gui based on gtk3
 Fixed lockfiles to unlock on all program exits
+Node version upgrade to support new node versions
