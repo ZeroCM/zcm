@@ -1,9 +1,9 @@
-Added python3 support
-Dropped official python2 support, though it should still work
-Building for arm (aarch64)
-Untyped functional subscriptions in c++
-Improved documentation
-Added can transport based on socketcan
-New zcm-logplayer-gui based on gtk3
-Fixed lockfiles to unlock on all program exits
-Node version upgrade to support new node versions
+- Added python3 support
+- Dropped official python2 support, though it should still work
+- Building for arm (aarch64)
+- Untyped functional subscriptions in c++
+- Improved documentation
+- Added can transport based on socketcan
+- New zcm-logplayer-gui based on gtk3
+- Fixed lockfiles to unlock on all program exits
+- Node version upgrade to support new node versions
