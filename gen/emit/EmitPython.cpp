@@ -14,7 +14,7 @@ using std::cerr;
 
 void setupOptionsPython(GetOpt& gopt)
 {
-    gopt.addString(0, "ppath", "", "Python destination directory");
+    gopt.addString(0, "ppath", "./", "Python destination directory");
 }
 
 static char getStructFormat(const ZCMMember& zm)
