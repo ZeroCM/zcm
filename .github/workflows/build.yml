@@ -23,8 +23,8 @@ jobs:
       - uses: actions/checkout@v2
       - name: env
         run: |
-            echo "::add-path::$(pwd)/deps/julia/bin"
-            echo "::add-path::/home/runner/.local/bin"
+            echo "{$(pwd)/deps/julia/bin}" >> $GITHUB_PATH
+            echo "{/home/runner/.local/bin}" >> $GITHUB_PATH
       - name: prefix
         run: |
             mkdir -p ../tmp/x64
