@@ -14,13 +14,14 @@ jobs:
         shell: bash -l {0}
     env:
         PYTHON: /usr/bin/python3
+        ACTIONS_ALLOW_UNSECURE_COMMANDS: 'true'
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
       - name: env
         run: |
-            echo "{$(pwd)/deps/julia/bin}" >> $GITHUB_PATH
-            echo "{/home/runner/.local/bin}" >> $GITHUB_PATH
+            echo "::add-path::$(pwd)/deps/julia/bin"
+            echo "::add-path::/home/runner/.local/bin"
       - name: deps
         run: ./scripts/install-deps.sh -i -s
       - name: Build Deb
