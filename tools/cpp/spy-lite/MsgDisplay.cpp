@@ -93,10 +93,11 @@ static size_t typesize(zcm_field_type_t type)
 static void print_value_array(TypeDb& db, zcm_field_t *field, void *data, int *usertype_count)
 {
     if(field->num_dim == 1) {
-        printf("[");
         int len = field->dim_size[0];
         size_t elt_size = typesize(field->type);
         void *p = (!field->dim_is_variable[0]) ? field->data : *(void **) field->data;
+
+        printf("[");
         for(int i = 0; i < len; i++) {
             if(i != 0 && i % MAX_ARRAY_ELT_PER_LINE == 0) {
                 printf("\n" LINE_FMT_STR " ", "", "");
@@ -130,7 +131,8 @@ static inline void strnfmtappend(char *buf, size_t sz, size_t *used, const char 
         *used = sz;
 }
 
-void msg_display(TypeDb& db, const TypeMetadata& metadata_, void *msg, const MsgDisplayState& state)
+void msg_display(TypeDb& db, const TypeMetadata& metadata_,
+                 void *msg, const MsgDisplayState& state)
 {
     const TypeMetadata *metadata = &metadata_;
 
@@ -139,8 +141,44 @@ void msg_display(TypeDb& db, const TypeMetadata& metadata_, void *msg, const Msg
     char traversal[TRAVERSAL_BUFSZ];
     size_t traversal_used = 0;
 
-    strnfmtappend(traversal, TRAVERSAL_BUFSZ, &traversal_used,
-                  "top");
+    vector<pair<uint8_t*, const zcm_type_info_t*>> decodedTypeBuf;
+
+    auto cleanupDecodedTypeBuf = [&decodedTypeBuf](){
+        for (auto d : decodedTypeBuf) {
+            d.second->decode_cleanup(d.first);
+            delete d.first;
+        }
+        decodedTypeBuf.clear();
+    };
+
+    auto try_byte_array_to_zcmtype = [&decodedTypeBuf,&db](zcm_field_t& field) {
+        if (field.num_dim != 1 ||
+            field.type != ZCM_FIELD_BYTE ||
+            field.dim_size[0] < (int) sizeof(uint64_t))
+            return;
+
+        void *p = (!field.dim_is_variable[0]) ? field.data : *(void **) field.data;
+
+        i64 hash = 0;
+        __int64_t_decode_array(p, 0, field.dim_size[0], &hash, 1);
+
+        const TypeMetadata* t = db.getByHash(hash);
+        if (!t) return;
+
+        uint8_t* msg = new uint8_t[t->info->struct_size()];
+        assert(t->info->decode(*(void **) field.data, 0, field.dim_size[0], msg) > 0);
+        decodedTypeBuf.push_back({msg, t->info});
+
+        field.data = decodedTypeBuf.back().first;
+
+        field.type = ZCM_FIELD_USER_TYPE;
+        field.typestr = t->name.c_str();
+        field.num_dim = 0;
+        field.dim_size[0] = 0;
+        field.dim_is_variable[0] = 0;
+    };
+
+    strnfmtappend(traversal, TRAVERSAL_BUFSZ, &traversal_used, "top");
 
     size_t i;
     for(i = 0; i < state.cur_depth; i++) {
@@ -157,6 +195,8 @@ void msg_display(TypeDb& db, const TypeMetadata& metadata_, void *msg, const Msg
         int index = 0;
         for(int j = 0; j < num_fields; j++) {
             typeinfo->get_field(msg, j, &field);
+            try_byte_array_to_zcmtype(field);
+
             inside_array = 0;
 
             if(field.type == ZCM_FIELD_USER_TYPE) {
@@ -193,6 +233,7 @@ void msg_display(TypeDb& db, const TypeMetadata& metadata_, void *msg, const Msg
         metadata = db.getByName(StringUtil::dotsToUnderscores(field.typestr));
         if(metadata == NULL) {
             printf("ERROR: failed to find %s\n", field.typestr);
+            cleanupDecodedTypeBuf();
             return;
         }
 
@@ -219,6 +260,7 @@ void msg_display(TypeDb& db, const TypeMetadata& metadata_, void *msg, const Msg
     // sub-message recurse failed?
     if(i != state.cur_depth) {
         printf("ERROR: failed recurse to find sub-messages\n");
+        cleanupDecodedTypeBuf();
         return;
     }
 
@@ -232,6 +274,7 @@ void msg_display(TypeDb& db, const TypeMetadata& metadata_, void *msg, const Msg
 
     for(int i = 0; i < num_fields; i++) {
         typeinfo->get_field(msg, i, &field);
+        try_byte_array_to_zcmtype(field);
 
         printf(LINE_FMT_STR, field.name, field.typestr);
 
@@ -242,4 +285,5 @@ void msg_display(TypeDb& db, const TypeMetadata& metadata_, void *msg, const Msg
 
         printf("\n");
     }
+    cleanupDecodedTypeBuf();
 }

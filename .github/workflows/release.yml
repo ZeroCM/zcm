@@ -14,6 +14,7 @@ jobs:
         shell: bash -l {0}
     env:
         PYTHON: /usr/bin/python3
+        ACTIONS_ALLOW_UNSECURE_COMMANDS: 'true'
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
