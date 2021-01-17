@@ -2,7 +2,7 @@
 
 from zerocm import ZCM, LogFile, LogEvent
 import sys, os
-blddir= os.path.dirname(os.path.realpath(__file__)) + '/../build/'
+blddir = os.path.dirname(os.path.realpath(__file__)) + '/../../build/examples/examples/'
 sys.path.insert(0, blddir + "types/")
 from example_t import example_t
 
@@ -46,7 +46,8 @@ while i < numIter:
     event.setData(msg.encode())
     # Note: Not sure a "long" is the right type here. Technically the number in
     #       the index was originally an off_t
-    evt = log.readEventOffset(long(index['timestamp'][event.getChannel()][type(msg).__name__][i]))
+    offset = long(index['timestamp'][event.getChannel()][type(msg).__name__][i])
+    evt = log.readEventOffset(offset)
     assert evt.getEventnum() == i, "Event nums dont match"
     assert evt.getTimestamp() == event.getTimestamp(), "Timestamps dont match"
     assert evt.getChannel() == event.getChannel(), "Channels dont match"

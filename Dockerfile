@@ -37,3 +37,4 @@ RUN bash -c 'export JAVA_HOME=$(readlink -f /usr/bin/javac | sed "s:/bin/javac::
              ./waf build && \
              ./waf install && \
              ./waf build_examples'
+RUN echo 'source /zcm/examples/env' >> /root/.bashrc
