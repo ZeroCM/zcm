@@ -7,7 +7,21 @@ from waflib.Errors import WafError
 def build(ctx):
     ctx.env.RPATH_zcm = [ctx.path.get_bld().abspath()]
 
+    DEPS = ['default']
+    if ctx.env.USING_ZMQ:
+        DEPS += ['zmq']
+
     srcExcludes = ['transport/third-party/embedded']
+    if not ctx.env.USING_TRANS_IPC:
+        srcExcludes += ['transport/transport_zmq_local.cpp']
+    if not ctx.env.USING_TRANS_INPROC:
+        srcExcludes += ['transport/transport_inproc.cpp']
+    if not ctx.env.USING_TRANS_UDPM:
+        srcExcludes += ['transport/udpm/**/*']
+    if not ctx.env.USING_TRANS_SERIAL:
+        srcExcludes += ['transport/transport_serial.cpp']
+    if not ctx.env.USING_TRANS_CAN:
+        srcExcludes += ['transport/transport_can.cpp']
     if not ctx.env.USING_THIRD_PARTY:
         srcExcludes.append('transport/third-party')
 
@@ -18,7 +32,7 @@ def build(ctx):
               #       #include "zcm/file.h".
               includes = '..',
               export_includes = '..',
-              use = ['default', 'zmq'],
+              use = DEPS,
               source = ctx.path.ant_glob(['*.cpp', '*.c',
                                           'util/*.c', 'util/*.cpp',
                                           'tools/*.c', 'tools/*.cpp',
