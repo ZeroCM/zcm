@@ -15,7 +15,7 @@ top = '.'
 out = 'build'
 
 # Allow import of custom tools
-sys.path.append('waftools')
+sys.path = ['waftools'] + sys.path
 
 variants = [         'asan',  ## Core Sanitizers (Address, Undefined-Behavior)
                      'tsan',  ## Thread Sanitizer
@@ -338,6 +338,8 @@ def setup_environment_tsan(ctx):
 
 
 def setup_environment(ctx):
+    ctx.env.SRCPATH = ctx.path.get_src().abspath()
+
     ctx.post_mode = waflib.Build.POST_LAZY
     process_zcm_build_options(ctx)
 
@@ -420,7 +422,8 @@ def build(ctx):
     elif ctx.variant.startswith('tests'):
         ctx.recurse('test')
         if ctx.env.USING_CXXTEST:
-            ctx.cxxtest(use = ['zcm', 'testzcmtypes', 'testzcmtypes_cpp', 'testzcmtypes_c_stlib',
+            ctx.cxxtest(use = ['default', 'zcm',
+                               'testzcmtypes', 'testzcmtypes_cpp', 'testzcmtypes_c_stlib',
                                'multifile_lib'])
     else:
         ctx.recurse('scripts')

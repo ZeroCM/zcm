@@ -39,7 +39,7 @@ PKGS=''
 PIP_PKGS=''
 
 ## Dependency dependencies
-PKGS+='mlocate wget '
+PKGS+='mlocate wget git '
 
 ## Waf dependencies
 PKGS+='pkg-config '
@@ -54,7 +54,7 @@ PKGS+='libzmq3-dev '
 PKGS+='default-jdk default-jre '
 
 ## Python
-PKGS+='python3 python3-pip '
+PKGS+='python3 python3-dev python3-pip '
 PIP_PKGS+='Cython '
 
 ## LibElf
@@ -62,9 +62,6 @@ PKGS+='libelf-dev libelf1 '
 
 ## Gtk+3
 PKGS+='libgtk-3-dev '
-
-## CxxTest
-PKGS+='cxxtest '
 
 ## Clang tools for code sanitizers, style checkers, etc.
 PKGS+='clang '
@@ -81,7 +78,7 @@ echo "Installing from apt"
 if $SINGLE_MODE; then
     for pkg in $PKGS; do
         echo "Installing $pkg"
-        sudo apt-get install -yq $pkg
+        sudo apt-get install -yq --no-install-recommends $pkg
         ret=$?
         if [[ $ret -ne 0 && "$STRICT" == "true" ]]; then
             echo "Failed to install packages"
@@ -89,10 +86,10 @@ if $SINGLE_MODE; then
         fi
     done
 else
-    sudo apt-get install -yq $PKGS
+    sudo apt-get install -yq --no-install-recommends $PKGS
 fi
 
-pip3 install --user $PIP_PKGS
+pip install --user $PIP_PKGS
 ret=$?
 if [[ $ret -ne 0 && "$STRICT" == "true" ]]; then
     echo "Failed to install pip packages"
@@ -169,6 +166,16 @@ if $USE_JULIA; then
         echo -n "$color_reset"
     else
         echo "Found julia on system. Skipping install"
+    fi
+fi
+
+# Cxxtest
+if [ ! -f $ROOTDIR/deps/cxxtest ]; then
+    git clone https://github.com/ZeroCM/cxxtest $ROOTDIR/deps/cxxtest
+    ret=$?
+    if [[ $ret -ne 0 && "$STRICT" == "true" ]]; then
+        echo "Failed to install cxxtest"
+        exit $ret
     fi
 fi
 

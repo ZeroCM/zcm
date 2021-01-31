@@ -8,6 +8,4 @@ def build(ctx):
         target = 'zerocm',
         features = 'c cshlib pyext',
         source = 'zerocm.pyx',
-        # PYTHON here for safety (mainly copying java). Seems to compile
-        # fine when omitted as well, but better safe than....
-        use = 'zcm PYTHON').init_pyext()
+        use = 'zcm').init_pyext()
