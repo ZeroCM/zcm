@@ -22,13 +22,15 @@ SINGLE_MODE=false
 USE_JULIA=true
 JULIA_0_6_MODE=false
 USE_NODE=true
-while getopts "ijms" opt; do
+USE_PYTHON_2=false
+while getopts "ijmsp" opt; do
     case $opt in
         i) STRICT=false ;;
         j) USE_JULIA=false ;;
         m) JULIA_0_6_MODE=true ;;
         n) USE_NODE=false ;;
         s) SINGLE_MODE=true ;;
+        p) USE_PYTHON_2=true ;;
         \?) exit 1 ;;
     esac
 done
@@ -54,7 +56,11 @@ PKGS+='libzmq3-dev '
 PKGS+='default-jdk default-jre '
 
 ## Python
-PKGS+='python3 python3-pip '
+if $USE_PYTHON_2; then
+    PKGS+='python python-pip '
+else
+    PKGS+='python3 python3-pip '
+fi
 PIP_PKGS+='Cython '
 
 ## LibElf
@@ -92,7 +98,11 @@ else
     sudo apt-get install -yq $PKGS
 fi
 
-pip3 install --user $PIP_PKGS
+if $USE_PYTHON_2; then
+    pip install --user $PIP_PKGS
+else
+    pip3 install --user $PIP_PKGS
+fi
 ret=$?
 if [[ $ret -ne 0 && "$STRICT" == "true" ]]; then
     echo "Failed to install pip packages"
@@ -149,12 +159,12 @@ if $USE_JULIA; then
         echo "Installing julia for $ARCH"
 
         if $JULIA_0_6_MODE; then
-            wget https://julialang-s3.julialang.org/bin/linux/$FOLDER/0.6/julia-0.6.4-linux-$ARCH.tar.gz
+            wget -q https://julialang-s3.julialang.org/bin/linux/$FOLDER/0.6/julia-0.6.4-linux-$ARCH.tar.gz
             tar -xaf julia-0.6.4-linux-$ARCH.tar.gz
             rm -rf $ROOTDIR/deps/julia
             mv julia-9d11f62bcb $ROOTDIR/deps/julia
         else
-            wget https://julialang-s3.julialang.org/bin/linux/$FOLDER/1.3/julia-1.3.1-linux-$ARCH.tar.gz
+            wget -q https://julialang-s3.julialang.org/bin/linux/$FOLDER/1.3/julia-1.3.1-linux-$ARCH.tar.gz
             tar -xaf julia-1.3.1-linux-$ARCH.tar.gz
             rm -rf $ROOTDIR/deps/julia
             mv julia-1.3.1 $ROOTDIR/deps/julia
