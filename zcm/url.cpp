@@ -9,7 +9,7 @@
 using namespace std;
 
 // TODO: this probably belongs more in a string util like file
-static vector<string> split(const string& str, char delimiter)
+vector<string> split(const string& str, char delimiter)
 {
     vector<string> v;
     std::stringstream ss {str};
@@ -118,5 +118,12 @@ const char *zcm_url_address(zcm_url_t *u)
 { return u->address.c_str(); }
 zcm_url_opts_t *zcm_url_opts(zcm_url_t *u)
 { return u->getZopts(); }
+const char *zcm_url_opt_find(zcm_url_opts_t *opts, const char *key)
+{
+    for (size_t i = 0; i < opts->numopts; i++)
+        if (key == opts->name[i])
+            return opts->value[i];
+    return nullptr;
+}
 
 }

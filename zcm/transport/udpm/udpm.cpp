@@ -480,14 +480,6 @@ zcm_trans_methods_t ZCM_TRANS_CLASSNAME::methods = {
     &ZCM_TRANS_CLASSNAME::_destroy,
 };
 
-static const char *optFind(zcm_url_opts_t *opts, const string& key)
-{
-    for (size_t i = 0; i < opts->numopts; i++)
-        if (key == opts->name[i])
-            return opts->value[i];
-    return NULL;
-}
-
 // TODO: this probably belongs more in a string util like file
 #include <sstream>
 static vector<string> split(const string& str, char delimiter)
@@ -518,7 +510,7 @@ static zcm_trans_t *createUdpm(zcm_url_t *url)
     auto& port = parts[1];
 
     auto *opts = zcm_url_opts(url);
-    auto *ttl = optFind(opts, "ttl");
+    auto *ttl = zcm_url_opt_find(opts, "ttl");
     if (!ttl) {
         ZCM_DEBUG("No ttl specified. Using default ttl=0");
         ttl = "0";
