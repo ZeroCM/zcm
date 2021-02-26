@@ -9,7 +9,7 @@
 using namespace std;
 
 // TODO: this probably belongs more in a string util like file
-vector<string> split(const string& str, char delimiter)
+static vector<string> split(const string& str, char delimiter)
 {
     vector<string> v;
     std::stringstream ss {str};
