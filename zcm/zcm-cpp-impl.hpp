@@ -595,6 +595,7 @@ inline const LogEvent* LogFile::readPrevEvent()
     zcm_eventlog_event_t* evt = zcm_eventlog_read_prev_event(eventlog);
     return cplusplusIfyEvent(evt);
 }
+
 inline const LogEvent* LogFile::readEventAtOffset(off_t offset)
 {
     zcm_eventlog_event_t* evt = zcm_eventlog_read_event_at_offset(eventlog, offset);
