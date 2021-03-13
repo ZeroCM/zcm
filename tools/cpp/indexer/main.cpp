@@ -271,7 +271,10 @@ int main(int argc, char* argv[])
             int64_t msg_hash;
             __int64_t_decode_array(evt->data, 0, 8, &msg_hash, 1);
             const TypeMetadata* md = types.getByHash(msg_hash);
-            if (!md) continue;
+            if (!md) {
+                cerr << "Unable to decode \"" << evt->channel << "\"" << endl;
+                continue;
+            }
 
             for (auto& p : pluginGroups[i]) {
                 assert(p.plugin);
