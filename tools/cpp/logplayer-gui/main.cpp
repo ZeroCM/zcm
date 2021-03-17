@@ -331,7 +331,7 @@ struct LogPlayer
             return false;
         }
 
-        zcmIn->seekToTimestamp(numeric_limits<int64_t>::max());
+        fseeko(zcmIn->getFilePtr(), 0, SEEK_END);
 
         const zcm::LogEvent* leEnd = zcmIn->readPrevEvent();
         if (!leEnd) leEnd = zcmIn->readPrevEvent(); // In case log was cut off at end

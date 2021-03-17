@@ -124,38 +124,34 @@ int zcm_eventlog_seek_to_timestamp(zcm_eventlog_t *l, int64_t timestamp)
 
 static zcm_eventlog_event_t *zcm_event_read_helper(zcm_eventlog_t *l, int rewindWhenDone)
 {
-    size_t numRead = 0;
-
     zcm_eventlog_event_t *le =
         (zcm_eventlog_event_t*) calloc(1, sizeof(zcm_eventlog_event_t));
+
+    off_t startOffset = ftello(l->f);
 
     if (fread64(l->f, &le->eventnum)) {
         free(le);
         le = NULL;
         goto done;
     }
-    numRead += 8;
 
     if (fread64(l->f, &le->timestamp)) {
         free(le);
         le = NULL;
         goto done;
     }
-    numRead += 8;
 
     if (fread32(l->f, &le->channellen)) {
         free(le);
         le = NULL;
         goto done;
     }
-    numRead += 4;
 
     if (fread32(l->f, &le->datalen)) {
         free(le);
         le = NULL;
         goto done;
     }
-    numRead += 4;
 
     // Sanity check the channel length and data length
     if (le->channellen <= 0 || le->channellen >= 1000) {
@@ -173,7 +169,6 @@ static zcm_eventlog_event_t *zcm_event_read_helper(zcm_eventlog_t *l, int rewind
 
     le->channel = (char *) calloc(1, le->channellen+1);
     size_t readRet = fread(le->channel, 1, le->channellen, l->f);
-    numRead += readRet;
     if (readRet != (size_t) le->channellen) {
         free(le->channel);
         free(le);
@@ -183,7 +178,6 @@ static zcm_eventlog_event_t *zcm_event_read_helper(zcm_eventlog_t *l, int rewind
 
     le->data = calloc(1, le->datalen+1);
     readRet = fread(le->data, 1, le->datalen, l->f);
-    numRead += readRet;
     if (readRet != (size_t) le->datalen) {
         free(le->channel);
         free(le->data);
@@ -207,7 +201,10 @@ static zcm_eventlog_event_t *zcm_event_read_helper(zcm_eventlog_t *l, int rewind
     }
 
 done:
-    if (rewindWhenDone) fseeko (l->f, -(off_t)(numRead + 4), SEEK_CUR);
+    if (rewindWhenDone) {
+        off_t numRead = ftello (l->f) - startOffset;
+        fseeko (l->f, -(off_t)(numRead + 4), SEEK_CUR);
+    }
     return le;
 }
 
