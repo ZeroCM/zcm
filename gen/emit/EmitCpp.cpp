@@ -214,8 +214,13 @@ struct Emit : public Emitter
                 emitComment(2, zc.comment);
                 string mt = mapTypeName(zc.type);
                 const char* suffix = zc.type == "int64_t" ? "LL" : "";
-                emit(2, "static constexpr %-8s %s = %s%s;", mt.c_str(),
-                        zc.membername.c_str(), zc.valstr.c_str(), suffix);
+                if (zc.type == "string") {
+                    emit(2, "static constexpr %-8s %s[] = %s%s;", "char",
+                            zc.membername.c_str(), zc.valstr.c_str(), suffix);
+                } else {
+                    emit(2, "static constexpr %-8s %s = %s%s;", mt.c_str(),
+                            zc.membername.c_str(), zc.valstr.c_str(), suffix);
+                }
             }
             emit(2, "#else");
             emit(2, "static const     %-8s IS_LITTLE_ENDIAN = %s;", "int8_t",
@@ -224,8 +229,13 @@ struct Emit : public Emitter
                 assert(ZCMGen::isLegalConstType(zc.type));
                 string mt = mapTypeName(zc.type);
                 const char* suffix = zc.type == "int64_t" ? "LL" : "";
-                emit(2, "static const     %-8s %s = %s%s;", mt.c_str(),
-                        zc.membername.c_str(), zc.valstr.c_str(), suffix);
+                if (zc.type == "string") {
+                    emit(2, "static const     %-8s %s[] = %s%s;", "char",
+                            zc.membername.c_str(), zc.valstr.c_str(), suffix);
+                } else {
+                    emit(2, "static const     %-8s %s = %s%s;", mt.c_str(),
+                            zc.membername.c_str(), zc.valstr.c_str(), suffix);
+                }
             }
             emit(2, "#endif");
             emit(0, "");

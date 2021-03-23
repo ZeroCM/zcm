@@ -53,7 +53,8 @@ static vector<string> constTypes {
     "int32_t",
     "int64_t",
     "float",
-    "double"
+    "double",
+    "string"
 };
 
 static vector<string> fixedPointTypes {
@@ -400,7 +401,7 @@ static int parseConst(ZCMGen& zcmgen, ZCMStruct& zs, tokenize_t* t)
         INT_CASE(int64_t, zc.val.i64)
         FLT_CASE(float,   zc.val.f)
         FLT_CASE(double,  zc.val.d)
-        } else {
+        } else if (type != "string") {
             fprintf(stderr, "[%s]\n", t->token);
             assert(0);
         }

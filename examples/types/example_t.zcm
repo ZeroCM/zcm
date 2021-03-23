@@ -20,4 +20,6 @@ struct example_t
 
     const float  test_const_float  = 1e-20;
     const double test_const_double = 12.1e200;
+
+    const string test_string = "example";
 }
