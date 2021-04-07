@@ -23,7 +23,6 @@ void zcm_url_destroy(zcm_url_t *u);
 const char *zcm_url_protocol(zcm_url_t *u);
 const char *zcm_url_address(zcm_url_t *u);
 zcm_url_opts_t *zcm_url_opts(zcm_url_t *u);
-const char *zcm_url_opt_find(zcm_url_opts_t *opts, const char *key);
 
 #ifdef __cplusplus
 }
