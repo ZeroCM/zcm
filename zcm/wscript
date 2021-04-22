@@ -68,10 +68,17 @@ def build(ctx):
 
     ## Test the embedded export
     ctx(rule   = exec_test_embedded,
+        name   = 'embed-test',
         source = 'zcm-embed.tar.gz',
         target = 'zcm-embed-tests',
         color  = "PINK",
         after  = 'embed-tar-finish')
+
+    ctx(rule   = rezip_arduino,
+        source = 'zcm-embed.tar.gz',
+        target = 'zcm-arduino.zip',
+        color  = 'PINK',
+        after  = 'embed-test')
 
     ctx.install_files('${PREFIX}/include/zcm',
                       ['zcm.h', 'zcm_coretypes.h', 'transport.h', 'transport_registrar.h',
@@ -133,6 +140,31 @@ def package_embedded(tsk):
         raise WafError('Unable to generate zcm-embed tarball')
 
     return 0
+
+def rezip_arduino(tsk):
+    gen = tsk.generator
+    bld = gen.bld
+
+    outputDir = os.path.dirname(tsk.outputs[0].abspath())
+
+    cmd = 'export fldr=' + tsk.outputs[0].relpath() + ' && ' + \
+          'rm -rf ${fldr%%.*} && rm -rf ' + tsk.outputs[0].abspath() + ' && '\
+          'mkdir -p ${fldr%%.*} && cd ${fldr%%.*} && tar -xaf ' + str(tsk.inputs[0])
+    ret = tsk.exec_command(cmd)
+    if ret != 0:
+        raise WafError('Unable to prep files for zcm-embed zip generation')
+
+    cmd = 'export fldr=' + tsk.outputs[0].relpath() + ' && cd ${fldr%%.*} && ' + \
+          'echo "#include <zcm/zcm.h>" > zcm-arduino.h && ' + \
+          'for f in $(find -name "*.c*" | grep -v third-party | xargs); do echo "#include \\"$f\\"" > $(basename $f); done && ' + \
+          'for f in $(find -name "*.c*" | grep arduino | xargs); do echo "#include \\"$f\\"" > $(basename $f); done && ' + \
+          'zip -r ' + tsk.outputs[0].abspath() + ' * > /dev/null'
+    ret = tsk.exec_command(cmd)
+    if ret != 0:
+        raise WafError('Unable to generate zcm-embed zipped archive')
+
+    return 0
+
 
 def exec_test_embedded(tsk):
     src = tsk.inputs[0].abspath()
