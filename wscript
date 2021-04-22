@@ -241,8 +241,8 @@ def attempt_use_julia(ctx):
         Logs.pprint('NORMAL', '{:41}:'.format('Julia version identified as'), sep='')
         Logs.pprint('GREEN', '%s' % version)
 
-        if version != '0.6.4' and version != '1.3.1':
-            raise WafError('Wrong Julia version, requires 0.6.4 or 1.3.1\nfound %s' % version)
+        if version != '0.6.4' and version != '1.6.0':
+            raise WafError('Wrong Julia version, requires 0.6.4 or 1.6.0\nfound %s' % version)
 
         # Note: because of how the include structure **internal** to the julia 1.0 uv headers
         #       works, you actually **have** to point the include directory at
