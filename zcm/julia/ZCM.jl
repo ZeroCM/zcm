@@ -269,10 +269,12 @@ function flush(zcm::Zcm)
 end
 
 function start(zcm::Zcm)
+    @warn "Threaded interface was partially broken by Julia 1.6 : you cannot put printouts in handlers"
     ccall(("zcm_start", "libzcm"), Nothing, (Ptr{Native.Zcm},), zcm)
 end
 
 function stop(zcm::Zcm)
+    @warn "Threaded interface was partially broken by Julia 1.6 : you cannot put printouts in handlers"
     while (true)
         ret = ccall(("zcm_try_stop", "libzcm"), Cint, (Ptr{Native.Zcm},), zcm)
         if (ret == Cint(0))
