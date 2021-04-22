@@ -163,7 +163,7 @@ function handler_wrapper(rbuf::Native.RecvBuf, channelbytes::Cstring, handler)
 end
 
 function typed_handler(handler, msgtype::Type{T}, args...) where T <: AbstractZcmType
-    (rbuf, channel, msgdata) -> handler(rbuf, channel, decode(msgtype, msgdata), args...)
+    (rbuf, channel, msgdata) -> handler(rbuf, channel, decode(T, msgdata), args...)
 end
 
 function typed_handler(handler, msgtype::Type{Nothing}, args...)

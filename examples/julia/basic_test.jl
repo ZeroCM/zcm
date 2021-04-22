@@ -3,7 +3,6 @@ using juliazcm.types: example_t
 
 numReceived = 0
 function handler(rbuf, channel::String, msg::example_t)
-    println("Received message on channel: ", channel)
     global numReceived
     @assert (numReceived == msg.timestamp) "Received message with incorrect timestamp"
     numReceived = numReceived + 1
@@ -11,7 +10,6 @@ end
 
 # a handler that receives the raw message bytes
 function untyped_handler(rbuf, channel::String, msgdata::Vector{UInt8})
-    println("Recieved raw message data on channel: ", channel)
     decode(example_t, msgdata)
 end
 
