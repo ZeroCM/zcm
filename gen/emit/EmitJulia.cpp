@@ -256,13 +256,13 @@ struct EmitJuliaType : public Emitter
             emit(2, "# Constants");
             emit(2, "# **********************\n");
 
-            emit(2, "self.IS_LITTLE_ENDIAN::Bool = %s",
+            emit(2, "self.IS_LITTLE_ENDIAN = %s",
                     zcm.gopt->getBool("little-endian-encoding") ? "true" : "false");
 
             for (auto& zc : zs.constants) {
                 assert(ZCMGen::isLegalConstType(zc.type));
                 string mt = mapTypeName(zc.type);
-                emitStart(2, "self.%s::%s = ", zc.membername.c_str(), mt.c_str());
+                emitStart(2, "self.%s = ", zc.membername.c_str());
                 if (zc.isFixedPoint() && zc.valstr.substr(0, 2) == "0x")
                     emitEnd("reinterpret(%s,%s)", mt.c_str(), zc.valstr.c_str());
                 else
