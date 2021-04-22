@@ -295,9 +295,9 @@ int serial_recvmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t *msg, int timeout)
 
     // Msg sizes
     chan_len  = cb_top(&zt->recvBuffer, consumed++);
-    msg->len  = ((uint64_t) cb_top(&zt->recvBuffer, consumed++)) << 24;
-    msg->len |= ((uint64_t) cb_top(&zt->recvBuffer, consumed++)) << 16;
-    msg->len |= ((uint64_t) cb_top(&zt->recvBuffer, consumed++)) << 8;
+    msg->len  = ((uint32_t) cb_top(&zt->recvBuffer, consumed++)) << 24;
+    msg->len |= ((uint32_t) cb_top(&zt->recvBuffer, consumed++)) << 16;
+    msg->len |= ((uint32_t) cb_top(&zt->recvBuffer, consumed++)) << 8;
     msg->len |= cb_top(&zt->recvBuffer, consumed++);
 
     if (chan_len > ZCM_CHANNEL_MAXLEN)     goto fail;
