@@ -44,7 +44,7 @@ PIP_PKGS=''
 PKGS+='mlocate wget '
 
 ## Waf dependencies
-PKGS+='pkg-config '
+PKGS+='pkg-config zip '
 
 ## Basic C compiler dependency
 PKGS+='build-essential '
