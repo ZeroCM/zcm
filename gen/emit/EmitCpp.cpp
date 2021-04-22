@@ -207,25 +207,35 @@ struct Emit : public Emitter
         if (zs.constants.size() > 0) {
             emit(1, "public:");
             emit(2, "#if __cplusplus > 199711L /* if c++11 */");
-            emit(2, "static constexpr %-8s IS_LITTLE_ENDIAN = %s;", "int8_t",
+            emit(2, "static constexpr %-11s IS_LITTLE_ENDIAN = %s;", "int8_t",
                     zcm.gopt->getBool("little-endian-encoding") ? "1" : "0");
             for (auto& zc : zs.constants) {
                 assert(ZCMGen::isLegalConstType(zc.type));
                 emitComment(2, zc.comment);
                 string mt = mapTypeName(zc.type);
                 const char* suffix = zc.type == "int64_t" ? "LL" : "";
-                emit(2, "static constexpr %-8s %s = %s%s;", mt.c_str(),
-                        zc.membername.c_str(), zc.valstr.c_str(), suffix);
+                if (zc.type == "string") {
+                    emit(2, "static constexpr %-11s %s = %s%s;", "const char*",
+                            zc.membername.c_str(), zc.valstr.c_str(), suffix);
+                } else {
+                    emit(2, "static constexpr %-11s %s = %s%s;", mt.c_str(),
+                            zc.membername.c_str(), zc.valstr.c_str(), suffix);
+                }
             }
             emit(2, "#else");
-            emit(2, "static const     %-8s IS_LITTLE_ENDIAN = %s;", "int8_t",
+            emit(2, "static const     %-11s IS_LITTLE_ENDIAN = %s;", "int8_t",
                     zcm.gopt->getBool("little-endian-encoding") ? "1" : "0");
             for (auto& zc : zs.constants) {
                 assert(ZCMGen::isLegalConstType(zc.type));
                 string mt = mapTypeName(zc.type);
                 const char* suffix = zc.type == "int64_t" ? "LL" : "";
-                emit(2, "static const     %-8s %s = %s%s;", mt.c_str(),
-                        zc.membername.c_str(), zc.valstr.c_str(), suffix);
+                if (zc.type == "string") {
+                    emit(2, "static const     %-11s %s() { return %s%s; }", "char*",
+                            zc.membername.c_str(), zc.valstr.c_str(), suffix);
+                } else {
+                    emit(2, "static const     %-11s %s = %s%s;", mt.c_str(),
+                            zc.membername.c_str(), zc.valstr.c_str(), suffix);
+                }
             }
             emit(2, "#endif");
             emit(0, "");

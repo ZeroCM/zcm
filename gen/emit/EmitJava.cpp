@@ -402,6 +402,8 @@ struct EmitStruct : public Emitter
                 emit(1, "public static final float %s = %sf;", name, value);
             } else if (tn == "double") {
                 emit(1, "public static final double %s = %s;", name, value);
+            } else if (tn == "string") {
+                emit(1, "public static final String %s = %s;", name, value);
             } else {
                 assert(0);
             }

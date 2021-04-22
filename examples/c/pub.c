@@ -35,7 +35,7 @@ int main(int argc, char *argv[])
 
     my_data.num_ranges = NRANGES;
     my_data.ranges = calloc(my_data.num_ranges, sizeof(int16_t));
-    my_data.name = "example string";
+    my_data.name = EXAMPLE_T_test_const_string;
     my_data.enabled = 1;
 
     while (1) {
