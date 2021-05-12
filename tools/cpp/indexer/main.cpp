@@ -12,6 +12,9 @@
 
 #include "IndexerPluginDb.hpp"
 
+#include "TimingIndexerPlugin.hpp"
+#include "BandwidthIndexerPlugin.hpp"
+
 using namespace std;
 
 struct Args
@@ -22,21 +25,23 @@ struct Args
     string type_path   = "";
     bool readable      = false;
     bool debug         = false;
-    bool useDefault    = false;
+    bool useTiming     = false;
+    bool useBandwidth  = false;
 
     bool parse(int argc, char *argv[])
     {
         // set some defaults
-        const char *optstring = "l:o:p:t:rdh";
+        const char *optstring = "l:o:p:t:rh";
         struct option long_opts[] = {
-            { "log",         required_argument, 0, 'l' },
-            { "output",      required_argument, 0, 'o' },
-            { "plugin-path", required_argument, 0, 'p' },
-            { "type-path",   required_argument, 0, 't' },
-            { "readable",    no_argument,       0, 'r' },
-            { "use-default", no_argument,       0, 'd' },
-            { "debug",       no_argument,       0,  0  },
-            { "help",        no_argument,       0, 'h' },
+            { "log",           required_argument, 0, 'l' },
+            { "output",        required_argument, 0, 'o' },
+            { "plugin-path",   required_argument, 0, 'p' },
+            { "type-path",     required_argument, 0, 't' },
+            { "readable",      no_argument,       0, 'r' },
+            { "use-timing",    no_argument,       0,  0  },
+            { "use-bandwidth", no_argument,       0,  0  },
+            { "debug",         no_argument,       0,  0  },
+            { "help",          no_argument,       0, 'h' },
             { 0, 0, 0, 0 }
         };
 
@@ -49,10 +54,13 @@ struct Args
                 case 'p': plugin_path = string(optarg); break;
                 case 't': type_path   = string(optarg); break;
                 case 'r': readable    = true;           break;
-                case 'd': useDefault  = true;           break;
-                case  0:
-                    if (string(long_opts[option_index].name) == "debug") debug = true;
+                case  0: {
+                    string longopt = string(long_opts[option_index].name);
+                    if (longopt == "debug") debug = true;
+                    else if (longopt == "use-timing") useTiming = true;
+                    else if (longopt == "use-bandwidth") useBandwidth = true;
                     break;
+                }
                 case 'h': default: usage(); return false;
             };
         }
@@ -77,7 +85,6 @@ struct Args
 
         const char* plugin_path_env = getenv("ZCM_LOG_INDEXER_PLUGINS_PATH");
         if (plugin_path == "" && plugin_path_env) plugin_path = plugin_path_env;
-        if (plugin_path == "") cerr << "Running with default timestamp indexer plugin" << endl;
 
         return true;
     }
@@ -105,7 +112,8 @@ struct Args
              << "                          ZCM_LOG_INDEXER_ZCMTYPES_PATH" << endl
              << "  -r, --readable          Don't minify the output index file. " << endl
              << "                          Leave it human readable" << endl
-             << "  -d, --use-default       Run with the default timestamp indexer" << endl
+             << "      --use-timing        Run with the default timestamp indexer" << endl
+             << "      --use-bandwidth     Run with the default bandwidth indexer" << endl
              << "      --debug             Run a dry run to ensure proper indexer setup" << endl
              << endl << endl;
     }
@@ -135,38 +143,52 @@ int main(int argc, char* argv[])
 
     vector<zcm::IndexerPlugin*> plugins;
 
-    bool defaultShouldBeIncluded = true;
-    zcm::IndexerPlugin* defaultPlugin = new zcm::IndexerPlugin();
+    struct DefaultPlugin {
+        zcm::IndexerPlugin* plugin;
+        bool shouldBeIncluded;
+        bool isDependency = false;
+        DefaultPlugin(zcm::IndexerPlugin* p, bool shouldBeIncluded) :
+            plugin(p), shouldBeIncluded(shouldBeIncluded)
+        {}
+    };
+    vector<DefaultPlugin> defaults;
+    defaults.emplace_back(new TimingIndexerPlugin(), args.useTiming);
+    defaults.emplace_back(new BandwidthIndexerPlugin(), args.useBandwidth);
 
     IndexerPluginDb pluginDb(args.plugin_path, args.debug);
     // Load plugins from path if specified
     if (args.plugin_path != "") {
-        bool dependsOnDefault = false;
         vector<const zcm::IndexerPlugin*> dbPlugins = pluginDb.getPlugins();
-        if (!dbPlugins.empty()) defaultShouldBeIncluded = false;
         // casting away constness. Don't mess up.
         for (auto dbp : dbPlugins) {
             plugins.push_back((zcm::IndexerPlugin*) dbp);
             auto deps = dbp->dependsOn();
             for (auto dep : deps) {
-                if (dep == defaultPlugin->name()) {
-                    dependsOnDefault = true;
-                    break;
+                for (auto p : defaults) {
+                    if (dep == p.plugin->name()) {
+                        p.shouldBeIncluded = true;
+                    }
                 }
             }
         }
-
-        if (dependsOnDefault || args.useDefault)
-            defaultShouldBeIncluded = true;
     }
 
-    if (defaultShouldBeIncluded) plugins.push_back(defaultPlugin);
+    for (auto p : defaults) {
+        if (p.shouldBeIncluded) {
+            plugins.push_back(p.plugin);
+        }
+    }
+
+    if (plugins.size() == 0) {
+        cerr << "No plugins specified" << endl;
+        return 1;
+    }
 
     for (size_t i = 0; i < plugins.size(); ++i) {
         for (size_t j = i + 1; j < plugins.size(); ++j) {
             if (args.debug)
-                cout << plugins.data()[i] << "->name() == "
-                     << plugins.data()[j] << "->name()" << endl;
+                cout << plugins.data()[i]->name() << "->name() == "
+                     << plugins.data()[j]->name() << "->name()" << endl;
 
             if (plugins[i]->name() == plugins[j]->name()) {
                 cerr << "Plugins must have unique names. Collision: "
@@ -246,7 +268,10 @@ int main(int argc, char* argv[])
     size_t numEvents = 0;
     const zcm::LogEvent* evt;
     for (size_t i = 0; i < pluginGroups.size(); ++i) {
-        if (pluginGroups.size() != 1) cout << "Plugin group " << (i + 1) << endl;
+        cout << "Running in parallel plugin group " << i << ": [" << endl;
+        for (auto p : pluginGroups[i]) cout << "  " << p.plugin->name() << "," << endl;
+        cout << "]" << endl;
+
         off_t offset = 0;
         fseeko(log.getFilePtr(), 0, SEEK_SET);
 
@@ -299,8 +324,8 @@ int main(int argc, char* argv[])
         }
     }
 
-    delete defaultPlugin;
-    defaultPlugin = nullptr;
+    for (auto p : defaults) delete p.plugin;
+    defaults.clear();
 
     zcm::Json::StreamWriterBuilder builder;
     builder["indentation"] = args.readable ? "    " : "";
