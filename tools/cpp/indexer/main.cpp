@@ -146,6 +146,7 @@ int main(int argc, char* argv[])
     struct DefaultPlugin {
         zcm::IndexerPlugin* plugin;
         bool shouldBeIncluded;
+        // RRR: this variable is unused
         bool isDependency = false;
         DefaultPlugin(zcm::IndexerPlugin* p, bool shouldBeIncluded) :
             plugin(p), shouldBeIncluded(shouldBeIncluded)

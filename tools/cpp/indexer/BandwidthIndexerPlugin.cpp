@@ -32,6 +32,8 @@ void BandwidthIndexerPlugin::indexEvent(const zcm::Json::Value& index,
         startTimestamp = timestamp;
     double secondsSoFar = (double)(timestamp - startTimestamp) / 1e6;
 
+    // RRR: we're actually getting integer wrapping on some of these, you should
+    //      use size_t
     pluginIndex[channel][typeName]["totalBytes"] =
         pluginIndex[channel][typeName]["totalBytes"].asInt() + datalen;
 
