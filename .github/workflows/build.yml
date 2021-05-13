@@ -31,7 +31,12 @@ jobs:
             mkdir -p ../tmp/x64
             mkdir -p ../tmp/asan
       - name: deps
-        run: ./scripts/install-deps.sh -i -s
+        run: |
+            echo 'deb http://download.opensuse.org/repositories/network:/messaging:/zeromq:/release-stable/xUbuntu_16.04/ /' | sudo tee /etc/apt/sources.list.d/network:messaging:zeromq:release-stable.list
+            curl -fsSL https://download.opensuse.org/repositories/network:messaging:zeromq:release-stable/xUbuntu_16.04/Release.key | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/network_messaging_zeromq_release-stable.gpg > /dev/null
+            sudo apt-get update
+            sudo apt-get install -yq libzmq3-dev
+            ./scripts/install-deps.sh -s
       - name: build
         run: |
             ./waf distclean configure build
