@@ -1,9 +1,13 @@
+#include <atomic>
+#include <condition_variable>
 #include <iostream>
+#include <memory>
+#include <mutex>
+#include <signal.h>
 #include <string>
+#include <thread>
 #include <unistd.h>
 #include <vector>
-#include <atomic>
-#include <signal.h>
 
 #include <getopt.h>
 
@@ -11,6 +15,7 @@
 #include "zcm/zcm_coretypes.h"
 
 #include "util/TranscoderPluginDb.hpp"
+#include "util/TimeUtil.hpp"
 
 using namespace std;
 
@@ -21,6 +26,61 @@ static void sighandler(int signal)
     done++;
     if (done == 3) exit(1);
 }
+
+struct Watchdog
+{
+    uint64_t lastFeedTimeA = 0, lastFeedTimeB = 0;
+    uint64_t timeoutA, timeoutB;
+
+    std::unique_ptr<std::thread> thr;
+    std::mutex                   lock;
+    std::condition_variable      cond;
+
+    std::atomic_bool done {false};
+
+    typedef void (Watchdog::*FeedFn)();
+
+    void run()
+    {
+        while (!done) {
+            uint64_t now = TimeUtil::utime();
+
+            uint64_t dtA = timeoutA, dtB = timeoutB;
+
+            if (lastFeedTimeA != 0 && timeoutA != std::numeric_limits<uint64_t>::max()) {
+                uint64_t expireTimeA = lastFeedTimeA + timeoutA;
+                if (now > expireTimeA) assert(false && "Watchdog A exceeded");
+                dtA = expireTimeA - now;
+            }
+            if (lastFeedTimeB != 0 && timeoutB != std::numeric_limits<uint64_t>::max()) {
+                uint64_t expireTimeB = lastFeedTimeB + timeoutB;
+                if (now > expireTimeB) assert(false && "Watchdog B exceeded");
+                dtB = expireTimeB - now;
+            }
+
+            auto dt = std::chrono::microseconds(std::min(std::min(dtA, dtB), (uint64_t) 1e8));
+
+            std::unique_lock<std::mutex> lk(lock);
+            cond.wait_for(lk, dt);
+        }
+    }
+
+    Watchdog(uint64_t timeoutA, uint64_t timeoutB) :
+        timeoutA(timeoutA), timeoutB(timeoutB)
+    {
+        thr.reset(new std::thread(&Watchdog::run, this));
+    }
+
+    ~Watchdog()
+    {
+        done = true;
+        cond.notify_all();
+        thr->join();
+    }
+
+    void feedA() { lastFeedTimeA = TimeUtil::utime(); }
+    void feedB() { lastFeedTimeB = TimeUtil::utime(); }
+};
 
 struct Args
 {
@@ -35,6 +95,9 @@ struct Args
 
     string Aprefix = "";
     string Bprefix = "";
+
+    uint64_t Awatchdog = std::numeric_limits<uint64_t>::max();
+    uint64_t Bwatchdog = std::numeric_limits<uint64_t>::max();
 
     string plugin_path = "";
 
@@ -52,6 +115,8 @@ struct Args
             { "B-endpt",     required_argument, 0,  'B' },
             { "A-channel",   required_argument, 0,  'a' },
             { "B-channel",   required_argument, 0,  'b' },
+            { "A-watchdog",  required_argument, 0,   0  },
+            { "B-watchdog",  required_argument, 0,   0  },
             { "decimation",  required_argument, 0,  'D' },
             { "plugin-path", required_argument, 0,  'p' },
             { "debug",             no_argument, 0,  'd' },
@@ -94,6 +159,10 @@ struct Args
                     } else if (string(long_opts[option_index].name) == "B-prefix") {
                         currDec = nullptr;
                         Bprefix = optarg;
+                    } else if (string(long_opts[option_index].name) == "A-watchdog") {
+                        Awatchdog = atol(optarg);
+                    } else if (string(long_opts[option_index].name) == "B-watchdog") {
+                        Bwatchdog = atol(optarg);
                     }
                     break;
                 case 'h': default: usage(); return false;
@@ -142,6 +211,10 @@ struct Args
              << "                             This argument can be specified multiple times. If this option is not," << endl
              << "                             present then we subscribe to all messages on the B interface." << endl
              << "                             Ex: zcm-bridge -A ipc -B udpm://239.255.76.67:7667?ttl=0 -b EXAMPLE" << endl
+             << "      --A-watchdog=TIMEOUT   Timeout (in microseconds) since the most recently received message" << endl
+             << "                             on the A transport after which bridge will assert" << endl
+             << "      --B-watchdog=TIMEOUT   Timeout (in microseconds) since the most recently received message"
+             << "                             on the B transport after which bridge will assert" << endl
              << "  -D, --decimation           Decimation level for the preceeding A-channel or B-channel. " << endl
              << "                             Ex: zcm-bridge -A ipc -B udpm://239.255.76.67:7667?ttl=0 -b EXAMPLE -d 2" << endl
              << "                             This example would result in the message on EXAMPLE being rebroadcast on" << endl
@@ -153,7 +226,8 @@ struct Args
 
 struct Bridge
 {
-    Args   args;
+    Args args;
+    std::unique_ptr<Watchdog> wd;
 
     zcm::ZCM *zcmA = nullptr;
     zcm::ZCM *zcmB = nullptr;
@@ -168,8 +242,13 @@ struct Bridge
         int       decimation = 0;
         int       nSkipped = 0;
 
-        BridgeInfo(zcm::ZCM* zcmOut, const string &prefix, int dec) :
-            zcmOut(zcmOut), prefix(prefix), decimation(dec), nSkipped(0) {}
+        Watchdog* wd = nullptr;
+        Watchdog::FeedFn feed = nullptr;
+
+        BridgeInfo(zcm::ZCM* zcmOut, const string &prefix, int dec,
+                   Watchdog* wd, Watchdog::FeedFn feed) :
+            zcmOut(zcmOut), prefix(prefix), decimation(dec), nSkipped(0),
+            wd(wd), feed(feed) {}
 
         BridgeInfo() {}
     };
@@ -234,6 +313,10 @@ struct Bridge
     static void handler(const zcm::ReceiveBuffer* rbuf, const string& channel, void* usr)
     {
         BridgeInfo* info = (BridgeInfo*)usr;
+
+        // Feed the watchdog
+        (info->wd->*(info->feed))();
+
         if (info->nSkipped++ == info->decimation) {
             info->nSkipped = 0;
 
@@ -272,19 +355,22 @@ struct Bridge
 
     void run()
     {
+        wd.reset(new Watchdog(args.Awatchdog, args.Bwatchdog));
+
         vector<BridgeInfo> infoA, infoB;
 
         infoA.reserve(args.Achannels.size());
         infoB.reserve(args.Bchannels.size());
 
-        BridgeInfo defaultA(zcmB, args.Bprefix, 0),
-                   defaultB(zcmA, args.Aprefix, 0);
+        BridgeInfo defaultA(zcmB, args.Bprefix, 0, wd.get(), &Watchdog::feedA),
+                   defaultB(zcmA, args.Aprefix, 0, wd.get(), &Watchdog::feedB);
 
         if (args.Achannels.size() == 0) {
             zcmA->subscribe(".*", &handler, &defaultA);
         } else {
             for (size_t i = 0; i < args.Achannels.size(); i++) {
-                infoA.emplace_back(zcmB, args.Bprefix, args.Adec.at(i));
+                infoA.emplace_back(zcmB, args.Bprefix, args.Adec.at(i),
+                                   wd.get(), &Watchdog::feedA);
                 zcmA->subscribe(args.Achannels.at(i), &handler, &infoA.back());
             }
         }
@@ -293,7 +379,8 @@ struct Bridge
             zcmB->subscribe(".*", &handler, &defaultB);
         } else {
             for (size_t i = 0; i < args.Bchannels.size(); i++) {
-                infoB.emplace_back(zcmA, args.Aprefix, args.Bdec.at(i));
+                infoB.emplace_back(zcmA, args.Aprefix, args.Bdec.at(i),
+                                   wd.get(), &Watchdog::feedB);
                 zcmB->subscribe(args.Bchannels.at(i), &handler, &infoB.back());
             }
         }
@@ -307,6 +394,8 @@ struct Bridge
         zcmB->start();
 
         while (!done) usleep(1e6);
+
+        wd.reset();
 
         zcmA->stop();
         zcmB->stop();
