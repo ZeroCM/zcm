@@ -163,9 +163,10 @@ int main(int argc, char* argv[])
             plugins.push_back((zcm::IndexerPlugin*) dbp);
             auto deps = dbp->dependsOn();
             for (auto dep : deps) {
-                for (auto p : defaults) {
+                for (auto& p : defaults) {
                     if (dep == p.plugin->name()) {
                         p.shouldBeIncluded = true;
+                        break;
                     }
                 }
             }
@@ -208,15 +209,15 @@ int main(int argc, char* argv[])
 
     auto buildPluginGroups = [] (vector<zcm::IndexerPlugin*> plugins) {
         vector<vector<PluginRuntimeInfo>> groups;
-        vector<zcm::IndexerPlugin*> lastLoop = plugins;
+        vector<zcm::IndexerPlugin*> prevLoopPlugins = plugins;
         while (!plugins.empty()) {
             groups.resize(groups.size() + 1);
             for (auto p = plugins.begin(); p != plugins.end();) {
                 auto deps = (*p)->dependsOn();
 
                 bool skipUntilLater = false;
-                for (auto* dep : plugins) {
-                    if (find(deps.begin(), deps.end(), dep->name()) != deps.end()) {
+                for (auto* p : plugins) {
+                    if (find(deps.begin(), deps.end(), p->name()) != deps.end()) {
                         skipUntilLater = true;
                         break;
                     }
@@ -236,7 +237,7 @@ int main(int argc, char* argv[])
             }
 
             // Check for dependency resolution failure
-            if (plugins == lastLoop) {
+            if (plugins == prevLoopPlugins) {
                 cerr << "Unable to resolve all plugin dependencies. "
                         "Plugins left to resolve:" << endl << endl;
                 for (auto* p : plugins) {
@@ -248,7 +249,7 @@ int main(int argc, char* argv[])
                 }
                 exit(1);
             }
-            lastLoop = plugins;
+            prevLoopPlugins = plugins;
         }
         return groups;
     };

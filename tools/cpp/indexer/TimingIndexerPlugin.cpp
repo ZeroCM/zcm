@@ -15,7 +15,7 @@ TimingIndexerPlugin::~TimingIndexerPlugin()
 {}
 
 std::string TimingIndexerPlugin::name() const
-{ return "timing"; }
+{ return "timestamp"; }
 
 // Index every message according to timestamp
 void TimingIndexerPlugin::indexEvent(const zcm::Json::Value& index,
