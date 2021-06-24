@@ -38,7 +38,6 @@ struct Args
 {
     double auto_split_mb      = 0.0;
     bool   force_overwrite    = false;
-    string chan               = ".*";
     bool   auto_increment     = false;
     bool   use_strftime       = false;
     string zcmurl             = "";
@@ -49,6 +48,8 @@ struct Args
     i64    max_target_memory  = 0;
     string plugin_path        = "";
     bool   debug              = false;
+
+    vector<string> channels;
 
     string input_fname;
 
@@ -89,7 +90,7 @@ struct Args
                     force_overwrite = 1;
                     break;
                 case 'c':
-                    chan = optarg;
+                    channels.push_back(optarg);
                     break;
                 case 'i':
                     auto_increment = true;
@@ -144,6 +145,8 @@ struct Args
             return false;
         }
 
+        if (channels.empty()) channels.push_back(".*");
+
         if (auto_split_mb > 0 && !(auto_increment || (rotate > 0))) {
             cerr << "ERROR.  --split-mb requires either --increment or --rotate" << endl;
             return false;
@@ -169,6 +172,7 @@ struct Args
              << "Options:" << endl
              << endl
              << "  -c, --channel=CHAN         Channel string to pass to zcm_subscribe." << endl
+             << "                             Can provide multiple times."<< endl
              << "                             (default: \".*\")" << endl
              << "  -l, --flush-interval=MS    Flush the log file to disk every MS milliseconds." << endl
              << "                             (default: 100)" << endl
@@ -242,7 +246,7 @@ struct Logger
     int next_increment_num          = 0;
 
     // variables for inverted matching (e.g., logging all but some channels)
-    regex invert_regex;
+    vector<regex> invert_regex;
 
     // these members controlled by writing
     size_t nevents                  = 0;
@@ -310,16 +314,20 @@ struct Logger
         if (args.debug) return true;
 
         // Compile the regex if we are in invert mode
-        if (args.invert_channels) invert_regex = regex{args.chan};
+        if (args.invert_channels) {
+            for (auto& c : args.channels) {
+                invert_regex.push_back(regex{c});
+            }
+        }
 
         return true;
     }
 
-    const string& getSubChannel()
+    const vector<string>& getSubChannels()
     {
-        static string all = ".*";
+        static vector<string> all{".*"};
         // if inverting the channels, subscribe to everything and invert on the callback
-        return (!args.invert_channels) ? args.chan : all;
+        return (!args.invert_channels) ? args.channels : all;
     }
 
     void rotate_logfiles()
@@ -405,9 +413,11 @@ struct Logger
     void handler(const zcm::ReceiveBuffer* rbuf, const string& channel)
     {
         if (args.invert_channels) {
-            cmatch match;
-            regex_match(channel.c_str(), match, invert_regex);
-            if (match.size() > 0) return;
+            for (auto& r : invert_regex) {
+                cmatch match;
+                regex_match(channel.c_str(), match, r);
+                if (match.size() > 0) return;
+            }
         }
 
         vector<zcm::LogEvent*> evts;
@@ -592,7 +602,11 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    zcmLocal.subscribe(logger.getSubChannel(), &Logger::handler, &logger);
+    auto channels = logger.getSubChannels();
+    for (auto& c : channels) {
+        ZCM_DEBUG("Subscribing to : %s", c.c_str());
+        zcmLocal.subscribe(c, &Logger::handler, &logger);
+    }
 
     // Register signal handlers
     signal(SIGINT,  sighandler);
