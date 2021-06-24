@@ -603,6 +603,7 @@ int main(int argc, char *argv[])
 
     auto channels = logger.getSubChannels();
     for (auto& c : channels) {
+        ZCM_DEBUG("Subscribing to : %s", c.c_str());
         zcmLocal.subscribe(c, &Logger::handler, &logger);
     }
 
