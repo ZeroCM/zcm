@@ -38,7 +38,6 @@ struct Args
 {
     double auto_split_mb      = 0.0;
     bool   force_overwrite    = false;
-    vector<string> channels;
     bool   auto_increment     = false;
     bool   use_strftime       = false;
     string zcmurl             = "";
@@ -49,6 +48,8 @@ struct Args
     i64    max_target_memory  = 0;
     string plugin_path        = "";
     bool   debug              = false;
+
+    vector<string> channels;
 
     string input_fname;
 
