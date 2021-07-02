@@ -320,6 +320,7 @@ def setup_environment_asan(ctx):
              '-fsanitize=address',    # AddressSanitizer, a memory error detector.
              '-fsanitize=integer',    # Enables checks for undefined or suspicious integer behavior.
              '-fsanitize=undefined',  # Fast and compatible undefined behavior checker.
+             '-Wno-deprecated-declarations', # Bug in cython/clang
     ]
 
     ctx.env.CFLAGS_default    += FLAGS
@@ -331,6 +332,7 @@ def setup_environment_tsan(ctx):
 
     FLAGS = ['-fcolor-diagnostics',
              '-fsanitize=thread',     # ThreadSanitizer, a data race detector.
+             '-Wno-deprecated-declarations', # Bug in cython/clang
     ]
 
     ctx.env.CFLAGS_default    += FLAGS
