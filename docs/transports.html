@@ -74,6 +74,11 @@ be used to <em>summon</em> the transport:</p>
     <td><code>  serial://&lt;path-to-device&gt;?baud=&lt;baud&gt;       </code></td>
     <td><code>  zcm_create("serial:///dev/ttyUSB0?baud=115200")         </code></td>
   </tr>
+  <tr>
+    <td>        CAN                                                     </td>
+    <td><code>  can://&lt;interface&gt;?msgid=&lt;id&gt;             </code></td>
+    <td><code>  zcm_create("can://can0?msgid=65536")                 </code></td>
+  </tr>
 </table>
 
 <p>When no url is provided (i.e. <code>zcm_create(NULL)</code>), the <code>ZCM_DEFAULT_URL</code> environment variable is
@@ -199,15 +204,18 @@ sent and should return <code>ZCM_EOK</code>.</p></li>
 <li><p><code>int recvmsg_enable(zcm_trans_t *zt, const char *channel, bool enable)</code></p>
 
 <p>This method will enable/disable the receipt of messages on the particular
-channel. For 'all channels', the user should pass NULL for the channel.
-This method is like a "suggestion", the transport is allowed to "enable"
-more channels without concern. This method only sets the "minimum set"
-of channels that the user expects to receive. It exists to provide the
-transport layer more information for optimization purposes (e.g. the
-transport may decide to send each channel over a different endpoint).</p>
+channel. This method is like a "suggestion", the transport is allowed to
+"enable" more channels without concern. This method only sets the
+"minimum set" of channels that the user expects to receive. It exists to
+provide the transport layer more information for optimization purposes
+(e.g. the transport may decide to send each channel over a different endpoint).</p>
 
 <p>NOTE: This method should work concurrently and correctly with <code>recvmsg()</code>.
-On success, this method should return <code>ZCM_EOK</code></p></li>
+On success, this method should return <code>ZCM_EOK</code></p>
+
+<p>NOTE: <code>channel</code> may be a regex character string.
+See <a href="announcements/transport_recvmsg_enable_change.html">the announcement</a>
+about this topic for more information</p></li>
 <li><p><code>int recvmsg(zcm_trans_t *zt, zcm_msg_t *msg, int timeout)</code></p>
 
 <p>The caller to this method initiates a message recv operation. This
