@@ -216,15 +216,9 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             return nullptr;
         }
         subsocks.emplace(channel, make_pair(sock, subExplicit));
-        // RRR Remove this after review and testing
-        ZCM_DEBUG("Creating subsocket for channel %s", channel.c_str());
         return sock;
     }
 
-    // RRR: realizing ... this call gets called once for EVERY new message
-    //      we receive (if you have any regex channels). That's pretty expensive.
-    //      How would you feel about adding like a utime based period for checking?
-    //      Could have that default to like once a second and then be a url param.
     void ipcScanForNewChannels()
     {
         const char *prefix = IPC_NAME_PREFIX;
@@ -340,28 +334,20 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             } else {
                 auto it = subsocks.find(channel);
                 if (it == subsocks.end()) return ZCM_EINVALID;
-                if (it->second.second) { // This channel has been subscribed to explicitly
-                    // RRR: I'm pretty sure that blocking is handling the reference
-                    //      counting (especially if the channel has both a regex and
-                    //      non-regex subscription), so I think it's ok to just
-                    //      go and delete it right away. Just double checking that
-                    //      that's what you were thinking too.
-                    string address = getAddress(it->first);
-                    int rc = zmq_disconnect(it->second.first, address.c_str());
-                    if (rc == -1) {
-                        ZCM_DEBUG("failed to disconnect subsock: %s", zmq_strerror(errno));
-                        return ZCM_ECONNECT;
-                    }
-
-                    rc = zmq_close(it->second.first);
-                    if (rc == -1) {
-                        ZCM_DEBUG("failed to disconnect subsock: %s", zmq_strerror(errno));
-                        return ZCM_ECONNECT;
-                    }
-                    subsocks.erase(it);
-                    // RRR: remove when done debugging
-                    ZCM_DEBUG("Deleting subsocket for channel %s", it->first.c_str());
+                assert(it->second.second);
+                string address = getAddress(it->first);
+                int rc = zmq_disconnect(it->second.first, address.c_str());
+                if (rc == -1) {
+                    ZCM_DEBUG("failed to disconnect subsock: %s", zmq_strerror(errno));
+                    return ZCM_ECONNECT;
                 }
+
+                rc = zmq_close(it->second.first);
+                if (rc == -1) {
+                    ZCM_DEBUG("failed to disconnect subsock: %s", zmq_strerror(errno));
+                    return ZCM_ECONNECT;
+                }
+                subsocks.erase(it);
             }
             return ZCM_EOK;
         }
@@ -378,6 +364,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             // concurrently
             unique_lock<mutex> lk(mut);
 
+            // XXX Only call this if enough time has ellapse since the last
+            //     time you called it
             if (!regexChannels.empty()) {
                 switch (type) {
                     case IPC: ipcScanForNewChannels();
