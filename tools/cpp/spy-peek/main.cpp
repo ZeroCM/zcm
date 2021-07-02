@@ -1,3 +1,5 @@
+#include <vector>
+#include <string>
 #include <stdio.h>
 #include <unistd.h>
 #include <signal.h>
@@ -5,6 +7,8 @@
 #include <inttypes.h>
 
 #include "zcm/zcm.h"
+
+using namespace std;
 
 volatile int done = 0;
 static bool verbose;
@@ -41,18 +45,21 @@ static void usage()
             "\n"
             "  -h, --help                 Shows this help text and exits\n"
             "  -u, --zcm-url=URL          Log messages on the specified ZCM URL\n"
+            "  -c, --channel=CHANNEL      Channel to subscribe to. Can be specified more than once\n"
             "  -v, --verbose              Print raw bytes of zcm data for each msg\n"
             "\n");
 }
 
 static const char *zcmurl = nullptr;
+vector<string> channels;
 static bool parse_args(int argc, char *argv[])
 {
     // set some defaults
-    const char *optstring = "hu:v";
+    const char *optstring = "hu:c:v";
     struct option long_opts[] = {
         { "help",    no_argument,       0, 'h' },
         { "zcm-url", required_argument, 0, 'u' },
+        { "channel", required_argument, 0, 'c' },
         { "verbose", no_argument,       0, 'v' },
         { 0, 0, 0, 0 }
     };
@@ -62,9 +69,12 @@ static bool parse_args(int argc, char *argv[])
         switch (c) {
             case 'u': zcmurl  = optarg; break;
             case 'v': verbose = true;   break;
+            case 'c': channels.push_back(optarg); break;
             case 'h': default: usage(); return false;
         };
     }
+
+    if (channels.empty()) channels.push_back(".*");
 
     return true;
 }
@@ -80,7 +90,8 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    zcm_sub_t *subs = zcm_subscribe(zcm, ".*", &handler, NULL);
+    for (const auto& c : channels)
+        zcm_subscribe(zcm, c.c_str(), &handler, NULL);
 
     signal(SIGINT,  sighandler);
     signal(SIGQUIT, sighandler);
@@ -91,7 +102,6 @@ int main(int argc, char *argv[])
     while (!done) usleep(500000);
 
     zcm_stop(zcm);
-    zcm_unsubscribe(zcm, subs);
     zcm_destroy(zcm);
     return 0;
 }

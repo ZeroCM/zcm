@@ -19,6 +19,7 @@ struct zcm_nonblocking
     /* TODO speed this up */
     zcm_sub_t subs[ZCM_NONBLOCK_SUBS_MAX];
     bool      subInUse[ZCM_NONBLOCK_SUBS_MAX];
+    bool      subIsRegex[ZCM_NONBLOCK_SUBS_MAX];
     size_t    subInUseEnd;
 };
 
@@ -52,6 +53,7 @@ static bool isSupportedRegex(const char* c, size_t clen)
 
     return true;
 }
+
 
 int zcm_nonblocking_try_create(zcm_nonblocking_t** zcm, zcm_t* z, zcm_trans_t* zt)
 {
@@ -98,35 +100,30 @@ zcm_sub_t* zcm_nonblocking_subscribe(zcm_nonblocking_t* zcm, const char* channel
     int rc;
     size_t i;
 
-    size_t clen = strlen(channel);
-    bool regex = isRegexChannel(channel, clen);
-    if (regex) {
-        if (!isSupportedRegex(channel, clen)) return NULL;
-        if (!zcm->allChannelsEnabled) {
-            rc = zcm_trans_recvmsg_enable(zcm->zt, NULL, true);
-            zcm->allChannelsEnabled = true;
-        } else {
-            rc = ZCM_EOK;
-        }
-    } else {
-        rc = zcm_trans_recvmsg_enable(zcm->zt, channel, true);
-    }
+    rc = zcm_trans_recvmsg_enable(zcm->zt, channel, true);
 
     if (rc != ZCM_EOK) return NULL;
 
     for (i = 0; i <= zcm->subInUseEnd && i < ZCM_NONBLOCK_SUBS_MAX; ++i) {
-        if (!zcm->subInUse[i]) {
+        if (zcm->subInUse[i]) continue;
 
-            strncpy(zcm->subs[i].channel, channel, ZCM_CHANNEL_MAXLEN);
-            zcm->subs[i].channel[ZCM_CHANNEL_MAXLEN] = '\0';
-            zcm->subs[i].callback = cb;
-            zcm->subs[i].usr = usr;
-            zcm->subInUse[i] = true;
+        strncpy(zcm->subs[i].channel, channel, ZCM_CHANNEL_MAXLEN);
+        zcm->subs[i].channel[ZCM_CHANNEL_MAXLEN] = '\0';
+        zcm->subs[i].callback = cb;
+        zcm->subs[i].usr = usr;
 
-            if (i == zcm->subInUseEnd) ++zcm->subInUseEnd;
-
-            return &zcm->subs[i];
+        size_t clen = strlen(zcm->subs[i].channel);
+        zcm->subIsRegex[i] = isRegexChannel(zcm->subs[i].channel, clen);
+        if (zcm->subIsRegex[i] &&
+            !isSupportedRegex(zcm->subs[i].channel, clen)) {
+            return NULL;
         }
+
+        zcm->subInUse[i] = true;
+
+        if (i == zcm->subInUseEnd) ++zcm->subInUseEnd;
+
+        return &zcm->subs[i];
     }
     return NULL;
 }
@@ -134,8 +131,6 @@ zcm_sub_t* zcm_nonblocking_subscribe(zcm_nonblocking_t* zcm, const char* channel
 int zcm_nonblocking_unsubscribe(zcm_nonblocking_t* zcm, zcm_sub_t* sub)
 {
     size_t i;
-    size_t clen;
-    bool regex;
     int match_idx = sub - zcm->subs;
     bool lastChanSub = true;
     int rc = ZCM_EOK;
@@ -143,34 +138,19 @@ int zcm_nonblocking_unsubscribe(zcm_nonblocking_t* zcm, zcm_sub_t* sub)
     if (match_idx < 0 || match_idx >= zcm->subInUseEnd) return ZCM_EINVALID;
     if (!zcm->subInUse[match_idx]) return ZCM_EINVALID;
 
-    clen = strlen(sub->channel);
-    regex = isRegexChannel(sub->channel, clen);
-    if (regex) {
-        for (i = 0; i < zcm->subInUseEnd; ++i) {
-            if (!zcm->subInUse[i]) continue;
-            if (match_idx != i &&
-                isRegexChannel(zcm->subs[i].channel, strlen(zcm->subs[i].channel))) {
-                lastChanSub = false;
-                break;
-            }
+    for (i = 0; i < zcm->subInUseEnd; ++i) {
+        if (!zcm->subInUse[i]) continue;
+        /* Note: it would be nice if we didn't have to do a string comp to unsubscribe, but
+                 we need to count the number of channel matches so we know when we can disable
+                 the transport's recvmsg_enable */
+        if (match_idx != i &&
+            strncmp(sub->channel, zcm->subs[i].channel, ZCM_CHANNEL_MAXLEN) == 0) {
+            lastChanSub = false;
+            break;
         }
-
-        if (lastChanSub) rc = zcm_trans_recvmsg_enable(zcm->zt, NULL, false);
-    } else {
-        for (i = 0; i < zcm->subInUseEnd; ++i) {
-            if (!zcm->subInUse[i]) continue;
-            /* Note: it would be nice if we didn't have to do a string comp to unsubscribe, but
-                     we need to count the number of channel matches so we know when we can disable
-                     the transport's recvmsg_enable */
-            if (match_idx != i &&
-                strncmp(sub->channel, zcm->subs[i].channel, ZCM_CHANNEL_MAXLEN) == 0) {
-                lastChanSub = false;
-                break;
-            }
-        }
-
-        if (lastChanSub) rc = zcm_trans_recvmsg_enable(zcm->zt, sub->channel, false);
     }
+
+    if (lastChanSub) rc = zcm_trans_recvmsg_enable(zcm->zt, sub->channel, false);
 
     zcm->subInUse[match_idx] = false;
     while (zcm->subInUseEnd > 0 && !zcm->subInUse[zcm->subInUseEnd - 1]) {
@@ -191,11 +171,11 @@ static void dispatch_message(zcm_nonblocking_t* zcm, zcm_msg_t* msg)
 
         bool shouldDispatch = false;
 
-        size_t subsChanLen = strlen(zcm->subs[i].channel);
-        if (isRegexChannel(zcm->subs[i].channel, subsChanLen)) {
+        if (zcm->subIsRegex[i]) {
             /* This only works because isSupportedRegex() is called on subscribe */
             if (strlen(msg->channel) > 2 &&
-                strncmp(zcm->subs[i].channel, msg->channel, subsChanLen - 2) == 0) {
+                strncmp(zcm->subs[i].channel, msg->channel,
+                        strlen(zcm->subs[i].channel) - 2) == 0) {
                 shouldDispatch = true;
             }
         } else {

@@ -64,7 +64,7 @@ class SubUnsubCPPTest : public CxxTest::TestSuite
     void tearDown() override {}
 
     void testPubSub() {
-        size_t sleep_time = 200000;
+        size_t sleep_time = 5e5;
 
         Handler handler;
 
