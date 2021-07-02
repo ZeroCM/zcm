@@ -299,7 +299,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
         if (regex) {
             if (enable) {
-                regexChannels.emplace(channel, channel);
+                regexChannels.insert({channel, std::regex(channel)});
             } else {
                 regexChannels.erase(channel);
 
