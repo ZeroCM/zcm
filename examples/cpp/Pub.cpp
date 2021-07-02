@@ -8,6 +8,9 @@ int main(int argc, char *argv[])
     if (!zcm.good())
         return 1;
 
+    std::string channel = "EXAMPLE";
+    if (argc > 1) channel = argv[1];
+
     example_t my_data {};
     my_data.timestamp = 0;
 
@@ -30,7 +33,7 @@ int main(int argc, char *argv[])
     my_data.enabled = true;
 
     while (1) {
-        zcm.publish("EXAMPLE", &my_data);
+        zcm.publish(channel, &my_data);
         for (auto& val : my_data.position) val++;
         usleep(1000*1000);
     }

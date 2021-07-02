@@ -24,6 +24,7 @@
 #include <thread>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <regex>
 
 using namespace std;
 
@@ -61,7 +62,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     unordered_map<string, pair<void*,lockfile_t*>> pubsocks;
     // socket pair contains the socket + whether it was subscribed to explicitly or not
     unordered_map<string, pair<void*, bool>> subsocks;
-    bool recvAllChannels = false;
+    unordered_map<string, std::regex> regexChannels;
 
     string recvmsgChannel;
     size_t recvmsgBufferSize = START_BUF_SIZE; // Start at 1MB but allow it to grow to MTU
@@ -136,6 +137,16 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         delete[] recvmsgBuffer;
     }
 
+    bool isRegexSubscribed(string channel)
+    {
+        for (auto regIt = regexChannels.begin(); regIt != regexChannels.end(); ++regIt) {
+            if (regex_match(channel, regIt->second)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     string getAddress(const string& channel)
     {
         switch (type) {
@@ -205,6 +216,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             return nullptr;
         }
         subsocks.emplace(channel, make_pair(sock, subExplicit));
+        // RRR Remove this after review and testing
+        ZCM_DEBUG("Creating subsocket for channel %s", channel.c_str());
         return sock;
     }
 
@@ -222,6 +235,9 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         while ((ent=readdir(d)) != nullptr) {
             if (strncmp(ent->d_name, prefix, prefixLen) == 0) {
                 string channel(ent->d_name + prefixLen);
+
+                if (!isRegexSubscribed(channel)) continue;
+
                 void *sock = subsockFindOrCreate(channel, false);
                 if (sock == nullptr) {
                     ZCM_DEBUG("failed to open subsock in scanForNewChannels(%s)",
@@ -240,6 +256,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     {
         for (auto& elt : pubsocks) {
             auto& channel = elt.first;
+            if (!isRegexSubscribed(channel)) continue;
             void *sock = subsockFindOrCreate(channel, false);
             if (sock == nullptr) {
                 ZCM_DEBUG("failed to open subsock in scanForNewChannels(%s)", channel.c_str());
@@ -280,59 +297,59 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         // concurrently
         unique_lock<mutex> lk(mut);
 
-        // TODO: make this prettier
         if (regex) {
             if (enable) {
-                recvAllChannels = enable;
+                regexChannels.emplace(channel, channel);
             } else {
-                for (auto it = subsocks.begin(); it != subsocks.end(); ) {
-                    if (!it->second.second) { // This channel is only subscribed to implicitly
-                        string address = getAddress(it->first);
-                        int rc = zmq_disconnect(it->second.first, address.c_str());
-                        if (rc == -1) {
-                            ZCM_DEBUG("failed to disconnect subsock: %s", zmq_strerror(errno));
-                            return ZCM_ECONNECT;
-                        }
+                regexChannels.erase(channel);
 
-                        rc = zmq_close(it->second.first);
-                        if (rc == -1) {
-                            ZCM_DEBUG("failed to disconnect subsock: %s", zmq_strerror(errno));
-                            return ZCM_ECONNECT;
-                        }
-                        it = subsocks.erase(it);
-                    } else {
+                for (auto it = subsocks.begin(); it != subsocks.end(); ) {
+                    // This channel is subscribed to explicitly
+                    if (!it->second.second) {
                         ++it;
+                        continue;
                     }
+
+                    if (isRegexSubscribed(channel)) continue;
+
+                    string address = getAddress(it->first);
+                    int rc = zmq_disconnect(it->second.first, address.c_str());
+                    if (rc == -1) {
+                        ZCM_DEBUG("failed to disconnect subsock: %s", zmq_strerror(errno));
+                        return ZCM_ECONNECT;
+                    }
+
+                    rc = zmq_close(it->second.first);
+                    if (rc == -1) {
+                        ZCM_DEBUG("failed to disconnect subsock: %s", zmq_strerror(errno));
+                        return ZCM_ECONNECT;
+                    }
+                    it = subsocks.erase(it);
                 }
             }
             return ZCM_EOK;
         } else {
             if (enable) {
                 void *sock = subsockFindOrCreate(channel, true);
-                if (sock == nullptr)
-                    return ZCM_ECONNECT;
+                if (sock == nullptr) return ZCM_ECONNECT;
             } else {
                 auto it = subsocks.find(channel);
-                if (it != subsocks.end()) {
-                    if (it->second.second) { // This channel has been subscribed to explicitly
-                        if (recvAllChannels) {
-                            it->second.second = false;
-                        } else {
-                            string address = getAddress(it->first);
-                            int rc = zmq_disconnect(it->second.first, address.c_str());
-                            if (rc == -1) {
-                                ZCM_DEBUG("failed to disconnect subsock: %s", zmq_strerror(errno));
-                                return ZCM_ECONNECT;
-                            }
-
-                            rc = zmq_close(it->second.first);
-                            if (rc == -1) {
-                                ZCM_DEBUG("failed to disconnect subsock: %s", zmq_strerror(errno));
-                                return ZCM_ECONNECT;
-                            }
-                            subsocks.erase(it);
-                        }
+                if (it == subsocks.end()) return ZCM_EINVALID;
+                if (it->second.second) { // This channel has been subscribed to explicitly
+                    string address = getAddress(it->first);
+                    int rc = zmq_disconnect(it->second.first, address.c_str());
+                    if (rc == -1) {
+                        ZCM_DEBUG("failed to disconnect subsock: %s", zmq_strerror(errno));
+                        return ZCM_ECONNECT;
                     }
+
+                    rc = zmq_close(it->second.first);
+                    if (rc == -1) {
+                        ZCM_DEBUG("failed to disconnect subsock: %s", zmq_strerror(errno));
+                        return ZCM_ECONNECT;
+                    }
+                    subsocks.erase(it);
+                    ZCM_DEBUG("Deleting subsocket for channel %s", it->first.c_str());
                 }
             }
             return ZCM_EOK;
@@ -350,7 +367,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             // concurrently
             unique_lock<mutex> lk(mut);
 
-            if (recvAllChannels) {
+            if (!regexChannels.empty()) {
                 switch (type) {
                     case IPC: ipcScanForNewChannels();
                     case INPROC: inprocScanForNewChannels();

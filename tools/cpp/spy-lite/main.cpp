@@ -369,6 +369,8 @@ struct Args
             };
         }
 
+        if (channels.empty()) channels.push_back(".*");
+
         return true;
     }
 
