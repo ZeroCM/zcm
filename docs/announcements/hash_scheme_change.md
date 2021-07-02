@@ -1,5 +1,5 @@
 <a style="margin-right: 1rem;" href="javascript:history.go(-1)">Back</a>
-[Home](../README.md)
+[Home](../../README.md)
 #Announcement:
 
 Hi All,
@@ -71,4 +71,4 @@ As always, feel free to reach out on our [forums](https://groups.google.com/foru
 
 <hr>
 <a style="margin-right: 1rem;" href="javascript:history.go(-1)">Back</a>
-[Home](../README.md)
+[Home](../../README.md)

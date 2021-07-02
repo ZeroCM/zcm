@@ -174,15 +174,18 @@ IMPORTANT: The `my_transport_create` **must** set the `trans_type` and `vtbl` fi
  -  `int recvmsg_enable(zcm_trans_t *zt, const char *channel, bool enable)`
 
    This method will enable/disable the receipt of messages on the particular
-   channel. For 'all channels', the user should pass NULL for the channel.
-   This method is like a "suggestion", the transport is allowed to "enable"
-   more channels without concern. This method only sets the "minimum set"
-   of channels that the user expects to receive. It exists to provide the
-   transport layer more information for optimization purposes (e.g. the
-   transport may decide to send each channel over a different endpoint).
+   channel. This method is like a "suggestion", the transport is allowed to
+   "enable" more channels without concern. This method only sets the
+   "minimum set" of channels that the user expects to receive. It exists to
+   provide the transport layer more information for optimization purposes
+   (e.g. the transport may decide to send each channel over a different endpoint).
 
    NOTE: This method should work concurrently and correctly with `recvmsg()`.
    On success, this method should return `ZCM_EOK`
+
+   NOTE: `channel` may be a regex character string.
+   See [the announcement](announcements/transport_recvmsg_enable_change.md)
+   about this topic for more information
 
  - `int recvmsg(zcm_trans_t *zt, zcm_msg_t *msg, int timeout)`
 
