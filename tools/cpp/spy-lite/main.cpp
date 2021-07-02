@@ -342,16 +342,18 @@ struct Args
 {
     const char *zcmurl = nullptr;
     const char *zcmtypes_path = nullptr;
+    vector<string> channels;
     bool debug = false;
 
     bool parse(int argc, char *argv[])
     {
         // set some defaults
-        const char *optstring = "hu:p:d";
+        const char *optstring = "hu:p:c:d";
         struct option long_opts[] = {
             { "help",            no_argument, 0, 'h' },
             { "zcm-url",   required_argument, 0, 'u' },
             { "type-path", required_argument, 0, 'p' },
+            { "channel",   required_argument, 0, 'c' },
             { "debug",           no_argument, 0, 'd' },
             { 0, 0, 0, 0 }
         };
@@ -362,6 +364,7 @@ struct Args
                 case 'u': zcmurl        = optarg; break;
                 case 'd': debug         = true;   break;
                 case 'p': zcmtypes_path = optarg; break;
+                case 'c': channels.push_back(optarg); break;
                 case 'h': default: usage(); return false;
             };
         }
@@ -383,6 +386,7 @@ struct Args
                 "  -h, --help                 Shows this help text and exits\n"
                 "  -u, --zcm-url=URL          Log messages on the specified ZCM URL\n"
                 "  -p, --type-path=PATH       Path to a shared library containing the zcmtypes\n"
+                "  -c, --channel=CHANNEL      Channel to subscribe to. Can be specified more than once\n"
                 "  -d, --debug                Run a dry run to ensure proper spy setup\n"
                 "\n");
     }
@@ -430,7 +434,9 @@ int main(int argc, char *argv[])
                         "-u opt or setting the ZCM_DEFAULT_URL envvar\n");
         return 1;
     }
-    zcm_subscribe(zcm, ".*", handler_all_zcm, &spy);
+    for (auto channel : args.channels) {
+        zcm_subscribe(zcm, channel.c_str(), handler_all_zcm, &spy);
+    }
     zcm_start(zcm);
 
     thread printThread {printThreadFunc, &spy};
