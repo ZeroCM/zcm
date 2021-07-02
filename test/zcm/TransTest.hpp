@@ -90,7 +90,7 @@ static void recv()
         exit(1);
 
     // Tell the transport to give us all of the channels
-    zcm_trans_recvmsg_enable(trans, NULL, true);
+    zcm_trans_recvmsg_enable(trans, ".*", true);
 
     zcm_msg_t master = makeMasterMsg();
 //    uint64_t start = TimeUtil::utime();

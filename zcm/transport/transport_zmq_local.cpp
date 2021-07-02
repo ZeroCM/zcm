@@ -291,6 +291,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
     int recvmsgEnable(const char *channel, bool enable)
     {
+        assert(channel && "channel cannot be null");
         bool regex = isRegexChannel(channel);
         // Mutex used to protect 'subsocks' while allowing
         // recvmsgEnable() and recvmsg() to be called
