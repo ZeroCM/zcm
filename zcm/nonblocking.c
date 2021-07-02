@@ -105,28 +105,25 @@ zcm_sub_t* zcm_nonblocking_subscribe(zcm_nonblocking_t* zcm, const char* channel
     if (rc != ZCM_EOK) return NULL;
 
     for (i = 0; i <= zcm->subInUseEnd && i < ZCM_NONBLOCK_SUBS_MAX; ++i) {
-        if (!zcm->subInUse[i]) {
+        if (zcm->subInUse[i]) continue;
 
-            strncpy(zcm->subs[i].channel, channel, ZCM_CHANNEL_MAXLEN);
-            zcm->subs[i].channel[ZCM_CHANNEL_MAXLEN] = '\0';
+        strncpy(zcm->subs[i].channel, channel, ZCM_CHANNEL_MAXLEN);
+        zcm->subs[i].channel[ZCM_CHANNEL_MAXLEN] = '\0';
+        zcm->subs[i].callback = cb;
+        zcm->subs[i].usr = usr;
 
-            size_t clen = strlen(zcm->subs[i].channel);
-
-            zcm->subs[i].callback = cb;
-            zcm->subs[i].usr = usr;
-            zcm->subIsRegex[i] = isRegexChannel(zcm->subs[i].channel, clen);
-
-            if (zcm->subIsRegex[i] &&
-                !isSupportedRegex(zcm->subs[i].channel, clen)) {
-                return NULL;
-            }
-
-            zcm->subInUse[i] = true;
-
-            if (i == zcm->subInUseEnd) ++zcm->subInUseEnd;
-
-            return &zcm->subs[i];
+        size_t clen = strlen(zcm->subs[i].channel);
+        zcm->subIsRegex[i] = isRegexChannel(zcm->subs[i].channel, clen);
+        if (zcm->subIsRegex[i] &&
+            !isSupportedRegex(zcm->subs[i].channel, clen)) {
+            return NULL;
         }
+
+        zcm->subInUse[i] = true;
+
+        if (i == zcm->subInUseEnd) ++zcm->subInUseEnd;
+
+        return &zcm->subs[i];
     }
     return NULL;
 }
