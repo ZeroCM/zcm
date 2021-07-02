@@ -36,6 +36,21 @@ using namespace std;
 
 enum Type { IPC, INPROC, };
 
+static bool isRegexChannel(const string& channel)
+{
+    // These chars are considered regex
+    auto isRegexChar = [](char c) {
+        return c == '(' || c == ')' || c == '|' ||
+        c == '.' || c == '*' || c == '+';
+    };
+
+    for (auto& c : channel)
+        if (isRegexChar(c))
+            return true;
+
+    return false;
+}
+
 struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 {
     void *ctx;
@@ -259,13 +274,14 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
     int recvmsgEnable(const char *channel, bool enable)
     {
+        bool regex = isRegexChannel(channel);
         // Mutex used to protect 'subsocks' while allowing
         // recvmsgEnable() and recvmsg() to be called
         // concurrently
         unique_lock<mutex> lk(mut);
 
         // TODO: make this prettier
-        if (channel == NULL) {
+        if (regex) {
             if (enable) {
                 recvAllChannels = enable;
             } else {
