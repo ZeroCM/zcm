@@ -62,6 +62,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     unordered_map<string, pair<void*,lockfile_t*>> pubsocks;
     // socket pair contains the socket + whether it was subscribed to explicitly or not
     unordered_map<string, pair<void*, bool>> subsocks;
+    typedef unordered_map<string, pair<void*, bool>>::iterator SubsocksItr;
     unordered_map<string, std::regex> regexChannels;
 
     string recvmsgChannel;
@@ -219,6 +220,26 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         return sock;
     }
 
+    // Updates the iterator in case of erasing
+    int subsockDelete(SubsocksItr& it)
+    {
+        string address = getAddress(it->first);
+        int rc = zmq_disconnect(it->second.first, address.c_str());
+        if (rc == -1) {
+            ZCM_DEBUG("failed to disconnect subsock: %s", zmq_strerror(errno));
+            return ZCM_ECONNECT;
+        }
+
+        rc = zmq_close(it->second.first);
+        if (rc == -1) {
+            ZCM_DEBUG("failed to disconnect subsock: %s", zmq_strerror(errno));
+            return ZCM_ECONNECT;
+        }
+
+        it = subsocks.erase(it);
+        return ZCM_EOK;
+    }
+
     void ipcScanForNewChannels()
     {
         const char *prefix = IPC_NAME_PREFIX;
@@ -311,19 +332,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
                     if (isRegexSubscribed(channel)) continue;
 
-                    string address = getAddress(it->first);
-                    int rc = zmq_disconnect(it->second.first, address.c_str());
-                    if (rc == -1) {
-                        ZCM_DEBUG("failed to disconnect subsock: %s", zmq_strerror(errno));
-                        return ZCM_ECONNECT;
-                    }
-
-                    rc = zmq_close(it->second.first);
-                    if (rc == -1) {
-                        ZCM_DEBUG("failed to disconnect subsock: %s", zmq_strerror(errno));
-                        return ZCM_ECONNECT;
-                    }
-                    it = subsocks.erase(it);
+                    auto ret = subsockDelete(it); // updates it
+                    if (ret != ZCM_EOK) return ret;
                 }
             }
             return ZCM_EOK;
@@ -334,20 +344,12 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             } else {
                 auto it = subsocks.find(channel);
                 if (it == subsocks.end()) return ZCM_EINVALID;
-                assert(it->second.second);
-                string address = getAddress(it->first);
-                int rc = zmq_disconnect(it->second.first, address.c_str());
-                if (rc == -1) {
-                    ZCM_DEBUG("failed to disconnect subsock: %s", zmq_strerror(errno));
-                    return ZCM_ECONNECT;
-                }
+                it->second.second = false;
 
-                rc = zmq_close(it->second.first);
-                if (rc == -1) {
-                    ZCM_DEBUG("failed to disconnect subsock: %s", zmq_strerror(errno));
-                    return ZCM_ECONNECT;
+                if (!isRegexSubscribed(channel)) {
+                    auto ret = subsockDelete(it);
+                    if (ret != ZCM_EOK) return ret;
                 }
-                subsocks.erase(it);
             }
             return ZCM_EOK;
         }

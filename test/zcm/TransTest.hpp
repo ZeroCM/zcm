@@ -74,7 +74,11 @@ static void send()
     usleep(10000); // sleep 10ms so the recv thread can come up
 
     zcm_msg_t msg = makeMasterMsg();
-    for (int i = 0; i < MSG_COUNT && running_send; i++) {
+    // For transports that require a "warm up" message
+    zcm_trans_sendmsg(trans, msg);
+    usleep(5e5);
+
+    for (int i = 0; i < 3 * MSG_COUNT && running_send; i++) {
         zcm_trans_sendmsg(trans, msg);
         usleep(1000000 / HZ);
     }
@@ -92,9 +96,11 @@ static void recv()
     // Tell the transport to give us all of the channels
     zcm_trans_recvmsg_enable(trans, ".*", true);
 
-    zcm_msg_t master = makeMasterMsg();
-//    uint64_t start = TimeUtil::utime();
     int i;
+    zcm_msg_t master = makeMasterMsg();
+
+//    uint64_t start = TimeUtil::utime();
+
     for (i = 0; i < MSG_COUNT && running_recv; i++) {
         zcm_msg_t msg;
         int ret = zcm_trans_recvmsg(trans, &msg, 100);
@@ -102,13 +108,26 @@ static void recv()
             verifySame(&master, &msg);
         }
     }
-    deleteMasterMsg(&master);
+
+    zcm_trans_recvmsg_enable(trans, master.channel, true);
+    zcm_trans_recvmsg_enable(trans, master.channel, false);
+
+    for (i = 0; i < MSG_COUNT && running_recv; i++) {
+        zcm_msg_t msg;
+        int ret = zcm_trans_recvmsg(trans, &msg, 100);
+        if (ret == ZCM_EOK) {
+            verifySame(&master, &msg);
+        }
+    }
+
+
 //    uint64_t end = TimeUtil::utime();
 
 //    cout << "Received " << (i * 100 / MSG_COUNT) << "\% of the messages in "
 //         << ((end - start) / 1e6) << " seconds" <<  endl;
 
     running_send = false;
+    deleteMasterMsg(&master);
     zcm_trans_destroy(trans);
 }
 
