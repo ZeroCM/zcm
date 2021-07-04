@@ -21,6 +21,7 @@ export Zcm,
        handle,
        handle_nonblock,
        set_queue_size,
+       write_topology,
        LogEvent,
        LogFile,
        read_next_event,
@@ -304,6 +305,12 @@ function set_queue_size(zcm::Zcm, num::Integer)
             yield()
         end
     end
+end
+
+function write_topology(zcm::Zcm, name::AbstractString)
+    ccall(("zcm_write_topology", "libzcm"), Cint,
+          (Ptr{Native.Zcm}, Cstring),
+          zcm, convert(String, name))
 end
 
 mutable struct LogEvent
