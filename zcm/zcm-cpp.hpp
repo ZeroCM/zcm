@@ -43,6 +43,7 @@ class ZCM
     virtual inline void resume();
     virtual inline int  handle();
     virtual inline void setQueueSize(uint32_t sz);
+    virtual inline int  writeTopology(std::string name);
     #endif
     virtual inline int  handleNonblock();
     virtual inline void flush();

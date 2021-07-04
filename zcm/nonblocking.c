@@ -222,3 +222,10 @@ void zcm_nonblocking_flush(zcm_nonblocking_t* zcm)
     while (zcm_trans_recvmsg(zcm->zt, &msg, 0) == ZCM_EOK)
         dispatch_message(zcm, &msg);
 }
+
+#ifndef ZCM_EMBEDDED
+int zcm_nonblocking_write_topology(zcm_nonblocking_t* zcm, const char* name)
+{
+    return ZCM_EUNKNOWN;
+}
+#endif

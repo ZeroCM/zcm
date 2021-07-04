@@ -306,12 +306,23 @@ void zcm_set_queue_size(zcm_t* zcm, uint32_t numMsgs)
 }
 #endif
 
+#ifndef ZCM_EMBEDDED
+int zcm_write_topology(zcm_t* zcm, const char* name)
+{
+    switch (zcm->type) {
+        case ZCM_BLOCKING:    return zcm_blocking_write_topology(zcm->impl, name);
+        case ZCM_NONBLOCKING: return zcm_nonblocking_write_topology(zcm->impl, name);
+    }
+    ZCM_ASSERT(0 && "Not possible");
+    return ZCM_EUNKNOWN;
+}
+#endif
+
 int zcm_handle_nonblock(zcm_t* zcm)
 {
     ZCM_ASSERT(zcm->type == ZCM_NONBLOCKING);
     return zcm_nonblocking_handle_nonblock(zcm->impl);
 }
-
 
 
 

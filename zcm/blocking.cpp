@@ -3,13 +3,15 @@
 #include "zcm/blocking.h"
 #include "zcm/transport.h"
 #include "zcm/util/threadsafe_queue.hpp"
-#include "zcm/util/debug.h"
+#include "zcm/zcm_coretypes.h"
 
 #include "util/TimeUtil.hpp"
+#include "util/debug.h"
 
 #include <unistd.h>
 #include <cassert>
 #include <cstring>
+#include <utility>
 
 #include <unordered_map>
 #include <vector>
@@ -19,6 +21,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <regex>
+#include <sys/stat.h>
 using namespace std;
 
 #define RECV_TIMEOUT 100
@@ -107,6 +110,7 @@ struct zcm_blocking
     int stop(bool block);
     int handle();
 
+
     void pause();
     void resume();
 
@@ -116,6 +120,8 @@ struct zcm_blocking
     int flush(bool block);
 
     int setQueueSize(uint32_t numMsgs, bool block);
+
+    int writeTopology(string name);
 
   private:
     void sendThreadFunc();
@@ -137,6 +143,9 @@ struct zcm_blocking
     zcm_trans_t* zt;
     unordered_map<string, SubList> subs;
     unordered_map<string, SubList> subsRegex;
+    unordered_map<string,
+                  pair<vector<pair<int64_t,int64_t>>,
+                       vector<pair<int64_t,int64_t>>>> topologyMap;
     size_t mtu;
 
     // These 2 mutexes used to implement a read-write style infrastructure on the subscription
@@ -410,8 +419,18 @@ int zcm_blocking_t::publish(const string& channel, const uint8_t* data, uint32_t
     }
 
     bool success = sendQueue.pushIfRoom(TimeUtil::utime(), channel.c_str(), len, data);
-    if (!success) ZCM_DEBUG("sendQueue has no free space");
-    return success ? ZCM_EOK : ZCM_EAGAIN;
+    if (!success) {
+        ZCM_DEBUG("sendQueue has no free space");
+        return ZCM_EAGAIN;
+    }
+
+    int64_t hashBE = 0, hashLE = 0;
+    if (__int64_t_decode_array(data, 0, len, &hashBE, 1) != 8 ||
+        __int64_t_decode_little_endian_array(data, 0, len, &hashLE, 1) != 8) {
+        topologyMap[channel].first.push_back({hashBE, hashLE});
+    }
+
+    return ZCM_EOK;
 }
 
 // Note: We use a lock on subscribe() to make sure it can be
@@ -681,6 +700,7 @@ void zcm_blocking_t::dispatchMsg(zcm_msg_t* msg)
     // a race on modifying and reading the 'subs' container.
     // This means users cannot call zcm_subscribe or
     // zcm_unsubscribe from a callback without deadlocking.
+    bool wasDispatched = false;
     {
         unique_lock<mutex> lk(subDispMutex);
 
@@ -689,6 +709,7 @@ void zcm_blocking_t::dispatchMsg(zcm_msg_t* msg)
         if (it != subs.end()) {
             for (zcm_sub_t* sub : it->second) {
                 sub->callback(&rbuf, msg->channel, sub->usr);
+                wasDispatched = true;
             }
         }
 
@@ -698,8 +719,17 @@ void zcm_blocking_t::dispatchMsg(zcm_msg_t* msg)
                 regex* r = (regex*)sub->regexobj;
                 if (regex_match(msg->channel, *r)) {
                     sub->callback(&rbuf, msg->channel, sub->usr);
+                    wasDispatched = true;
                 }
             }
+        }
+    }
+
+    if (wasDispatched) {
+        int64_t hashBE = 0, hashLE = 0;
+        if (__int64_t_decode_array(msg->buf, 0, msg->len, &hashBE, 1) != 8 ||
+            __int64_t_decode_little_endian_array(msg->buf, 0, msg->len, &hashLE, 1) != 8) {
+            topologyMap[msg->channel].second.push_back({hashBE, hashLE});
         }
     }
 }
@@ -766,6 +796,69 @@ bool zcm_blocking_t::deleteFromSubList(SubList& slist, zcm_sub_t* sub)
         }
     }
     return false;
+}
+
+int zcm_blocking_t::writeTopology(string name)
+{
+    string filename = "/tmp/zcm_topology/";
+    const char* dir = std::getenv("ZCM_TOPOLOGY_DIR");
+    if (dir) filename = dir;
+
+    int err = mkdir(filename.c_str(), S_IRWXO | S_IRWXG | S_IRWXU);
+    if (err < 0 && errno != EEXIST) {
+        ZCM_DEBUG("Unable to create lockfile directory");
+        return ZCM_EUNKNOWN;
+    }
+
+    if (filename[filename.size() - 1] != '/') filename += "/";
+
+    filename += string(name) + ".json";
+
+    FILE *fd = fopen(filename.c_str(), "wb");
+    if (!fd) return ZCM_EUNKNOWN;
+
+    stringstream data;
+    data << "{" << endl;
+
+    data << "\t\"name\": \"" << name << "\"," << endl;
+
+    data << "\t\"subscribes\": [" << endl;
+    for (auto chan : topologyMap) {
+        data << "\t\t{" << endl;
+        data << "\t\t\t\"" << chan.first << "\":[" << endl;
+        for (auto type : chan.second.second) {
+            data << "\t\t\t\t{" << endl;
+            data << "\t\t\t\t\t"
+                 << "\"BE\": " << type.first << ","
+                 << "\"LE\": " << type.first << endl;
+            data << "\t\t\t\t}," << endl;
+        }
+    }
+    data << "\t]," << endl;
+
+    data << "\t\"publishes\": [" << endl;
+    for (auto chan : topologyMap) {
+        data << "\t\t{" << endl;
+        data << "\t\t\t\"" << chan.first << "\":[" << endl;
+        for (auto type : chan.second.first) {
+            data << "\t\t\t\t{" << endl;
+            data << "\t\t\t\t\t"
+                 << "\"BE\": " << type.first << ","
+                 << "\"LE\": " << type.first << endl;
+            data << "\t\t\t\t}," << endl;
+        }
+    }
+    data << "\t]" << endl;
+
+    data << "}" << endl;
+
+    err = fwrite(data.str().c_str(), 1, data.str().size(), fd);
+    if (err < 0) return ZCM_EUNKNOWN;
+
+    err = fclose(fd);
+    if (err < 0) return ZCM_EUNKNOWN;
+
+    return ZCM_EOK;
 }
 
 /////////////// C Interface Functions ////////////////
@@ -842,6 +935,10 @@ void zcm_blocking_set_queue_size(zcm_blocking_t* zcm, uint32_t sz)
     zcm->setQueueSize(sz, true);
 }
 
+int zcm_blocking_write_topology(zcm_blocking_t* zcm, const char* name)
+{
+    return zcm->writeTopology(string(name));
+}
 
 
 

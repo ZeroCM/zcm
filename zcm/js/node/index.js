@@ -46,6 +46,7 @@ var libzcm = new ffi.Library('libzcm', {
     'zcm_pause':                ['void',    ['pointer']],
     'zcm_resume':               ['void',    ['pointer']],
     'zcm_try_set_queue_size':   ['int',     ['pointer', 'int']],
+    'zcm_write_topology':       ['int',     ['pointer', 'string']],
 });
 
 var ZCM_EOK              = libzcm.zcm_retcode_name_to_enum("ZCM_EOK");
@@ -300,6 +301,14 @@ function zcm(zcmtypes, zcmurl)
             }
             if (cb) cb();
         }, 0)
+    }
+
+    /**
+     * Writes the topology index file showing what channels were published and received
+     */
+    zcm.prototype.writeTopology = function(name)
+    {
+        libzcm.zcm_write_topology(parent.z, name);
     }
 
     zcm.prototype.destroy = function()

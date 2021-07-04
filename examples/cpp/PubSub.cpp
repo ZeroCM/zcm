@@ -1,9 +1,14 @@
 #include <stdio.h>
 #include <unistd.h>
+#include <signal.h>
+#include <atomic>
 #include <string>
 #include <zcm/zcm-cpp.hpp>
 #include "types/example_t.hpp"
 using namespace std;
+
+static atomic_bool done {false};
+static void sighandler(int s) { done = true; }
 
 static const char *CHANNEL = "EXAMPLE";
 
@@ -54,7 +59,7 @@ static void sendMessages(zcm::ZCM& zcm)
     msg.name = "example string";
     msg.enabled = true;
 
-    while (1) {
+    while (!done) {
         zcm.publish(CHANNEL, &msg);
         usleep(1000*1000);
     }
@@ -62,6 +67,10 @@ static void sendMessages(zcm::ZCM& zcm)
 
 int main(int argc, char *argv[])
 {
+    signal(SIGINT,  sighandler);
+    signal(SIGQUIT, sighandler);
+    signal(SIGTERM, sighandler);
+
     zcm::ZCM zcm {""};
     if (!zcm.good())
         return 1;
@@ -72,6 +81,7 @@ int main(int argc, char *argv[])
     zcm.start();
     sendMessages(zcm);
     zcm.stop();
+    zcm.writeTopology("zcm-example-pubsubcpp");
 
     return 0;
 }
