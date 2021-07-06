@@ -158,15 +158,21 @@ int writeOutput(zcm::Json::Value index, const string& outpath, TypeDb types)
     unordered_map<string, string> names;
     unordered_map<string, string> channels;
     for (auto n : index.getMemberNames()) {
-        size_t i = names.size();
-        names[n] = string("name") + to_string(i);
+        if (names.count(n) == 0) {
+            size_t i = names.size();
+            names[n] = string("name") + to_string(i);
+        }
         for (auto p : index[n]["publishes"]) {
+            string chan = p.getMemberNames()[0];
+            if (channels.count(chan) > 0) continue;
             size_t i = channels.size();
-            channels[p.getMemberNames()[0]] = string("channel") + to_string(i);
+            channels[chan] = string("channel") + to_string(i);
         }
         for (auto s : index[n]["subscribes"]) {
+            string chan = s.getMemberNames()[0];
+            if (channels.count(chan) > 0) continue;
             size_t i = channels.size();
-            channels[s.getMemberNames()[0]] = string("channel") + to_string(i);
+            channels[chan] = string("channel") + to_string(i);
         }
     }
 
