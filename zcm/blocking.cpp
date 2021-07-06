@@ -143,10 +143,12 @@ struct zcm_blocking
     zcm_trans_t* zt;
     unordered_map<string, SubList> subs;
     unordered_map<string, SubList> subsRegex;
-    unordered_map<string,
-                  pair<vector<pair<int64_t,int64_t>>,
-                       vector<pair<int64_t,int64_t>>>> topologyMap;
     size_t mtu;
+
+    mutex receivedTopologyMutex;
+    unordered_map<string, unordered_map<int64_t, pair<int64_t,int64_t>>> receivedTopologyMap;
+    mutex sentTopologyMutex;
+    unordered_map<string, unordered_map<int64_t, pair<int64_t,int64_t>>> sentTopologyMap;
 
     // These 2 mutexes used to implement a read-write style infrastructure on the subscription
     // lists. Both the recvThread and the message dispatch may read the subscriptions
@@ -400,9 +402,6 @@ void zcm_blocking_t::resume()
     hndlPauseCond.notify_all();
 }
 
-// Note: We use a lock on publish() to make sure it can be
-// called concurrently. Without the lock, there is a potential
-// race to block on sendQueue.push()
 int zcm_blocking_t::publish(const string& channel, const uint8_t* data, uint32_t len)
 {
     // Check the validity of the request
@@ -425,9 +424,13 @@ int zcm_blocking_t::publish(const string& channel, const uint8_t* data, uint32_t
     }
 
     int64_t hashBE = 0, hashLE = 0;
-    if (__int64_t_decode_array(data, 0, len, &hashBE, 1) != 8 ||
-        __int64_t_decode_little_endian_array(data, 0, len, &hashLE, 1) != 8) {
-        topologyMap[channel].first.push_back({hashBE, hashLE});
+    if (__int64_t_decode_array(data, 0, len, &hashBE, 1) == 8 &&
+        __int64_t_decode_little_endian_array(data, 0, len, &hashLE, 1) == 8) {
+        unique_lock<mutex> lk(sentTopologyMutex, defer_lock);
+        if (lk.try_lock()) {
+            sentTopologyMap[channel][hashBE].first = hashBE;
+            sentTopologyMap[channel][hashBE].second = hashLE;
+        }
     }
 
     return ZCM_EOK;
@@ -727,9 +730,13 @@ void zcm_blocking_t::dispatchMsg(zcm_msg_t* msg)
 
     if (wasDispatched) {
         int64_t hashBE = 0, hashLE = 0;
-        if (__int64_t_decode_array(msg->buf, 0, msg->len, &hashBE, 1) != 8 ||
-            __int64_t_decode_little_endian_array(msg->buf, 0, msg->len, &hashLE, 1) != 8) {
-            topologyMap[msg->channel].second.push_back({hashBE, hashLE});
+        if (__int64_t_decode_array(msg->buf, 0, msg->len, &hashBE, 1) == 8 &&
+            __int64_t_decode_little_endian_array(msg->buf, 0, msg->len, &hashLE, 1) == 8) {
+            unique_lock<mutex> lk(receivedTopologyMutex, defer_lock);
+            if (lk.try_lock()) {
+                receivedTopologyMap[msg->channel][hashBE].first = hashBE;
+                receivedTopologyMap[msg->channel][hashBE].second = hashLE;
+            }
         }
     }
 }
@@ -820,35 +827,55 @@ int zcm_blocking_t::writeTopology(string name)
     stringstream data;
     data << "{" << endl;
 
-    data << "\t\"name\": \"" << name << "\"," << endl;
+    data << "  \"name\": \"" << name << "\"," << endl;
 
-    data << "\t\"subscribes\": [" << endl;
-    for (auto chan : topologyMap) {
-        data << "\t\t{" << endl;
-        data << "\t\t\t\"" << chan.first << "\":[" << endl;
-        for (auto type : chan.second.second) {
-            data << "\t\t\t\t{" << endl;
-            data << "\t\t\t\t\t"
-                 << "\"BE\": " << type.first << ","
-                 << "\"LE\": " << type.first << endl;
-            data << "\t\t\t\t}," << endl;
-        }
+    decltype(receivedTopologyMap) _receivedTopologyMap;
+    {
+        unique_lock<mutex> lk(receivedTopologyMutex);
+        _receivedTopologyMap = receivedTopologyMap;
     }
-    data << "\t]," << endl;
+    data << "  \"subscribes\": [" << endl;
+    for (auto chan : receivedTopologyMap) {
+        data << "    {" << endl;
+        data << "      \"" << chan.first << "\": [" << endl;
+        for (auto type : chan.second) {
+            data << "        { "
+                 << "\"BE\": \"" << type.second.first << "\", "
+                 << "\"LE\": \"" << type.second.second << "\""
+                 << " }," << endl;
+        }
+        data.seekp(-2, data.cur);
+        data << endl;
+        data << "      ]" << endl;
+        data << "    }," << endl;
+    }
+    data.seekp(-2, data.cur);
+    data << endl;
+    data << "  ]," << endl;
 
-    data << "\t\"publishes\": [" << endl;
-    for (auto chan : topologyMap) {
-        data << "\t\t{" << endl;
-        data << "\t\t\t\"" << chan.first << "\":[" << endl;
-        for (auto type : chan.second.first) {
-            data << "\t\t\t\t{" << endl;
-            data << "\t\t\t\t\t"
-                 << "\"BE\": " << type.first << ","
-                 << "\"LE\": " << type.first << endl;
-            data << "\t\t\t\t}," << endl;
-        }
+    decltype(sentTopologyMap) _sentTopologyMap;
+    {
+        unique_lock<mutex> lk(sentTopologyMutex);
+        _sentTopologyMap = sentTopologyMap;
     }
-    data << "\t]" << endl;
+    data << "  \"publishes\": [" << endl;
+    for (auto chan : sentTopologyMap) {
+        data << "    {" << endl;
+        data << "      \"" << chan.first << "\": [" << endl;
+        for (auto type : chan.second) {
+            data << "        { "
+                 << "\"BE\": \"" << type.second.first << "\", "
+                 << "\"LE\": \"" << type.second.second << "\""
+                 << " }," << endl;
+        }
+        data.seekp(-2, data.cur);
+        data << endl;
+        data << "      ]" << endl;
+        data << "    }," << endl;
+    }
+    data.seekp(-2, data.cur);
+    data << endl;
+    data << "  ]" << endl;
 
     data << "}" << endl;
 
