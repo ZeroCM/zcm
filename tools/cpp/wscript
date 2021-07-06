@@ -6,7 +6,6 @@ def build(ctx):
     ctx.recurse('logplayer');
     ctx.recurse('repeater');
     ctx.recurse('spy-peek');
-    ctx.recurse('topology-visualizer');
 
     if ctx.env.USING_ELF:
         ctx.recurse('spy-lite');
