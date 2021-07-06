@@ -6,6 +6,7 @@ def build(ctx):
     ctx.recurse('logplayer');
     ctx.recurse('repeater');
     ctx.recurse('spy-peek');
+    ctx.recurse('topology-visualizer');
 
     if ctx.env.USING_ELF:
         ctx.recurse('spy-lite');
@@ -13,6 +14,7 @@ def build(ctx):
         ctx.recurse('transcoder');
         ctx.recurse('logger');
         ctx.recurse('bridge');
+        ctx.recurse('topology-visualizer');
 
     if ctx.env.USING_GTK3:
         ctx.recurse('logplayer-gui');
