@@ -834,10 +834,10 @@ int zcm_blocking_t::writeTopology(string name)
         unique_lock<mutex> lk(receivedTopologyMutex);
         _receivedTopologyMap = receivedTopologyMap;
     }
-    data << "  \"subscribes\": [" << endl;
+    data << "  \"subscribes\": [ " << endl;
     for (auto chan : receivedTopologyMap) {
         data << "    {" << endl;
-        data << "      \"" << chan.first << "\": [" << endl;
+        data << "      \"" << chan.first << "\": [ " << endl;
         for (auto type : chan.second) {
             data << "        { "
                  << "\"BE\": \"" << type.second.first << "\", "
@@ -858,10 +858,10 @@ int zcm_blocking_t::writeTopology(string name)
         unique_lock<mutex> lk(sentTopologyMutex);
         _sentTopologyMap = sentTopologyMap;
     }
-    data << "  \"publishes\": [" << endl;
+    data << "  \"publishes\": [ " << endl;
     for (auto chan : sentTopologyMap) {
         data << "    {" << endl;
-        data << "      \"" << chan.first << "\": [" << endl;
+        data << "      \"" << chan.first << "\": [ " << endl;
         for (auto type : chan.second) {
             data << "        { "
                  << "\"BE\": \"" << type.second.first << "\", "
