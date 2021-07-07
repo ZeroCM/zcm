@@ -2,13 +2,13 @@
 #include "zcm/zcm_private.h"
 #include "zcm/blocking.h"
 #include "zcm/transport.h"
-#include "zcm/util/threadsafe_queue.hpp"
 #include "zcm/zcm_coretypes.h"
+#include "zcm/util/threadsafe_queue.hpp"
+#include "zcm/util/topology.hpp"
 
 #include "util/TimeUtil.hpp"
 #include "util/debug.h"
 
-#include <unistd.h>
 #include <cassert>
 #include <cstring>
 #include <utility>
@@ -21,7 +21,6 @@
 #include <mutex>
 #include <condition_variable>
 #include <regex>
-#include <sys/stat.h>
 using namespace std;
 
 #define RECV_TIMEOUT 100
@@ -807,85 +806,17 @@ bool zcm_blocking_t::deleteFromSubList(SubList& slist, zcm_sub_t* sub)
 
 int zcm_blocking_t::writeTopology(string name)
 {
-    string filename = "/tmp/zcm_topology/";
-    const char* dir = std::getenv("ZCM_TOPOLOGY_DIR");
-    if (dir) filename = dir;
-
-    int err = mkdir(filename.c_str(), S_IRWXO | S_IRWXG | S_IRWXU);
-    if (err < 0 && errno != EEXIST) {
-        ZCM_DEBUG("Unable to create lockfile directory");
-        return ZCM_EUNKNOWN;
-    }
-
-    if (filename[filename.size() - 1] != '/') filename += "/";
-
-    filename += string(name) + ".json";
-
-    FILE *fd = fopen(filename.c_str(), "wb");
-    if (!fd) return ZCM_EUNKNOWN;
-
-    stringstream data;
-    data << "{" << endl;
-
-    data << "  \"name\": \"" << name << "\"," << endl;
-
     decltype(receivedTopologyMap) _receivedTopologyMap;
     {
         unique_lock<mutex> lk(receivedTopologyMutex);
         _receivedTopologyMap = receivedTopologyMap;
     }
-    data << "  \"subscribes\": [ " << endl;
-    for (auto chan : receivedTopologyMap) {
-        data << "    {" << endl;
-        data << "      \"" << chan.first << "\": [ " << endl;
-        for (auto type : chan.second) {
-            data << "        { "
-                 << "\"BE\": \"" << type.second.first << "\", "
-                 << "\"LE\": \"" << type.second.second << "\""
-                 << " }," << endl;
-        }
-        data.seekp(-2, data.cur);
-        data << endl;
-        data << "      ]" << endl;
-        data << "    }," << endl;
-    }
-    data.seekp(-2, data.cur);
-    data << endl;
-    data << "  ]," << endl;
-
     decltype(sentTopologyMap) _sentTopologyMap;
     {
         unique_lock<mutex> lk(sentTopologyMutex);
         _sentTopologyMap = sentTopologyMap;
     }
-    data << "  \"publishes\": [ " << endl;
-    for (auto chan : sentTopologyMap) {
-        data << "    {" << endl;
-        data << "      \"" << chan.first << "\": [ " << endl;
-        for (auto type : chan.second) {
-            data << "        { "
-                 << "\"BE\": \"" << type.second.first << "\", "
-                 << "\"LE\": \"" << type.second.second << "\""
-                 << " }," << endl;
-        }
-        data.seekp(-2, data.cur);
-        data << endl;
-        data << "      ]" << endl;
-        data << "    }," << endl;
-    }
-    data.seekp(-2, data.cur);
-    data << endl;
-    data << "  ]" << endl;
-
-    data << "}" << endl;
-
-    err = fwrite(data.str().c_str(), 1, data.str().size(), fd);
-    if (err < 0) return ZCM_EUNKNOWN;
-
-    err = fclose(fd);
-    if (err < 0) return ZCM_EUNKNOWN;
-
-    return ZCM_EOK;
+    return zcm::writeTopology(name, _receivedTopologyMap, _sentTopologyMap);
 }
 
 /////////////// C Interface Functions ////////////////
