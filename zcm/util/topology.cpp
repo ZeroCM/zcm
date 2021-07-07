@@ -1,5 +1,6 @@
 #include "topology.hpp"
 
+#include <fstream>
 #include <sstream>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -7,6 +8,7 @@
 #include <zcm/zcm.h>
 
 #include "debug.h"
+#include "zcm/json/json.h"
 
 using namespace std;
 
@@ -26,63 +28,39 @@ int writeTopology(string name,
         return ZCM_EUNKNOWN;
     }
 
-    if (filename[filename.size() - 1] != '/') filename += "/";
+    zcm::Json::Value json;
+    json["name"] = name;
 
-    filename += name + ".json";
+    int i;
 
-    FILE *fd = fopen(filename.c_str(), "wb");
-    if (!fd) return ZCM_EUNKNOWN;
-
-    stringstream data;
-    data << "{" << endl;
-
-    data << "  \"name\": \"" << name << "\"," << endl;
-
-    data << "  \"subscribes\": [ " << endl;
+    i = 0;
     for (auto chan : receivedTopologyMap) {
-        data << "    {" << endl;
-        data << "      \"" << chan.first << "\": [ " << endl;
         for (auto type : chan.second) {
-            data << "        { "
-                 << "\"BE\": \"" << type.second.first << "\", "
-                 << "\"LE\": \"" << type.second.second << "\""
-                 << " }," << endl;
+            json["publishes"][i]["BE"] = zcm::Json::Int64(type.second.first);
+            json["publishes"][i]["LE"] = zcm::Json::Int64(type.second.second);
         }
-        data.seekp(-2, data.cur);
-        data << endl;
-        data << "      ]" << endl;
-        data << "    }," << endl;
+        ++i;
     }
-    data.seekp(-2, data.cur);
-    data << endl;
-    data << "  ]," << endl;
 
-    data << "  \"publishes\": [ " << endl;
+    i = 0;
     for (auto chan : sentTopologyMap) {
-        data << "    {" << endl;
-        data << "      \"" << chan.first << "\": [ " << endl;
         for (auto type : chan.second) {
-            data << "        { "
-                 << "\"BE\": \"" << type.second.first << "\", "
-                 << "\"LE\": \"" << type.second.second << "\""
-                 << " }," << endl;
+            json["publishes"][i]["BE"] = zcm::Json::Int64(type.second.first);
+            json["publishes"][i]["LE"] = zcm::Json::Int64(type.second.second);
         }
-        data.seekp(-2, data.cur);
-        data << endl;
-        data << "      ]" << endl;
-        data << "    }," << endl;
+        ++i;
     }
-    data.seekp(-2, data.cur);
-    data << endl;
-    data << "  ]" << endl;
 
-    data << "}" << endl;
 
-    err = fwrite(data.str().c_str(), 1, data.str().size(), fd);
-    if (err < 0) return ZCM_EUNKNOWN;
+    if (filename[filename.size() - 1] != '/') filename += "/";
+    filename += name + ".json";
+    ofstream outfile{ filename };
 
-    err = fclose(fd);
-    if (err < 0) return ZCM_EUNKNOWN;
+    if (!outfile.good()) return ZCM_EUNKNOWN;
+
+    outfile << json << endl;
+
+    outfile.close();
 
     return ZCM_EOK;
 }
