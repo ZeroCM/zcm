@@ -144,13 +144,15 @@ int  zcm_handle(zcm_t* zcm); /* returns ZCM_EOK normally, error code on failure.
    messages will not be read from / sent to the transport, which could cause significant
    issues depending on the transport. */
 void zcm_set_queue_size(zcm_t* zcm, uint32_t numMsgs);
+
+/* Write topology file to filename. Returns ZCM_EOK normally, error code on failure */
+int zcm_write_topology(zcm_t* zcm, const char* name);
 #endif
 
 /* Non-Blocking Mode Only: Functions checking and dispatching messages
    Returns ZCM_EOK if a message was dispatched, ZCM_EAGAIN if no messages,
    error code otherwise */
 int zcm_handle_nonblock(zcm_t* zcm);
-
 
 
 
