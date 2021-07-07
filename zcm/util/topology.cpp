@@ -33,20 +33,20 @@ int writeTopology(string name,
 
     int i;
 
-    i = 0;
     for (auto chan : receivedTopologyMap) {
+        i = 0;
         for (auto type : chan.second) {
-            json["publishes"][i]["BE"] = zcm::Json::Int64(type.second.first);
-            json["publishes"][i]["LE"] = zcm::Json::Int64(type.second.second);
+            json["subscribes"][chan.first][i]["BE"] = zcm::Json::Int64(type.second.first);
+            json["subscribes"][chan.first][i]["LE"] = zcm::Json::Int64(type.second.second);
         }
         ++i;
     }
 
-    i = 0;
     for (auto chan : sentTopologyMap) {
+        i = 0;
         for (auto type : chan.second) {
-            json["publishes"][i]["BE"] = zcm::Json::Int64(type.second.first);
-            json["publishes"][i]["LE"] = zcm::Json::Int64(type.second.second);
+            json["publishes"][chan.first][i]["BE"] = zcm::Json::Int64(type.second.first);
+            json["publishes"][chan.first][i]["LE"] = zcm::Json::Int64(type.second.second);
         }
         ++i;
     }

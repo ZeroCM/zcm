@@ -162,14 +162,12 @@ int writeOutput(zcm::Json::Value index, const string& outpath, TypeDb types)
             size_t i = names.size();
             names[n] = string("name") + to_string(i);
         }
-        for (auto p : index[n]["publishes"]) {
-            string chan = p.getMemberNames()[0];
+        for (auto chan : index[n]["publishes"].getMemberNames()) {
             if (channels.count(chan) > 0) continue;
             size_t i = channels.size();
             channels[chan] = string("channel") + to_string(i);
         }
-        for (auto s : index[n]["subscribes"]) {
-            string chan = s.getMemberNames()[0];
+        for (auto chan : index[n]["subscribes"].getMemberNames()) {
             if (channels.count(chan) > 0) continue;
             size_t i = channels.size();
             channels[chan] = string("channel") + to_string(i);
@@ -177,18 +175,18 @@ int writeOutput(zcm::Json::Value index, const string& outpath, TypeDb types)
     }
 
     for (auto c : channels) {
-        output << "  " << c.second << " [label=\"" << c.first << "\" shape=rectangle]" << endl;
+        output << "  " << c.second << " [label=" << zcm::Json::Value(c.first) << " shape=rectangle]" << endl;
     }
     for (auto n : names) {
-        output << "  " << n.second << " [label=\"" << n.first << "\" shape=oval]" << endl;
+        output << "  " << n.second << " [label=" << zcm::Json::Value(n.first) << " shape=oval]" << endl;
     }
 
 
     for (auto n : index.getMemberNames()) {
-        for (auto s : index[n]["publishes"]) {
-            auto channel = s.getMemberNames()[0];
+        for (auto channel : index[n]["publishes"].getMemberNames()) {
+            auto s = index[n]["publishes"][channel];
             vector<string> typeNames;
-            for (auto t : s[channel]) {
+            for (auto t : s) {
                 int64_t hashBE = stoll(t["BE"].asString());
                 int64_t hashLE = stoll(t["LE"].asString());
                 const TypeMetadata* md = types.getByHash(hashBE);
@@ -203,10 +201,10 @@ int writeOutput(zcm::Json::Value index, const string& outpath, TypeDb types)
             for (auto t : typeNames) output << t << " ";
             output << "\" color=blue]" << endl;
         }
-        for (auto s : index[n]["subscribes"]) {
-            auto channel = s.getMemberNames()[0];
+        for (auto channel : index[n]["subscribes"].getMemberNames()) {
+            auto s = index[n]["subscribes"][channel];
             vector<string> typeNames;
-            for (auto t : s[channel]) {
+            for (auto t : s) {
                 int64_t hashBE = stoll(t["BE"].asString());
                 int64_t hashLE = stoll(t["LE"].asString());
                 const TypeMetadata* md = types.getByHash(hashBE);
