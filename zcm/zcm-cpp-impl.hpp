@@ -145,7 +145,7 @@ inline void ZCM::setQueueSize(uint32_t sz)
 #endif
 
 #ifndef ZCM_EMBEDDED
-inline int ZCM::writeTopology(std::string name)
+inline int ZCM::writeTopology(const std::string& name)
 {
     return zcm_write_topology(zcm, name.c_str());
 }
