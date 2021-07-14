@@ -76,7 +76,7 @@ struct Args
              << "" << endl
              << "    Scrape through a topology directory full of topology json files" << endl
              << "    and generate a single dotvis file output that visualizes all of the" << endl
-             << "     different messages received and sent on different channels" << endl
+             << "    different messages received and sent on different channels" << endl
              << "" << endl
              << "Example:" << endl
              << "    zcm-topology-visualizer -d /tmp/zcm_topology -o /tmp/topology.dot -t path/to/zcmtypes.so" << endl
@@ -145,6 +145,7 @@ void buildIndex(zcm::Json::Value& index, const vector<string>& files)
     }
 }
 
+// RRR: can you use const refs instead of by-value for the other 2 args?
 int writeOutput(zcm::Json::Value index, const string& outpath, TypeDb types)
 {
     ofstream output{ outpath };
@@ -249,6 +250,8 @@ int main(int argc, char *argv[])
     ret = writeOutput(index, args.output, types);
     if (ret != 0) return ret;
 
+    // RRR: are you running xdot for them? That seems kinda weird.
+    //      At least make it optional?
     ret = execlp("xdot", "xdot", args.output.c_str(), nullptr);
     if (ret != 0) {
         cout << "Successfully wrote file to " << args.output << endl;
