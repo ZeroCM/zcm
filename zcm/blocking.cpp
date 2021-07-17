@@ -422,6 +422,7 @@ int zcm_blocking_t::publish(const string& channel, const uint8_t* data, uint32_t
         return ZCM_EAGAIN;
     }
 
+#ifdef TRACK_TRAFFIC_TOPOLOGY
     int64_t hashBE = 0, hashLE = 0;
     if (__int64_t_decode_array(data, 0, len, &hashBE, 1) == 8 &&
         __int64_t_decode_little_endian_array(data, 0, len, &hashLE, 1) == 8) {
@@ -431,6 +432,7 @@ int zcm_blocking_t::publish(const string& channel, const uint8_t* data, uint32_t
             sentTopologyMap[channel][hashBE].second = hashLE;
         }
     }
+#endif
 
     return ZCM_EOK;
 }
@@ -727,6 +729,7 @@ void zcm_blocking_t::dispatchMsg(zcm_msg_t* msg)
         }
     }
 
+#ifdef TRACK_TRAFFIC_TOPOLOGY
     if (wasDispatched) {
         int64_t hashBE = 0, hashLE = 0;
         if (__int64_t_decode_array(msg->buf, 0, msg->len, &hashBE, 1) == 8 &&
@@ -738,6 +741,9 @@ void zcm_blocking_t::dispatchMsg(zcm_msg_t* msg)
             }
         }
     }
+#else
+    (void)wasDispatched; // get rid of compiler warning
+#endif
 }
 
 bool zcm_blocking_t::dispatchOneMessage(bool returnIfPaused)
@@ -895,6 +901,9 @@ void zcm_blocking_set_queue_size(zcm_blocking_t* zcm, uint32_t sz)
 
 int zcm_blocking_write_topology(zcm_blocking_t* zcm, const char* name)
 {
+#ifdef TRACK_TRAFFIC_TOPOLOGY
+    return ZCM_EINVALID;
+#endif
     return zcm->writeTopology(string(name));
 }
 

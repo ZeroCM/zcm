@@ -66,6 +66,10 @@ def add_zcm_configure_options(ctx):
     add_use_option('clang',       'Enable build using clang sanitizers')
     add_use_option('cxxtest',     'Enable build of cxxtests')
 
+    gr.add_option('--track-topology',  dest='track_traffic_topology', default='false',
+                  type='choice', choices=['true', 'false'],
+                  action='store', help='Track channels published and subscribed for every zcm instance')
+
     add_trans_option('inproc', 'Enable the In-Process transport (Requires ZeroMQ)')
     add_trans_option('ipc',    'Enable the IPC transport (Requires ZeroMQ)')
     add_trans_option('udpm',   'Enable the UDP Multicast transport (LCM-compatible)')
@@ -155,8 +159,9 @@ def process_zcm_configure_options(ctx):
     env.HASH_TYPENAME      = getattr(opt, 'hash_typename')
     env.HASH_MEMBER_NAMES  = getattr(opt, 'hash_member_names')
 
-    env.USING_CLANG        = hasoptDev('use_clang')  and attempt_use_clang(ctx)
-    env.USING_CXXTEST      = hasoptDev('use_cxxtest') and attempt_use_cxxtest(ctx)
+    env.USING_CLANG            = hasoptDev('use_clang')  and attempt_use_clang(ctx)
+    env.USING_CXXTEST          = hasoptDev('use_cxxtest') and attempt_use_cxxtest(ctx)
+    env.TRACK_TRAFFIC_TOPOLOGY = getattr(opt, 'track_traffic_topology')
 
     ZMQ_REQUIRED = env.USING_TRANS_IPC or env.USING_TRANS_INPROC
     if ZMQ_REQUIRED and not env.USING_ZMQ:
@@ -168,7 +173,7 @@ def process_zcm_configure_options(ctx):
         ctx.setenv(e, env=ctx.env.derive()) # start with a copy instead of a new env
 
     def print_entry(name, enabled, invertColors=False):
-        Logs.pprint("NORMAL", "    {:20}".format(name), sep='')
+        Logs.pprint("NORMAL", "    {:25}".format(name), sep='')
         if enabled:
             if invertColors:
                 Logs.pprint("RED", "Enabled")
@@ -199,12 +204,13 @@ def process_zcm_configure_options(ctx):
     print_entry("can",    env.USING_TRANS_CAN)
 
     Logs.pprint('BLUE', '\nType Configuration:')
-    print_entry("hash-typename", env.HASH_TYPENAME == 'true')
-    print_entry("hash-member-names",  env.HASH_MEMBER_NAMES == 'true', True)
+    print_entry("hash-typename",     env.HASH_TYPENAME == 'true')
+    print_entry("hash-member-names", env.HASH_MEMBER_NAMES == 'true', True)
 
     Logs.pprint('BLUE', '\nDev Configuration:')
-    print_entry("Clang",   env.USING_CLANG)
-    print_entry("CxxTest", env.USING_CXXTEST)
+    print_entry("Clang",                   env.USING_CLANG)
+    print_entry("CxxTest",                 env.USING_CXXTEST)
+    print_entry("Record Traffic Topology", env.TRACK_TRAFFIC_TOPOLOGY == 'true')
 
     Logs.pprint('NORMAL', '')
 
@@ -362,6 +368,9 @@ def setup_environment(ctx):
         ctx.env.DEFINES_default.append("ENABLE_TYPENAME_HASHING")
     if ctx.env.HASH_MEMBER_NAMES == 'true':
         ctx.env.DEFINES_default.append("ENABLE_MEMBERNAME_HASHING")
+
+    if ctx.env.TRACK_TRAFFIC_TOPOLOGY == 'true':
+        ctx.env.DEFINES_default.append("TRACK_TRAFFIC_TOPOLOGY")
 
     if ctx.env.USING_OPT:
         ctx.env.CFLAGS_default   += OPT_FLAGS
