@@ -1,3 +1,3 @@
 [submodule "zcm/transport/third-party"]
 	path = zcm/transport/third-party
-	url = https://github.com/ZeroCM/zcm-transports.git
+	url = ../zcm-transports.git
