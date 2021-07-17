@@ -19,6 +19,7 @@ struct Args
     string topology_dir = "";
     string output       = "";
     string type_path    = "";
+    bool nogui          = false;
     bool debug          = false;
 
     bool parse(int argc, char *argv[])
@@ -29,6 +30,7 @@ struct Args
             { "topology-dir",  required_argument, 0, 'd' },
             { "output",        required_argument, 0, 'o' },
             { "type-path",     required_argument, 0, 't' },
+            { "no-gui",        no_argument,       0, 'g' },
             { "debug",         no_argument,       0,  0  },
             { "help",          no_argument,       0, 'h' },
             { 0, 0, 0, 0 }
@@ -41,6 +43,7 @@ struct Args
                 case 'd': topology_dir = string(optarg); break;
                 case 'o': output       = string(optarg); break;
                 case 't': type_path    = string(optarg); break;
+                case 'g': nogui        = true; break;
                 case  0: {
                     string longopt = string(long_opts[option_index].name);
                     if (longopt == "debug") debug = true;
@@ -145,8 +148,7 @@ void buildIndex(zcm::Json::Value& index, const vector<string>& files)
     }
 }
 
-// RRR: can you use const refs instead of by-value for the other 2 args?
-int writeOutput(zcm::Json::Value index, const string& outpath, TypeDb types)
+int writeOutput(const zcm::Json::Value& index, const string& outpath, const TypeDb& types)
 {
     ofstream output{ outpath };
     if (!output.good()) {
@@ -250,9 +252,8 @@ int main(int argc, char *argv[])
     ret = writeOutput(index, args.output, types);
     if (ret != 0) return ret;
 
-    // RRR: are you running xdot for them? That seems kinda weird.
-    //      At least make it optional?
-    ret = execlp("xdot", "xdot", args.output.c_str(), nullptr);
+    ret = 1;
+    if (!args.nogui) ret = execlp("xdot", "xdot", args.output.c_str(), nullptr);
     if (ret != 0) {
         cout << "Successfully wrote file to " << args.output << endl;
         cout << "Run `xdot " << args.output << "` to view output" << endl;

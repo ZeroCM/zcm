@@ -15,7 +15,7 @@ using namespace std;
   } while(0)
 
 template<class K, class V>
-static inline V* lookup(std::unordered_map<K,V>& map, const K& key)
+static inline const V* lookup(const std::unordered_map<K,V>& map, const K& key)
 {
     auto it = map.find(key);
     if (it == map.end()) return nullptr;
@@ -183,13 +183,13 @@ bool TypeDb::good() const
     return isGood;
 }
 
-const TypeMetadata* TypeDb::getByHash(int64_t hash)
+const TypeMetadata* TypeDb::getByHash(int64_t hash) const
 {
     return lookup(hashToType, hash);
 }
 
-const TypeMetadata* TypeDb::getByName(const string& name)
+const TypeMetadata* TypeDb::getByName(const string& name) const
 {
-    if (int64_t* hash = lookup(nameToHash, name)) return getByHash(*hash);
-    else                                          return nullptr;
+    if (const int64_t* hash = lookup(nameToHash, name)) return getByHash(*hash);
+    else                                                return nullptr;
 }
