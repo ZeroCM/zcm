@@ -43,7 +43,7 @@ jobs:
       - name: build all
         run: |
             ./waf distclean
-            ./waf configure --use-all --use-third-party --use-dev --prefix=../tmp/x64
+            ./waf configure --use-all --use-third-party --use-dev --track-traffic-topology=true --prefix=../tmp/x64
             ./waf build
             ./waf install
       - name: build examples
@@ -55,7 +55,7 @@ jobs:
       - name: build asan
         run: |
             ./waf distclean
-            ./waf configure --use-all --use-third-party --use-dev --prefix=../tmp/asan
+            ./waf configure --use-all --use-third-party --use-dev --track-traffic-topology=true --prefix=../tmp/asan
             ./waf build_asan
             ./waf install_asan
       - name: build asan examples

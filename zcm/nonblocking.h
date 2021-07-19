@@ -27,6 +27,10 @@ int zcm_nonblocking_handle_nonblock(zcm_nonblocking_t* zcm);
 
 void zcm_nonblocking_flush(zcm_nonblocking_t* zcm);
 
+#ifndef ZCM_EMBEDDED
+int zcm_nonblocking_write_topology(zcm_nonblocking_t* zcm, const char* name);
+#endif
+
 #ifdef __cplusplus
 }
 #endif

@@ -2,14 +2,16 @@
 #include "zcm/zcm_private.h"
 #include "zcm/blocking.h"
 #include "zcm/transport.h"
+#include "zcm/zcm_coretypes.h"
 #include "zcm/util/threadsafe_queue.hpp"
-#include "zcm/util/debug.h"
+#include "zcm/util/topology.hpp"
 
 #include "util/TimeUtil.hpp"
+#include "util/debug.h"
 
-#include <unistd.h>
 #include <cassert>
 #include <cstring>
+#include <utility>
 
 #include <unordered_map>
 #include <vector>
@@ -107,6 +109,7 @@ struct zcm_blocking
     int stop(bool block);
     int handle();
 
+
     void pause();
     void resume();
 
@@ -116,6 +119,8 @@ struct zcm_blocking
     int flush(bool block);
 
     int setQueueSize(uint32_t numMsgs, bool block);
+
+    int writeTopology(string name);
 
   private:
     void sendThreadFunc();
@@ -138,6 +143,11 @@ struct zcm_blocking
     unordered_map<string, SubList> subs;
     unordered_map<string, SubList> subsRegex;
     size_t mtu;
+
+    mutex receivedTopologyMutex;
+    zcm::TopologyMap receivedTopologyMap;
+    mutex sentTopologyMutex;
+    zcm::TopologyMap sentTopologyMap;
 
     // These 2 mutexes used to implement a read-write style infrastructure on the subscription
     // lists. Both the recvThread and the message dispatch may read the subscriptions
@@ -391,9 +401,6 @@ void zcm_blocking_t::resume()
     hndlPauseCond.notify_all();
 }
 
-// Note: We use a lock on publish() to make sure it can be
-// called concurrently. Without the lock, there is a potential
-// race to block on sendQueue.push()
 int zcm_blocking_t::publish(const string& channel, const uint8_t* data, uint32_t len)
 {
     // Check the validity of the request
@@ -410,8 +417,23 @@ int zcm_blocking_t::publish(const string& channel, const uint8_t* data, uint32_t
     }
 
     bool success = sendQueue.pushIfRoom(TimeUtil::utime(), channel.c_str(), len, data);
-    if (!success) ZCM_DEBUG("sendQueue has no free space");
-    return success ? ZCM_EOK : ZCM_EAGAIN;
+    if (!success) {
+        ZCM_DEBUG("sendQueue has no free space");
+        return ZCM_EAGAIN;
+    }
+
+#ifdef TRACK_TRAFFIC_TOPOLOGY
+    int64_t hashBE = 0, hashLE = 0;
+    if (__int64_t_decode_array(data, 0, len, &hashBE, 1) == 8 &&
+        __int64_t_decode_little_endian_array(data, 0, len, &hashLE, 1) == 8) {
+        unique_lock<mutex> lk(sentTopologyMutex, defer_lock);
+        if (lk.try_lock()) {
+            sentTopologyMap[channel].emplace(hashBE, hashLE);
+        }
+    }
+#endif
+
+    return ZCM_EOK;
 }
 
 // Note: We use a lock on subscribe() to make sure it can be
@@ -681,6 +703,7 @@ void zcm_blocking_t::dispatchMsg(zcm_msg_t* msg)
     // a race on modifying and reading the 'subs' container.
     // This means users cannot call zcm_subscribe or
     // zcm_unsubscribe from a callback without deadlocking.
+    bool wasDispatched = false;
     {
         unique_lock<mutex> lk(subDispMutex);
 
@@ -689,6 +712,7 @@ void zcm_blocking_t::dispatchMsg(zcm_msg_t* msg)
         if (it != subs.end()) {
             for (zcm_sub_t* sub : it->second) {
                 sub->callback(&rbuf, msg->channel, sub->usr);
+                wasDispatched = true;
             }
         }
 
@@ -698,10 +722,26 @@ void zcm_blocking_t::dispatchMsg(zcm_msg_t* msg)
                 regex* r = (regex*)sub->regexobj;
                 if (regex_match(msg->channel, *r)) {
                     sub->callback(&rbuf, msg->channel, sub->usr);
+                    wasDispatched = true;
                 }
             }
         }
     }
+
+#ifdef TRACK_TRAFFIC_TOPOLOGY
+    if (wasDispatched) {
+        int64_t hashBE = 0, hashLE = 0;
+        if (__int64_t_decode_array(msg->buf, 0, msg->len, &hashBE, 1) == 8 &&
+            __int64_t_decode_little_endian_array(msg->buf, 0, msg->len, &hashLE, 1) == 8) {
+            unique_lock<mutex> lk(receivedTopologyMutex, defer_lock);
+            if (lk.try_lock()) {
+                receivedTopologyMap[msg->channel].emplace(hashBE, hashLE);
+            }
+        }
+    }
+#else
+    (void)wasDispatched; // get rid of compiler warning
+#endif
 }
 
 bool zcm_blocking_t::dispatchOneMessage(bool returnIfPaused)
@@ -766,6 +806,21 @@ bool zcm_blocking_t::deleteFromSubList(SubList& slist, zcm_sub_t* sub)
         }
     }
     return false;
+}
+
+int zcm_blocking_t::writeTopology(string name)
+{
+    decltype(receivedTopologyMap) _receivedTopologyMap;
+    {
+        unique_lock<mutex> lk(receivedTopologyMutex);
+        _receivedTopologyMap = receivedTopologyMap;
+    }
+    decltype(sentTopologyMap) _sentTopologyMap;
+    {
+        unique_lock<mutex> lk(sentTopologyMutex);
+        _sentTopologyMap = sentTopologyMap;
+    }
+    return zcm::writeTopology(name, _receivedTopologyMap, _sentTopologyMap);
 }
 
 /////////////// C Interface Functions ////////////////
@@ -842,6 +897,13 @@ void zcm_blocking_set_queue_size(zcm_blocking_t* zcm, uint32_t sz)
     zcm->setQueueSize(sz, true);
 }
 
+int zcm_blocking_write_topology(zcm_blocking_t* zcm, const char* name)
+{
+#ifdef TRACK_TRAFFIC_TOPOLOGY
+    return zcm->writeTopology(string(name));
+#endif
+    return ZCM_EINVALID;
+}
 
 
 

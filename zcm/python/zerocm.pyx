@@ -45,6 +45,7 @@ cdef extern from "zcm/zcm.h":
     void zcm_resume            (zcm_t* zcm)
     int  zcm_handle            (zcm_t* zcm)
     int  zcm_try_set_queue_size(zcm_t* zcm, uint32_t numMsgs)
+    int  zcm_write_topology    (zcm_t* zcm, const char* name)
 
     int  zcm_handle_nonblock(zcm_t* zcm)
 
@@ -152,6 +153,8 @@ cdef class ZCM:
     def setQueueSize(self, numMsgs):
         while zcm_try_set_queue_size(self.zcm, numMsgs) != ZCM_EOK:
             time.sleep(0) # yield the gil
+    def writeTopology(self, str name):
+        return zcm_write_topology(self.zcm, name.encode('utf-8'))
     def handleNonblock(self):
         return zcm_handle_nonblock(self.zcm)
 

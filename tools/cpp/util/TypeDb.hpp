@@ -19,8 +19,8 @@ class TypeDb
   public:
     TypeDb(const std::string& paths, bool debug=false);
 
-    const TypeMetadata* getByHash(int64_t hash);
-    const TypeMetadata* getByName(const std::string& name);
+    const TypeMetadata* getByHash(int64_t hash) const;
+    const TypeMetadata* getByName(const std::string& name) const;
 
     bool good() const;
 

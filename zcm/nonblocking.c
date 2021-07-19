@@ -14,8 +14,6 @@ struct zcm_nonblocking
     zcm_t* z;
     zcm_trans_t* zt;
 
-    bool allChannelsEnabled;
-
     /* TODO speed this up */
     zcm_sub_t subs[ZCM_NONBLOCK_SUBS_MAX];
     bool      subInUse[ZCM_NONBLOCK_SUBS_MAX];
@@ -63,7 +61,6 @@ int zcm_nonblocking_try_create(zcm_nonblocking_t** zcm, zcm_t* z, zcm_trans_t* z
     if (!*zcm) return ZCM_EMEMORY;
     (*zcm)->z = z;
     (*zcm)->zt = zt;
-    (*zcm)->allChannelsEnabled = false;
 
     size_t i;
     for (i = 0; i < ZCM_NONBLOCK_SUBS_MAX; ++i)
@@ -222,3 +219,13 @@ void zcm_nonblocking_flush(zcm_nonblocking_t* zcm)
     while (zcm_trans_recvmsg(zcm->zt, &msg, 0) == ZCM_EOK)
         dispatch_message(zcm, &msg);
 }
+
+#ifndef ZCM_EMBEDDED
+int zcm_nonblocking_write_topology(zcm_nonblocking_t* zcm, const char* name)
+{
+#ifdef TRACK_TRAFFIC_TOPOLOGY
+    return ZCM_EUNKNOWN;
+#endif
+    return ZCM_EINVALID;
+}
+#endif
