@@ -145,9 +145,9 @@ struct zcm_blocking
     size_t mtu;
 
     mutex receivedTopologyMutex;
-    unordered_map<string, unordered_map<int64_t, pair<int64_t,int64_t>>> receivedTopologyMap;
+    zcm::TopologyMap receivedTopologyMap;
     mutex sentTopologyMutex;
-    unordered_map<string, unordered_map<int64_t, pair<int64_t,int64_t>>> sentTopologyMap;
+    zcm::TopologyMap sentTopologyMap;
 
     // These 2 mutexes used to implement a read-write style infrastructure on the subscription
     // lists. Both the recvThread and the message dispatch may read the subscriptions
@@ -428,8 +428,7 @@ int zcm_blocking_t::publish(const string& channel, const uint8_t* data, uint32_t
         __int64_t_decode_little_endian_array(data, 0, len, &hashLE, 1) == 8) {
         unique_lock<mutex> lk(sentTopologyMutex, defer_lock);
         if (lk.try_lock()) {
-            sentTopologyMap[channel][hashBE].first = hashBE;
-            sentTopologyMap[channel][hashBE].second = hashLE;
+            sentTopologyMap[channel].emplace(hashBE, hashLE);
         }
     }
 #endif
@@ -736,8 +735,7 @@ void zcm_blocking_t::dispatchMsg(zcm_msg_t* msg)
             __int64_t_decode_little_endian_array(msg->buf, 0, msg->len, &hashLE, 1) == 8) {
             unique_lock<mutex> lk(receivedTopologyMutex, defer_lock);
             if (lk.try_lock()) {
-                receivedTopologyMap[msg->channel][hashBE].first = hashBE;
-                receivedTopologyMap[msg->channel][hashBE].second = hashLE;
+                receivedTopologyMap[msg->channel].emplace(hashBE, hashLE);
             }
         }
     }
@@ -902,9 +900,9 @@ void zcm_blocking_set_queue_size(zcm_blocking_t* zcm, uint32_t sz)
 int zcm_blocking_write_topology(zcm_blocking_t* zcm, const char* name)
 {
 #ifdef TRACK_TRAFFIC_TOPOLOGY
-    return ZCM_EINVALID;
-#endif
     return zcm->writeTopology(string(name));
+#endif
+    return ZCM_EINVALID;
 }
 
 

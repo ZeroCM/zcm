@@ -1,19 +1,31 @@
 #pragma once
 
+#include <functional>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 
 namespace zcm {
 
-// RRR: it seems a bit repetitive to have BE hash in here twice. You could instead use
-//      std::unordered_map<std::string, std::unordered_set<std::pair<int64_t, int64_t>>>
-//      To do that, you'll have to specialize the hash function, but because you know
-//      the first and second elements are always related, you could just use the hash
-//      of the first element of the pair, so that'd be easy
-// channel_name -> (big_endian_type_hash -> { big_endian_type_hash, little_endian_type_hash })
-typedef std::unordered_map<std::string, std::unordered_map<int64_t, std::pair<int64_t,int64_t>>> TopologyMap;
+struct TopologyPairHash
+{
+    typedef std::pair<int64_t, int64_t> argument_type;
+    typedef size_t result_type;
+    std::hash<int64_t> hash;
+    result_type operator()(argument_type const& s) const noexcept
+    {
+        return hash(s.first);
+    }
+};
 
-int writeTopology(std::string name, const TopologyMap& receivedTopologyMap, const TopologyMap& sentTopologyMap);
+// channel_name -> { big_endian_type_hash, little_endian_type_hash }
+typedef std::unordered_map<std::string,
+                           std::unordered_set<std::pair<int64_t,int64_t>,
+                                              TopologyPairHash>> TopologyMap;
+
+int writeTopology(const std::string& name,
+                  const TopologyMap& receivedTopologyMap,
+                  const TopologyMap& sentTopologyMap);
 
 } /* zcm */

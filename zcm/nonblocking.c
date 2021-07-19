@@ -224,8 +224,8 @@ void zcm_nonblocking_flush(zcm_nonblocking_t* zcm)
 int zcm_nonblocking_write_topology(zcm_nonblocking_t* zcm, const char* name)
 {
 #ifdef TRACK_TRAFFIC_TOPOLOGY
-    return ZCM_EINVALID;
-#endif
     return ZCM_EUNKNOWN;
+#endif
+    return ZCM_EINVALID;
 }
 #endif

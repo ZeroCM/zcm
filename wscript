@@ -66,9 +66,10 @@ def add_zcm_configure_options(ctx):
     add_use_option('clang',       'Enable build using clang sanitizers')
     add_use_option('cxxtest',     'Enable build of cxxtests')
 
-    gr.add_option('--track-topology',  dest='track_traffic_topology', default='false',
-                  type='choice', choices=['true', 'false'],
-                  action='store', help='Track channels published and subscribed for every zcm instance')
+    gr.add_option('--track-traffic-topology',
+                  dest='track_traffic_topology', default='false',
+                  type='choice', choices=['true', 'false'], action='store',
+                  help='Track channels published and subscribed for every zcm instance')
 
     add_trans_option('inproc', 'Enable the In-Process transport (Requires ZeroMQ)')
     add_trans_option('ipc',    'Enable the IPC transport (Requires ZeroMQ)')
@@ -173,7 +174,7 @@ def process_zcm_configure_options(ctx):
         ctx.setenv(e, env=ctx.env.derive()) # start with a copy instead of a new env
 
     def print_entry(name, enabled, invertColors=False):
-        Logs.pprint("NORMAL", "    {:25}".format(name), sep='')
+        Logs.pprint("NORMAL", "    {:30}".format(name), sep='')
         if enabled:
             if invertColors:
                 Logs.pprint("RED", "Enabled")

@@ -14,7 +14,7 @@ using namespace std;
 
 namespace zcm {
 
-int writeTopology(string name,
+int writeTopology(const string& name,
                   const TopologyMap& receivedTopologyMap,
                   const TopologyMap& sentTopologyMap)
 {
@@ -36,8 +36,8 @@ int writeTopology(string name,
     for (auto chan : receivedTopologyMap) {
         i = 0;
         for (auto type : chan.second) {
-            json["subscribes"][chan.first][i]["BE"] = zcm::Json::Int64(type.second.first);
-            json["subscribes"][chan.first][i]["LE"] = zcm::Json::Int64(type.second.second);
+            json["subscribes"][chan.first][i]["BE"] = zcm::Json::Int64(type.first);
+            json["subscribes"][chan.first][i]["LE"] = zcm::Json::Int64(type.second);
         }
         ++i;
     }
@@ -45,8 +45,8 @@ int writeTopology(string name,
     for (auto chan : sentTopologyMap) {
         i = 0;
         for (auto type : chan.second) {
-            json["publishes"][chan.first][i]["BE"] = zcm::Json::Int64(type.second.first);
-            json["publishes"][chan.first][i]["LE"] = zcm::Json::Int64(type.second.second);
+            json["publishes"][chan.first][i]["BE"] = zcm::Json::Int64(type.first);
+            json["publishes"][chan.first][i]["LE"] = zcm::Json::Int64(type.second);
         }
         ++i;
     }
