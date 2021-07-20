@@ -3,6 +3,8 @@
 #include <getopt.h>
 #include <dirent.h>
 #include <sys/stat.h>
+#include <map>
+#include <unordered_map>
 #include <unordered_set>
 #include <unistd.h>
 #include <regex>
@@ -23,19 +25,24 @@ struct Args
     bool nogui          = false;
     bool debug          = false;
 
-    vector<regex> names;
+    // groupName -> { beginIdx in names, endIdx in names }
+    vector<pair<string, unordered_set<string>>> groups;
+    // groupName -> color
+    unordered_map<string, string> colors;
 
     bool parse(int argc, char *argv[])
     {
         // set some defaults
-        const char *optstring = "d:o:t:gn:h";
+        const char *optstring = "d:o:t:ug:n:c:h";
         struct option long_opts[] = {
             { "topology-dir",  required_argument, 0, 'd' },
             { "output",        required_argument, 0, 'o' },
             { "type-path",     required_argument, 0, 't' },
-            { "no-gui",        no_argument,       0, 'g' },
+            { "no-gui",        no_argument,       0, 'u' },
             { "debug",         no_argument,       0,  0  },
+            { "group",         required_argument, 0, 'g'  },
             { "name",          required_argument, 0, 'n'  },
+            { "color",         required_argument, 0, 'c'  },
             { "help",          no_argument,       0, 'h' },
             { 0, 0, 0, 0 }
         };
@@ -47,8 +54,16 @@ struct Args
                 case 'd': topology_dir = string(optarg); break;
                 case 'o': output       = string(optarg); break;
                 case 't': type_path    = string(optarg); break;
-                case 'g': nogui        = true; break;
-                case 'n': names.emplace_back(optarg); break;
+                case 'u': nogui        = true; break;
+                case 'g': groups.push_back({ optarg, {} }); break;
+                case 'n': {
+                    if (groups.empty()) groups.push_back({ "", {} });
+                    groups.back().second.emplace(optarg); break;
+                }
+                case 'c': {
+                    if (groups.empty()) groups.push_back({ "", {} });
+                    colors[groups.back().first] = optarg; break;
+                }
                 case  0: {
                     string longopt = string(long_opts[option_index].name);
                     if (longopt == "debug") debug = true;
@@ -75,7 +90,7 @@ struct Args
             return false;
         }
 
-        if (names.empty()) names.emplace_back(".*");
+        if (groups.size() == 1 && groups[0].second.empty()) groups[0].second.emplace(".*");
 
         return true;
     }
@@ -101,6 +116,10 @@ struct Args
              << "                          If this argument is ommited, all files will" << endl
              << "                          be visualized. This argument can be specified" << endl
              << "                          multiple times." << endl
+             << "  -g, --group=group       Group all subsequently specified -n args into" << endl
+             << "                          a subgraph in the visualization." << endl
+             << "                          For example: " << endl
+             << "                          -g <g1> -n <n1.*> -g <g2> -n <n2.*>" << endl
              << "      --debug             Run a dry run to ensure proper indexer setup" << endl
              << endl << endl;
     }
@@ -160,7 +179,8 @@ void buildIndex(zcm::Json::Value& index, const vector<string>& files)
 }
 
 int writeOutput(const zcm::Json::Value& index,
-                const vector<regex>& namesToInclude,
+                const vector<pair<string, unordered_set<string>>>& groupsToInclude,
+                const unordered_map<string, string> colors,
                 const string& outpath,
                 const TypeDb& types)
 {
@@ -172,25 +192,63 @@ int writeOutput(const zcm::Json::Value& index,
     output << "digraph arch {" << endl;
     output << endl;
 
-    auto include = [&namesToInclude](const string& name){
-        bool shouldInclude = false;
-        for (const auto& include : namesToInclude) {
-            if (regex_match(name, include)) {
-                shouldInclude = true;
-                break;
+    map<string, unordered_set<string>> groups;
+    auto isInGroups = [&groups](const string& n){
+        unordered_set<string> allnames;
+        for (auto g : groups) {
+            allnames.insert(g.second.begin(), g.second.end());
+        }
+        return allnames.count(n) > 0;
+    };
+    auto getNodeId = [&groups](const string& n, string& ret){
+        size_t i = 0;
+        for (auto g : groups) {
+            for (auto gn : g.second) {
+                if (n == gn) {
+                    ret = string("node_") + to_string(i);
+                    return true;
+                }
+                ++i;
             }
         }
-        return shouldInclude;
+        return false;
     };
 
-    unordered_map<string, string> names;
+    // Build list of groups of names
+    for (auto n : index.getMemberNames()) {
+        if (isInGroups(n)) continue;
+        for (auto g : groupsToInclude) {
+            bool found = false;
+            for (auto gn : g.second) {
+                if (regex_match(n, regex(gn))) {
+                    groups[g.first].insert(n);
+                    found = true;
+                    break;
+                }
+            }
+            if (found) break;
+        }
+    }
+    size_t i = 0;
+    for (auto g : groups) {
+        for (auto n : g.second) {
+            string node;
+            assert(getNodeId(n, node) && "This should not be possible");
+            output << "  "
+                   << node << " ["
+                   << "label=" << zcm::Json::Value(n) << " "
+                   << "shape=oval ";
+            if (colors.count(g.first) > 0)
+                output << "style=filled "
+                       << "fillcolor=" << zcm::Json::Value(colors.at(g.first)) << " ";
+            output << "]" << endl;
+        }
+        ++i;
+    }
+
     unordered_map<string, string> channels;
     for (auto n : index.getMemberNames()) {
-        if (!include(n)) continue;
-        if (names.count(n) == 0) {
-            size_t i = names.size();
-            names[n] = string("name") + to_string(i);
-        }
+        if (!isInGroups(n)) continue;
         for (auto chan : index[n]["publishes"].getMemberNames()) {
             if (channels.count(chan) > 0) continue;
             size_t i = channels.size();
@@ -204,16 +262,18 @@ int writeOutput(const zcm::Json::Value& index,
     }
 
     for (auto c : channels) {
-        output << "  " << c.second << " [label=" << zcm::Json::Value(c.first) << " shape=rectangle]" << endl;
-    }
-    for (auto n : names) {
-        output << "  " << n.second << " [label=" << zcm::Json::Value(n.first) << " shape=oval]" << endl;
+        output << "  " << c.second << " ["
+               << "label=" << zcm::Json::Value(c.first) << " "
+               << "shape=rectangle"
+               << "]" << endl;
     }
 
     output << endl;
 
     for (auto n : index.getMemberNames()) {
-        if (!include(n)) continue;
+        if (!isInGroups(n)) continue;
+        string node;
+        assert(getNodeId(n, node) && "This should not be possible");
         for (auto channel : index[n]["publishes"].getMemberNames()) {
             auto s = index[n]["publishes"][channel];
             vector<string> typeNames;
@@ -229,7 +289,7 @@ int writeOutput(const zcm::Json::Value& index,
                 }
                 typeNames.push_back(md->name);
             }
-            output << "  " << names[n] << " -> " << channels[channel] << " [label=\"";
+            output << "  " << node << " -> " << channels[channel] << " [label=\"";
             for (auto t : typeNames) output << t << " ";
             output << "\" color=blue]" << endl;
         }
@@ -248,7 +308,7 @@ int writeOutput(const zcm::Json::Value& index,
                 }
                 typeNames.push_back(md->name);
             }
-            output << "  " << channels[channel] << " -> " << names[n] << " [label=\"";
+            output << "  " << channels[channel] << " -> " << node << " [label=\"";
             for (auto t : typeNames) output << t << " ";
             output << "\" color=red]" << endl;
         }
@@ -279,7 +339,7 @@ int main(int argc, char *argv[])
     zcm::Json::Value index;
     buildIndex(index, files);
 
-    ret = writeOutput(index, args.names, args.output, types);
+    ret = writeOutput(index, args.groups, args.colors, args.output, types);
     if (ret != 0) return ret;
 
     ret = 1;
