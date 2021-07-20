@@ -91,7 +91,7 @@ struct Args
             return false;
         }
 
-        if (groups.size() == 1 && groups[0].second.empty()) groups[0].second.emplace(".*");
+        if (groups.empty()) groups.push_back({ "", {".*"} });
 
         return true;
     }
