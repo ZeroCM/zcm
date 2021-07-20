@@ -8,6 +8,7 @@
 #include <unordered_set>
 #include <unistd.h>
 #include <regex>
+#include <vector>
 
 #include "zcm/json/json.h"
 #include "zcm/util/debug.h"
