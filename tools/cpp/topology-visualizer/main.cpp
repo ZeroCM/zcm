@@ -5,6 +5,7 @@
 #include <sys/stat.h>
 #include <unordered_set>
 #include <unistd.h>
+#include <regex>
 
 #include "zcm/json/json.h"
 #include "zcm/util/debug.h"
@@ -22,16 +23,19 @@ struct Args
     bool nogui          = false;
     bool debug          = false;
 
+    vector<regex> names;
+
     bool parse(int argc, char *argv[])
     {
         // set some defaults
-        const char *optstring = "d:o:t:h";
+        const char *optstring = "d:o:t:gn:h";
         struct option long_opts[] = {
             { "topology-dir",  required_argument, 0, 'd' },
             { "output",        required_argument, 0, 'o' },
             { "type-path",     required_argument, 0, 't' },
             { "no-gui",        no_argument,       0, 'g' },
             { "debug",         no_argument,       0,  0  },
+            { "name",          required_argument, 0, 'n'  },
             { "help",          no_argument,       0, 'h' },
             { 0, 0, 0, 0 }
         };
@@ -44,6 +48,7 @@ struct Args
                 case 'o': output       = string(optarg); break;
                 case 't': type_path    = string(optarg); break;
                 case 'g': nogui        = true; break;
+                case 'n': names.emplace_back(optarg); break;
                 case  0: {
                     string longopt = string(long_opts[option_index].name);
                     if (longopt == "debug") debug = true;
@@ -70,6 +75,8 @@ struct Args
             return false;
         }
 
+        if (names.empty()) names.emplace_back(".*");
+
         return true;
     }
 
@@ -90,6 +97,10 @@ struct Args
              << "  -d, --topology-dir=dir  Directory to scrape for topology json files" << endl
              << "  -o, --output=file       Output dotvis file" << endl
              << "  -t, --type-path=path    Path to shared library containing zcmtypes" << endl
+             << "  -n, --name=name         Basename of file you want to visualize. " << endl
+             << "                          If this argument is ommited, all files will" << endl
+             << "                          be visualized. This argument can be specified" << endl
+             << "                          multiple times." << endl
              << "      --debug             Run a dry run to ensure proper indexer setup" << endl
              << endl << endl;
     }
@@ -148,7 +159,10 @@ void buildIndex(zcm::Json::Value& index, const vector<string>& files)
     }
 }
 
-int writeOutput(const zcm::Json::Value& index, const string& outpath, const TypeDb& types)
+int writeOutput(const zcm::Json::Value& index,
+                const vector<regex>& namesToInclude,
+                const string& outpath,
+                const TypeDb& types)
 {
     ofstream output{ outpath };
     if (!output.good()) {
@@ -158,9 +172,21 @@ int writeOutput(const zcm::Json::Value& index, const string& outpath, const Type
     output << "digraph arch {" << endl;
     output << endl;
 
+    auto include = [&namesToInclude](const string& name){
+        bool shouldInclude = false;
+        for (const auto& include : namesToInclude) {
+            if (regex_match(name, include)) {
+                shouldInclude = true;
+                break;
+            }
+        }
+        return shouldInclude;
+    };
+
     unordered_map<string, string> names;
     unordered_map<string, string> channels;
     for (auto n : index.getMemberNames()) {
+        if (!include(n)) continue;
         if (names.count(n) == 0) {
             size_t i = names.size();
             names[n] = string("name") + to_string(i);
@@ -184,8 +210,10 @@ int writeOutput(const zcm::Json::Value& index, const string& outpath, const Type
         output << "  " << n.second << " [label=" << zcm::Json::Value(n.first) << " shape=oval]" << endl;
     }
 
+    output << endl;
 
     for (auto n : index.getMemberNames()) {
+        if (!include(n)) continue;
         for (auto channel : index[n]["publishes"].getMemberNames()) {
             auto s = index[n]["publishes"][channel];
             vector<string> typeNames;
@@ -195,7 +223,8 @@ int writeOutput(const zcm::Json::Value& index, const string& outpath, const Type
                 const TypeMetadata* md = types.getByHash(hashBE);
                 if (!md) md = types.getByHash(hashLE);
                 if (!md) {
-                    cerr << "Unable to find matching type for hash pair: " << t << endl;
+                    cerr << "Unable to find matching type for hash pair" << endl
+                         << n << " -> " << channel << ": " << t << endl;
                     continue;
                 }
                 typeNames.push_back(md->name);
@@ -213,7 +242,8 @@ int writeOutput(const zcm::Json::Value& index, const string& outpath, const Type
                 const TypeMetadata* md = types.getByHash(hashBE);
                 if (!md) md = types.getByHash(hashLE);
                 if (!md) {
-                    cerr << "Unable to find matching type for hash pair: " << t << endl;
+                    cerr << "Unable to find matching type for hash pair" << endl
+                         << n << " -> " << channel << ": " << t << endl;
                     continue;
                 }
                 typeNames.push_back(md->name);
@@ -249,7 +279,7 @@ int main(int argc, char *argv[])
     zcm::Json::Value index;
     buildIndex(index, files);
 
-    ret = writeOutput(index, args.output, types);
+    ret = writeOutput(index, args.names, args.output, types);
     if (ret != 0) return ret;
 
     ret = 1;
