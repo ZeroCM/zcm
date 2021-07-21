@@ -223,7 +223,7 @@ int serial_recvmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t *msg, int timeout)
 int serial_update_rx(zcm_trans_t *_zt)
 {
     zcm_trans_generic_serial_t* zt = cast(_zt);
-    cb_flush_in(&zt->recvBuffer, cb_room(&zt->recvBuffer), zt->get, zt->put_get_usr);
+    cb_flush_in(&zt->recvBuffer, zt->get, zt->put_get_usr);
     return ZCM_EOK;
 }
 

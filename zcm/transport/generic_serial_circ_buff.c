@@ -88,12 +88,10 @@ size_t cb_flush_out(circBuffer_t* cb,
     return written;
 }
 
-// NOTE: This function should never be called w/ bytes > cb_room(cb)
-size_t cb_flush_in(circBuffer_t* cb, size_t bytes,
+size_t cb_flush_in(circBuffer_t* cb,
                    size_t (*read)(uint8_t* data, size_t num, void* usr),
                    void* usr)
 {
-    ASSERT((bytes <= cb_room(cb)) && "cb_flush_in 1");
 	size_t bytesRead = 0;
 	size_t n;
 
@@ -101,32 +99,29 @@ size_t cb_flush_in(circBuffer_t* cb, size_t bytes,
     // of buffer. Because we already know there's room for whatever we're about to place,
     // if back < front, we can just read in every byte starting at "back".
     if (cb->back < cb->front) {
-    	bytesRead += read(cb->data + cb->back, bytes, usr);
-        ASSERT((bytesRead <= bytes) && "cb_flush_in 2");
+    	bytesRead += read(cb->data + cb->back, cb_room(cb), usr);
         cb->back += bytesRead;
         return bytesRead;
     }
 
     // Otherwise, we need to be a bit more careful about overflowing the back of the buffer.
-    size_t contiguous = MIN(cb->capacity - cb->back, bytes);
-    size_t wrapped    = bytes - contiguous;
+    size_t contiguous = cb->capacity - cb->back;
+    size_t wrapped    = cb_room(cb) - contiguous;
 
     n = read(cb->data + cb->back, contiguous, usr);
-    ASSERT((n <= contiguous) && "cb_flush_in 3");
+    ASSERT((n <= contiguous) && "cb_flush_in 1");
     bytesRead += n;
-    ASSERT((bytesRead <= bytes) && "cb_flush_in 4");
     cb->back += n;
     if (n != contiguous) return bytesRead; // back could NOT have hit BUFFER_SIZE in this case
 
     // may need to wrap back here (if bytes >= BUFFER_SIZE - cb->back) but not otherwise
-    ASSERT((cb->back <= cb->capacity) && "cb_flush_in 5");
+    ASSERT((cb->back <= cb->capacity) && "cb_flush_in 2");
     if (cb->back == cb->capacity) cb->back = 0;
     if (wrapped == 0) return bytesRead;
 
     n = read(cb->data, wrapped, usr);
-    ASSERT((n <= wrapped) && "cb_flush_in 6");
+    ASSERT((n <= wrapped) && "cb_flush_in 3");
     bytesRead += n;
-    ASSERT((bytesRead <= bytes) && "cb_flush_in 7");
     cb->back += n;
     return bytesRead;
 }

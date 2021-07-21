@@ -40,8 +40,7 @@ size_t cb_flush_out(circBuffer_t* cb,
                     size_t (*write)(const uint8_t* data, size_t num, void* usr),
                     void* usr);
 
-// NOTE: This function should never be called w/ bytes > cb_room(cb)
-size_t cb_flush_in(circBuffer_t* cb, size_t bytes,
+size_t cb_flush_in(circBuffer_t* cb,
                    size_t (*read)(uint8_t* data, size_t num, void* usr),
                    void* usr);
 
