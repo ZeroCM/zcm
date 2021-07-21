@@ -93,6 +93,17 @@ struct Args
 
         if (groups.empty()) groups.push_back({ "", {".*"} });
 
+        for (auto g : groups) {
+            stringstream ss;
+            ss << "Input group: " << (g.first == "" ? "<ungrouped>" : g.first);
+            if (colors.count(g.first) > 0) ss << " - " << colors.at(g.first);
+            ss << endl;
+            for (auto n : g.second) {
+                ss << "\t" << n << endl;
+            }
+            ZCM_DEBUG("%s", ss.str().c_str());
+        }
+
         return true;
     }
 
@@ -230,12 +241,41 @@ int writeOutput(const zcm::Json::Value& index,
             if (found) break;
         }
     }
+
+    output << "  subgraph cluster_legend {" << endl
+           << "    labelloc=t" << endl
+           << "    label=Legend" << endl
+           << "    shape=rectangle" << endl
+           << "    color=black" << endl << endl;
     size_t i = 0;
+    for (auto g : groupsToInclude) {
+        if (colors.count(g.first) == 0) continue;
+        string groupName = g.first == "" ? "<default>" : g.first;
+        output << "    group_" << i << "["
+               << "shape=oval "
+               << "label=" << zcm::Json::Value(groupName) << " "
+               << "style=filled "
+               << "fillcolor=" << zcm::Json::Value(colors.at(g.first)) << " "
+               << "border=none"
+               << "]" << endl;
+        ++i;
+    }
+    output << endl;
+    for (size_t j = 1; j < i; ++j) {
+        output << "    group_" << (j - 1) << " -> group_" << j << " [style=invis]" << endl;
+    }
+    output << "  }" << endl << endl;
+
+    output << "  subgraph cluster_body {" << endl
+           << "    style=invis" << endl
+           << endl;
+
+    i = 0;
     for (auto g : groups) {
         for (auto n : g.second) {
             string node;
             assert(getNodeId(n, node) && "This should not be possible");
-            output << "  "
+            output << "    "
                    << node << " ["
                    << "label=" << zcm::Json::Value(n) << " "
                    << "shape=oval ";
@@ -246,6 +286,7 @@ int writeOutput(const zcm::Json::Value& index,
         }
         ++i;
     }
+    output << endl;
 
     unordered_map<string, string> channels;
     for (auto n : index.getMemberNames()) {
@@ -263,13 +304,13 @@ int writeOutput(const zcm::Json::Value& index,
     }
 
     for (auto c : channels) {
-        output << "  " << c.second << " ["
+        output << "    " << c.second << " ["
                << "label=" << zcm::Json::Value(c.first) << " "
                << "shape=rectangle"
                << "]" << endl;
     }
 
-    output << endl;
+    output << endl << endl;
 
     for (auto n : index.getMemberNames()) {
         if (!isInGroups(n)) continue;
@@ -290,7 +331,7 @@ int writeOutput(const zcm::Json::Value& index,
                 }
                 typeNames.push_back(md->name);
             }
-            output << "  " << node << " -> " << channels[channel] << " [label=\"";
+            output << "    " << node << " -> " << channels[channel] << " [label=\"";
             for (auto t : typeNames) output << t << " ";
             output << "\" color=blue]" << endl;
         }
@@ -309,13 +350,14 @@ int writeOutput(const zcm::Json::Value& index,
                 }
                 typeNames.push_back(md->name);
             }
-            output << "  " << channels[channel] << " -> " << node << " [label=\"";
+            output << "    " << channels[channel] << " -> " << node << " [label=\"";
             for (auto t : typeNames) output << t << " ";
             output << "\" color=red]" << endl;
         }
     }
 
-    output << "}" << endl;
+    output << "  }" << endl
+           << "}" << endl;
 
     output.close();
 
