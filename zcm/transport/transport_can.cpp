@@ -19,6 +19,7 @@
 #include <net/if.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
+#include <linux/sockios.h>
 
 #include <linux/can.h>
 #include <linux/can/raw.h>
@@ -106,7 +107,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
                                               &ZCM_TRANS_CLASSNAME::put,
                                               this,
                                               &ZCM_TRANS_CLASSNAME::timestamp_now,
-                                              nullptr,
+                                              this,
                                               MTU, MTU * 10);
         socSettingsGood = true;
     }
@@ -131,11 +132,10 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
         struct can_frame frame;
         int nbytes = read(me->soc, &frame, sizeof(struct can_frame));
+        if (nbytes != sizeof(struct can_frame)) return 0;
 
-        if (nbytes < 0) {
-            return 0;
-        }
-
+        // XXX This isn't okay. We're just throwing out data if it
+        //     doesn't fit in data on this one call to get
         size_t ret = min(nData, (size_t) frame.can_dlc);
         memcpy(data, frame.data, ret);
         return ret;
@@ -163,7 +163,6 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     static size_t put(const uint8_t* data, size_t nData, void* usr)
     {
         size_t ret = 0;
-
         while (ret < nData) {
             size_t left = nData - ret;
             size_t written = sendFrame(&data[ret], left, usr);
@@ -174,7 +173,13 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     }
 
     static uint64_t timestamp_now(void* usr)
-    { return TimeUtil::utime(); }
+    {
+        ZCM_TRANS_CLASSNAME* me = cast((zcm_trans_t*) usr);
+
+        struct timeval time;
+        if (ioctl(me->soc, SIOCGSTAMP, &time) == -1) return 0;
+        return time.tv_sec * 1e6 + time.tv_usec;
+    }
 
     /********************** METHODS **********************/
     size_t get_mtu()
@@ -196,11 +201,13 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
     int recvmsg(zcm_msg_t* msg, int timeoutMs)
     {
+        int timeoutS = timeoutMs / 1000;
+        timeoutMs -= timeoutS * 1000;
         struct timeval tm = {
-            timeoutMs / 1000,            /* seconds */
-            (timeoutMs % 1000) * 1000    /* micros */
+            timeoutS,           /* seconds */
+            timeoutMs * 1000    /* micros */
         };
-        if (setsockopt (soc, SOL_SOCKET, SO_RCVTIMEO, (char *)&tm, sizeof(tm)) < 0) {
+        if (setsockopt(soc, SOL_SOCKET, SO_RCVTIMEO, (char *)&tm, sizeof(tm)) < 0) {
             ZCM_DEBUG("Failed to settimeout");
             return ZCM_EUNKNOWN;
         }
