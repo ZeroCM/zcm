@@ -107,7 +107,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
                                               &ZCM_TRANS_CLASSNAME::put,
                                               this,
                                               &ZCM_TRANS_CLASSNAME::timestamp_now,
-                                              nullptr,
+                                              this,
                                               MTU, MTU * 10);
         socSettingsGood = true;
     }
