@@ -202,9 +202,10 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     int recvmsg(zcm_msg_t* msg, int timeoutMs)
     {
         int timeoutS = timeoutMs / 1000;
+        timeoutMs -= timeoutS * 1000;
         struct timeval tm = {
-            timeoutS,                                 /* seconds */
-            (timeoutMs - (timeoutS * 1000)) * 1000    /* micros */
+            timeoutS,           /* seconds */
+            timeoutMs * 1000    /* micros */
         };
         if (setsockopt(soc, SOL_SOCKET, SO_RCVTIMEO, (char *)&tm, sizeof(tm)) < 0) {
             ZCM_DEBUG("Failed to settimeout");
