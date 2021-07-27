@@ -95,18 +95,20 @@ size_t cb_flush_in(circBuffer_t* cb,
 	size_t bytesRead = 0;
 	size_t n;
 
+    size_t room = cb_room(cb);
+
     // Find out how much room is left between back and end of buffer or back and front
     // of buffer. Because we already know there's room for whatever we're about to place,
     // if back < front, we can just read in every byte starting at "back".
     if (cb->back < cb->front) {
-    	bytesRead += read(cb->data + cb->back, cb_room(cb), usr);
+    	bytesRead += read(cb->data + cb->back, room, usr);
         cb->back += bytesRead;
         return bytesRead;
     }
 
     // Otherwise, we need to be a bit more careful about overflowing the back of the buffer.
-    size_t contiguous = cb->capacity - cb->back;
-    size_t wrapped    = cb_room(cb) - contiguous;
+    size_t contiguous = MIN(cb->capacity - cb->back, room);
+    size_t wrapped    = room - contiguous;
 
     n = read(cb->data + cb->back, contiguous, usr);
     ASSERT((n <= contiguous) && "cb_flush_in 1");
