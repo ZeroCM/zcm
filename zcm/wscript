@@ -46,7 +46,7 @@ def build(ctx):
                    'transport/generic_serial_transport.h',
                    'transport/generic_serial_transport.c',
                    'transport/generic_serial_circ_buff.h',
-                   'transport/generic_serial_circ_buff.h',
+                   'transport/generic_serial_circ_buff.c',
                    'transport/generic_serial_fletcher.h']
 
     if ctx.env.USING_THIRD_PARTY:
