@@ -26,13 +26,13 @@ bool cb_init(circBuffer_t* cb, size_t sz);
 
 void cb_deinit(circBuffer_t* cb);
 
-size_t cb_size(circBuffer_t* cb);
+size_t cb_size(const circBuffer_t* cb);
 
-size_t cb_room(circBuffer_t* cb);
+size_t cb_room(const circBuffer_t* cb);
 
 void cb_push(circBuffer_t* cb, uint8_t d);
 
-uint8_t cb_top(circBuffer_t* cb, size_t offset);
+uint8_t cb_top(const circBuffer_t* cb, size_t offset);
 
 void cb_pop(circBuffer_t* cb, size_t num);
 

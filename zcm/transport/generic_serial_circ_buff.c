@@ -25,13 +25,13 @@ void cb_deinit(circBuffer_t* cb)
     cb->capacity = 0;
 }
 
-size_t cb_size(circBuffer_t* cb)
+size_t cb_size(const circBuffer_t* cb)
 {
     if (cb->back >= cb->front) return cb->back - cb->front;
     else                       return cb->capacity - (cb->front - cb->back);
 }
 
-size_t cb_room(circBuffer_t* cb)
+size_t cb_room(const circBuffer_t* cb)
 {
     return cb->capacity - 1 - cb_size(cb);
 }
@@ -45,7 +45,7 @@ void cb_push(circBuffer_t* cb, uint8_t d)
     if (cb->back == cb->capacity) cb->back = 0;
 }
 
-uint8_t cb_top(circBuffer_t* cb, size_t offset)
+uint8_t cb_top(const circBuffer_t* cb, size_t offset)
 {
     ASSERT((cb_size(cb) > offset) && "cb_top 1");
     size_t idx = cb->front + offset;
