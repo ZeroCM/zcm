@@ -36,20 +36,25 @@ static atomic_int done {0};
 
 struct Args
 {
+    struct Shard
+    {
+        string zcmurl = "";
+        vector<string> channels;
+        Shard(const string& zcmurl) : zcmurl(zcmurl) {}
+    };
+
+    vector<Shard> shards;
+
     double auto_split_mb      = 0.0;
     bool   force_overwrite    = false;
     bool   auto_increment     = false;
     bool   use_strftime       = false;
-    string zcmurl             = "";
     bool   quiet              = false;
-    bool   invert_channels    = false;
     int    rotate             = -1;
     int    fflush_interval_ms = 100;
     i64    max_target_memory  = 0;
     string plugin_path        = "";
     bool   debug              = false;
-
-    vector<string> channels;
 
     string input_fname;
 
@@ -90,7 +95,8 @@ struct Args
                     force_overwrite = 1;
                     break;
                 case 'c':
-                    channels.push_back(optarg);
+                    if (shards.empty()) shards.emplace_back("");
+                    shards.back().channels.push_back(optarg);
                     break;
                 case 'i':
                     auto_increment = true;
@@ -99,13 +105,10 @@ struct Args
                     use_strftime = true;
                     break;
                 case 'u':
-                    zcmurl = optarg;
+                    shards.emplace_back(optarg);
                     break;
                 case 'q':
                     quiet = true;
-                    break;
-                case 'v':
-                    invert_channels = true;
                     break;
                 case 'r': {
                     char* eptr = NULL;
@@ -145,7 +148,12 @@ struct Args
             return false;
         }
 
-        if (channels.empty()) channels.push_back(".*");
+        if (shards.empty()) shards.emplace_back("");
+        for (auto& s : shards) {
+            if (s.channels.empty()) {
+                s.channels.push_back(".*");
+            }
+        }
 
         if (auto_split_mb > 0 && !(auto_increment || (rotate > 0))) {
             cerr << "ERROR.  --split-mb requires either --increment or --rotate" << endl;
@@ -171,9 +179,17 @@ struct Args
              << endl
              << "Options:" << endl
              << endl
+             << "  -u, --zcm-url=URL          Log messages on the specified ZCM URL" << endl
+             << "                             Can specify this argument multiple times" << endl
+             << "                             If no -c is specified for this -u, subscribe to \".*\"" << endl
              << "  -c, --channel=CHAN         Channel string to pass to zcm_subscribe." << endl
              << "                             Can provide multiple times."<< endl
-             << "                             (default: \".*\")" << endl
+             << "                             Every -c is subscribed to on the prior specified -u url" << endl
+             << "                             If no -u url has been specified, -c will apply to the " << endl
+             << "                             ZCM_DEFAULT_URL." << endl
+             << "                             Inverting channel selection is possible through regex" << endl
+             << "                             For example: -c \"^(?!(EXAMPLE)$).*$\" will subscribe" << endl
+             << "                             to everything except \"EXAMPLE\"" << endl
              << "  -l, --flush-interval=MS    Flush the log file to disk every MS milliseconds." << endl
              << "                             (default: 100)" << endl
              << "  -f, --force                Overwrite existing files" << endl
@@ -182,7 +198,6 @@ struct Args
              << "                             such that the resulting filename does not" << endl
              << "                             already exist.  This option precludes -f and" << endl
              << "                             --rotate" << endl
-             << "  -u, --zcm-url=URL          Log messages on the specified ZCM URL" << endl
              << "  -m, --max-unwritten-mb=SZ  Maximum size of received but unwritten" << endl
              << "                             messages to store in memory before dropping" << endl
              << "                             messages.  (default: 100 MB)" << endl
@@ -198,8 +213,6 @@ struct Args
              << "                             or --rotate." << endl
              << "  -q, --quiet                Suppress normal output and only report errors." << endl
              << "  -s, --strftime             Format FILE with strftime." << endl
-             << "  -v, --invert-channels      Invert channels.  Log everything that CHAN" << endl
-             << "                             does not match." << endl
              << "  -m, --max-target-memory    Attempt to limit the total buffer usage to this" << endl
              << "                             amount of memory. If specified, ensure that this" << endl
              << "                             number is at least as large as the maximum message" << endl
@@ -236,7 +249,7 @@ static zcm::LogEvent* cloneLogEvent(const zcm::LogEvent* evt)
 
 struct Logger
 {
-    Args   args;
+    Args args;
 
     string filename;
     string fname_prefix;
@@ -313,21 +326,7 @@ struct Logger
 
         if (args.debug) return true;
 
-        // Compile the regex if we are in invert mode
-        if (args.invert_channels) {
-            for (auto& c : args.channels) {
-                invert_regex.push_back(regex{c});
-            }
-        }
-
         return true;
-    }
-
-    const vector<string>& getSubChannels()
-    {
-        static vector<string> all{".*"};
-        // if inverting the channels, subscribe to everything and invert on the callback
-        return (!args.invert_channels) ? args.channels : all;
     }
 
     void rotate_logfiles()
@@ -412,14 +411,6 @@ struct Logger
 
     void handler(const zcm::ReceiveBuffer* rbuf, const string& channel)
     {
-        if (args.invert_channels) {
-            for (auto& r : invert_regex) {
-                cmatch match;
-                regex_match(channel.c_str(), match, r);
-                if (match.size() > 0) return;
-            }
-        }
-
         vector<zcm::LogEvent*> evts;
 
         zcm::LogEvent* le = new zcm::LogEvent;
@@ -588,24 +579,21 @@ int main(int argc, char *argv[])
 
     if (!logger.init(argc, argv)) return 1;
 
-    // begin logging
-    zcm::ZCM zcmLocal(logger.args.zcmurl);
-    if (!zcmLocal.good()) {
-        cerr << "Couldn't initialize ZCM!" << endl;
-        if (logger.args.zcmurl != "") {
-            cerr << "Unable to parse url: " << logger.args.zcmurl << endl;
-            cerr << "Try running with ZCM_DEBUG=1 for more info" << endl;
-        } else {
-            cerr << "Please provide a valid zcm url either with the ZCM_DEFAULT_URL" << endl
+    vector<unique_ptr<zcm::ZCM>> zcms;
+    for (const auto& s : logger.args.shards) {
+        ZCM_DEBUG("Constructing shard with url: %s", s.zcmurl.c_str());
+        zcms.emplace_back(new zcm::ZCM(s.zcmurl));
+        if (!zcms.back()->good()) {
+            cerr << "Couldn't initialize ZCM: " << s.zcmurl << endl
+                 << "Please provide a valid zcm url either with the ZCM_DEFAULT_URL" << endl
                  << "environment variable, or with the '-u' command line argument." << endl;
+            return 1;
         }
-        return 1;
-    }
 
-    auto channels = logger.getSubChannels();
-    for (auto& c : channels) {
-        ZCM_DEBUG("Subscribing to : %s", c.c_str());
-        zcmLocal.subscribe(c, &Logger::handler, &logger);
+        for (const auto& c : s.channels) {
+            ZCM_DEBUG("Subscribing to : %s", c.c_str());
+            zcms.back()->subscribe(c, &Logger::handler, &logger);
+        }
     }
 
     // Register signal handlers
@@ -613,12 +601,16 @@ int main(int argc, char *argv[])
     signal(SIGQUIT, sighandler);
     signal(SIGTERM, sighandler);
 
-    zcmLocal.start();
+    ZCM_DEBUG("Starting zcms");
+    for (auto& z : zcms) z->start();
 
     while (!done) logger.flushWhenReady();
 
-    zcmLocal.stop();
-    zcmLocal.flush();
+    ZCM_DEBUG("Stopping zcms");
+    for (auto& z : zcms) {
+        z->stop();
+        z->flush();
+    }
 
     cerr << "Logger exiting" << endl;
 
