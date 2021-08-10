@@ -58,6 +58,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     Type type;
 
     string subnet;
+    int pubhwm = 1000, subhwm = 1000;
 
     unordered_map<string, pair<void*,lockfile_t*>> pubsocks;
     // socket pair contains the socket + whether it was subscribed to explicitly or not
@@ -80,7 +81,25 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         trans_type = ZCM_BLOCKING;
         vtbl = &methods;
 
+        unordered_map<string, string> options;
+        auto* opts = zcm_url_opts(url);
+        for (size_t i = 0; i < opts->numopts; ++i)
+            options[opts->name[i]] = opts->value[i];
+        auto findOption = [&options](const string& s){
+            auto it = options.find(s);
+            if (it == options.end()) return (string*)nullptr;
+            return &it->second;
+        };
+
+        // These are intentionally left undocumented as nobody should be
+        // using them. They're here for advanced debugging only
+        auto* pubhwmStr = findOption("pubhwm");
+        if (pubhwmStr) pubhwm = atoi(pubhwmStr->c_str());
+        auto* subhwmStr = findOption("subhwm");
+        if (subhwmStr) subhwm = atoi(subhwmStr->c_str());
+
         subnet = zcm_url_address(url);
+
         // Make directory with all permissions
         mkdir(string("/tmp/" + subnet).c_str(), S_IRWXO | S_IRWXG | S_IRWXU);
 
@@ -180,8 +199,15 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             lockfile_unlock(lf);
             return nullptr;
         }
+        int rc;
+        rc = zmq_setsockopt(sock, ZMQ_SNDHWM, &pubhwm, sizeof(pubhwm));
+        if (rc == -1) {
+            ZCM_DEBUG("failed to set pub high water mark: %s", zmq_strerror(errno));
+            lockfile_unlock(lf);
+            return nullptr;
+        }
         string address = getAddress(channel);
-        int rc = zmq_bind(sock, address.c_str());
+        rc = zmq_bind(sock, address.c_str());
         if (rc == -1) {
             ZCM_DEBUG("failed to bind pubsock: %s", zmq_strerror(errno));
             lockfile_unlock(lf);
@@ -205,8 +231,13 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             ZCM_DEBUG("failed to create subsock: %s", zmq_strerror(errno));
             return nullptr;
         }
-        string address = getAddress(channel);
         int rc;
+        rc = zmq_setsockopt(sock, ZMQ_RCVHWM, &subhwm, sizeof(subhwm));
+        if (rc == -1) {
+            ZCM_DEBUG("failed to set sub high water mark: %s", zmq_strerror(errno));
+            return nullptr;
+        }
+        string address = getAddress(channel);
         rc = zmq_connect(sock, address.c_str());
         if (rc == -1) {
             ZCM_DEBUG("failed to connect subsock: %s", zmq_strerror(errno));
@@ -233,7 +264,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
         rc = zmq_close(it->second.first);
         if (rc == -1) {
-            ZCM_DEBUG("failed to disconnect subsock: %s", zmq_strerror(errno));
+            ZCM_DEBUG("failed to close subsock: %s", zmq_strerror(errno));
             return ZCM_ECONNECT;
         }
 

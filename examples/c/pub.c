@@ -5,16 +5,18 @@
 #include <zcm/transport_registrar.h>
 #include "types/example_t.h"
 
-#define HZ 10
-//#define NRANGES 10000
+static int HZ = 10;
+//#define NRANGES 1000000
 #define NRANGES 100
 
 int main(int argc, char *argv[])
 {
-    if (argc > 1) {
-        if (strcmp(argv[1], "-h") == 0) {
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "-h") == 0) {
             zcm_transport_help(stdout);
             return 0;
+        } else { // assume Hz
+            HZ = atoi(argv[i]);
         }
     }
 
@@ -39,7 +41,8 @@ int main(int argc, char *argv[])
     my_data.enabled = 1;
 
     while (1) {
-        example_t_publish(zcm, "EXAMPLE", &my_data);
+        if (example_t_publish(zcm, "EXAMPLE", &my_data) == 0)
+            ++my_data.timestamp;
         usleep(1000000/HZ);
     }
 

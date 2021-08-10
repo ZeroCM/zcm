@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include <inttypes.h>
 #include <unistd.h>
+#include <sys/time.h>
 #include <zcm/zcm.h>
 #include <zcm/transport.h>
 #include <zcm/transport_registrar.h>
@@ -9,9 +10,17 @@
 
 static bool quiet = false;
 
+static int lastTimestamp = 0;
+
 static void my_handler(const zcm_recv_buf_t *rbuf, const char *channel,
                        const example_t *msg, void *user)
 {
+    if (lastTimestamp == 0 || msg->timestamp < lastTimestamp)
+        lastTimestamp = msg->timestamp - 1;
+    long diff = msg->timestamp - lastTimestamp;
+    if (diff != 1) printf("Missed messages: %ld\n", diff);
+    lastTimestamp = msg->timestamp;
+
     if (quiet)
         return;
 
