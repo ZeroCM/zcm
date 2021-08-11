@@ -58,6 +58,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     Type type;
 
     string subnet;
+    int pubhwm = 1000, subhwm = 1000;
 
     unordered_map<string, pair<void*,lockfile_t*>> pubsocks;
     // socket pair contains the socket + whether it was subscribed to explicitly or not
@@ -68,6 +69,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     string recvmsgChannel;
     size_t recvmsgBufferSize = START_BUF_SIZE; // Start at 1MB but allow it to grow to MTU
     uint8_t* recvmsgBuffer;
+    size_t startRecvSockIdx = 0;
 
     // Mutex used to protect 'subsocks' while allowing
     // recvmsgEnable() and recvmsg() to be called
@@ -79,7 +81,25 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         trans_type = ZCM_BLOCKING;
         vtbl = &methods;
 
+        unordered_map<string, string> options;
+        auto* opts = zcm_url_opts(url);
+        for (size_t i = 0; i < opts->numopts; ++i)
+            options[opts->name[i]] = opts->value[i];
+        auto findOption = [&options](const string& s){
+            auto it = options.find(s);
+            if (it == options.end()) return (string*)nullptr;
+            return &it->second;
+        };
+
+        // These are intentionally left undocumented as nobody should be
+        // using them. They're here for advanced debugging only
+        auto* pubhwmStr = findOption("pubhwm");
+        if (pubhwmStr) pubhwm = atoi(pubhwmStr->c_str());
+        auto* subhwmStr = findOption("subhwm");
+        if (subhwmStr) subhwm = atoi(subhwmStr->c_str());
+
         subnet = zcm_url_address(url);
+
         // Make directory with all permissions
         mkdir(string("/tmp/" + subnet).c_str(), S_IRWXO | S_IRWXG | S_IRWXU);
 
@@ -179,8 +199,15 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             lockfile_unlock(lf);
             return nullptr;
         }
+        int rc;
+        rc = zmq_setsockopt(sock, ZMQ_SNDHWM, &pubhwm, sizeof(pubhwm));
+        if (rc == -1) {
+            ZCM_DEBUG("failed to set pub high water mark: %s", zmq_strerror(errno));
+            lockfile_unlock(lf);
+            return nullptr;
+        }
         string address = getAddress(channel);
-        int rc = zmq_bind(sock, address.c_str());
+        rc = zmq_bind(sock, address.c_str());
         if (rc == -1) {
             ZCM_DEBUG("failed to bind pubsock: %s", zmq_strerror(errno));
             lockfile_unlock(lf);
@@ -204,8 +231,13 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             ZCM_DEBUG("failed to create subsock: %s", zmq_strerror(errno));
             return nullptr;
         }
-        string address = getAddress(channel);
         int rc;
+        rc = zmq_setsockopt(sock, ZMQ_RCVHWM, &subhwm, sizeof(subhwm));
+        if (rc == -1) {
+            ZCM_DEBUG("failed to set sub high water mark: %s", zmq_strerror(errno));
+            return nullptr;
+        }
+        string address = getAddress(channel);
         rc = zmq_connect(sock, address.c_str());
         if (rc == -1) {
             ZCM_DEBUG("failed to connect subsock: %s", zmq_strerror(errno));
@@ -232,7 +264,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
         rc = zmq_close(it->second.first);
         if (rc == -1) {
-            ZCM_DEBUG("failed to disconnect subsock: %s", zmq_strerror(errno));
+            ZCM_DEBUG("failed to close subsock: %s", zmq_strerror(errno));
             return ZCM_ECONNECT;
         }
 
@@ -399,48 +431,65 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             return ZCM_EAGAIN;
         }
         if (rc >= 0) {
-            for (size_t i = 0; i < pitems.size(); ++i) {
+            if (startRecvSockIdx >= pitems.size()) startRecvSockIdx = 0;
+
+            auto recvFromSocket = [&](size_t i){
                 auto& p = pitems[i];
-                if (p.revents != 0) {
-                    // NOTE: zmq_recv can return an integer > the len parameter passed in
-                    //       (in this case recvmsgBufferSize); however, all bytes past
-                    //       len are truncated and not placed in the buffer. This means
-                    //       that you will always lose the first message you get that is
-                    //       larger than recvmsgBufferSize
-                    int rc = zmq_recv(p.socket, recvmsgBuffer, recvmsgBufferSize, 0);
-                    msg->utime = TimeUtil::utime();
-                    if (rc == -1) {
-                        fprintf(stderr, "zmq_recv failed with: %s", zmq_strerror(errno));
-                        // TODO: implement error handling, don't just assert
-                        assert(0 && "unexpected codepath");
-                    }
-                    assert(0 <= rc);
-                    assert(rc < MTU && "Received message that is bigger than a legally-published message could be");
-                    if (rc > (int)recvmsgBufferSize) {
-                        ZCM_DEBUG("Reallocating recv buffer to handle larger messages. Size is now %d", rc);
-                        recvmsgBufferSize = rc * 2;
-                        delete[] recvmsgBuffer;
-                        recvmsgBuffer = new uint8_t[recvmsgBufferSize];
-                        return ZCM_EAGAIN;
-                    }
-                    recvmsgChannel = pchannels[i];
-                    msg->channel = recvmsgChannel.c_str();
-                    msg->len = rc;
-                    msg->buf = recvmsgBuffer;
 
-                    // Note: This is probably fine and there probably isn't an elegant
-                    //       way to improve this, but we could technically have more than
-                    //       one socket with a message ready, but because our API is set
-                    //       up to only handle one message at a time, we don't read all
-                    //       the messages that are ready, only the first. You could
-                    //       imagine a case where one channel was at a very high freq
-                    //       and getting interpreted first could shadow a low freq message
-                    //       on a resource constrained system, though perhaps that's just
-                    //       and indicator that you need to optimize your code or do less.
-
-                    return ZCM_EOK;
+                // NOTE: zmq_recv can return an integer > the len parameter passed in
+                //       (in this case recvmsgBufferSize); however, all bytes past
+                //       len are truncated and not placed in the buffer. This means
+                //       that you will always lose the first message you get that is
+                //       larger than recvmsgBufferSize
+                int rc = zmq_recv(p.socket, recvmsgBuffer, recvmsgBufferSize, 0);
+                msg->utime = TimeUtil::utime();
+                if (rc == -1) {
+                    fprintf(stderr, "zmq_recv failed with: %s", zmq_strerror(errno));
+                    // TODO: implement error handling, don't just assert
+                    assert(0 && "unexpected codepath");
                 }
+                assert(0 <= rc);
+                assert(rc < MTU && "Received message that is bigger than a legally-published message could be");
+                if (rc > (int)recvmsgBufferSize) {
+                    ZCM_DEBUG("Reallocating recv buffer to handle larger messages. Size is now %d", rc);
+                    recvmsgBufferSize = rc * 2;
+                    delete[] recvmsgBuffer;
+                    recvmsgBuffer = new uint8_t[recvmsgBufferSize];
+                    return ZCM_EAGAIN;
+                }
+                recvmsgChannel = pchannels[i];
+                msg->channel = recvmsgChannel.c_str();
+                msg->len = rc;
+                msg->buf = recvmsgBuffer;
+
+                // Note: This is probably fine and there probably isn't an elegant
+                //       way to improve this, but we could technically have more than
+                //       one socket with a message ready, but because our API is set
+                //       up to only handle one message at a time, we don't read all
+                //       the messages that are ready, only the first. You could
+                //       imagine a case where one channel was at a very high freq
+                //       and getting interpreted first could shadow a low freq message
+                //       on a resource constrained system, though perhaps that's just
+                //       and indicator that you need to optimize your code or do less.
+
+                return ZCM_EOK;
+            };
+
+            for (size_t i = startRecvSockIdx; i < pitems.size(); ++i) {
+                auto& p = pitems[i];
+                if (p.revents == 0) continue;
+
+                ++startRecvSockIdx;
+                return recvFromSocket(i);
             }
+            for (size_t i = 0; i < startRecvSockIdx; ++i) {
+                auto& p = pitems[i];
+                if (p.revents == 0) continue;
+
+                ++startRecvSockIdx;
+                return recvFromSocket(i);
+            }
+
         }
 
         return ZCM_EAGAIN;

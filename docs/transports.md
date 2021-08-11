@@ -24,7 +24,7 @@ be used to *summon* the transport:
   <tr>
     <td>        Inter-thread                                            </td>
     <td><code>  inproc                                                  </code></td>
-    <td><code>  zcm_create("inproc")                                    </code></td>
+    <td><code>  zcm_create("inproc"), zcm_create("inproc://mysubnet")   </code></td>
   </tr>
   <tr>
     <td>        Inter-process (IPC)                                     </td>
