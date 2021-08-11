@@ -40,7 +40,11 @@ struct Args
     {
         string zcmurl = "";
         vector<string> channels;
-        Shard(const string& zcmurl) : zcmurl(zcmurl) {}
+        int queue_size = 0;
+
+        Shard(const string& zcmurl, int queue_size) :
+            zcmurl(zcmurl), queue_size(queue_size)
+        {}
     };
 
     vector<Shard> shards;
@@ -61,18 +65,18 @@ struct Args
     bool parse(int argc, char *argv[])
     {
         // set some defaults
-        const char *optstring = "hb:c:fiu:r:s:qvl:m:p:d";
+        const char *optstring = "hu:c:z:b:fir:s:ql:m:p:d";
         struct option long_opts[] = {
             { "help",              no_argument,       0, 'h' },
-            { "split-mb",          required_argument, 0, 'b' },
+            { "zcm-url",           required_argument, 0, 'u' },
             { "channel",           required_argument, 0, 'c' },
+            { "queue-size",        required_argument, 0, 'z' },
+            { "split-mb",          required_argument, 0, 'b' },
             { "force",             no_argument,       0, 'f' },
             { "increment",         no_argument,       0, 'i' },
-            { "zcm-url",           required_argument, 0, 'u' },
             { "rotate",            required_argument, 0, 'r' },
             { "strftime",          required_argument, 0, 's' },
             { "quiet",             no_argument,       0, 'q' },
-            { "invert-channels",   no_argument,       0, 'v' },
             { "flush-interval",    required_argument, 0, 'l' },
             { "max-target-memory", required_argument, 0, 'm' },
             { "plugin-path",       required_argument, 0, 'p' },
@@ -84,6 +88,21 @@ struct Args
         int c;
         while ((c = getopt_long (argc, argv, optstring, long_opts, 0)) >= 0) {
             switch (c) {
+                case 'u':
+                    shards.emplace_back(optarg, 0);
+                    break;
+                case 'c':
+                    if (shards.empty()) shards.emplace_back("", 0);
+                    shards.back().channels.push_back(optarg);
+                    break;
+                case 'z':
+                    if (shards.empty()) shards.emplace_back("", 0);
+                    shards.back().queue_size = atoi(optarg);
+                    if (shards.back().queue_size == 0) {
+                        cerr << "Please specify a valid queue size greater than 0" << endl;
+                        return false;
+                    }
+                    break;
                 case 'b':
                     auto_split_mb = strtod(optarg, NULL);
                     if (auto_split_mb <= 0) {
@@ -94,21 +113,8 @@ struct Args
                 case 'f':
                     force_overwrite = 1;
                     break;
-                case 'c':
-                    if (shards.empty()) shards.emplace_back("");
-                    shards.back().channels.push_back(optarg);
-                    break;
                 case 'i':
                     auto_increment = true;
-                    break;
-                case 's':
-                    use_strftime = true;
-                    break;
-                case 'u':
-                    shards.emplace_back(optarg);
-                    break;
-                case 'q':
-                    quiet = true;
                     break;
                 case 'r': {
                     char* eptr = NULL;
@@ -118,6 +124,12 @@ struct Args
                         return false;
                     }
                 } break;
+                case 's':
+                    use_strftime = true;
+                    break;
+                case 'q':
+                    quiet = true;
+                    break;
                 case 'l':
                     fflush_interval_ms = atol(optarg);
                     if (fflush_interval_ms <= 0) {
@@ -148,7 +160,7 @@ struct Args
             return false;
         }
 
-        if (shards.empty()) shards.emplace_back("");
+        if (shards.empty()) shards.emplace_back("", 0);
         for (auto& s : shards) {
             if (s.channels.empty()) {
                 s.channels.push_back(".*");
@@ -172,10 +184,9 @@ struct Args
     {
         cout << "usage: zcm-logger [options] [FILE]" << endl
              << endl
-             << "    ZCM message logging utility.  Subscribes to all channels on an ZCM" << endl
-             << "    network, and records all messages received on that network to" << endl
-             << "    FILE.  If FILE is not specified, then a filename is automatically" << endl
-             << "    chosen." << endl
+             << "    ZCM message logging utility. Subscribes to traffic on one or more zcm" << endl
+             << "    transports, and records all messages received on to FILE. If FILE is not" << endl
+             << "    specified, then a filename is automatically chosen." << endl
              << endl
              << "Options:" << endl
              << endl
@@ -190,6 +201,9 @@ struct Args
              << "                             Inverting channel selection is possible through regex" << endl
              << "                             For example: -c \"^(?!(EXAMPLE)$).*$\" will subscribe" << endl
              << "                             to everything except \"EXAMPLE\"" << endl
+             << "  -z, --queue-size=MSGS      Size of zcm send and receive queues in number of messages." << endl
+             << "                             Can provide multiple times." << endl
+             << "                             Applies to prior -u url." << endl
              << "  -l, --flush-interval=MS    Flush the log file to disk every MS milliseconds." << endl
              << "                             (default: 100)" << endl
              << "  -f, --force                Overwrite existing files" << endl
@@ -218,6 +232,9 @@ struct Args
              << "                             number is at least as large as the maximum message" << endl
              << "                             size you expect to receive. This argument is" << endl
              << "                             specified in bytes. Suffixes are not yet supported." << endl
+             << "                             This argument is independent from --queue-size and total" << endl
+             << "                             program memory usage will be closer to the sum of the size" << endl
+             << "                             of all queues + max-target-memory" << endl
              << "  -p, --plugin-path=path     Path to shared library containing transcoder plugins" << endl
              << endl
              << "Rotating / splitting log files" << endl
@@ -588,6 +605,11 @@ int main(int argc, char *argv[])
                  << "Please provide a valid zcm url either with the ZCM_DEFAULT_URL" << endl
                  << "environment variable, or with the '-u' command line argument." << endl;
             return 1;
+        }
+
+        if (s.queue_size > 0) {
+            ZCM_DEBUG("Setting shard queue size to: %d", s.queue_size);
+            zcms.back()->setQueueSize(s.queue_size);
         }
 
         for (const auto& c : s.channels) {
