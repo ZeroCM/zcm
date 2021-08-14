@@ -46,6 +46,15 @@ static void usage()
             "  -h, --help                 Shows this help text and exits\n"
             "  -u, --zcm-url=URL          Log messages on the specified ZCM URL\n"
             "  -c, --channel=CHANNEL      Channel to subscribe to. Can be specified more than once\n"
+            "                             This is regex capable, so inverting channel selection is possible\n"
+            "                             For example: -c \"^(?!(EXAMPLE)$).*$\" will subscribe\n"
+            "                             to everything except \"EXAMPLE\"\n"
+            "  -C, --not-channel=CHAN     Shortcut for an inverted channel selection using the regex\n"
+            "                             method suggested in the above -c option for user convenience\n"
+            "                             -C \"EXAMPLE\"    is equiv to    -c \"^(?!(EXAMPLE)$).*$\"\n"
+            "                             Note that if you want to exclude 2 different channels, you need\n"
+            "                             to do so with regex in a single -C command like so : \n"
+            "                             -C \"(EXCLUDE_1)|(EXCLUDE_2)\"\n"
             "  -v, --verbose              Print raw bytes of zcm data for each msg\n"
             "\n");
 }
@@ -55,12 +64,13 @@ vector<string> channels;
 static bool parse_args(int argc, char *argv[])
 {
     // set some defaults
-    const char *optstring = "hu:c:v";
+    const char *optstring = "hu:c:C:v";
     struct option long_opts[] = {
-        { "help",    no_argument,       0, 'h' },
-        { "zcm-url", required_argument, 0, 'u' },
-        { "channel", required_argument, 0, 'c' },
-        { "verbose", no_argument,       0, 'v' },
+        { "help",        no_argument,       0, 'h' },
+        { "zcm-url",     required_argument, 0, 'u' },
+        { "channel",     required_argument, 0, 'c' },
+        { "not-channel", required_argument, 0, 'C' },
+        { "verbose",     no_argument,       0, 'v' },
         { 0, 0, 0, 0 }
     };
 
@@ -70,6 +80,10 @@ static bool parse_args(int argc, char *argv[])
             case 'u': zcmurl  = optarg; break;
             case 'v': verbose = true;   break;
             case 'c': channels.push_back(optarg); break;
+            case 'C':
+                channels.push_back(optarg);
+                channels.back() = "^(?!(" + channels.back() + ")$).*$";
+                break;
             case 'h': default: usage(); return false;
         };
     }
