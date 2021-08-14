@@ -65,11 +65,12 @@ struct Args
     bool parse(int argc, char *argv[])
     {
         // set some defaults
-        const char *optstring = "hu:c:z:b:fir:s:ql:m:p:d";
+        const char *optstring = "hu:c:C:z:b:fir:s:ql:m:p:d";
         struct option long_opts[] = {
             { "help",              no_argument,       0, 'h' },
             { "zcm-url",           required_argument, 0, 'u' },
             { "channel",           required_argument, 0, 'c' },
+            { "not-channel",       required_argument, 0, 'C' },
             { "queue-size",        required_argument, 0, 'z' },
             { "split-mb",          required_argument, 0, 'b' },
             { "force",             no_argument,       0, 'f' },
@@ -94,6 +95,11 @@ struct Args
                 case 'c':
                     if (shards.empty()) shards.emplace_back("", 0);
                     shards.back().channels.push_back(optarg);
+                    break;
+                case 'C':
+                    if (shards.empty()) shards.emplace_back("", 0);
+                    shards.back().channels.push_back(optarg);
+                    shards.back().channels.back() = "^(?!(" + shards.back().channels.back() + ")$).*$";
                     break;
                 case 'z':
                     if (shards.empty()) shards.emplace_back("", 0);
@@ -198,9 +204,12 @@ struct Args
              << "                             Every -c is subscribed to on the prior specified -u url" << endl
              << "                             If no -u url has been specified, -c will apply to the " << endl
              << "                             ZCM_DEFAULT_URL." << endl
-             << "                             Inverting channel selection is possible through regex" << endl
+             << "                             This is regex capable, so inverting channel selection is possible" << endl
              << "                             For example: -c \"^(?!(EXAMPLE)$).*$\" will subscribe" << endl
              << "                             to everything except \"EXAMPLE\"" << endl
+             << "  -C, --not-channel=CHAN     Shortcut for an inverted channel selection using the regex" << endl
+             << "                             method suggested in the above -c option for user convenience" << endl
+             << "                             -C \"EXAMPLE\"    is equiv to    -c \"^(?!(EXAMPLE)$).*$\"" << endl
              << "  -z, --queue-size=MSGS      Size of zcm send and receive queues in number of messages." << endl
              << "                             Can provide multiple times." << endl
              << "                             Applies to prior -u url." << endl

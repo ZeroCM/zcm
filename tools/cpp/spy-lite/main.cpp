@@ -348,13 +348,14 @@ struct Args
     bool parse(int argc, char *argv[])
     {
         // set some defaults
-        const char *optstring = "hu:p:c:d";
+        const char *optstring = "hu:p:c:C:d";
         struct option long_opts[] = {
-            { "help",            no_argument, 0, 'h' },
-            { "zcm-url",   required_argument, 0, 'u' },
-            { "type-path", required_argument, 0, 'p' },
-            { "channel",   required_argument, 0, 'c' },
-            { "debug",           no_argument, 0, 'd' },
+            { "help",              no_argument, 0, 'h' },
+            { "zcm-url",     required_argument, 0, 'u' },
+            { "type-path",   required_argument, 0, 'p' },
+            { "channel",     required_argument, 0, 'c' },
+            { "not-channel", required_argument, 0, 'C' },
+            { "debug",             no_argument, 0, 'd' },
             { 0, 0, 0, 0 }
         };
 
@@ -365,6 +366,10 @@ struct Args
                 case 'd': debug         = true;   break;
                 case 'p': zcmtypes_path = optarg; break;
                 case 'c': channels.push_back(optarg); break;
+                case 'C':
+                    channels.push_back(optarg);
+                    channels.back() = "^(?!(" + channels.back() + ")$).*$";
+                    break;
                 case 'h': default: usage(); return false;
             };
         }
@@ -389,6 +394,12 @@ struct Args
                 "  -u, --zcm-url=URL          Log messages on the specified ZCM URL\n"
                 "  -p, --type-path=PATH       Path to a shared library containing the zcmtypes\n"
                 "  -c, --channel=CHANNEL      Channel to subscribe to. Can be specified more than once\n"
+                "                             This is regex capable, so inverting channel selection is possible\n"
+                "                             For example: -c \"^(?!(EXAMPLE)$).*$\" will subscribe\n"
+                "                             to everything except \"EXAMPLE\"\n"
+                "  -C, --not-channel=CHAN     Shortcut for an inverted channel selection using the regex\n"
+                "                             method suggested in the above -c option for user convenience\n"
+                "                             -C \"EXAMPLE\"    is equiv to    -c \"^(?!(EXAMPLE)$).*$\"\n"
                 "  -d, --debug                Run a dry run to ensure proper spy setup\n"
                 "\n");
     }
