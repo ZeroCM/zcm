@@ -210,6 +210,9 @@ struct Args
              << "  -C, --not-channel=CHAN     Shortcut for an inverted channel selection using the regex" << endl
              << "                             method suggested in the above -c option for user convenience" << endl
              << "                             -C \"EXAMPLE\"    is equiv to    -c \"^(?!(EXAMPLE)$).*$\"" << endl
+             << "                             Note that if you want to exclude 2 different channels, you need" << endl
+             << "                             to do so with regex in a single -C command like so : " << endl
+             << "                             -C \"(EXCLUDE_1)|(EXCLUDE_2)\"" << endl
              << "  -z, --queue-size=MSGS      Size of zcm send and receive queues in number of messages." << endl
              << "                             Can provide multiple times." << endl
              << "                             Applies to prior -u url." << endl

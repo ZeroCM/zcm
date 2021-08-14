@@ -400,6 +400,9 @@ struct Args
                 "  -C, --not-channel=CHAN     Shortcut for an inverted channel selection using the regex\n"
                 "                             method suggested in the above -c option for user convenience\n"
                 "                             -C \"EXAMPLE\"    is equiv to    -c \"^(?!(EXAMPLE)$).*$\"\n"
+                "                             Note that if you want to exclude 2 different channels, you need\n"
+                "                             to do so with regex in a single -C command like so : \n"
+                "                             -C \"(EXCLUDE_1)|(EXCLUDE_2)\"\n"
                 "  -d, --debug                Run a dry run to ensure proper spy setup\n"
                 "\n");
     }
