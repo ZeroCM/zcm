@@ -14,7 +14,7 @@
 static volatile bool quit = false;
 
 enum class DisplayMode {
-    Overview, Decode,
+    Overview, Decode, Help
 };
 
 struct SpyInfo
@@ -82,6 +82,9 @@ struct SpyInfo
                     fflush(stdout);
                 }
             } break;
+            case DisplayMode::Help: {
+                displayHelp();
+            } break;
             default:
                 DEBUG(1, "ERR: unknown mode\n");
         }
@@ -96,6 +99,8 @@ struct SpyInfo
 
         for (size_t i = 0; i < names.size(); i++) {
             auto& channel = names[i];
+            if (!prefix_filter.empty() && channel.rfind(prefix_filter, 0) != 0)
+                continue;
             MsgInfo **minfo = lookup(minfomap, channel);
             assert(minfo != NULL);
             float hz = (*minfo)->getHertz();
@@ -104,6 +109,11 @@ struct SpyInfo
 
         printf("\n");
 
+        if (!prefix_filter.empty() || is_setting_prefix) {
+            printf("   Prefix: %s", prefix_filter.c_str());
+            if (is_selecting || !is_setting_prefix) printf("\n");
+            else fflush(stdout);
+        }
         if (is_selecting) {
             printf("   Decode channel: ");
             if (decode_index != -1)
@@ -112,44 +122,93 @@ struct SpyInfo
         }
     }
 
-    void handleKeyboardOverview(char ch)
+    void displayHelp()
+    {
+        printf("\n"
+               "    Terminal based spy utility.  Subscribes to all channels on a ZCM\n"
+               "    transport and displays them in an interactive terminal.\n"
+               "\n"
+               "    Press Key:\n"
+               "\n"
+               "       -             Allows for entering multi-digit field\n"
+               "       %%             Allows for entering channel filter prefix\n"
+               "       [a-z,A-Z,_]   Immediately begin typing channel filter prefix\n"
+               "       ESC           Exit help menu\n"
+               "\n");
+    }
+
+    void handleKeyboardOverviewSettingPrefix(char ch)
+    {
+        if (ch == ESCAPE_KEY) {
+            prefix_filter.clear();
+            is_setting_prefix = false;
+        } else if (ch == '\b' || ch == DEL_KEY) {
+            if (!prefix_filter.empty()) prefix_filter.pop_back();
+        } else if (ch == '\n') {
+            is_setting_prefix = false;
+        } else {
+            prefix_filter = prefix_filter + ch;
+        }
+    }
+
+    void handleKeyboardOverviewSelecting(char ch)
     {
         if (ch == '-') {
             is_selecting = true;
             decode_index = -1;
         } else if ('0' <= ch && ch <= '9') {
-            // shortcut for single digit channels
-            if (!is_selecting) {
+            if (decode_index == -1) {
+                decode_index = ch - '0';
+            } else if (decode_index < 10000) {
+                decode_index *= 10;
+                decode_index += (ch - '0');
+            }
+        } else if (ch == '\n') {
+            if (isValidChannelnum(decode_index)) {
+                decode_msg_info = getCurrentMsginfo(&decode_msg_channel);
+                mode = DisplayMode::Decode;
+            }
+            is_selecting = false;
+        } else if (ch == ESCAPE_KEY) {
+            is_selecting = false;
+        } else if (ch == '\b' || ch == DEL_KEY) {
+            if (decode_index < 10)
+                decode_index = -1;
+            else
+                decode_index /= 10;
+        }
+    }
+
+    void handleKeyboardOverview(char ch)
+    {
+        if (is_selecting) {
+            handleKeyboardOverviewSelecting(ch);
+        } else if (is_setting_prefix) {
+            handleKeyboardOverviewSettingPrefix(ch);
+        } else {
+            if (ch == '-') {
+                is_selecting = true;
+                decode_index = -1;
+            } else if (ch == '%') {
+                is_setting_prefix = true;
+            } else if (ch == '?') {
+                prev_mode = DisplayMode::Overview;
+                mode = DisplayMode::Help;
+            } else if (('a' <= ch && ch <= 'z') ||
+                       ('A' <= ch && ch <= 'Z') ||
+                       (ch == '_') || (ch == '/')) {
+                is_setting_prefix = true;
+                return handleKeyboardOverviewSettingPrefix(ch);
+            } else if ('0' <= ch && ch <= '9') {
+                // shortcut for single digit channels
                 decode_index = ch - '0';
                 if (isValidChannelnum(decode_index)) {
                     decode_msg_info = getCurrentMsginfo(&decode_msg_channel);
                     mode = DisplayMode::Decode;
                 }
             } else {
-                if (decode_index == -1) {
-                    decode_index = ch - '0';
-                } else if (decode_index < 10000) {
-                    decode_index *= 10;
-                    decode_index += (ch - '0');
-                }
+                DEBUG(1, "INFO: unrecognized input: '%c' (0x%2x)\n", ch, ch);
             }
-        } else if (ch == '\n') {
-            if (is_selecting) {
-                if (isValidChannelnum(decode_index)) {
-                    decode_msg_info = getCurrentMsginfo(&decode_msg_channel);
-                    mode = DisplayMode::Decode;
-                }
-                is_selecting = false;
-            }
-        } else if (ch == '\b' || ch == DEL_KEY) {
-            if (is_selecting) {
-                if (decode_index < 10)
-                    decode_index = -1;
-                else
-                    decode_index /= 10;
-            }
-        } else {
-            DEBUG(1, "INFO: unrecognized input: '%c' (0x%2x)\n", ch, ch);
         }
     }
 
@@ -173,12 +232,7 @@ struct SpyInfo
             if (!is_selecting) {
                 view_id = ch - '0';
                 // set and increase sub-msg decoding depth
-                if (depth < MSG_DISPLAY_RECUR_MAX) {
-                    minfo.incViewDepth(view_id);
-                } else {
-                    DEBUG(1, "INFO: cannot recurse further: reached maximum depth of %d\n",
-                          MSG_DISPLAY_RECUR_MAX);
-                }
+                minfo.incViewDepth(view_id);
             } else {
                 if (view_id == -1) {
                     view_id = ch - '0';
@@ -190,12 +244,7 @@ struct SpyInfo
         } else if (ch == '\n') {
             if (is_selecting) {
                 // set and increase sub-msg decoding depth
-                if (depth < MSG_DISPLAY_RECUR_MAX) {
-                    minfo.incViewDepth(view_id);
-                } else {
-                    DEBUG(1, "INFO: cannot recurse further: reached maximum depth of %d\n",
-                          MSG_DISPLAY_RECUR_MAX);
-                }
+                minfo.incViewDepth(view_id);
                 is_selecting = false;
             }
         } else if (ch == '\b' || ch == DEL_KEY) {
@@ -205,6 +254,18 @@ struct SpyInfo
                 else
                     view_id /= 10;
             }
+        } else if (ch == '?') {
+            prev_mode = DisplayMode::Decode;
+            mode = DisplayMode::Help;
+        } else {
+            DEBUG(1, "INFO: unrecognized input: '%c' (0x%2x)\n", ch, ch);
+        }
+    }
+
+    void handleKeyboardHelp(char ch)
+    {
+        if (ch == ESCAPE_KEY || ch == 'q') {
+            mode = prev_mode;
         } else {
             DEBUG(1, "INFO: unrecognized input: '%c' (0x%2x)\n", ch, ch);
         }
@@ -217,6 +278,7 @@ struct SpyInfo
         switch (mode) {
             case DisplayMode::Overview: handleKeyboardOverview(ch); break;
             case DisplayMode::Decode:   handleKeyboardDecode(ch);  break;
+            case DisplayMode::Help:     handleKeyboardHelp(ch);  break;
             default:
                 DEBUG(1, "INFO: unrecognized keyboard mode: %d\n", (int)mode);
         }
@@ -230,12 +292,16 @@ private:
     mutex mut;
 
     DisplayMode mode = DisplayMode::Overview;
+    DisplayMode prev_mode = mode;
     bool is_selecting = false;
 
     int decode_index = 0;
     MsgInfo *decode_msg_info;
     const char *decode_msg_channel;
     int view_id;
+
+    string prefix_filter = "";
+    bool is_setting_prefix = false;
 };
 
 void *keyboard_thread_func(void *arg)

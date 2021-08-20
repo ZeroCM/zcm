@@ -181,7 +181,7 @@ void msg_display(TypeDb& db, const TypeMetadata& metadata_,
     strnfmtappend(traversal, TRAVERSAL_BUFSZ, &traversal_used, "top");
 
     size_t i;
-    for(i = 0; i < state.cur_depth; i++) {
+    for(i = 0; i < state.recur_table.size(); i++) {
 
         // get the desired <USER> id # to recurse on
         size_t recur_i = state.recur_table[i];
@@ -258,7 +258,7 @@ void msg_display(TypeDb& db, const TypeMetadata& metadata_,
     }
 
     // sub-message recurse failed?
-    if(i != state.cur_depth) {
+    if(i != state.recur_table.size()) {
         printf("ERROR: failed recurse to find sub-messages\n");
         cleanupDecodedTypeBuf();
         return;
