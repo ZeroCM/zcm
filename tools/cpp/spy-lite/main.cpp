@@ -140,7 +140,9 @@ struct SpyInfo
                     decode_index += (ch - '0');
                 }
             }
-        } else if (('a' <= ch && ch <= 'z') || ('A' <= ch && ch <= 'Z')) {
+        } else if (('a' <= ch && ch <= 'z') ||
+                   ('A' <= ch && ch <= 'Z') ||
+                   (ch == '_') || (ch == '/')) {
             if (!is_selecting) {
                 prefix_filter = prefix_filter + ch;
             }
