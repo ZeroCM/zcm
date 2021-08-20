@@ -17,18 +17,18 @@ MsgInfo::~MsgInfo()
 
 size_t MsgInfo::getViewDepth()
 {
-    return disp_state.cur_depth;
+    return disp_state.recur_table.size();
 }
 
 void MsgInfo::incViewDepth(size_t viewid)
 {
-    disp_state.recur_table[disp_state.cur_depth++] = viewid;
+    disp_state.recur_table.push_back(viewid);
 }
 
 void MsgInfo::decViewDepth()
 {
-    assert(disp_state.cur_depth != 0);
-    disp_state.cur_depth--;
+    assert(disp_state.recur_table.size() != 0);
+    disp_state.recur_table.pop_back();
 }
 
 void MsgInfo::display()

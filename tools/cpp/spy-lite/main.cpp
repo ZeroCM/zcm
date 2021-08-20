@@ -96,6 +96,8 @@ struct SpyInfo
 
         for (size_t i = 0; i < names.size(); i++) {
             auto& channel = names[i];
+            if (!prefix_filter.empty() && channel.rfind(prefix_filter, 0) != 0)
+                continue;
             MsgInfo **minfo = lookup(minfomap, channel);
             assert(minfo != NULL);
             float hz = (*minfo)->getHertz();
@@ -104,6 +106,11 @@ struct SpyInfo
 
         printf("\n");
 
+        if (!prefix_filter.empty()) {
+            printf("   Prefix: %s", prefix_filter.c_str());
+            if (is_selecting) printf("\n");
+            else fflush(stdout);
+        }
         if (is_selecting) {
             printf("   Decode channel: ");
             if (decode_index != -1)
@@ -133,6 +140,10 @@ struct SpyInfo
                     decode_index += (ch - '0');
                 }
             }
+        } else if (('a' <= ch && ch <= 'z') || ('A' <= ch && ch <= 'Z')) {
+            if (!is_selecting) {
+                prefix_filter = prefix_filter + ch;
+            }
         } else if (ch == '\n') {
             if (is_selecting) {
                 if (isValidChannelnum(decode_index)) {
@@ -141,12 +152,20 @@ struct SpyInfo
                 }
                 is_selecting = false;
             }
+        } else if (ch == ESCAPE_KEY) {
+            if (is_selecting) {
+                is_selecting = false;
+            } else {
+                prefix_filter.clear();
+            }
         } else if (ch == '\b' || ch == DEL_KEY) {
             if (is_selecting) {
                 if (decode_index < 10)
                     decode_index = -1;
                 else
                     decode_index /= 10;
+            } else {
+                if (!prefix_filter.empty()) prefix_filter.pop_back();
             }
         } else {
             DEBUG(1, "INFO: unrecognized input: '%c' (0x%2x)\n", ch, ch);
@@ -173,12 +192,7 @@ struct SpyInfo
             if (!is_selecting) {
                 view_id = ch - '0';
                 // set and increase sub-msg decoding depth
-                if (depth < MSG_DISPLAY_RECUR_MAX) {
-                    minfo.incViewDepth(view_id);
-                } else {
-                    DEBUG(1, "INFO: cannot recurse further: reached maximum depth of %d\n",
-                          MSG_DISPLAY_RECUR_MAX);
-                }
+                minfo.incViewDepth(view_id);
             } else {
                 if (view_id == -1) {
                     view_id = ch - '0';
@@ -190,12 +204,7 @@ struct SpyInfo
         } else if (ch == '\n') {
             if (is_selecting) {
                 // set and increase sub-msg decoding depth
-                if (depth < MSG_DISPLAY_RECUR_MAX) {
-                    minfo.incViewDepth(view_id);
-                } else {
-                    DEBUG(1, "INFO: cannot recurse further: reached maximum depth of %d\n",
-                          MSG_DISPLAY_RECUR_MAX);
-                }
+                minfo.incViewDepth(view_id);
                 is_selecting = false;
             }
         } else if (ch == '\b' || ch == DEL_KEY) {
@@ -236,6 +245,7 @@ private:
     MsgInfo *decode_msg_info;
     const char *decode_msg_channel;
     int view_id;
+    string prefix_filter = "";
 };
 
 void *keyboard_thread_func(void *arg)
