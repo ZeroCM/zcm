@@ -106,9 +106,9 @@ struct SpyInfo
 
         printf("\n");
 
-        if (!prefix_filter.empty()) {
+        if (!prefix_filter.empty() || is_setting_prefix) {
             printf("   Prefix: %s", prefix_filter.c_str());
-            if (is_selecting) printf("\n");
+            if (is_selecting || !is_setting_prefix) printf("\n");
             else fflush(stdout);
         }
         if (is_selecting) {
@@ -119,58 +119,75 @@ struct SpyInfo
         }
     }
 
-    void handleKeyboardOverview(char ch)
+    void handleKeyboardOverviewSettingPrefix(char ch)
+    {
+        if (ch == ESCAPE_KEY) {
+            prefix_filter.clear();
+            is_setting_prefix = false;
+        } else if (ch == '\b' || ch == DEL_KEY) {
+            if (!prefix_filter.empty()) prefix_filter.pop_back();
+        } else if (ch == '\n') {
+            is_setting_prefix = false;
+        } else {
+            prefix_filter = prefix_filter + ch;
+        }
+    }
+
+    void handleKeyboardOverviewSelecting(char ch)
     {
         if (ch == '-') {
             is_selecting = true;
             decode_index = -1;
         } else if ('0' <= ch && ch <= '9') {
-            // shortcut for single digit channels
-            if (!is_selecting) {
+            if (decode_index == -1) {
+                decode_index = ch - '0';
+            } else if (decode_index < 10000) {
+                decode_index *= 10;
+                decode_index += (ch - '0');
+            }
+        } else if (ch == '\n') {
+            if (isValidChannelnum(decode_index)) {
+                decode_msg_info = getCurrentMsginfo(&decode_msg_channel);
+                mode = DisplayMode::Decode;
+            }
+            is_selecting = false;
+        } else if (ch == ESCAPE_KEY) {
+            is_selecting = false;
+        } else if (ch == '\b' || ch == DEL_KEY) {
+            if (decode_index < 10)
+                decode_index = -1;
+            else
+                decode_index /= 10;
+        }
+    }
+
+    void handleKeyboardOverview(char ch)
+    {
+        if (is_selecting) {
+            handleKeyboardOverviewSelecting(ch);
+        } else if (is_setting_prefix) {
+            handleKeyboardOverviewSettingPrefix(ch);
+        } else {
+            if (ch == '-') {
+                is_selecting = true;
+                decode_index = -1;
+            } else if (ch == '%') {
+                is_setting_prefix = true;
+            } else if (('a' <= ch && ch <= 'z') ||
+                       ('A' <= ch && ch <= 'Z') ||
+                       (ch == '_') || (ch == '/')) {
+                is_setting_prefix = true;
+                return handleKeyboardOverviewSettingPrefix(ch);
+            } else if ('0' <= ch && ch <= '9') {
+                // shortcut for single digit channels
                 decode_index = ch - '0';
                 if (isValidChannelnum(decode_index)) {
                     decode_msg_info = getCurrentMsginfo(&decode_msg_channel);
                     mode = DisplayMode::Decode;
                 }
             } else {
-                if (decode_index == -1) {
-                    decode_index = ch - '0';
-                } else if (decode_index < 10000) {
-                    decode_index *= 10;
-                    decode_index += (ch - '0');
-                }
+                DEBUG(1, "INFO: unrecognized input: '%c' (0x%2x)\n", ch, ch);
             }
-        } else if (('a' <= ch && ch <= 'z') ||
-                   ('A' <= ch && ch <= 'Z') ||
-                   (ch == '_') || (ch == '/')) {
-            if (!is_selecting) {
-                prefix_filter = prefix_filter + ch;
-            }
-        } else if (ch == '\n') {
-            if (is_selecting) {
-                if (isValidChannelnum(decode_index)) {
-                    decode_msg_info = getCurrentMsginfo(&decode_msg_channel);
-                    mode = DisplayMode::Decode;
-                }
-                is_selecting = false;
-            }
-        } else if (ch == ESCAPE_KEY) {
-            if (is_selecting) {
-                is_selecting = false;
-            } else {
-                prefix_filter.clear();
-            }
-        } else if (ch == '\b' || ch == DEL_KEY) {
-            if (is_selecting) {
-                if (decode_index < 10)
-                    decode_index = -1;
-                else
-                    decode_index /= 10;
-            } else {
-                if (!prefix_filter.empty()) prefix_filter.pop_back();
-            }
-        } else {
-            DEBUG(1, "INFO: unrecognized input: '%c' (0x%2x)\n", ch, ch);
         }
     }
 
@@ -247,7 +264,9 @@ private:
     MsgInfo *decode_msg_info;
     const char *decode_msg_channel;
     int view_id;
+
     string prefix_filter = "";
+    bool is_setting_prefix = false;
 };
 
 void *keyboard_thread_func(void *arg)
