@@ -34,7 +34,7 @@ using namespace std;
 # include <sys/time.h>
 # include <sys/uio.h>
 # include <sys/socket.h>
-# include <sys/poll.h>
+# include <poll.h>
 # include <sys/select.h>
 typedef int SOCKET;
 #endif

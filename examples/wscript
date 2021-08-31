@@ -12,34 +12,34 @@ def configure(ctx):
     ctx.check_cfg(package='zcm', args='--cflags --libs', uselib_store='zcm')
     ctx.load('zcm-gen')
 
-    # Using check_cfg to track down the jar so we can 'use' it when compiling java
-    # unfortunately, check_cfg doesn't assign uselib variables like we'd like
-    ctx.check_cfg(package='zcm', variables='classpath', uselib_store='zcm')
-    ctx.env.CLASSPATH_zcmjar = ctx.env.zcm_classpath
-    if not ctx.env.CLASSPATH_zcmjar:
-        raise ConfigurationError('Failed to find zcm.jar')
-    else:
-        ctx.msg('Checking for zcm.jar', ctx.env.CLASSPATH_zcmjar);
-
-    ctx.check_cfg(package='zcm-tools', variables='classpath', uselib_store='zcmtools')
-    ctx.env.CLASSPATH_zcmtoolsjar = ctx.env.zcmtools_classpath
-    if not ctx.env.CLASSPATH_zcmtoolsjar:
-        raise ConfigurationError('Failed to find zcm-tools.jar')
-    else:
-        ctx.msg('Checking for zcm-tools.jar', ctx.env.CLASSPATH_zcmtoolsjar);
-
-    if ctx.check_java_class('zcm.zcm.ZCM', ctx.env.CLASSPATH_zcmjar) != 0:
-        Logs.pprint('RED', 'You probably just need to `source ./env` and run `./waf configure ...`')
-
-    if ctx.check_java_class('zcm.spy.Spy',
-                            ctx.env.CLASSPATH_zcmtoolsjar + ":" + ctx.env.CLASSPATH_zcmjar) != 0:
-        Logs.pprint('RED', 'You probably just need to `source ./env` and run `./waf configure ...`')
-        raise ConfigurationError('Failed to look up ZCM Java class')
-
     if not os.environ.get('ZCM_DEFAULT_URL'):
         Logs.pprint('RED', 'Examples rely on ZCM_DEFAULT_URL being defined. Try `source ./env`')
         Logs.pprint('RED', 'This is not an error and can be ignored if you know what you are doing')
 
+    if ctx.env.USING_JAVA:
+        # Using check_cfg to track down the jar so we can 'use' it when compiling java
+        # unfortunately, check_cfg doesn't assign uselib variables like we'd like
+        ctx.check_cfg(package='zcm', variables='classpath', uselib_store='zcm')
+        ctx.env.CLASSPATH_zcmjar = ctx.env.zcm_classpath
+        if not ctx.env.CLASSPATH_zcmjar:
+            raise ConfigurationError('Failed to find zcm.jar')
+        else:
+            ctx.msg('Checking for zcm.jar', ctx.env.CLASSPATH_zcmjar);
+
+        ctx.check_cfg(package='zcm-tools', variables='classpath', uselib_store='zcmtools')
+        ctx.env.CLASSPATH_zcmtoolsjar = ctx.env.zcmtools_classpath
+        if not ctx.env.CLASSPATH_zcmtoolsjar:
+            raise ConfigurationError('Failed to find zcm-tools.jar')
+        else:
+            ctx.msg('Checking for zcm-tools.jar', ctx.env.CLASSPATH_zcmtoolsjar);
+
+        if ctx.check_java_class('zcm.zcm.ZCM', ctx.env.CLASSPATH_zcmjar) != 0:
+            Logs.pprint('RED', 'You probably just need to `source ./env` and run `./waf configure ...`')
+
+        if ctx.check_java_class('zcm.spy.Spy',
+                                ctx.env.CLASSPATH_zcmtoolsjar + ":" + ctx.env.CLASSPATH_zcmjar) != 0:
+            Logs.pprint('RED', 'You probably just need to `source ./env` and run `./waf configure ...`')
+            raise ConfigurationError('Failed to look up ZCM Java class')
 
 def internal_specific_configure(ctx):
     ctx.find_program('zcm-gen', var='ZCMGEN', mandatory=True)
@@ -60,4 +60,6 @@ def build(ctx):
     ctx.recurse('types')
     ctx.recurse('c')
     ctx.recurse('cpp')
-    ctx.recurse('java')
+
+    if ctx.env.USING_JAVA:
+        ctx.recurse('java')

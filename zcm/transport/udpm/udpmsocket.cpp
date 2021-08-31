@@ -190,7 +190,7 @@ bool UDPMSocket::enableLoopback()
 size_t UDPMSocket::getRecvBufSize()
 {
     int size;
-    uint retsize = sizeof(int);
+    size_t retsize = sizeof(int);
     getsockopt(fd, SOL_SOCKET, SO_RCVBUF, (char*)&size, (socklen_t *)&retsize);
     ZCM_DEBUG("ZCM: receive buffer is %d bytes", size);
     return size;
@@ -199,7 +199,7 @@ size_t UDPMSocket::getRecvBufSize()
 size_t UDPMSocket::getSendBufSize()
 {
     int size;
-    uint retsize = sizeof(int);
+    size_t retsize = sizeof(int);
     getsockopt(fd, SOL_SOCKET, SO_SNDBUF, (char*)&size, (socklen_t *)&retsize);
     ZCM_DEBUG("ZCM: receive buffer is %d bytes", size);
     return size;

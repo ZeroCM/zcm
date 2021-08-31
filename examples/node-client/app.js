@@ -22,6 +22,10 @@ function basicExample()
         msg.ranges      = [7, 6];
         msg.name        = 'foobar string';
         msg.enabled     = false;
+        msg.nExamples1  = 0;
+        msg.nExamples2  = 0;
+        msg.subExamples = [];
+        msg.subStrings  = [];
         z.publish("BASIC_EXAMPLE", msg);
     }, 1000);
 }
@@ -39,6 +43,10 @@ function recursiveExample()
         msg.ranges      = [7, 6];
         msg.name        = 'foobar string';
         msg.enabled     = false;
+        msg.nExamples1  = 0;
+        msg.nExamples2  = 0;
+        msg.subExamples = [];
+        msg.subStrings  = [];
         var r = new zcmtypes.recursive_t();
         r.e = msg;
         z.publish("RECURSIVE_EXAMPLE", r);
@@ -96,6 +104,10 @@ function encodeExample()
     enc.ranges      = [7, 6];
     enc.name        = 'foobar string';
     enc.enabled     = false;
+    msg.nExamples1  = 0;
+    msg.nExamples2  = 0;
+    msg.subExamples = [];
+    msg.subStrings  = [];
 
     z.subscribe(chan, zcmtypes.encoded_t, function(channel, msg){
         const recEnc = zcmtypes.example_t.decode(msg.msg);
