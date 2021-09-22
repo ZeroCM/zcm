@@ -194,6 +194,8 @@ struct SpyInfo
             } else if (ch == '?') {
                 prev_mode = DisplayMode::Overview;
                 mode = DisplayMode::Help;
+            } else if (ch == ESCAPE_KEY) {
+                prefix_filter.clear();
             } else if (('a' <= ch && ch <= 'z') ||
                        ('A' <= ch && ch <= 'Z') ||
                        (ch == '_') || (ch == '/')) {
