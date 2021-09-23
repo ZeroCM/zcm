@@ -13,54 +13,14 @@ on:
 jobs:
   build:
     name: Build
-    runs-on: ubuntu-16.04
+    runs-on: ubuntu-latest
     defaults:
       run:
         shell: bash -l {0}
     env:
-        PYTHON: /usr/bin/python3
         ACTIONS_ALLOW_UNSECURE_COMMANDS: 'true'
     steps:
       - uses: actions/checkout@v2
-      - name: env
+      - name: build docker
         run: |
-            echo "::add-path::$(pwd)/deps/julia/bin"
-            echo "::add-path::/home/runner/.local/bin"
-      - name: prefix
-        run: |
-            mkdir -p ../tmp/x64
-            mkdir -p ../tmp/asan
-      - name: deps
-        run: |
-            echo 'deb http://download.opensuse.org/repositories/network:/messaging:/zeromq:/release-stable/xUbuntu_16.04/ /' | sudo tee /etc/apt/sources.list.d/network:messaging:zeromq:release-stable.list
-            curl -fsSL https://download.opensuse.org/repositories/network:messaging:zeromq:release-stable/xUbuntu_16.04/Release.key | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/network_messaging_zeromq_release-stable.gpg > /dev/null
-            sudo apt-get update
-            sudo apt-get install -yq libzmq3-dev
-            ./scripts/install-deps.sh -s
-      - name: build
-        run: |
-            ./waf distclean configure build
-      - name: build all
-        run: |
-            ./waf distclean
-            ./waf configure --use-all --use-third-party --use-dev --track-traffic-topology=true --prefix=../tmp/x64
-            ./waf build
-            ./waf install
-      - name: build examples
-        run: |
-            source ./examples/env $(realpath ../tmp/x64)
-            ./waf build_examples
-            ./waf build_tests
-            ./build/tests/test/runner
-      - name: build asan
-        run: |
-            ./waf distclean
-            ./waf configure --use-all --use-third-party --use-dev --track-traffic-topology=true --prefix=../tmp/asan
-            ./waf build_asan
-            ./waf install_asan
-      - name: build asan examples
-        run: |
-            source ./examples/env $(realpath ../tmp/asan)
-            ./waf build_examples_asan
-            ./waf build_tests_asan
-            ./build/tests_asan/test/runner
+            docker pull ubuntu:16.04
