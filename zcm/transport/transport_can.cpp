@@ -33,7 +33,7 @@ using namespace std;
 struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 {
     unordered_map<string, string> options;
-    uint msgId;
+    uint32_t msgId;
     string address;
 
     int soc = -1;

@@ -104,10 +104,10 @@ function encodeExample()
     enc.ranges      = [7, 6];
     enc.name        = 'foobar string';
     enc.enabled     = false;
-    msg.nExamples1  = 0;
-    msg.nExamples2  = 0;
-    msg.subExamples = [];
-    msg.subStrings  = [];
+    enc.nExamples1  = 0;
+    enc.nExamples2  = 0;
+    enc.subExamples = [];
+    enc.subStrings  = [];
 
     z.subscribe(chan, zcmtypes.encoded_t, function(channel, msg){
         const recEnc = zcmtypes.example_t.decode(msg.msg);

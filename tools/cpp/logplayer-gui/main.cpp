@@ -742,7 +742,7 @@ struct LogPlayer
                                                             GTK_RESPONSE_CANCEL,
                                                             "Open",
                                                             GTK_RESPONSE_ACCEPT,
-                                                            NULL);
+                                                            (void*)NULL);
             gint res = gtk_dialog_run(GTK_DIALOG(dialog));
 
             if (res == GTK_RESPONSE_ACCEPT) {
@@ -957,18 +957,18 @@ struct LogPlayer
         GtkCellRenderer *logChanRenderer = gtk_cell_renderer_text_new();
         GtkTreeViewColumn *colLogChan =
             gtk_tree_view_column_new_with_attributes("Log Channel", logChanRenderer,
-                                                     "text", LOG_CHAN_COLUMN, NULL);
+                                                     "text", LOG_CHAN_COLUMN, (void*)NULL);
         gtk_tree_view_column_set_expand(colLogChan, TRUE);
         gtk_tree_view_column_set_resizable(colLogChan, TRUE);
         gtk_tree_view_append_column(GTK_TREE_VIEW(me->tblData), colLogChan);
 
         GtkCellRenderer *playbackChanRenderer = gtk_cell_renderer_text_new();
-        g_object_set(playbackChanRenderer, "editable", TRUE, NULL);
+        g_object_set(playbackChanRenderer, "editable", TRUE, (void*)NULL);
         g_signal_connect(playbackChanRenderer, "edited", G_CALLBACK(playbackChanEdit), me);
         GtkTreeViewColumn *colPlaybackChan =
             gtk_tree_view_column_new_with_attributes("Playback Channel",
                                                      playbackChanRenderer, "text",
-                                                     PLAY_CHAN_COLUMN, NULL);
+                                                     PLAY_CHAN_COLUMN, (void*)NULL);
         gtk_tree_view_column_set_resizable(colPlaybackChan, TRUE);
         gtk_tree_view_column_set_expand(colPlaybackChan, TRUE);
         gtk_tree_view_append_column(GTK_TREE_VIEW(me->tblData), colPlaybackChan);
@@ -976,7 +976,7 @@ struct LogPlayer
         GtkCellRenderer *enableRenderer = gtk_cell_renderer_toggle_new();
         GtkTreeViewColumn *colEnable =
             gtk_tree_view_column_new_with_attributes("Enable", enableRenderer,
-                                                     "active", ENABLED_COLUMN, NULL);
+                                                     "active", ENABLED_COLUMN, (void*)NULL);
         gtk_tree_view_column_set_resizable(colEnable, TRUE);
         gtk_tree_view_column_set_expand(colPlaybackChan, TRUE);
         g_signal_connect(enableRenderer, "toggled", G_CALLBACK(channelEnable), me);
