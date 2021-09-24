@@ -4,8 +4,8 @@ from libc.stdint cimport int64_t, int32_t, uint32_t, uint8_t
 from posix.unistd cimport off_t
 import time
 
-cdef extern from "Python.h":
-    void PyEval_InitThreads()
+cdef extern from "zcm/python/zcm-python.h":
+    void PyEval_InitThreads_CUSTOM()
 
 cdef extern from "zcm/zcm.h":
     cpdef enum zcm_return_codes:
@@ -89,7 +89,7 @@ cdef class ZCM:
     cdef zcm_t* zcm
     cdef object subscriptions
     def __cinit__(self, str url=""):
-        PyEval_InitThreads()
+        PyEval_InitThreads_CUSTOM()
         self.subscriptions = []
         self.zcm = zcm_create(url.encode('utf-8'))
     def __dealloc__(self):
