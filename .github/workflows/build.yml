@@ -24,3 +24,4 @@ jobs:
       - name: build docker
         run: |
             docker build -t zcm -f Dockerfile .
+            docker run --rm -it zcm:latest
