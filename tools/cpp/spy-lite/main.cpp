@@ -336,8 +336,8 @@ void *keyboard_thread_func(void *arg)
     if (tcsetattr(0, TCSANOW, &newt) < 0)
         perror("tcsetattr ICANON");
 
-    char ch;
-    while(!quit) {
+    char ch[3];
+    while (!quit) {
         fd_set fds;
         FD_ZERO(&fds);
         FD_SET(0, &fds);
@@ -345,15 +345,20 @@ void *keyboard_thread_func(void *arg)
         struct timeval timeout = { 0, SELECT_TIMEOUT };
         int status = select(1, &fds, 0, 0, &timeout);
 
-        if(quit)
-            break;
+        if (quit) break;
 
-        if(status != 0 && FD_ISSET(0, &fds)) {
+        if (status != 0 && FD_ISSET(0, &fds)) {
 
-            if(read(0, &ch, 1) < 0)
+            int ret = read(0, &ch, sizeof(ch) / sizeof(char));
+            if (ret < 0) {
                 perror ("read()");
-
-            spy->handleKeyboard(ch);
+                continue;
+            }
+            if (ret != 1) {
+                // treating all special characters as escape
+                ch[0] = ESCAPE_KEY;
+            }
+            spy->handleKeyboard(ch[0]);
 
         } else {
             DEBUG(4, "INFO: keyboard_thread_func select() timeout\n");
