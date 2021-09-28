@@ -15,6 +15,7 @@ public:
 
     void addMessage(u64 utime, const zcm_recv_buf_t *rbuf);
     float getHertz();
+    float getBandwidthBps();
     u64 getNumMsgs() { return num_msgs; }
 
     size_t getViewDepth();
@@ -33,7 +34,8 @@ private:
     TypeDb& db;
     string channel;
 
-    ExpiringQueue<u64, QUEUE_SIZE> queue;
+    // utime -> data size in bytes
+    ExpiringQueue<std::pair<uint64_t, size_t>, QUEUE_SIZE> queue;
     i64 hash = 0;
     u64 num_msgs = 0;
 
