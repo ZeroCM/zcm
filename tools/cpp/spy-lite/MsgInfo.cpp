@@ -73,18 +73,18 @@ void MsgInfo::ensureHash(i64 h)
 
 u64 MsgInfo::latestUtime()
 {
-    return queue.last();
+    return queue.last().first;
 }
 
 u64 MsgInfo::oldestUtime()
 {
-    return queue.first();
+    return queue.first().first;
 }
 
 void MsgInfo::removeOld()
 {
     u64 oldest_allowed = TimeUtil::utime() - QUEUE_PERIOD;
-    while (!queue.isEmpty() && queue.first() < oldest_allowed)
+    while (!queue.isEmpty() && queue.first().first < oldest_allowed)
         queue.dequeue();
 }
 
@@ -92,7 +92,7 @@ void MsgInfo::addMessage(u64 utime, const zcm_recv_buf_t *rbuf)
 {
     if (queue.isFull())
         queue.dequeue();
-    queue.enqueue(utime);
+    queue.enqueue({ utime, rbuf->data_size });
 
     num_msgs++;
 
@@ -132,4 +132,18 @@ float MsgInfo::getHertz()
         return std::numeric_limits<float>::infinity();
 
     return (float) (sz - 1) / ((float) dt / 1000000.0);
+}
+
+float MsgInfo::getBandwidthBps()
+{
+    removeOld();
+    if (queue.isEmpty())
+        return 0.0;
+
+    size_t total = 0;
+    size_t i = 0;
+    size_t sz = queue.getSize();
+    for (; i < sz; ++i) total += queue[i].second;
+
+    return (double)total / (double)i;
 }

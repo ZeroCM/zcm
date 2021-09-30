@@ -8,9 +8,11 @@ public:
     bool isFull();
     size_t getSize();
     void dequeue();
-    void enqueue(u64 utime);
+    void enqueue(T elt);
     T& first();
     T& last();
+    const T& operator[](int i) const;
+    T& operator[](int i);
 
 private:
     T queue[N];
@@ -52,10 +54,10 @@ void ExpiringQueue<T,N>::dequeue()
 }
 
 template<class T, size_t N>
-void ExpiringQueue<T,N>::enqueue(u64 utime)
+void ExpiringQueue<T,N>::enqueue(T elt)
 {
     assert(!isFull());
-    queue[back] = utime;
+    queue[back] = elt;
     back = (back+1) % N;
     if(front == back)
         full = true;
@@ -76,4 +78,16 @@ T& ExpiringQueue<T,N>::first()
 {
     assert(!isEmpty());
     return queue[front];
+}
+
+template<class T, size_t N>
+const T& ExpiringQueue<T,N>::operator[](int i) const
+{
+    return queue[(front + i) % N];
+}
+
+template<class T, size_t N>
+T& ExpiringQueue<T,N>::operator[](int i)
+{
+    return queue[(front + i) % N];
 }

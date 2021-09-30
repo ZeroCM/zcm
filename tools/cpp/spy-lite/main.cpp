@@ -19,8 +19,8 @@ enum class DisplayMode {
 
 struct SpyInfo
 {
-    SpyInfo(const char *path, bool debug)
-    : typedb(path, debug)
+    SpyInfo(const char *path, bool showBandwidth, bool debug)
+    : typedb(path, debug), showBandwidth(showBandwidth)
     {
     }
 
@@ -92,8 +92,13 @@ struct SpyInfo
 
     void displayOverview()
     {
-        printf("         %-28s\t%12s\t%8s\n", "Channel", "Num Messages", "Hz (ave)");
-        printf("   ----------------------------------------------------------------\n");
+        if (showBandwidth) {
+            printf("         %-31s%12s    %8s   %4s\n", "Channel", "Num Messages", "Hz (avg)", "KBps (avg)");
+            printf("   -----------------------------------------------------------------------------\n");
+        } else {
+            printf("         %-31s%12s    %8s\n", "Channel", "Num Messages", "Hz (avg)");
+            printf("    ----------------------------------------------------------------\n");
+        }
 
         DEBUG(5, "start-loop\n");
 
@@ -104,7 +109,13 @@ struct SpyInfo
             MsgInfo **minfo = lookup(minfomap, channel);
             assert(minfo != NULL);
             float hz = (*minfo)->getHertz();
-            printf("   %3zu)  %-28s\t%9" PRIu64 "\t%7.2f\n", i, channel.c_str(), (*minfo)->getNumMsgs(), hz);
+            printf("   %3zu)  %-31s%12" PRIu64 "    %7.2f",
+                   i, channel.c_str(), (*minfo)->getNumMsgs(), hz);
+            if (showBandwidth) {
+                float bandwidth = (*minfo)->getBandwidthBps() / 1024;
+                printf("     %7.2f", bandwidth);
+            }
+            printf("\n");
         }
 
         printf("\n");
@@ -286,12 +297,13 @@ struct SpyInfo
         }
     }
 
-private:
     vector<string>                  names;
     unordered_map<string, MsgInfo*> minfomap;
     TypeDb typedb;
 
     mutex mut;
+
+    bool showBandwidth;
 
     DisplayMode mode = DisplayMode::Overview;
     DisplayMode prev_mode = mode;
@@ -322,8 +334,8 @@ void *keyboard_thread_func(void *arg)
     if (tcsetattr(0, TCSANOW, &newt) < 0)
         perror("tcsetattr ICANON");
 
-    char ch;
-    while(!quit) {
+    char ch[3];
+    while (!quit) {
         fd_set fds;
         FD_ZERO(&fds);
         FD_SET(0, &fds);
@@ -331,15 +343,20 @@ void *keyboard_thread_func(void *arg)
         struct timeval timeout = { 0, SELECT_TIMEOUT };
         int status = select(1, &fds, 0, 0, &timeout);
 
-        if(quit)
-            break;
+        if (quit) break;
 
-        if(status != 0 && FD_ISSET(0, &fds)) {
+        if (status != 0 && FD_ISSET(0, &fds)) {
 
-            if(read(0, &ch, 1) < 0)
+            int ret = read(0, &ch, sizeof(ch) / sizeof(char));
+            if (ret < 0) {
                 perror ("read()");
-
-            spy->handleKeyboard(ch);
+                continue;
+            }
+            if (ret != 1) {
+                // treating all special characters as escape
+                ch[0] = ESCAPE_KEY;
+            }
+            spy->handleKeyboard(ch[0]);
 
         } else {
             DEBUG(4, "INFO: keyboard_thread_func select() timeout\n");
@@ -371,9 +388,15 @@ void printThreadFunc(SpyInfo *spy)
         usleep(period);
 
         clearscreen();
-        printf("  **************************************************************************** \n");
-        printf("  ******************************* ZCM-SPY-LITE ******************************* \n");
-        printf("  **************************************************************************** \n");
+        if (spy->showBandwidth) {
+            printf("  ******************************************************************************* \n");
+            printf("  ******************************** ZCM-SPY-LITE ********************************* \n");
+            printf("  ******************************************************************************* \n");
+        } else {
+            printf("  **************************************************************************** \n");
+            printf("  ******************************* ZCM-SPY-LITE ******************************* \n");
+            printf("  **************************************************************************** \n");
+        }
 
         spy->display();
 
@@ -412,16 +435,18 @@ struct Args
     const char *zcmtypes_path = nullptr;
     vector<string> channels;
     bool debug = false;
+    bool showBandwidth = false;
 
     bool parse(int argc, char *argv[])
     {
         // set some defaults
-        const char *optstring = "hu:p:c:d";
+        const char *optstring = "hu:p:c:bd";
         struct option long_opts[] = {
             { "help",            no_argument, 0, 'h' },
             { "zcm-url",   required_argument, 0, 'u' },
             { "type-path", required_argument, 0, 'p' },
             { "channel",   required_argument, 0, 'c' },
+            { "bandwidth",       no_argument, 0, 'b' },
             { "debug",           no_argument, 0, 'd' },
             { 0, 0, 0, 0 }
         };
@@ -430,9 +455,10 @@ struct Args
         while ((c = getopt_long (argc, argv, optstring, long_opts, 0)) >= 0) {
             switch (c) {
                 case 'u': zcmurl        = optarg; break;
-                case 'd': debug         = true;   break;
                 case 'p': zcmtypes_path = optarg; break;
                 case 'c': channels.push_back(optarg); break;
+                case 'b': showBandwidth = true;   break;
+                case 'd': debug         = true;   break;
                 case 'h': default: usage(); return false;
             };
         }
@@ -457,6 +483,7 @@ struct Args
                 "  -u, --zcm-url=URL          Log messages on the specified ZCM URL\n"
                 "  -p, --type-path=PATH       Path to a shared library containing the zcmtypes\n"
                 "  -c, --channel=CHANNEL      Channel to subscribe to. Can be specified more than once\n"
+                "  -b, --bandwidth            Calculate and show bandwidth of each channel\n"
                 "  -d, --debug                Run a dry run to ensure proper spy setup\n"
                 "\n");
     }
@@ -465,16 +492,13 @@ struct Args
 int main(int argc, char *argv[])
 {
     DEBUG_INIT();
-    bool debug = false;
 
     Args args;
     if (!args.parse(argc, argv)) return 1;
 
-    if (args.debug) debug = true;
-
     // Get path to zcmtypes.so from args if defined; otherwise from $ZCM_SPY_LITE_PATH
     const char *spy_lite_path = args.zcmtypes_path ? args.zcmtypes_path : getenv("ZCM_SPY_LITE_PATH");
-    if (debug)
+    if (args.debug)
         printf("zcm_spy_lite_path='%s'\n", spy_lite_path);
     if (spy_lite_path == NULL) {
         fprintf(stderr, "ERR: zcmtypes.so path not set! Try using -p PATH or set $ZCM_SPY_LITE_PATH  \n");
@@ -482,13 +506,13 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    SpyInfo spy {spy_lite_path, debug};
+    SpyInfo spy {spy_lite_path, args.showBandwidth, args.debug};
     if (!spy.good()) {
         fprintf(stderr, "ERR: Failed to load all specified zcmtype libs\n");
         fflush(stderr);
         exit(1);
     }
-    if (debug) exit(0);
+    if (args.debug) exit(0);
 
     signal(SIGINT, sighandler);
     signal(SIGQUIT, sighandler);
