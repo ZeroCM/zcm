@@ -96,8 +96,6 @@ struct SpyInfo
             printf("         %-31s%12s    %8s   %4s\n", "Channel", "Num Messages", "Hz (avg)", "KBps (avg)");
             printf("   -----------------------------------------------------------------------------\n");
         } else {
-            //printf("         %-28s\t%12s\t%8s\n", "Channel", "Num Messages", "Hz (avg)");
-            //printf("   ----------------------------------------------------------------\n");
             printf("         %-31s%12s    %8s\n", "Channel", "Num Messages", "Hz (avg)");
             printf("    ----------------------------------------------------------------\n");
         }
