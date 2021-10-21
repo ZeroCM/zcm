@@ -59,30 +59,30 @@ int serial_sendmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t msg)
     if (msg.len > zt->mtu)                                           return ZCM_EINVALID;
     if (FRAME_BYTES + chan_len + msg.len > cb_room(&zt->sendBuffer)) return ZCM_EAGAIN;
 
-    cb_push(&zt->sendBuffer, ZCM_GENERIC_SERIAL_ESCAPE_CHAR); ++nPushed;
-    cb_push(&zt->sendBuffer, 0x00);                           ++nPushed;
-    cb_push(&zt->sendBuffer, chan_len);                       ++nPushed;
+    cb_push_back(&zt->sendBuffer, ZCM_GENERIC_SERIAL_ESCAPE_CHAR); ++nPushed;
+    cb_push_back(&zt->sendBuffer, 0x00);                           ++nPushed;
+    cb_push_back(&zt->sendBuffer, chan_len);                       ++nPushed;
 
     uint32_t len = (uint32_t)msg.len;
-    cb_push(&zt->sendBuffer, (len>>24)&0xff); ++nPushed;
-    cb_push(&zt->sendBuffer, (len>>16)&0xff); ++nPushed;
-    cb_push(&zt->sendBuffer, (len>> 8)&0xff); ++nPushed;
-    cb_push(&zt->sendBuffer, (len>> 0)&0xff); ++nPushed;
+    cb_push_back(&zt->sendBuffer, (len>>24)&0xff); ++nPushed;
+    cb_push_back(&zt->sendBuffer, (len>>16)&0xff); ++nPushed;
+    cb_push_back(&zt->sendBuffer, (len>> 8)&0xff); ++nPushed;
+    cb_push_back(&zt->sendBuffer, (len>> 0)&0xff); ++nPushed;
 
     uint16_t checksum = 0xffff;
     size_t i;
     for (i = 0; i < chan_len; ++i) {
         uint8_t c = (uint8_t) msg.channel[i];
 
-        cb_push(&zt->sendBuffer, c); ++nPushed;
+        cb_push_back(&zt->sendBuffer, c); ++nPushed;
 
         if (c == ZCM_GENERIC_SERIAL_ESCAPE_CHAR) {
         	// the escape character doesn't count, so we have chan_len - i characters
         	// remaining in channel + the msg + the checksum.
             if (cb_room(&zt->sendBuffer) > chan_len - i + msg.len + 1) {
-                cb_push(&zt->sendBuffer, c); ++nPushed;
+                cb_push_back(&zt->sendBuffer, c); ++nPushed;
             } else {
-                cb_pop(&zt->sendBuffer, nPushed);
+                cb_pop_back(&zt->sendBuffer, nPushed);
                 return ZCM_EAGAIN;
             }
         }
@@ -93,15 +93,15 @@ int serial_sendmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t msg)
     for (i = 0; i < msg.len; ++i) {
         uint8_t c = (uint8_t) msg.buf[i];
 
-        cb_push(&zt->sendBuffer, c); ++nPushed;
+        cb_push_back(&zt->sendBuffer, c); ++nPushed;
 
         if (c == ZCM_GENERIC_SERIAL_ESCAPE_CHAR) {
         	// the escape character doesn't count, so we have msg.len - i characters
         	// remaining in the msg + the checksum.
             if (cb_room(&zt->sendBuffer) > msg.len - i + 1) {
-                cb_push(&zt->sendBuffer, c); ++nPushed;
+                cb_push_back(&zt->sendBuffer, c); ++nPushed;
             } else {
-                cb_pop(&zt->sendBuffer, nPushed);
+                cb_pop_back(&zt->sendBuffer, nPushed);
                 return ZCM_EAGAIN;
             }
         }
@@ -109,8 +109,8 @@ int serial_sendmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t msg)
         checksum = fletcherUpdate(c, checksum);
     }
 
-    cb_push(&zt->sendBuffer, (checksum >> 8) & 0xff); ++nPushed;
-    cb_push(&zt->sendBuffer,  checksum       & 0xff); ++nPushed;
+    cb_push_back(&zt->sendBuffer, (checksum >> 8) & 0xff); ++nPushed;
+    cb_push_back(&zt->sendBuffer,  checksum       & 0xff); ++nPushed;
 
     return ZCM_EOK;
 }
@@ -138,15 +138,15 @@ int serial_recvmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t *msg, int timeout)
     uint16_t receivedCS = 0;
 
     // Sync
-    if (cb_top(&zt->recvBuffer, consumed++) != ZCM_GENERIC_SERIAL_ESCAPE_CHAR) goto fail;
-    if (cb_top(&zt->recvBuffer, consumed++) != 0x00)                           goto fail;
+    if (cb_front(&zt->recvBuffer, consumed++) != ZCM_GENERIC_SERIAL_ESCAPE_CHAR) goto fail;
+    if (cb_front(&zt->recvBuffer, consumed++) != 0x00)                           goto fail;
 
     // Msg sizes
-    chan_len  = cb_top(&zt->recvBuffer, consumed++);
-    msg->len  = ((uint32_t) cb_top(&zt->recvBuffer, consumed++)) << 24;
-    msg->len |= ((uint32_t) cb_top(&zt->recvBuffer, consumed++)) << 16;
-    msg->len |= ((uint32_t) cb_top(&zt->recvBuffer, consumed++)) << 8;
-    msg->len |= cb_top(&zt->recvBuffer, consumed++);
+    chan_len  = cb_front(&zt->recvBuffer, consumed++);
+    msg->len  = ((uint32_t) cb_front(&zt->recvBuffer, consumed++)) << 24;
+    msg->len |= ((uint32_t) cb_front(&zt->recvBuffer, consumed++)) << 16;
+    msg->len |= ((uint32_t) cb_front(&zt->recvBuffer, consumed++)) << 8;
+    msg->len |= cb_front(&zt->recvBuffer, consumed++);
 
     if (chan_len > ZCM_CHANNEL_MAXLEN)     goto fail;
     if (msg->len > zt->mtu)                goto fail;
@@ -159,14 +159,14 @@ int serial_recvmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t *msg, int timeout)
     int i;
     for (i = 0; i < chan_len; ++i) {
 
-        uint8_t c = cb_top(&zt->recvBuffer, consumed++);
+        uint8_t c = cb_front(&zt->recvBuffer, consumed++);
 
         if (c == ZCM_GENERIC_SERIAL_ESCAPE_CHAR) {
         	// the escape character doesn't count, so we have chan_len - i characters
         	// remaining in channel + the msg + the checksum.
             if (consumed + chan_len - i + msg->len + 2 > incomingSize) return ZCM_EAGAIN;
 
-            c = cb_top(&zt->recvBuffer, consumed++);
+            c = cb_front(&zt->recvBuffer, consumed++);
 
             if (c != ZCM_GENERIC_SERIAL_ESCAPE_CHAR) {
                 consumed-=2;
@@ -183,14 +183,14 @@ int serial_recvmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t *msg, int timeout)
     for (i = 0; i < msg->len; ++i) {
         if (consumed > incomingSize) return ZCM_EAGAIN;
 
-        uint8_t c = cb_top(&zt->recvBuffer, consumed++);
+        uint8_t c = cb_front(&zt->recvBuffer, consumed++);
 
         if (c == ZCM_GENERIC_SERIAL_ESCAPE_CHAR) {
         	// the escape character doesn't count, so we have msg.len - i characters
         	// remaining in the msg + the checksum.
             if (consumed + msg->len - i + 2 > incomingSize) return ZCM_EAGAIN;
 
-            c = cb_top(&zt->recvBuffer, consumed++);
+            c = cb_front(&zt->recvBuffer, consumed++);
 
             if (c != ZCM_GENERIC_SERIAL_ESCAPE_CHAR) {
                 consumed-=2;
@@ -202,19 +202,19 @@ int serial_recvmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t *msg, int timeout)
         checksum = fletcherUpdate(c, checksum);
     }
 
-    expectedHighCS = cb_top(&zt->recvBuffer, consumed++);
-    expectedLowCS  = cb_top(&zt->recvBuffer, consumed++);
+    expectedHighCS = cb_front(&zt->recvBuffer, consumed++);
+    expectedLowCS  = cb_front(&zt->recvBuffer, consumed++);
     receivedCS = (expectedHighCS << 8) | expectedLowCS;
     if (receivedCS == checksum) {
         msg->channel = (char*) zt->recvChanName;
         msg->buf     = zt->recvMsgData;
         msg->utime   = utime;
-        cb_pop(&zt->recvBuffer, consumed);
+        cb_pop_front(&zt->recvBuffer, consumed);
         return ZCM_EOK;
     }
 
   fail:
-    cb_pop(&zt->recvBuffer, consumed);
+    cb_pop_front(&zt->recvBuffer, consumed);
     // Note: because this is a nonblocking transport, timeout is ignored, so we don't need
     //       to subtract the time used here
     return serial_recvmsg(zt, msg, timeout);

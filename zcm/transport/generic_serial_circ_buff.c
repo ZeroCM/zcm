@@ -36,28 +36,35 @@ size_t cb_room(const circBuffer_t* cb)
     return cb->capacity - 1 - cb_size(cb);
 }
 
-void cb_push(circBuffer_t* cb, uint8_t d)
+void cb_push_back(circBuffer_t* cb, uint8_t d)
 {
-    ASSERT((cb->capacity > cb_size(cb) + 1) && "cb_push 1");
-    ASSERT((cb_room(cb) > 0) && "cb_push 2");
+    ASSERT((cb->capacity > cb_size(cb) + 1) && "cb_push_back 1");
+    ASSERT((cb_room(cb) > 0) && "cb_push_back 2");
     cb->data[cb->back++] = d;
-    ASSERT((cb->back <= cb->capacity) && "cb_push 3");
+    ASSERT((cb->back <= cb->capacity) && "cb_push_back 3");
     if (cb->back == cb->capacity) cb->back = 0;
 }
 
-uint8_t cb_top(const circBuffer_t* cb, size_t offset)
+uint8_t cb_front(const circBuffer_t* cb, size_t offset)
 {
-    ASSERT((cb_size(cb) > offset) && "cb_top 1");
+    ASSERT((cb_size(cb) > offset) && "cb_front 1");
     size_t idx = cb->front + offset;
     if (idx >= cb->capacity) idx -= cb->capacity;
     return cb->data[idx];
 }
 
-void cb_pop(circBuffer_t* cb, size_t num)
+void cb_pop_front(circBuffer_t* cb, size_t num)
 {
-    ASSERT((cb_size(cb) >= num) && "cb_pop 1");
+    ASSERT((cb_size(cb) >= num) && "cb_pop_front 1");
     cb->front += num;
     if (cb->front >= cb->capacity) cb->front -= cb->capacity;
+}
+
+void cb_pop_back(circBuffer_t* cb, size_t num)
+{
+    ASSERT((cb_size(cb) >= num) && "cb_pop_back 1");
+    if (cb->back < num) cb->back = cb->capacity - (num - cb->back);
+    else cb->back -= num;
 }
 
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
@@ -76,7 +83,7 @@ size_t cb_flush_out(circBuffer_t* cb,
 
     n = write(cb->data + cb->front, contiguous, usr);
     written += n;
-    cb_pop(cb, n);
+    cb_pop_front(cb, n);
 
     // If we failed to write everything we tried to write, or if there's nothing
     // left to write, return.
@@ -84,7 +91,7 @@ size_t cb_flush_out(circBuffer_t* cb,
 
     n = write(cb->data, wrapped, usr);
     written += n;
-    cb_pop(cb, n);
+    cb_pop_front(cb, n);
     return written;
 }
 

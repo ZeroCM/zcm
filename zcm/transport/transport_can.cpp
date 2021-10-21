@@ -148,13 +148,13 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         struct can_frame frame;
         frame.can_id = me->msgId | CAN_EFF_FLAG;
 
-        size_t ret = min(nData, (size_t) 8);
+        size_t ret = min(nData, (size_t) CAN_MAX_DLEN);
         frame.can_dlc = ret;
         memcpy(frame.data, data, ret);
 
         if (write(me->soc, &frame, sizeof(struct can_frame)) != sizeof(struct can_frame)) {
             ZCM_DEBUG("Failed to write data");
-            return -1;
+            return 0;
         }
 
         return ret;
@@ -166,7 +166,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         while (ret < nData) {
             size_t left = nData - ret;
             size_t written = sendFrame(&data[ret], left, usr);
-            if (written <= 0) return ret;
+            if (written == 0) return ret;
             ret += written;
         }
         return ret;

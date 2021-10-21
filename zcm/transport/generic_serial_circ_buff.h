@@ -30,11 +30,13 @@ size_t cb_size(const circBuffer_t* cb);
 
 size_t cb_room(const circBuffer_t* cb);
 
-void cb_push(circBuffer_t* cb, uint8_t d);
+void cb_push_back(circBuffer_t* cb, uint8_t d);
 
-uint8_t cb_top(const circBuffer_t* cb, size_t offset);
+uint8_t cb_front(const circBuffer_t* cb, size_t offset);
 
-void cb_pop(circBuffer_t* cb, size_t num);
+void cb_pop_back(circBuffer_t* cb, size_t num);
+
+void cb_pop_front(circBuffer_t* cb, size_t num);
 
 size_t cb_flush_out(circBuffer_t* cb,
                     size_t (*write)(const uint8_t* data, size_t num, void* usr),
