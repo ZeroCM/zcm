@@ -10,6 +10,7 @@ extern "C" {
 #endif
 
 #define   ZCM_CORETYPES_INT8_NUM_BYTES_ON_BUS (1)
+#define   ZCM_CORETYPES_INT8_NUM_BITS_ON_BUS (ZCM_CORETYPES_INT8_NUM_BYTES_ON_BUS * 8)
 #define  ZCM_CORETYPES_INT16_NUM_BYTES_ON_BUS (2)
 #define  ZCM_CORETYPES_INT32_NUM_BYTES_ON_BUS (4)
 #define  ZCM_CORETYPES_INT64_NUM_BYTES_ON_BUS (8)
@@ -48,8 +49,8 @@ struct ___zcm_hash_ptr
 
 static inline uint32_t __bitfield_encoded_size(uint32_t numbits)
 {
-    uint8_t size = numbits / ZCM_CORETYPES_INT8_NUM_BYTES_ON_BUS;
-    if (numbits - size != 0) ++size;
+    uint32_t size = numbits / ZCM_CORETYPES_INT8_NUM_BITS_ON_BUS;
+    if (numbits - size * ZCM_CORETYPES_INT8_NUM_BITS_ON_BUS != 0) ++size;
     return size;
 }
 
@@ -79,7 +80,7 @@ static inline int __byte_encode_array(void *_buf, uint32_t offset, uint32_t maxl
 
 // returns number of bits consumed
 static inline int __byte_encode_array_bits(void *_buf, uint32_t offset_bytes, uint32_t offset_bits, uint32_t maxbytes,
-                                           const uint8_t *p, uint32_t elements, uint8_t numbits)
+                                           const uint8_t *p, uint32_t elements, uint32_t numbits)
 {
     uint32_t total_bits = elements * numbits;
     if (maxbytes < __bitfield_encoded_size(total_bits)) return -1;
@@ -91,20 +92,22 @@ static inline int __byte_encode_array_bits(void *_buf, uint32_t offset_bytes, ui
     uint8_t *buf = (uint8_t*) _buf;
 
     for (element = 0; element < elements; ++element) {
+        uint32_t bitsleft = numbits;
         do {
             if (pos_bit == 0) buf[pos_byte] = 0;
-            uint8_t mask = (1 << numbits) - 1;
-            int shift = (int32_t)(pos_bit + numbits) - ZCM_CORETYPES_INT8_NUM_BYTES_ON_BUS;
+            uint8_t mask = ((uint8_t)1 << bitsleft) - 1;
+            int32_t shift = (int32_t)(pos_bit + bitsleft) - ZCM_CORETYPES_INT8_NUM_BITS_ON_BUS;
             if (shift < 0) {
+                shift = -shift;
                 buf[pos_byte] |= (p[element] << shift) & (mask << shift);
-                pos_bit += numbits;
+                pos_bit += bitsleft;
                 break;
             }
             buf[pos_byte] |= (p[element] >> shift) & (mask >> shift);
-            numbits = shift;
+            bitsleft = shift;
             pos_bit = 0;
             ++pos_byte;
-        } while(numbits > 0);
+        } while(bitsleft > 0);
     }
 
     return total_bits;
