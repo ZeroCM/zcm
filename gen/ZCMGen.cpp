@@ -93,6 +93,10 @@ size_t ZCMGen::getPrimitiveTypeSize(const string& tn)
     }
     return iter->second;
 }
+size_t ZCMGen::getPrimitiveTypeNumBits(const string& tn)
+{
+    return getPrimitiveTypeSize(tn) * 8;
+}
 
 static bool isLegalMemberName(const string& t)
 {
@@ -173,6 +177,8 @@ ZCMConstant::ZCMConstant(const string& type, const string& name, const string& v
     type(type), membername(name), valstr(valstr)
 {}
 
+bool ZCMTypename::isFixedPoint() const { return inArray(fixedPointTypes, fullname); }
+
 bool ZCMConstant::isFixedPoint() const { return inArray(fixedPointTypes, type); }
 
 u64 ZCMStruct::computeHash() const
@@ -194,8 +200,13 @@ u64 ZCMStruct::computeHash() const
         // signature in the hash. Do not include them for compound
         // members, because their contents will be included, and we
         // don't want a struct's name change to break the hash.
-        if (ZCMGen::isPrimitiveType(m.type.fullname))
+        if (ZCMGen::isPrimitiveType(m.type.fullname)) {
             v = hashUpdate(v, m.type.fullname);
+
+            if (m.type.numbits != 0) {
+                v = hashUpdate(v, (char)m.type.numbits);
+            }
+        }
 
         // hash the dimensionality information
         v = hashUpdate(v, m.dimensions.size());
@@ -453,6 +464,21 @@ static int parseMember(ZCMGen& zcmgen, ZCMStruct& zs, tokenize_t* t)
     }
 
     ZCMTypename zt {zcmgen, type, true};
+
+    // Check if a bitfield
+    if (parseTryConsume(t, ":")) {
+        if (!zt.isFixedPoint()) {
+            semantic_error(t, "Cannot specify number of bits on a non fixed point type.");
+        }
+        tokenizeNextOrFail(t, "bit length");
+        zt.numbits = atoi(t->token);
+        if (zt.numbits == 0) {
+            semantic_error(t, "Failed to parse length of bit field: %s", t->token);
+        } else if (zt.numbits > zcmgen.getPrimitiveTypeNumBits(zt.fullname)) {
+            semantic_error(t, "Specified bit length larger than member type: %u > %u",
+                           zt.numbits, zcmgen.getPrimitiveTypeNumBits(zt.fullname));
+        }
+    }
 
     do {
         // get the zcm type name

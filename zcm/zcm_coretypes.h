@@ -46,6 +46,13 @@ struct ___zcm_hash_ptr
 #define __boolean_decode_little_endian_array __int8_t_decode_little_endian_array
 #define __boolean_clone_array __int8_t_clone_array
 
+static inline uint32_t __bitfield_encoded_size(uint32_t numbits)
+{
+    uint8_t size = numbits / ZCM_CORETYPES_INT8_NUM_BYTES_ON_BUS;
+    if (numbits - size != 0) ++size;
+    return size;
+}
+
 /**
  * BYTE
  */
@@ -60,7 +67,9 @@ static inline uint32_t __byte_encoded_array_size(const uint8_t *p, uint32_t elem
 
 static inline int __byte_encode_array(void *_buf, uint32_t offset, uint32_t maxlen, const uint8_t *p, uint32_t elements)
 {
-    if (maxlen < elements) return -1;
+    uint32_t total_size = __byte_encoded_array_size(p, elements);
+
+    if (maxlen < total_size) return -1;
 
     uint8_t *buf = (uint8_t*) _buf;
     memcpy(&buf[offset], p, elements);
@@ -68,9 +77,44 @@ static inline int __byte_encode_array(void *_buf, uint32_t offset, uint32_t maxl
     return elements;
 }
 
+// returns number of bits consumed
+static inline int __byte_encode_array_bits(void *_buf, uint32_t offset_bytes, uint32_t offset_bits, uint32_t maxbytes,
+                                           const uint8_t *p, uint32_t elements, uint8_t numbits)
+{
+    uint32_t total_bits = elements * numbits;
+    if (maxbytes < __bitfield_encoded_size(total_bits)) return -1;
+
+    uint32_t pos_byte = offset_bytes;
+    uint32_t pos_bit = offset_bits;
+    uint32_t element = 0;
+
+    uint8_t *buf = (uint8_t*) _buf;
+
+    for (element = 0; element < elements; ++element) {
+        do {
+            if (pos_bit == 0) buf[pos_byte] = 0;
+            uint8_t mask = (1 << numbits) - 1;
+            int shift = (int32_t)(pos_bit + numbits) - ZCM_CORETYPES_INT8_NUM_BYTES_ON_BUS;
+            if (shift < 0) {
+                buf[pos_byte] |= (p[element] << shift) & (mask << shift);
+                pos_bit += numbits;
+                break;
+            }
+            buf[pos_byte] |= (p[element] >> shift) & (mask >> shift);
+            numbits = shift;
+            pos_bit = 0;
+            ++pos_byte;
+        } while(numbits > 0);
+    }
+
+    return total_bits;
+}
+
 static inline int __byte_decode_array(const void *_buf, uint32_t offset, uint32_t maxlen, uint8_t *p, uint32_t elements)
 {
-    if (maxlen < elements) return -1;
+    uint32_t total_size = __byte_encoded_array_size(p, elements);
+
+    if (maxlen < total_size) return -1;
 
     uint8_t *buf = (uint8_t*) _buf;
     memcpy(p, &buf[offset], elements);
@@ -108,7 +152,9 @@ static inline uint32_t __int8_t_encoded_array_size(const int8_t *p, uint32_t ele
 
 static inline int __int8_t_encode_array(void *_buf, uint32_t offset, uint32_t maxlen, const int8_t *p, uint32_t elements)
 {
-    if (maxlen < elements) return -1;
+    uint32_t total_size = __int8_t_encoded_array_size(p, elements);
+
+    if (maxlen < total_size) return -1;
 
     int8_t *buf = (int8_t*) _buf;
     memcpy(&buf[offset], p, elements);
@@ -118,7 +164,9 @@ static inline int __int8_t_encode_array(void *_buf, uint32_t offset, uint32_t ma
 
 static inline int __int8_t_decode_array(const void *_buf, uint32_t offset, uint32_t maxlen, int8_t *p, uint32_t elements)
 {
-    if (maxlen < elements) return -1;
+    uint32_t total_size = __int8_t_encoded_array_size(p, elements);
+
+    if (maxlen < total_size) return -1;
 
     int8_t *buf = (int8_t*) _buf;
     memcpy(p, &buf[offset], elements);
@@ -157,7 +205,7 @@ static inline uint32_t __int16_t_encoded_array_size(const int16_t *p, uint32_t e
 
 static inline int __int16_t_encode_array(void *_buf, uint32_t offset, uint32_t maxlen, const int16_t *p, uint32_t elements)
 {
-    uint32_t total_size = ZCM_CORETYPES_INT16_NUM_BYTES_ON_BUS * elements;
+    uint32_t total_size = __int16_t_encoded_array_size(p, elements);
     uint8_t *buf = (uint8_t*) _buf;
     uint32_t pos = offset;
     uint32_t element;
@@ -176,7 +224,7 @@ static inline int __int16_t_encode_array(void *_buf, uint32_t offset, uint32_t m
 
 static inline int __int16_t_decode_array(const void *_buf, uint32_t offset, uint32_t maxlen, int16_t *p, uint32_t elements)
 {
-    uint32_t total_size = ZCM_CORETYPES_INT16_NUM_BYTES_ON_BUS * elements;
+    uint32_t total_size = __int16_t_encoded_array_size(p, elements);
     uint8_t *buf = (uint8_t*) _buf;
     uint32_t pos = offset;
     uint32_t element;
@@ -193,7 +241,7 @@ static inline int __int16_t_decode_array(const void *_buf, uint32_t offset, uint
 
 static inline int __int16_t_encode_little_endian_array(void *_buf, uint32_t offset, uint32_t maxlen, const int16_t *p, uint32_t elements)
 {
-    uint32_t total_size = ZCM_CORETYPES_INT16_NUM_BYTES_ON_BUS * elements;
+    uint32_t total_size = __int16_t_encoded_array_size(p, elements);
     uint8_t *buf = (uint8_t*) _buf;
     uint32_t pos = offset;
     uint32_t element;
@@ -212,7 +260,7 @@ static inline int __int16_t_encode_little_endian_array(void *_buf, uint32_t offs
 
 static inline int __int16_t_decode_little_endian_array(const void *_buf, uint32_t offset, uint32_t maxlen, int16_t *p, uint32_t elements)
 {
-    uint32_t total_size = ZCM_CORETYPES_INT16_NUM_BYTES_ON_BUS * elements;
+    uint32_t total_size = __int16_t_encoded_array_size(p, elements);
     uint8_t *buf = (uint8_t*) _buf;
     uint32_t pos = offset;
     uint32_t element;
@@ -248,7 +296,7 @@ static inline uint32_t __int32_t_encoded_array_size(const int32_t *p, uint32_t e
 
 static inline int __int32_t_encode_array(void *_buf, uint32_t offset, uint32_t maxlen, const int32_t *p, uint32_t elements)
 {
-    uint32_t total_size = ZCM_CORETYPES_INT32_NUM_BYTES_ON_BUS * elements;
+    uint32_t total_size = __int32_t_encoded_array_size(p, elements);
     uint8_t *buf = (uint8_t*) _buf;
     uint32_t pos = offset;
     uint32_t element;
@@ -269,7 +317,7 @@ static inline int __int32_t_encode_array(void *_buf, uint32_t offset, uint32_t m
 
 static inline int __int32_t_decode_array(const void *_buf, uint32_t offset, uint32_t maxlen, int32_t *p, uint32_t elements)
 {
-    uint32_t total_size = ZCM_CORETYPES_INT32_NUM_BYTES_ON_BUS * elements;
+    uint32_t total_size = __int32_t_encoded_array_size(p, elements);
     uint8_t *buf = (uint8_t*) _buf;
     uint32_t pos = offset;
     uint32_t element;
@@ -289,7 +337,7 @@ static inline int __int32_t_decode_array(const void *_buf, uint32_t offset, uint
 
 static inline int __int32_t_encode_little_endian_array(void *_buf, uint32_t offset, uint32_t maxlen, const int32_t *p, uint32_t elements)
 {
-    uint32_t total_size = ZCM_CORETYPES_INT32_NUM_BYTES_ON_BUS * elements;
+    uint32_t total_size = __int32_t_encoded_array_size(p, elements);
     uint8_t *buf = (uint8_t*) _buf;
     uint32_t pos = offset;
     uint32_t element;
@@ -310,7 +358,7 @@ static inline int __int32_t_encode_little_endian_array(void *_buf, uint32_t offs
 
 static inline int __int32_t_decode_little_endian_array(const void *_buf, uint32_t offset, uint32_t maxlen, int32_t *p, uint32_t elements)
 {
-    uint32_t total_size = ZCM_CORETYPES_INT32_NUM_BYTES_ON_BUS * elements;
+    uint32_t total_size = __int32_t_encoded_array_size(p, elements);
     uint8_t *buf = (uint8_t*) _buf;
     uint32_t pos = offset;
     uint32_t element;
@@ -349,7 +397,7 @@ static inline uint32_t __int64_t_encoded_array_size(const int64_t *p, uint32_t e
 
 static inline int __int64_t_encode_array(void *_buf, uint32_t offset, uint32_t maxlen, const int64_t *p, uint32_t elements)
 {
-    uint32_t total_size = ZCM_CORETYPES_INT64_NUM_BYTES_ON_BUS * elements;
+    uint32_t total_size = __int64_t_encoded_array_size(p, elements);
     uint8_t *buf = (uint8_t*) _buf;
     uint32_t pos = offset;
     uint32_t element;
@@ -374,7 +422,7 @@ static inline int __int64_t_encode_array(void *_buf, uint32_t offset, uint32_t m
 
 static inline int __int64_t_decode_array(const void *_buf, uint32_t offset, uint32_t maxlen, int64_t *p, uint32_t elements)
 {
-    uint32_t total_size = ZCM_CORETYPES_INT64_NUM_BYTES_ON_BUS * elements;
+    uint32_t total_size = __int64_t_encoded_array_size(p, elements);
     uint8_t *buf = (uint8_t*) _buf;
     uint32_t pos = offset;
     uint32_t element;
@@ -400,7 +448,7 @@ static inline int __int64_t_decode_array(const void *_buf, uint32_t offset, uint
 
 static inline int __int64_t_encode_little_endian_array(void *_buf, uint32_t offset, uint32_t maxlen, const int64_t *p, uint32_t elements)
 {
-    uint32_t total_size = ZCM_CORETYPES_INT64_NUM_BYTES_ON_BUS * elements;
+    uint32_t total_size = __int64_t_encoded_array_size(p, elements);
     uint8_t *buf = (uint8_t*) _buf;
     uint32_t pos = offset;
     uint32_t element;
@@ -425,7 +473,7 @@ static inline int __int64_t_encode_little_endian_array(void *_buf, uint32_t offs
 
 static inline int __int64_t_decode_little_endian_array(const void *_buf, uint32_t offset, uint32_t maxlen, int64_t *p, uint32_t elements)
 {
-    uint32_t total_size = ZCM_CORETYPES_INT64_NUM_BYTES_ON_BUS * elements;
+    uint32_t total_size = __int64_t_encoded_array_size(p, elements);
     uint8_t *buf = (uint8_t*) _buf;
     uint32_t pos = offset;
     uint32_t element;
@@ -475,7 +523,7 @@ static inline uint32_t __float_encoded_array_size(const float *p, uint32_t eleme
 
 static inline int __float_encode_array(void *_buf, uint32_t offset, uint32_t maxlen, const float *p, uint32_t elements)
 {
-    uint32_t total_size = ZCM_CORETYPES_FLOAT_NUM_BYTES_ON_BUS * elements;
+    uint32_t total_size = __float_encoded_array_size(p, elements);
     uint8_t *buf = (uint8_t*) _buf;
     uint32_t pos = offset;
     uint32_t element;
@@ -496,7 +544,7 @@ static inline int __float_encode_array(void *_buf, uint32_t offset, uint32_t max
 
 static inline int __float_decode_array(const void *_buf, uint32_t offset, uint32_t maxlen, float *p, uint32_t elements)
 {
-    uint32_t total_size = ZCM_CORETYPES_FLOAT_NUM_BYTES_ON_BUS * elements;
+    uint32_t total_size = __float_encoded_array_size(p, elements);
     uint8_t *buf = (uint8_t*) _buf;
     uint32_t pos = offset;
     uint32_t element;
@@ -518,7 +566,7 @@ static inline int __float_decode_array(const void *_buf, uint32_t offset, uint32
 
 static inline int __float_encode_little_endian_array(void *_buf, uint32_t offset, uint32_t maxlen, const float *p, uint32_t elements)
 {
-    uint32_t total_size = ZCM_CORETYPES_FLOAT_NUM_BYTES_ON_BUS * elements;
+    uint32_t total_size = __float_encoded_array_size(p, elements);
     uint8_t *buf = (uint8_t*) _buf;
     uint32_t pos = offset;
     uint32_t element;
@@ -539,7 +587,7 @@ static inline int __float_encode_little_endian_array(void *_buf, uint32_t offset
 
 static inline int __float_decode_little_endian_array(const void *_buf, uint32_t offset, uint32_t maxlen, float *p, uint32_t elements)
 {
-    uint32_t total_size = ZCM_CORETYPES_FLOAT_NUM_BYTES_ON_BUS * elements;
+    uint32_t total_size = __float_encoded_array_size(p, elements);
     uint8_t *buf = (uint8_t*) _buf;
     uint32_t pos = offset;
     uint32_t element;
@@ -585,7 +633,7 @@ static inline uint32_t __double_encoded_array_size(const double *p, uint32_t ele
 
 static inline int __double_encode_array(void *_buf, uint32_t offset, uint32_t maxlen, const double *p, uint32_t elements)
 {
-    uint32_t total_size = ZCM_CORETYPES_DOUBLE_NUM_BYTES_ON_BUS * elements;
+    uint32_t total_size = __double_encoded_array_size(p, elements);
     uint8_t *buf = (uint8_t*) _buf;
     uint32_t pos = offset;
     uint32_t element;
@@ -610,7 +658,7 @@ static inline int __double_encode_array(void *_buf, uint32_t offset, uint32_t ma
 
 static inline int __double_decode_array(const void *_buf, uint32_t offset, uint32_t maxlen, double *p, uint32_t elements)
 {
-    uint32_t total_size = ZCM_CORETYPES_DOUBLE_NUM_BYTES_ON_BUS * elements;
+    uint32_t total_size = __double_encoded_array_size(p, elements);
     uint8_t *buf = (uint8_t*) _buf;
     uint32_t pos = offset;
     uint32_t element;
@@ -638,7 +686,7 @@ static inline int __double_decode_array(const void *_buf, uint32_t offset, uint3
 
 static inline int __double_encode_little_endian_array(void *_buf, uint32_t offset, uint32_t maxlen, const double *p, uint32_t elements)
 {
-    uint32_t total_size = ZCM_CORETYPES_DOUBLE_NUM_BYTES_ON_BUS * elements;
+    uint32_t total_size = __double_encoded_array_size(p, elements);
     uint8_t *buf = (uint8_t*) _buf;
     uint32_t pos = offset;
     uint32_t element;
@@ -663,7 +711,7 @@ static inline int __double_encode_little_endian_array(void *_buf, uint32_t offse
 
 static inline int __double_decode_little_endian_array(const void *_buf, uint32_t offset, uint32_t maxlen, double *p, uint32_t elements)
 {
-    uint32_t total_size = ZCM_CORETYPES_DOUBLE_NUM_BYTES_ON_BUS * elements;
+    uint32_t total_size = __double_encoded_array_size(p, elements);
     uint8_t *buf = (uint8_t*) _buf;
     uint32_t pos = offset;
     uint32_t element;

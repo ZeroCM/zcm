@@ -1,6 +1,10 @@
 struct example_t
 {
     int64_t  utime;
+
+    int8_t   bitfield1 : 1;
+    int8_t   bitfield2 : 2;
+
     double   position[3];
     double   orientation[4];
     int32_t  num_ranges;

@@ -613,20 +613,45 @@ struct EmitSource : public Emit
 
         emit(0,"uint32_t __%s_encoded_array_size(const %s* p, uint32_t elements)", tn_, tn_);
         emit(0,"{");
-        emit(1,"uint32_t size = 0, element;");
+        emit(1,"uint32_t size = 0, numbits, element; (void)numbits;");
         emit(1,    "for (element = 0; element < elements; ++element) {");
         emit(0,"");
-        for (auto& zm : zs.members) {
+        bool inBitMode = false;
+        for (size_t i = 0; i < zs.members.size(); ++i) {
+
+            auto& zm = zs.members[i];
+
+            if (inBitMode && zm.type.numbits == 0) {
+                inBitMode = false;
+                emit(2, "size += __bitfield_encoded_size(numbits);");
+                emit(0, "");
+            } else if (!inBitMode && zm.type.numbits != 0) {
+                inBitMode = true;
+                emit(2, "numbits = 0;");
+            }
+
             emitCArrayLoopsStart(zm, "p", FLAG_NONE);
 
             int indent = 2+std::max(0, (int)zm.dimensions.size() - 1);
-            emit(indent, "size += __%s_encoded_array_size(%s, %s);",
-                 zm.type.nameUnderscoreCStr(),
-                 makeAccessor(zm, "p", (int)zm.dimensions.size() - 1).c_str(),
-                 makeArraySize(zm, "p", (int)zm.dimensions.size() - 1).c_str());
+            if (inBitMode) {
+                emitStart(indent, "numbits += ");
+                if (zm.dimensions.size() > 1) {
+                    emitContinue("%s * ", makeArraySize(zm, "p", (int)zm.dimensions.size() - 1).c_str());
+                }
+                emitEnd("%u; // %s", zm.type.numbits, zm.membername.c_str());
+            } else {
+                emit(indent, "size += __%s_encoded_array_size(%s, %s); // %s",
+                     zm.type.nameUnderscoreCStr(),
+                     makeAccessor(zm, "p", (int)zm.dimensions.size() - 1).c_str(),
+                     makeArraySize(zm, "p", (int)zm.dimensions.size() - 1).c_str(),
+                     zm.membername.c_str());
+            }
 
             emitCArrayLoopsEnd(zm, "p", FLAG_NONE);
-            emit(0,"");
+            if (!inBitMode) emit(0,"");
+        }
+        if (inBitMode) {
+            emit(2, "size += __bitfield_encoded_size(numbits);");
         }
         emit(1,"}");
         emit(1, "return size;");

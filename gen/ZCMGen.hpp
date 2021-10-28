@@ -17,6 +17,9 @@ struct ZCMTypename
     string package;   // package name, e.g., "com.foo.prj"
     string shortname; // e.g., "laser"
 
+    // Optional size of bit field if specified
+    uint8_t numbits = 0;
+
     ZCMTypename(ZCMGen& zcmgen, const string& name, bool skipPrefix = false);
     void dump() const;
 
@@ -26,6 +29,8 @@ struct ZCMTypename
 
     static bool isSame(const ZCMTypename& a, const ZCMTypename& b)
     { return a.fullname == b.fullname; }
+
+    bool isFixedPoint() const;
 
     //////////////////////////////////////////////////////////////////////////////
     mutable string underscore;
@@ -171,6 +176,7 @@ struct ZCMGen
     static bool isPrimitiveType(const string& t);
 
     static size_t getPrimitiveTypeSize(const string& tn);
+    static size_t getPrimitiveTypeNumBits(const string& tn);
 
     // Returns true if the argument is a built-in type usable as and array dim
     static bool isArrayDimType(const string& t);

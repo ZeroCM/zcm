@@ -1,0 +1,17 @@
+struct bitfield_t
+{
+    int16_t:2 field1;
+    int16_t:1 field2[2][3];
+    int16_t:3 field3;
+
+    int16_t   field4;
+
+    int16_t:2 field5;
+    int16_t:3 field6;
+
+    int8_t:4  field7_dim1;
+    int8_t    field7_dim2;
+    int16_t:3 field7[field7_dim1][field7_dim2];
+}
+
+
