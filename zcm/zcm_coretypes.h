@@ -10,12 +10,13 @@ extern "C" {
 #endif
 
 #define   ZCM_CORETYPES_INT8_NUM_BYTES_ON_BUS (1)
-#define   ZCM_CORETYPES_INT8_NUM_BITS_ON_BUS (ZCM_CORETYPES_INT8_NUM_BYTES_ON_BUS * 8)
 #define  ZCM_CORETYPES_INT16_NUM_BYTES_ON_BUS (2)
 #define  ZCM_CORETYPES_INT32_NUM_BYTES_ON_BUS (4)
 #define  ZCM_CORETYPES_INT64_NUM_BYTES_ON_BUS (8)
 #define  ZCM_CORETYPES_FLOAT_NUM_BYTES_ON_BUS (4)
 #define ZCM_CORETYPES_DOUBLE_NUM_BYTES_ON_BUS (8)
+
+#define   ZCM_CORETYPES_INT8_NUM_BITS_ON_BUS  (8)
 
 static inline void *zcm_malloc(uint32_t sz)
 {
@@ -83,7 +84,7 @@ static inline int __byte_encode_array_bits(void *_buf, uint32_t offset_bytes, ui
                                            const uint8_t *p, uint32_t elements, uint32_t numbits)
 {
     uint32_t total_bits = elements * numbits;
-    if (maxbytes < __bitfield_encoded_size(total_bits)) return -1;
+    if (maxbytes < __bitfield_encoded_size(total_bits + offset_bits)) return -1;
 
     uint32_t pos_byte = offset_bytes;
     uint32_t pos_bit = offset_bits;
@@ -163,6 +164,42 @@ static inline int __int8_t_encode_array(void *_buf, uint32_t offset, uint32_t ma
     memcpy(&buf[offset], p, elements);
 
     return elements;
+}
+
+// returns number of bits consumed
+static inline int __int8_t_encode_array_bits(void *_buf, uint32_t offset_bytes, uint32_t offset_bits, uint32_t maxbytes,
+                                             const int8_t *p, uint32_t elements, uint32_t numbits)
+{
+    uint32_t total_bits = elements * numbits;
+    if (maxbytes < __bitfield_encoded_size(total_bits + offset_bits)) return -1;
+
+    uint32_t pos_byte = offset_bytes;
+    uint32_t pos_bit = offset_bits;
+    uint32_t element = 0;
+
+    uint8_t *buf = (uint8_t*) _buf;
+    uint8_t *unsigned_p = (uint8_t*) p;
+
+    for (element = 0; element < elements; ++element) {
+        uint32_t bitsleft = numbits;
+        do {
+            if (pos_bit == 0) buf[pos_byte] = 0;
+            uint8_t mask = ((uint8_t)1 << bitsleft) - 1;
+            int32_t shift = (int32_t)(pos_bit + bitsleft) - ZCM_CORETYPES_INT8_NUM_BITS_ON_BUS;
+            if (shift < 0) {
+                shift = -shift;
+                buf[pos_byte] |= (unsigned_p[element] << shift) & (mask << shift);
+                pos_bit += bitsleft;
+                break;
+            }
+            buf[pos_byte] |= (unsigned_p[element] >> shift) & (mask >> shift);
+            bitsleft = shift;
+            pos_bit = 0;
+            ++pos_byte;
+        } while(bitsleft > 0);
+    }
+
+    return total_bits;
 }
 
 static inline int __int8_t_decode_array(const void *_buf, uint32_t offset, uint32_t maxlen, int8_t *p, uint32_t elements)

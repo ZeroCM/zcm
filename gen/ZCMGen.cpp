@@ -58,6 +58,7 @@ static vector<string> constTypes {
 };
 
 static vector<string> fixedPointTypes {
+    "byte",
     "int8_t",
     "int16_t",
     "int32_t",
@@ -352,7 +353,7 @@ static int parseConst(ZCMGen& zcmgen, ZCMStruct& zs, tokenize_t* t)
         parseTryConsumeComment(t);
         tokenizeNextOrFail(t, "name identifier");
         if (!isLegalMemberName(t->token))
-            parse_error(t, "Invalid member name: must start with [a-zA-Z_].");
+            parse_error(t, "Invalid const member name: must start with [a-zA-Z_].");
 
         string membername = t->token;
 
