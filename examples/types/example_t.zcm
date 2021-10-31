@@ -13,6 +13,9 @@ struct example_t
     example_t subExamples[nExamples1][nExamples2];
     string subStrings[nExamples1][nExamples2];
 
+    int8_t:2 bitfield1;
+    int8_t:3 bitfield2[4];
+
     const int8_t  test_const_8_max_hex  = 0xff;
     const int16_t test_const_16_max_hex = 0xffff;
     const int32_t test_const_32_max_hex = 0xffffffff;

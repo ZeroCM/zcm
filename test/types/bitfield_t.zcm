@@ -1,17 +1,19 @@
 struct bitfield_t
 {
     int8_t:2 field1;
-    int8_t:1 field2[2][3];
-    int8_t:3 field3;
+    int8_t:1 field2[2][4];
+    int16_t:4 field3;
+    int16_t:3 field4;
 
-    int8_t   field4;
+    int8_t   field5;
 
-    int8_t:2 field5;
-    int8_t:3 field6;
+    int8_t:2 field6;
+    int8_t:3 field7;
 
-    int8_t:4  field7_dim1;
-    int8_t    field7_dim2;
-    int8_t:3 field7[field7_dim1][field7_dim2];
+    int8_t:4  field8_dim1;
+    int8_t    field8_dim2;
+    int8_t:3 field8[field8_dim1][field8_dim2];
+
+    int32_t:28 field9;
+    int64_t:55 field10;
 }
-
-

@@ -36,6 +36,135 @@ struct ___zcm_hash_ptr
     void *v;
 };
 
+static inline uint32_t __bitfield_encoded_size(uint32_t numbits)
+{
+    uint32_t size = numbits / ZCM_CORETYPES_INT8_NUM_BITS_ON_BUS;
+    if (numbits - size * ZCM_CORETYPES_INT8_NUM_BITS_ON_BUS != 0) ++size;
+    return size;
+}
+
+// returns number of bits consumed
+#define X(NAME, TYPE, UNSIGNED_TYPE)                                                                                \
+static inline int __ ## NAME ## _encode_array_bits(void *_buf,                                                      \
+                                                   uint32_t offset_bytes, uint32_t offset_bits, uint32_t maxbytes,  \
+                                                   const TYPE *p, uint32_t elements, uint32_t numbits)              \
+{                                                                                                                   \
+    uint32_t total_bits = elements * numbits;                                                                       \
+    if (maxbytes < __bitfield_encoded_size(total_bits + offset_bits)) return -1;                                    \
+                                                                                                                    \
+    uint32_t pos_byte = offset_bytes;                                                                               \
+    uint32_t pos_bit = offset_bits;                                                                                 \
+    uint32_t element;                                                                                               \
+    uint8_t *buf = (uint8_t*) _buf;                                                                                 \
+    UNSIGNED_TYPE* unsigned_p = (UNSIGNED_TYPE*)p;                                                                  \
+                                                                                                                    \
+    for (element = 0; element < elements; ++element) {                                                              \
+        uint32_t bits_left = numbits;                                                                               \
+        do {                                                                                                        \
+            if (pos_bit == 0) buf[pos_byte] = 0;                                                                    \
+            UNSIGNED_TYPE mask = ((UNSIGNED_TYPE)1 << bits_left) - 1;                                               \
+            int32_t shift = (int32_t)(pos_bit + bits_left) - ZCM_CORETYPES_INT8_NUM_BITS_ON_BUS;                    \
+            if (shift < 0) {                                                                                        \
+                shift = -shift;                                                                                     \
+                buf[pos_byte] |= (unsigned_p[element] << shift) & (mask << shift);                                  \
+                pos_bit += bits_left;                                                                               \
+                break;                                                                                              \
+            }                                                                                                       \
+            buf[pos_byte] |= (unsigned_p[element] >> shift) & (mask >> shift);                                      \
+            bits_left = shift;                                                                                      \
+            pos_bit = 0;                                                                                            \
+            ++pos_byte;                                                                                             \
+        } while(bits_left > 0);                                                                                     \
+    }                                                                                                               \
+                                                                                                                    \
+    return total_bits;                                                                                              \
+}
+    X(byte, uint8_t, uint8_t)
+    X(int8_t, int8_t, uint8_t)
+    X(int16_t, int16_t, uint16_t)
+    X(int32_t, int32_t, uint32_t)
+    X(int64_t, int64_t, uint64_t)
+#undef X
+
+#define X(NAME, TYPE, UNSIGNED_TYPE)                                                                                \
+static inline int __ ## NAME ## _decode_array_bits(const void *_buf,                                                \
+                                                   uint32_t offset_bytes, uint32_t offset_bits, uint32_t maxbytes,  \
+                                                   TYPE *p, uint32_t elements, uint32_t numbits)                    \
+{                                                                                                                   \
+    uint32_t total_bits = elements * numbits;                                                                       \
+    if (maxbytes < __bitfield_encoded_size(total_bits + offset_bits)) return -1;                                    \
+                                                                                                                    \
+    uint32_t pos_byte = offset_bytes;                                                                               \
+    uint32_t pos_bit = offset_bits;                                                                                 \
+    uint32_t element;                                                                                               \
+                                                                                                                    \
+    const uint8_t *buf = (const uint8_t*) _buf;                                                                     \
+                                                                                                                    \
+    for (element = 0; element < elements; ++element) {                                                              \
+        uint32_t bits_left = numbits;                                                                               \
+        do {                                                                                                        \
+            uint32_t available_bits = ZCM_CORETYPES_INT8_NUM_BITS_ON_BUS - pos_bit;                                 \
+            uint32_t bits_covered = available_bits < bits_left ? available_bits : bits_left;                        \
+            uint32_t shift = ZCM_CORETYPES_INT8_NUM_BITS_ON_BUS - bits_left;                                        \
+            /* Sign extend the first shift and none after that */                                                   \
+            if (bits_left == numbits)                                                                               \
+                p[element] = ((TYPE)(buf[pos_byte] << pos_bit)) >> shift;                                           \
+            else                                                                                                    \
+                p[element] |= ((UNSIGNED_TYPE)(buf[pos_byte] << pos_bit)) >> shift;                                 \
+            bits_left -= bits_covered;                                                                              \
+            pos_bit += bits_covered;                                                                                \
+            if (pos_bit == ZCM_CORETYPES_INT8_NUM_BITS_ON_BUS) {                                                    \
+                pos_bit = 0;                                                                                        \
+                ++pos_byte;                                                                                         \
+            }                                                                                                       \
+        } while(bits_left > 0);                                                                                     \
+    }                                                                                                               \
+                                                                                                                    \
+    return total_bits;                                                                                              \
+}
+    X(byte, uint8_t, uint8_t)
+    X(int8_t, int8_t, uint8_t)
+    X(int32_t, int32_t, uint32_t)
+    X(int64_t, int64_t, uint64_t)
+#undef X
+
+static inline int __int16_t_decode_array_bits(const void *_buf,
+                                              uint32_t offset_bytes, uint32_t offset_bits, uint32_t maxbytes,
+                                              int16_t *p, uint32_t elements, uint32_t numbits)
+{
+    uint32_t total_bits = elements * numbits;
+    if (maxbytes < __bitfield_encoded_size(total_bits + offset_bits)) return -1;
+
+    uint32_t pos_byte = offset_bytes;
+    uint32_t pos_bit = offset_bits;
+    uint32_t element;
+
+    const uint8_t *buf = (const uint8_t*) _buf;
+
+    for (element = 0; element < elements; ++element) {
+        uint32_t bits_left = numbits;
+        do {
+            // This isn't right yet for greater than 8 bit numbers
+            uint32_t available_bits = ZCM_CORETYPES_INT8_NUM_BITS_ON_BUS - pos_bit;
+            uint32_t bits_covered = available_bits < bits_left ? available_bits : bits_left;
+            uint32_t shift = ZCM_CORETYPES_INT8_NUM_BITS_ON_BUS - bits_left;
+            /* Sign extend the first shift and none after that */
+            if (bits_left == numbits)
+                p[element] = ((int8_t)(buf[pos_byte] << pos_bit)) >> shift;
+            else
+                p[element] |= ((uint16_t)(buf[pos_byte] << pos_bit)) >> shift;
+            bits_left -= bits_covered;
+            pos_bit += bits_covered;
+            if (pos_bit == ZCM_CORETYPES_INT8_NUM_BITS_ON_BUS) {
+                pos_bit = 0;
+                ++pos_byte;
+            }
+        } while(bits_left > 0);
+    }
+
+    return total_bits;
+}
+
 /**
  * BOOLEAN
  */
@@ -47,13 +176,6 @@ struct ___zcm_hash_ptr
 #define __boolean_encode_little_endian_array __int8_t_encode_little_endian_array
 #define __boolean_decode_little_endian_array __int8_t_decode_little_endian_array
 #define __boolean_clone_array __int8_t_clone_array
-
-static inline uint32_t __bitfield_encoded_size(uint32_t numbits)
-{
-    uint32_t size = numbits / ZCM_CORETYPES_INT8_NUM_BITS_ON_BUS;
-    if (numbits - size * ZCM_CORETYPES_INT8_NUM_BITS_ON_BUS != 0) ++size;
-    return size;
-}
 
 /**
  * BYTE
@@ -77,41 +199,6 @@ static inline int __byte_encode_array(void *_buf, uint32_t offset, uint32_t maxl
     memcpy(&buf[offset], p, elements);
 
     return elements;
-}
-
-// returns number of bits consumed
-static inline int __byte_encode_array_bits(void *_buf, uint32_t offset_bytes, uint32_t offset_bits, uint32_t maxbytes,
-                                           const uint8_t *p, uint32_t elements, uint32_t numbits)
-{
-    uint32_t total_bits = elements * numbits;
-    if (maxbytes < __bitfield_encoded_size(total_bits + offset_bits)) return -1;
-
-    uint32_t pos_byte = offset_bytes;
-    uint32_t pos_bit = offset_bits;
-    uint32_t element = 0;
-
-    uint8_t *buf = (uint8_t*) _buf;
-
-    for (element = 0; element < elements; ++element) {
-        uint32_t bitsleft = numbits;
-        do {
-            if (pos_bit == 0) buf[pos_byte] = 0;
-            uint8_t mask = ((uint8_t)1 << bitsleft) - 1;
-            int32_t shift = (int32_t)(pos_bit + bitsleft) - ZCM_CORETYPES_INT8_NUM_BITS_ON_BUS;
-            if (shift < 0) {
-                shift = -shift;
-                buf[pos_byte] |= (p[element] << shift) & (mask << shift);
-                pos_bit += bitsleft;
-                break;
-            }
-            buf[pos_byte] |= (p[element] >> shift) & (mask >> shift);
-            bitsleft = shift;
-            pos_bit = 0;
-            ++pos_byte;
-        } while(bitsleft > 0);
-    }
-
-    return total_bits;
 }
 
 static inline int __byte_decode_array(const void *_buf, uint32_t offset, uint32_t maxlen, uint8_t *p, uint32_t elements)
@@ -164,42 +251,6 @@ static inline int __int8_t_encode_array(void *_buf, uint32_t offset, uint32_t ma
     memcpy(&buf[offset], p, elements);
 
     return elements;
-}
-
-// returns number of bits consumed
-static inline int __int8_t_encode_array_bits(void *_buf, uint32_t offset_bytes, uint32_t offset_bits, uint32_t maxbytes,
-                                             const int8_t *p, uint32_t elements, uint32_t numbits)
-{
-    uint32_t total_bits = elements * numbits;
-    if (maxbytes < __bitfield_encoded_size(total_bits + offset_bits)) return -1;
-
-    uint32_t pos_byte = offset_bytes;
-    uint32_t pos_bit = offset_bits;
-    uint32_t element = 0;
-
-    uint8_t *buf = (uint8_t*) _buf;
-    uint8_t *unsigned_p = (uint8_t*) p;
-
-    for (element = 0; element < elements; ++element) {
-        uint32_t bitsleft = numbits;
-        do {
-            if (pos_bit == 0) buf[pos_byte] = 0;
-            uint8_t mask = ((uint8_t)1 << bitsleft) - 1;
-            int32_t shift = (int32_t)(pos_bit + bitsleft) - ZCM_CORETYPES_INT8_NUM_BITS_ON_BUS;
-            if (shift < 0) {
-                shift = -shift;
-                buf[pos_byte] |= (unsigned_p[element] << shift) & (mask << shift);
-                pos_bit += bitsleft;
-                break;
-            }
-            buf[pos_byte] |= (unsigned_p[element] >> shift) & (mask >> shift);
-            bitsleft = shift;
-            pos_bit = 0;
-            ++pos_byte;
-        } while(bitsleft > 0);
-    }
-
-    return total_bits;
 }
 
 static inline int __int8_t_decode_array(const void *_buf, uint32_t offset, uint32_t maxlen, int8_t *p, uint32_t elements)

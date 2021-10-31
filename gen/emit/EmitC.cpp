@@ -519,8 +519,6 @@ struct EmitSource : public Emit
                 emit(indent + 1, "pos_bit -= 8;");
                 emit(indent + 1, "++pos_byte;");
                 emit(indent, "}");
-                //*
-                // */
             }
 
             emitCArrayLoopsEnd(zm, "p", FLAG_NONE);
@@ -564,29 +562,72 @@ struct EmitSource : public Emit
 
         emit(0,"int __%s_decode_array(const void* buf, uint32_t offset, uint32_t maxlen, %s* p, uint32_t elements)", tn_, tn_);
         emit(0,"{");
-        emit(1,    "uint32_t pos = 0, element;");
+        emit(1,    "uint32_t pos_byte = 0, element;");
+        for (const auto& zm : zs.members) {
+            if (zm.type.numbits != 0) {
+                emit(1, "uint32_t pos_bit;");
+                emit(1, "uint32_t tmp_num_bytes, tmp_num_bits;");
+                break;
+            }
+        }
         emit(1,    "int thislen;");
         emit(0,"");
         emit(1,    "for (element = 0; element < elements; ++element) {");
         emit(0,"");
+        bool inBitMode = false;
         for (auto& zm : zs.members) {
+
+            if (!inBitMode && zm.type.numbits != 0) {
+                inBitMode = true;
+                emit(2, "// Start of bitfield");
+                emit(2, "pos_bit = 0;");
+            } else if (inBitMode && zm.type.numbits == 0) {
+                inBitMode = false;
+                emit(2, "// End of bitfield");
+                emit(0, "");
+                emit(2, "if (pos_bit != 0) ++pos_byte;");
+                emit(0, "");
+            }
+
             emitCArrayLoopsStart(zm, "p", zm.isConstantSizeArray() ? FLAG_NONE : FLAG_EMIT_MALLOCS);
 
             int indent = 2+std::max(0, (int)zm.dimensions.size() - 1);
-            emit(indent, "thislen = __%s_decode_%sarray(buf, offset + pos, maxlen - pos, %s, %s);",
-                 zm.type.nameUnderscoreCStr(),
-                 zcm.gopt->getBool("little-endian-encoding") &&
-                     zcm.isPrimitiveType(zm.type.nameUnderscore()) ?
-                     "little_endian_" : "",
-                 makeAccessor(zm, "p", (int)zm.dimensions.size() - 1).c_str(),
-                 makeArraySize(zm, "p", (int)zm.dimensions.size() - 1).c_str());
-            emit(indent, "if (thislen < 0) return thislen; else pos += thislen;");
+            if (zm.type.numbits == 0) {
+                emit(indent, "thislen = __%s_decode_%sarray(buf, offset + pos_byte, maxlen - pos_byte, %s, %s);",
+                     zm.type.nameUnderscoreCStr(),
+                     zcm.gopt->getBool("little-endian-encoding") &&
+                         zcm.isPrimitiveType(zm.type.nameUnderscore()) ?
+                         "little_endian_" : "",
+                     makeAccessor(zm, "p", (int)zm.dimensions.size() - 1).c_str(),
+                     makeArraySize(zm, "p", (int)zm.dimensions.size() - 1).c_str());
+                emit(indent, "if (thislen < 0) return thislen; else pos_byte += thislen;");
+            } else {
+                emit(indent, "thislen = __%s_decode_array_bits(buf, offset + pos_byte, pos_bit, maxlen - pos_byte, %s, %s, %u);",
+                     zm.type.nameUnderscoreCStr(),
+                     makeAccessor(zm, "p", (int)zm.dimensions.size() - 1).c_str(),
+                     makeArraySize(zm, "p", (int)zm.dimensions.size() - 1).c_str(),
+                     zm.type.numbits);
+                emit(indent, "if (thislen < 0) return thislen;");
+                emit(indent, "tmp_num_bytes = thislen / ZCM_CORETYPES_INT8_NUM_BITS_ON_BUS;");
+                emit(indent, "tmp_num_bits = thislen - (tmp_num_bytes * ZCM_CORETYPES_INT8_NUM_BITS_ON_BUS);");
+                emit(indent, "pos_byte += tmp_num_bytes;");
+                emit(indent, "pos_bit += tmp_num_bits;");
+                emit(indent, "if (pos_bit >= ZCM_CORETYPES_INT8_NUM_BITS_ON_BUS) {");
+                emit(indent + 1, "pos_bit -= 8;");
+                emit(indent + 1, "++pos_byte;");
+                emit(indent, "}");
+            }
 
             emitCArrayLoopsEnd(zm, "p", FLAG_NONE);
             emit(0,"");
         }
+        if (inBitMode) {
+            emit(0, "");
+            emit(2, "// Bitfield cannot wrap around struct definition");
+            emit(2, "if (pos_bit != 0) ++pos_byte;");
+        }
         emit(1,   "}");
-        emit(1, "return pos;");
+        emit(1, "return pos_byte;");
         emit(0,"}");
         emit(0,"");
     }
@@ -770,7 +811,10 @@ struct EmitSource : public Emit
 
             emit(3,"f->name = \"%s\";", m.membername.c_str());
             emit(3,"f->type = %s;", typeval.c_str());
-            emit(3,"f->typestr = \"%s\";", m.type.fullname.c_str());
+            if (m.type.numbits == 0)
+                emit(3,"f->typestr = \"%s\";", m.type.fullname.c_str());
+            else
+                emit(3,"f->typestr = \"%s:%u\";", m.type.fullname.c_str(), m.type.numbits);
 
             int num_dim = m.dimensions.size();
             emit(3,"f->num_dim = %d;", num_dim);
@@ -826,6 +870,7 @@ struct EmitSource : public Emit
         emit(1,"");
         emit(1,"return &typeinfo;");
         emit(0,"}");
+        emit(0,"");
     }
 
     void emitCCloneArray()
