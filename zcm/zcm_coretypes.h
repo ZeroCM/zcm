@@ -103,7 +103,6 @@ static inline int __ ## NAME ##_decode_array_bits(const void *_buf,             
     for (element = 0; element < elements; ++element) {                                                              \
         uint32_t bits_left = numbits;                                                                               \
         do {                                                                                                        \
-            /* This isn't right yet for greater than 8 bit numbers */                                               \
             uint32_t available_bits = ZCM_CORETYPES_INT8_NUM_BITS_ON_BUS - pos_bit;                                 \
             uint32_t bits_covered = available_bits < bits_left ? available_bits : bits_left;                        \
             UNSIGNED_TYPE mask = (((UNSIGNED_TYPE)1 << bits_covered) - 1) <<                                        \
@@ -115,8 +114,8 @@ static inline int __ ## NAME ##_decode_array_bits(const void *_buf,             
                 if (shift < 0) p[element] = ((TYPE)((int8_t)(payload << pos_bit))) << -shift;                       \
                 else           p[element] = ((TYPE)((int8_t)(payload << pos_bit))) >>  shift;                       \
             } else {                                                                                                \
-                if (shift < 0) p[element] |= ((UNSIGNED_TYPE)payload) << (pos_bit - shift);                         \
-                else           p[element] |= ((UNSIGNED_TYPE)payload) >> (pos_bit + shift);                         \
+                if (shift < 0) p[element] |= (((UNSIGNED_TYPE)payload) << pos_bit) << -shift;                       \
+                else           p[element] |= (((UNSIGNED_TYPE)payload) << pos_bit) >>  shift;                       \
             }                                                                                                       \
             bits_left -= bits_covered;                                                                              \
             pos_bit += bits_covered;                                                                                \
