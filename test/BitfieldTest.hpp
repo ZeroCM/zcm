@@ -76,11 +76,11 @@ class BitfieldTest : public CxxTest::TestSuite
     void testDecode()
     {
         uint8_t buf[18] = {
-            0b11101010, // fields 1, 2, 3, and 4
-            0b10111110, // fields 1, 2, 3, and 4
-            0b10000000, // fields 1, 2, 3, and 4
+            0b11101010, // fields 1 and 2
+            0b10111110, // fields 2, 3, and 4
+            0b10000000, // field4
             7,          // field5
-            0,          // fields 6, 6, and 8_dim1
+            0,          // fields 6, 7, and 8_dim1
             0,          // fields 6, 7, and 8_dim1
             0,          // field8_dim2
             0b10000000, // field9
@@ -115,7 +115,7 @@ class BitfieldTest : public CxxTest::TestSuite
         TS_ASSERT_EQUALS(b.field7, 0);
         TS_ASSERT_EQUALS(b.field8_dim1, 0);
         TS_ASSERT_EQUALS(b.field8_dim2, 0);
-        TS_ASSERT_EQUALS(b.field9, 1 << 27);
+        TS_ASSERT_EQUALS(b.field9, -(1 << 27));
         TS_ASSERT_EQUALS(b.field10, ((uint64_t)1 << 52) | 1);
     }
 };
