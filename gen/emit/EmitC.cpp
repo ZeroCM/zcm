@@ -457,6 +457,33 @@ struct EmitSource : public Emit
         }
     }
 
+    void emitCAdvanceOffset()
+    {
+        bool hasBitfield = false;
+        for (const auto& zm : zs.members) {
+            if (zm.type.numbits != 0) {
+                hasBitfield = true;
+                break;
+            }
+        }
+        if (!hasBitfield) return;
+
+        emit(0, "static void advance_offset(uint32_t* offset_byte, uint32_t* offset_bit, uint32_t numbits)");
+        emit(0, "{");
+        emit(1, "uint32_t tmp_num_bytes, tmp_num_bits;");
+        emit(0, "");
+        emit(1, "tmp_num_bytes = numbits / ZCM_CORETYPES_INT8_NUM_BITS_ON_BUS;");
+        emit(1, "tmp_num_bits = numbits - (tmp_num_bytes * ZCM_CORETYPES_INT8_NUM_BITS_ON_BUS);");
+        emit(1, "*offset_byte += tmp_num_bytes;");
+        emit(1, "*offset_bit += tmp_num_bits;");
+        emit(1, "if (*offset_bit >= ZCM_CORETYPES_INT8_NUM_BITS_ON_BUS) {");
+        emit(1 + 1, "*offset_bit -= 8;");
+        emit(1 + 1, "++*offset_byte;");
+        emit(1, "}");
+        emit(0, "}");
+        emit(0, "");
+    }
+
     void emitCEncodeArray()
     {
         const char* tn_ = zs.structname.nameUnderscoreCStr();
@@ -467,7 +494,6 @@ struct EmitSource : public Emit
         for (const auto& zm : zs.members) {
             if (zm.type.numbits != 0) {
                 emit(1, "uint32_t pos_bit;");
-                emit(1, "uint32_t tmp_num_bytes, tmp_num_bits;");
                 break;
             }
         }
@@ -478,20 +504,25 @@ struct EmitSource : public Emit
         emit(1,    "for (element = 0; element < elements; ++element) {");
         emit(0,"");
         bool inBitMode = false;
+        size_t bitfieldNum = 0;
         for (auto& zm : zs.members) {
 
             if (!inBitMode && zm.type.numbits != 0) {
                 inBitMode = true;
-                emit(2, "// Start of bitfield");
+                emit(2, "// Start of bitfield %u", bitfieldNum);
+                emit(0, "");
                 emit(2, "pos_bit = 0;");
+                emit(0, "");
             } else if (inBitMode && zm.type.numbits == 0) {
                 inBitMode = false;
-                emit(2, "// End of bitfield");
-                emit(0, "");
                 emit(2, "if (pos_bit != 0) ++pos_byte;");
                 emit(0, "");
+                emit(2, "// End of bitfield %u", bitfieldNum);
+                emit(0, "");
+                ++bitfieldNum;
             }
 
+            emit(2, "/* %s */", zm.membername.c_str());
             emitCArrayLoopsStart(zm, "p", FLAG_NONE);
 
             int indent = 2+std::max(0, (int)zm.dimensions.size() - 1);
@@ -511,23 +542,16 @@ struct EmitSource : public Emit
                      makeArraySize(zm, "p", (int)zm.dimensions.size() - 1).c_str(),
                      zm.type.numbits);
                 emit(indent, "if (thislen < 0) return thislen;");
-                emit(indent, "tmp_num_bytes = thislen / ZCM_CORETYPES_INT8_NUM_BITS_ON_BUS;");
-                emit(indent, "tmp_num_bits = thislen - (tmp_num_bytes * ZCM_CORETYPES_INT8_NUM_BITS_ON_BUS);");
-                emit(indent, "pos_byte += tmp_num_bytes;");
-                emit(indent, "pos_bit += tmp_num_bits;");
-                emit(indent, "if (pos_bit >= ZCM_CORETYPES_INT8_NUM_BITS_ON_BUS) {");
-                emit(indent + 1, "pos_bit -= 8;");
-                emit(indent + 1, "++pos_byte;");
-                emit(indent, "}");
+                emit(indent, "advance_offset(&pos_byte, &pos_bit, thislen);");
             }
 
             emitCArrayLoopsEnd(zm, "p", FLAG_NONE);
-            if (!inBitMode) emit(0,"");
+            emit(0,"");
         }
         if (inBitMode) {
-            emit(0, "");
-            emit(2, "// Bitfield cannot wrap around struct definition");
             emit(2, "if (pos_bit != 0) ++pos_byte;");
+            emit(0, "");
+            emit(2, "// End of bitfield %u", bitfieldNum);
         }
         emit(1,   "}");
         emit(1, "return pos_byte;");
@@ -566,7 +590,6 @@ struct EmitSource : public Emit
         for (const auto& zm : zs.members) {
             if (zm.type.numbits != 0) {
                 emit(1, "uint32_t pos_bit;");
-                emit(1, "uint32_t tmp_num_bytes, tmp_num_bits;");
                 break;
             }
         }
@@ -575,20 +598,25 @@ struct EmitSource : public Emit
         emit(1,    "for (element = 0; element < elements; ++element) {");
         emit(0,"");
         bool inBitMode = false;
+        size_t bitfieldNum = 0;
         for (auto& zm : zs.members) {
 
             if (!inBitMode && zm.type.numbits != 0) {
                 inBitMode = true;
-                emit(2, "// Start of bitfield");
+                emit(2, "// Start of bitfield %u", bitfieldNum);
+                emit(0, "");
                 emit(2, "pos_bit = 0;");
+                emit(0, "");
             } else if (inBitMode && zm.type.numbits == 0) {
                 inBitMode = false;
-                emit(2, "// End of bitfield");
-                emit(0, "");
                 emit(2, "if (pos_bit != 0) ++pos_byte;");
                 emit(0, "");
+                emit(2, "// End of bitfield %u", bitfieldNum);
+                emit(0, "");
+                ++bitfieldNum;
             }
 
+            emit(2, "/* %s */", zm.membername.c_str());
             emitCArrayLoopsStart(zm, "p", zm.isConstantSizeArray() ? FLAG_NONE : FLAG_EMIT_MALLOCS);
 
             int indent = 2+std::max(0, (int)zm.dimensions.size() - 1);
@@ -608,23 +636,16 @@ struct EmitSource : public Emit
                      makeArraySize(zm, "p", (int)zm.dimensions.size() - 1).c_str(),
                      zm.type.numbits);
                 emit(indent, "if (thislen < 0) return thislen;");
-                emit(indent, "tmp_num_bytes = thislen / ZCM_CORETYPES_INT8_NUM_BITS_ON_BUS;");
-                emit(indent, "tmp_num_bits = thislen - (tmp_num_bytes * ZCM_CORETYPES_INT8_NUM_BITS_ON_BUS);");
-                emit(indent, "pos_byte += tmp_num_bytes;");
-                emit(indent, "pos_bit += tmp_num_bits;");
-                emit(indent, "if (pos_bit >= ZCM_CORETYPES_INT8_NUM_BITS_ON_BUS) {");
-                emit(indent + 1, "pos_bit -= 8;");
-                emit(indent + 1, "++pos_byte;");
-                emit(indent, "}");
+                emit(indent, "advance_offset(&pos_byte, &pos_bit, thislen);");
             }
 
             emitCArrayLoopsEnd(zm, "p", FLAG_NONE);
             emit(0,"");
         }
         if (inBitMode) {
-            emit(0, "");
-            emit(2, "// Bitfield cannot wrap around struct definition");
             emit(2, "if (pos_bit != 0) ++pos_byte;");
+            emit(0, "");
+            emit(2, "// End of bitfield %u", bitfieldNum);
         }
         emit(1,   "}");
         emit(1, "return pos_byte;");
@@ -1054,6 +1075,7 @@ static int emitStructSource(const ZCMGen& zcm, const ZCMStruct& zs, const string
     E.emitIncludes();
 
     E.emitCStructGetHash();
+    E.emitCAdvanceOffset();
     E.emitCEncodeArray();
     E.emitCEncode();
     E.emitCEncodedArraySize();
