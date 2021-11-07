@@ -16,29 +16,30 @@ void setupOptionsNode(GetOpt& gopt)
     gopt.addString(0, "npath", ".", "Location for zcmtypes.js file");
 }
 
-static string getReaderFunc(const string& type)
+static string getReaderFunc(const string& type, uint8_t numbits)
 {
     if (type == "double") {
-        return "readDouble";
+        return "R.readDouble()";
     } else if (type == "float") {
-        return "readFloat";
-    } else if (type == "int64_t") {
-        return "read64";
-    } else if (type == "int32_t") {
-        return "read32";
-    } else if (type == "int16_t") {
-        return "read16";
-    } else if (type == "int8_t") {
-        return "read8";
-    } else if (type == "byte") {
-        return "readU8";
+        return "R.readFloat()";
     } else if (type == "boolean") {
-         return "readBoolean";
+         return "R.readBoolean()";
     } else if (type == "string") {
-         return "readString";
-    } else {
-        return "";
+         return "R.readString()";
+    } else if (numbits != 0) {
+        return "R.readBits(" + to_string(numbits) + ")";
+    } else if (type == "int64_t") {
+        return "R.read64()";
+    } else if (type == "int32_t") {
+        return "R.read32()";
+    } else if (type == "int16_t") {
+        return "R.read16()";
+    } else if (type == "int8_t") {
+        return "R.read8()";
+    } else if (type == "byte") {
+        return "R.readU8()";
     }
+    return "";
 }
 
 static string getWriterFunc(const string& type)
@@ -99,58 +100,59 @@ struct EmitModule : public Emitter
         emit(0, "");
         emit(0, "function createReader(data)");
         emit(0, "{");
-        emit(0, "    var buf = new Buffer(data);");
-        emit(0, "    var offset = 0;");
-        emit(0, "    var methods = {");
+        emit(0, "    let buf = new Buffer(data);");
+        emit(0, "    let offset_byte = 0;");
+        emit(0, "    let offset_bit = 0;");
+        emit(0, "    let methods = {");
         emit(0, "        readDouble: function() {");
-        emit(0, "            var ret = buf.readDoubleBE(offset);");
-        emit(0, "            offset += 8;");
+        emit(0, "            var ret = buf.readDoubleBE(offset_byte);");
+        emit(0, "            offset_byte += 8;");
         emit(0, "            return ret;");
         emit(0, "        },");
         emit(0, "        readFloat: function() {");
-        emit(0, "            var ret = buf.readFloatBE(offset);");
-        emit(0, "            offset += 4;");
+        emit(0, "            var ret = buf.readFloatBE(offset_byte);");
+        emit(0, "            offset_byte += 4;");
         emit(0, "            return ret;");
         emit(0, "        },");
         emit(0, "        read64: function() {");
-        emit(0, "            var ret = bigint(ref.readInt64BE(buf, offset));");
-        emit(0, "            offset += 8;");
+        emit(0, "            var ret = bigint(ref.readInt64BE(buf, offset_byte));");
+        emit(0, "            offset_byte += 8;");
         emit(0, "            return ret;");
         emit(0, "        },");
         emit(0, "        readU64: function() {");
-        emit(0, "            var ret = bigint(ref.readUInt64BE(buf, offset));");
-        emit(0, "            offset += 8;");
+        emit(0, "            var ret = bigint(ref.readUInt64BE(buf, offset_byte));");
+        emit(0, "            offset_byte += 8;");
         emit(0, "            return ret;");
         emit(0, "        },");
         emit(0, "        read32: function() {");
-        emit(0, "            var ret = buf.readInt32BE(offset);");
-        emit(0, "            offset += 4;");
+        emit(0, "            var ret = buf.readInt32BE(offset_byte);");
+        emit(0, "            offset_byte += 4;");
         emit(0, "            return ret;");
         emit(0, "        },");
         emit(0, "        read16: function() {");
-        emit(0, "            var ret = buf.readInt16BE(offset);");
-        emit(0, "            offset += 2;");
+        emit(0, "            var ret = buf.readInt16BE(offset_byte);");
+        emit(0, "            offset_byte += 2;");
         emit(0, "            return ret;");
         emit(0, "        },");
         emit(0, "        read8: function() {");
-        emit(0, "            var ret = buf.readInt8(offset);");
-        emit(0, "            offset += 1;");
+        emit(0, "            var ret = buf.readInt8(offset_byte);");
+        emit(0, "            offset_byte += 1;");
         emit(0, "            return ret;");
         emit(0, "        },");
         emit(0, "        readU8: function() {");
-        emit(0, "            var ret = buf.readUInt8(offset);");
-        emit(0, "            offset += 1;");
+        emit(0, "            var ret = buf.readUInt8(offset_byte);");
+        emit(0, "            offset_byte += 1;");
         emit(0, "            return ret;");
         emit(0, "        },");
         emit(0, "        readBoolean: function() {");
-        emit(0, "            var ret = buf.readInt8(offset);");
-        emit(0, "            offset += 1;");
+        emit(0, "            var ret = buf.readInt8(offset_byte);");
+        emit(0, "            offset_byte += 1;");
         emit(0, "            return ret != 0;");
         emit(0, "        },");
         emit(0, "        readString: function() {");
         emit(0, "            var len = methods.read32();");
-        emit(0, "            var ret = ref.readCString(buf, offset);");
-        emit(0, "            offset += len;");
+        emit(0, "            var ret = ref.readCString(buf, offset_byte);");
+        emit(0, "            offset_byte += len;");
         emit(0, "            return ret;");
         emit(0, "        },");
         emit(0, "        readArray: function(size, readValFunc) {");
@@ -158,7 +160,36 @@ struct EmitModule : public Emitter
         emit(0, "            for (var i = 0; i < size; ++i)");
         emit(0, "                arr[i] = readValFunc();");
         emit(0, "            return arr;");
-        emit(0, "        }");
+        emit(0, "        },");
+        emit(0, "        resetBits: function() {");
+        emit(0, "           if (offset_bit !== 0) ++offset_byte;");
+        emit(0, "           offset_bit = 0;");
+        emit(0, "        },");
+        emit(0, "        readBits: function(numbits) {");
+        emit(0, "            let bits_left = numbits;");
+        emit(0, "            let ret;");
+        emit(0, "            do {");
+        emit(0, "                const available_bits = 8 - offset_bit;");
+        emit(0, "                const bits_covered = available_bits < bits_left ? available_bits : bits_left;");
+        emit(0, "                const mask = ((1 << bits_covered) - 1) << (8 - bits_covered - offset_bit);");
+        emit(0, "                const payload = (buf.readUInt8(offset_byte) & mask) << offset_bit;");
+        emit(0, "                const shift = 8 - bits_left;");
+        emit(0, "                if (bits_left == numbits) {");
+        emit(0, "                    if (shift < 0) ret = ((payload << 24) >> 24) << -shift;");
+        emit(0, "                    else           ret = ((payload << 24) >> 24) >>  shift;");
+        emit(0, "                } else {");
+        emit(0, "                    if (shift < 0) ret |= payload << -shift;");
+        emit(0, "                    else           ret |= payload >>> shift;");
+        emit(0, "                }");
+        emit(0, "                bits_left -= bits_covered;");
+        emit(0, "                offset_bit += bits_covered;");
+        emit(0, "                if (offset_bit == 8) {");
+        emit(0, "                    offset_bit = 0;");
+        emit(0, "                    ++offset_byte;");
+        emit(0, "                }");
+        emit(0, "            } while(bits_left > 0);");
+        emit(0, "            return ret;");
+        emit(0, "        },");
         emit(0, "    };");
         emit(0, "    return methods;");
         emit(0, "}");
@@ -422,10 +453,10 @@ struct EmitModule : public Emitter
         auto* tn = zm.type.nameUnderscoreCStr();
         auto* sfx = sfx_.c_str();
 
-        auto readerFunc = getReaderFunc(tn);
+        auto readerFunc = getReaderFunc(tn, zm.type.numbits);
 
         if (readerFunc != "") {
-            emit(indent, "%sR.%s()%s;", accessor, readerFunc.c_str(), sfx);
+            emit(indent, "%s%s%s;", accessor, readerFunc.c_str(), sfx);
         } else {
             emit(indent, "%s%s_decode_one(R)%s", accessor, tn, sfx);
         }
@@ -439,14 +470,17 @@ struct EmitModule : public Emitter
         auto* len = len_.c_str();
         const char* suffix = isFirst ? "" : ")";
 
-        auto readerFunc = getReaderFunc(tn);
+        auto readerFunc = getReaderFunc(tn, zm.type.numbits);
 
         if (readerFunc == "") {
             fprintf(stderr, "Unable to encode list of type: %s\n", tn.c_str());
             assert(0);
         }
 
-        emit(indent, "%sR.readArray(%s%s, R.%s)%s",
+        if (StringUtil::endswith(readerFunc, ")")) {
+            readerFunc = string("() => { return ") + readerFunc + string("; }");
+        }
+        emit(indent, "%sR.readArray(%s%s, %s)%s",
                      accessor, (fixedLen ? "" : "msg."),
                      len, readerFunc.c_str(), suffix);
     }
@@ -458,7 +492,15 @@ struct EmitModule : public Emitter
         emit(0, "%s_decode_one = function(R)", sn);
         emit(0, "{");
         emit(1,     "var msg = new %s();", sn);
+        bool inBitMode = false;
         for (auto& zm : zs.members) {
+            if (!inBitMode && zm.type.numbits != 0) {
+                inBitMode = true;
+            } else if (inBitMode && zm.type.numbits == 0) {
+                inBitMode = false;
+                emit(1, "R.resetBits();");
+            }
+
             if (zm.dimensions.size() == 0) {
                 string accessor = "msg." + zm.membername + " = ";
                 emitDecodeSingleMember(zm, accessor.c_str(), 1, "");
@@ -520,6 +562,9 @@ struct EmitModule : public Emitter
                 for (int i = (int) n - 1; i >= 0; --i)
                     emit(i + 1, "}");
             }
+        }
+        if (inBitMode) {
+            emit(1, "R.resetBits();");
         }
         emit(1, "return msg;");
         emit(0, "}");

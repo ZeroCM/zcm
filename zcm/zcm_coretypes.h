@@ -107,15 +107,15 @@ static inline int __ ## NAME ##_decode_array_bits(const void *_buf,             
             uint32_t bits_covered = available_bits < bits_left ? available_bits : bits_left;                        \
             UNSIGNED_TYPE mask = (((UNSIGNED_TYPE)1 << bits_covered) - 1) <<                                        \
                                  (ZCM_CORETYPES_INT8_NUM_BITS_ON_BUS - bits_covered - pos_bit);                     \
-            uint8_t payload = buf[pos_byte] & mask;                                                                 \
+            uint8_t payload = (buf[pos_byte] & mask) << pos_bit;                                                    \
             int32_t shift = ZCM_CORETYPES_INT8_NUM_BITS_ON_BUS - bits_left;                                         \
             /* Sign extend the first shift and none after that */                                                   \
             if (bits_left == numbits) {                                                                             \
-                if (shift < 0) p[element] = ((TYPE)((int8_t)(payload << pos_bit))) << -shift;                       \
-                else           p[element] = ((TYPE)((int8_t)(payload << pos_bit))) >>  shift;                       \
+                if (shift < 0) p[element] = ((TYPE)((int8_t)payload)) << -shift;                                    \
+                else           p[element] = ((TYPE)((int8_t)payload)) >>  shift;                                    \
             } else {                                                                                                \
-                if (shift < 0) p[element] |= (((UNSIGNED_TYPE)payload) << pos_bit) << -shift;                       \
-                else           p[element] |= (((UNSIGNED_TYPE)payload) << pos_bit) >>  shift;                       \
+                if (shift < 0) p[element] |= ((UNSIGNED_TYPE)payload) << -shift;                                    \
+                else           p[element] |= ((UNSIGNED_TYPE)payload) >>  shift;                                    \
             }                                                                                                       \
             bits_left -= bits_covered;                                                                              \
             pos_bit += bits_covered;                                                                                \
