@@ -162,8 +162,8 @@ struct EmitModule : public Emitter
         emit(0, "            return arr;");
         emit(0, "        },");
         emit(0, "        resetBits: function() {");
-        emit(0, "           if (offset_bit !== 0) ++offset_byte;");
-        emit(0, "           offset_bit = 0;");
+        emit(0, "            if (offset_bit !== 0) ++offset_byte;");
+        emit(0, "            offset_bit = 0;");
         emit(0, "        },");
         emit(0, "        readBits: function(numbits) {");
         emit(0, "            let bits_left = numbits;");
@@ -204,51 +204,83 @@ struct EmitModule : public Emitter
         emit(0, "");
         emit(0, "function createWriter(size)");
         emit(0, "{");
-        emit(0, "    var buf = new Buffer(size);");
-        emit(0, "    var offset = 0;");
-        emit(0, "    var methods = {");
+        emit(0, "    let buf = new Buffer(size);");
+        emit(0, "    let offset_byte = 0;");
+        emit(0, "    let offset_bit = 0;");
+        emit(0, "    let methods = {");
         emit(0, "        writeDouble: function(value) {");
-        emit(0, "            buf.writeDoubleBE(value, offset);");
-        emit(0, "            offset += 8;");
+        emit(0, "            buf.writeDoubleBE(value, offset_byte);");
+        emit(0, "            offset_byte += 8;");
         emit(0, "        },");
         emit(0, "        writeFloat: function(value) {");
-        emit(0, "            buf.writeFloatBE(value, offset);");
-        emit(0, "            offset += 4;");
+        emit(0, "            buf.writeFloatBE(value, offset_byte);");
+        emit(0, "            offset_byte += 4;");
         emit(0, "        },");
         emit(0, "        write64: function(value) {");
-        emit(0, "            ref.writeInt64BE(buf, offset, bigint.isInstance(value) ?");
+        emit(0, "            ref.writeInt64BE(buf, offset_byte, bigint.isInstance(value) ?");
         emit(0, "                                          value.toString() : value);");
-        emit(0, "            offset += 8;");
+        emit(0, "            offset_byte += 8;");
         emit(0, "        },");
         emit(0, "        writeU64: function(value) {");
-        emit(0, "            ref.writeUInt64BE(buf, offset, bigint.isInstance(value) ?");
+        emit(0, "            ref.writeUInt64BE(buf, offset_byte, bigint.isInstance(value) ?");
         emit(0, "                                           value.toString() : value);");
-        emit(0, "            offset += 8;");
+        emit(0, "            offset_byte += 8;");
         emit(0, "        },");
         emit(0, "        write32: function(value) {");
-        emit(0, "            buf.writeInt32BE(value, offset);");
-        emit(0, "            offset += 4;");
+        emit(0, "            buf.writeInt32BE(value, offset_byte);");
+        emit(0, "            offset_byte += 4;");
         emit(0, "        },");
         emit(0, "        write16: function(value) {");
-        emit(0, "            buf.writeInt16BE(value, offset);");
-        emit(0, "            offset += 2;");
+        emit(0, "            buf.writeInt16BE(value, offset_byte);");
+        emit(0, "            offset_byte += 2;");
         emit(0, "        },");
         emit(0, "        write8: function(value) {");
-        emit(0, "            buf.writeInt8(value, offset);");
-        emit(0, "            offset += 1;");
+        emit(0, "            buf.writeInt8(value, offset_byte);");
+        emit(0, "            offset_byte += 1;");
         emit(0, "        },");
         emit(0, "        writeU8: function(value) {");
-        emit(0, "            buf.writeUInt8(value, offset);");
-        emit(0, "            offset += 1;");
+        emit(0, "            buf.writeUInt8(value, offset_byte);");
+        emit(0, "            offset_byte += 1;");
         emit(0, "        },");
         emit(0, "        writeBoolean: function(value) {");
-        emit(0, "            buf.writeInt8(value, offset);");
-        emit(0, "            offset += 1;");
+        emit(0, "            buf.writeInt8(value, offset_byte);");
+        emit(0, "            offset_byte += 1;");
         emit(0, "        },");
         emit(0, "        writeString: function(value) {");
         emit(0, "            methods.write32(value.length+1);");
-        emit(0, "            ref.writeCString(buf, offset, value);");
-        emit(0, "            offset += value.length+1;");
+        emit(0, "            ref.writeCString(buf, offset_byte, value);");
+        emit(0, "            offset_byte += value.length+1;");
+        emit(0, "        },");
+        emit(0, "        resetBits: function() {");
+        emit(0, "            if (offset_bit !== 0) ++offset_byte;");
+        emit(0, "            offset_bit = 0;");
+        emit(0, "        },");
+        emit(0, "        writeBits: function(value, numbits) {");
+        emit(0, "            const isbigint = bigint.isInstance(value);");
+        emit(0, "            let bits_left = numbits;");
+        emit(0, "            do {");
+        emit(0, "                if (offset_bit == 0) buf.writeUInt8(0, offset_byte);");
+        emit(0, "                let payload = buf.readUInt8(offset_byte);");
+        emit(0, "                const mask = isbigint ?");
+        emit(0, "                             bigint(1).shiftLeft(bits_left).prev() :");
+        emit(0, "                             (1 << bits_left) - 1;");
+        emit(0, "                const shift = (offset_bit + bits_left) - 8;");
+        emit(0, "                if (shift < 0) {");
+        emit(0, "                    payload |= isbigint ?");
+        emit(0, "                               value.and(mask).shiftLeft(-shift).toJSNumber() :");
+        emit(0, "                               (value & mask) << -shift;");
+        emit(0, "                    buf.writeUInt8(payload, offset_byte);");
+        emit(0, "                    offset_bit += bits_left;");
+        emit(0, "                    break;");
+        emit(0, "                }");
+        emit(0, "                payload |= isbigint ?");
+        emit(0, "                           value.and(mask).shiftRight(shift).toJSNumber() :");
+        emit(0, "                           (value & mask) >> shift;");
+        emit(0, "                buf.writeUInt8(payload, offset_byte);");
+        emit(0, "                bits_left = shift;");
+        emit(0, "                offset_bit = 0;");
+        emit(0, "                ++offset_byte;");
+        emit(0, "            } while(bits_left > 0);");
         emit(0, "        },");
         emit(0, "        writeArray: function(arr, size, writeValFunc) {");
         emit(0, "            for (var i = 0; i < size; ++i)");
@@ -284,7 +316,11 @@ struct EmitModule : public Emitter
         auto writerFunc = getWriterFunc(tn);
 
         if (writerFunc != "") {
-            emit(indent, "W.%s(%s);", writerFunc.c_str(), accessor);
+            if (zm.type.numbits != 0) {
+                emit(indent, "W.writeBits(%s, %u);", accessor, zm.type.numbits);
+            } else {
+                emit(indent, "W.%s(%s);", writerFunc.c_str(), accessor);
+            }
         } else {
             emit(indent, "%s_encode_one(%s, W)", tn, accessor);
         }
@@ -299,13 +335,12 @@ struct EmitModule : public Emitter
 
         auto writerFunc = getWriterFunc(tn);
 
-        if (writerFunc != "") {
-            if (fixedLen) {
-                emit(indent, "W.writeArray(%s, %s, W.%s);", accessor, len, writerFunc.c_str());
-            } else {
-                emit(indent, "W.writeArray(%s, msg.%s, W.%s);",
-                             accessor, len, writerFunc.c_str());
-            }
+        if (zm.type.numbits != 0) {
+            emit(indent, "W.writeArray(%s, %s%s, (f) => { return W.writeBits(f, %u); });",
+                 accessor, fixedLen ? "" : "msg.", len, zm.type.numbits);
+        } else if (writerFunc != "") {
+            emit(indent, "W.writeArray(%s, %s%s, W.%s);",
+                 accessor, fixedLen ? "" : "msg.", len, writerFunc.c_str());
         } else {
             fprintf(stderr, "Unable to encode list of type: %s\n", tn.c_str());
             assert(0);
@@ -323,7 +358,15 @@ struct EmitModule : public Emitter
             return;
         }
 
+        bool inBitMode = false;
         for (auto& zm : zs.members) {
+            if (!inBitMode && zm.type.numbits != 0) {
+                inBitMode = true;
+            } else if (inBitMode && zm.type.numbits == 0) {
+                inBitMode = false;
+                emit(1, "W.resetBits();");
+            }
+
             if (zm.dimensions.size() == 0) {
                 emitEncodeSingleMember(zm, "msg." + zm.membername, 1);
             } else {
@@ -363,6 +406,9 @@ struct EmitModule : public Emitter
                     emit(i + 1, "}");
                 }
             }
+        }
+        if (inBitMode) {
+            emit(1, "W.resetBits();");
         }
         emit(0, "}");
     }

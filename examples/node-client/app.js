@@ -2,6 +2,7 @@ var express = require('express');
 var app = express();
 var http = require('http').Server(app);
 var assert = require('assert');
+var bigint = require('big-integer');
 app.use(express.static("public"));
 
 var zcm = require('zerocm');
@@ -126,17 +127,24 @@ function encodeExample()
 function bitfieldExample()
 {
   setInterval(function() {
-    var msg = new zcmtypes.bitfield_t();
-    z.publish("BITFIELD", msg);
+    var b = new zcmtypes.bitfield_t();
+    b.field1 = 3;
+    b.field2 = [ [1, 0, 1, 0], [1, 0, 1, 0] ];
+    b.field3 = 0xf;
+    b.field4 = 5;
+    b.field5 = 7;
+    b.field9 = 1 << 27;
+    b.field10 = bigint(1).shiftLeft(52).or(1);
+    z.publish("BITFIELD", b);
   }, 1000);
 }
 
-// basicExample();
-// recursiveExample();
-// multidimExample();
-// packageExample();
-// encodeExample();
-//bitfieldExample();
+basicExample();
+recursiveExample();
+multidimExample();
+packageExample();
+encodeExample();
+bitfieldExample();
 
 // Intentionally not saving the subscription here to make sure we don't
 // segfault due to not tracking the subscription in user-space
@@ -155,8 +163,10 @@ z.subscribe("PACKAGED", zcmtypes.test_package.packaged_t, function(channel, msg)
 });
 
 z.subscribe("BITFIELD", zcmtypes.bitfield_t, (channel, msg) => {
-  console.log("bitfield received on channel " + channel);
-  console.log(JSON.stringify(msg, null, 2));
+  console.log("Typed message received on channel " + channel);
+  if (msg.field10.toString() !== bigint(1).shiftLeft(52).or(1).toString()) {
+    console.error("Failed to properly decode bitfield");
+  }
 }, () => {});
 
 var sub;
