@@ -23,6 +23,7 @@ export Zcm,
        set_queue_size,
        write_topology,
        read_bits,
+       write_bits,
        LogEvent,
        LogFile,
        read_next_event,
@@ -344,6 +345,26 @@ function read_bits(ret::Any, buf::IOBuffer, numbits::Int, offset_bit::Int)
     end
 
     return offset_bit, ret
+end
+
+function write_bits(buf::IOBuffer, value::Any, numbits::Int, byte_in_progress::UInt8, offset_bit::Int)
+    bits_left = numbits;
+    while (bits_left > 0)
+        mask::UInt64 = (1 << bits_left) - 1;
+        shift = offset_bit + bits_left - 8;
+        if (shift < 0)
+            shift = -shift;
+            byte_in_progress |= UInt8((value << shift) & (mask << shift))
+            offset_bit += bits_left;
+            return byte_in_progress, offset_bit
+        end
+        byte_in_progress |= UInt8((value >> shift) & (mask >> shift))
+        write(buf, byte_in_progress);
+        bits_left = shift;
+        offset_bit = 0;
+        byte_in_progress = UInt8(0)
+    end
+    return byte_in_progress, offset_bit
 end
 
 mutable struct LogEvent

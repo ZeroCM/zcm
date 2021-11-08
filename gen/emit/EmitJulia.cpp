@@ -357,6 +357,10 @@ struct EmitJuliaType : public Emitter
             emit(indent, "write(buf, UInt8(0))");
         } else if (tn == "boolean") {
             emit(indent, "write(buf, %s)", accessor);
+        } else if (zm.type.numbits != 0) {
+            emit(indent, "byte_in_progress, offset_bit = "
+                         "ZCM.write_bits(buf, %s, %u, byte_in_progress, offset_bit)",
+                         accessor, zm.type.numbits);
         } else if (tn == "byte"    || tn == "int8_t"  ||
                    tn == "int16_t" || tn == "int32_t" || tn == "int64_t" ||
                    tn == "float"   || tn == "double") {
@@ -401,17 +405,22 @@ struct EmitJuliaType : public Emitter
         }
 
         bool inBitMode = false;
+        size_t bitfieldNum = 0;
         for (auto& zm : zs.members) {
             if (!inBitMode && zm.type.numbits != 0) {
                 inBitMode = true;
-                emit(1, "offset_bit = 0");
                 emit(0, "");
+                emit(1, "# Start of bitfield %u", bitfieldNum);
+                emit(1, "offset_bit = 0");
+                emit(1, "byte_in_progress = UInt8(0)");
             } else if (inBitMode && zm.type.numbits == 0) {
                 inBitMode = false;
                 emit(1, "if (offset_bit != 0)");
-                emit(2, "read(buf, 1)");
+                emit(2, "write(buf, byte_in_progress)");
                 emit(1, "end");
+                emit(1, "# End of bitfield %u", bitfieldNum);
                 emit(0, "");
+                ++bitfieldNum;
             }
 
             auto& mtn = zm.type.fullname;
@@ -482,11 +491,12 @@ struct EmitJuliaType : public Emitter
                 */
             }
         }
-
         if (inBitMode) {
             emit(1, "if (offset_bit != 0)");
-            emit(2, "read(buf, 1)");
+            emit(2, "write(buf, byte_in_progress)");
             emit(1, "end");
+            emit(1, "# End of bitfield %u", bitfieldNum);
+            emit(0, "");
         }
         emit(0, "end");
         emit(0, "");
@@ -524,17 +534,15 @@ struct EmitJuliaType : public Emitter
         } else if (zm.type.numbits != 0) {
             emit(indent, "offset_bit, %s = ZCM.read_bits(%s, buf, %u, offset_bit)",
                          accessor, accessor, zm.type.numbits);
-        } else if (zm.type.numbits == 0) {
-            if (tn == "byte" || tn == "int8_t") {
-                auto typeSize = ZCMGen::getPrimitiveTypeSize(tn);
-                emit(indent, "%s = reinterpret(%s, read(buf, %u))[1]%s",
-                             accessor, mappedTypename.c_str(), typeSize, sfx);
-            } else if (tn == "int16_t" || tn == "int32_t" || tn == "int64_t" ||
-                       tn == "float"   || tn == "double") {
-                auto typeSize = ZCMGen::getPrimitiveTypeSize(tn);
-                emit(indent, "%s = %s(reinterpret(%s, read(buf, %u))[1])%s",
-                             accessor, ntoh.c_str(), mappedTypename.c_str(), typeSize, sfx);
-            }
+        } else if (tn == "byte" || tn == "int8_t") {
+            auto typeSize = ZCMGen::getPrimitiveTypeSize(tn);
+            emit(indent, "%s = reinterpret(%s, read(buf, %u))[1]%s",
+                         accessor, mappedTypename.c_str(), typeSize, sfx);
+        } else if (tn == "int16_t" || tn == "int32_t" || tn == "int64_t" ||
+                   tn == "float"   || tn == "double") {
+            auto typeSize = ZCMGen::getPrimitiveTypeSize(tn);
+            emit(indent, "%s = %s(reinterpret(%s, read(buf, %u))[1])%s",
+                         accessor, ntoh.c_str(), mappedTypename.c_str(), typeSize, sfx);
         } else {
             emit(indent, "%sZCM._decode_one(%s,buf)%s", accessor, mappedTypename.c_str(), sfx);
         }
