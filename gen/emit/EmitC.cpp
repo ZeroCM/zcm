@@ -457,33 +457,6 @@ struct EmitSource : public Emit
         }
     }
 
-    void emitCAdvanceOffset()
-    {
-        bool hasBitfield = false;
-        for (const auto& zm : zs.members) {
-            if (zm.type.numbits != 0) {
-                hasBitfield = true;
-                break;
-            }
-        }
-        if (!hasBitfield) return;
-
-        emit(0, "static void advance_offset(uint32_t* offset_byte, uint32_t* offset_bit, uint32_t numbits)");
-        emit(0, "{");
-        emit(1, "uint32_t tmp_num_bytes, tmp_num_bits;");
-        emit(0, "");
-        emit(1, "tmp_num_bytes = numbits / ZCM_CORETYPES_INT8_NUM_BITS_ON_BUS;");
-        emit(1, "tmp_num_bits = numbits - (tmp_num_bytes * ZCM_CORETYPES_INT8_NUM_BITS_ON_BUS);");
-        emit(1, "*offset_byte += tmp_num_bytes;");
-        emit(1, "*offset_bit += tmp_num_bits;");
-        emit(1, "if (*offset_bit >= ZCM_CORETYPES_INT8_NUM_BITS_ON_BUS) {");
-        emit(1 + 1, "*offset_bit -= 8;");
-        emit(1 + 1, "++*offset_byte;");
-        emit(1, "}");
-        emit(0, "}");
-        emit(0, "");
-    }
-
     void emitCEncodeArray()
     {
         const char* tn_ = zs.structname.nameUnderscoreCStr();
@@ -542,7 +515,7 @@ struct EmitSource : public Emit
                      makeArraySize(zm, "p", (int)zm.dimensions.size() - 1).c_str(),
                      zm.type.numbits);
                 emit(indent, "if (thislen < 0) return thislen;");
-                emit(indent, "advance_offset(&pos_byte, &pos_bit, thislen);");
+                emit(indent, "__bitfield_advance_offset(&pos_byte, &pos_bit, thislen);");
             }
 
             emitCArrayLoopsEnd(zm, "p", FLAG_NONE);
@@ -636,7 +609,7 @@ struct EmitSource : public Emit
                      makeArraySize(zm, "p", (int)zm.dimensions.size() - 1).c_str(),
                      zm.type.numbits);
                 emit(indent, "if (thislen < 0) return thislen;");
-                emit(indent, "advance_offset(&pos_byte, &pos_bit, thislen);");
+                emit(indent, "__bitfield_advance_offset(&pos_byte, &pos_bit, thislen);");
             }
 
             emitCArrayLoopsEnd(zm, "p", FLAG_NONE);
@@ -1075,7 +1048,6 @@ static int emitStructSource(const ZCMGen& zcm, const ZCMStruct& zs, const string
     E.emitIncludes();
 
     E.emitCStructGetHash();
-    E.emitCAdvanceOffset();
     E.emitCEncodeArray();
     E.emitCEncode();
     E.emitCEncodedArraySize();

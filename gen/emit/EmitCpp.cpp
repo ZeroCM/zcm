@@ -425,36 +425,44 @@ struct Emit : public Emitter
         int indent = extraIndent + 1 + depth;
         int ndims = (int)zm.dimensions.size();
         // primitive array
-        if (depth+1 == ndims &&
+        if (depth + 1 == ndims &&
             ZCMGen::isPrimitiveType(mtn) && mtn != "string") {
 
             auto& dim = zm.dimensions[depth];
-            emitStart(indent, "thislen = __%s_encode_%sarray(buf, offset + pos, maxlen - pos, &this->%s",
-                      mtn.c_str(),
-                      zcm.gopt->getBool("little-endian-encoding") ? "little_endian_" : "",
-                      zm.membername.c_str());
-            for(int i = 0; i < depth; ++i)
-                emitContinue("[a%d]", i);
-            emitEnd("[0], %s%s);", dimSizePrefix(dim.size).c_str(), dim.size.c_str());
-
-            emit(indent, "if(thislen < 0) return thislen; else pos += thislen;");
+            if (zm.type.numbits == 0) {
+                emitStart(indent, "thislen = __%s_encode_%sarray(buf, offset + pos_byte, maxlen - pos_byte, &this->%s",
+                          mtn.c_str(),
+                          zcm.gopt->getBool("little-endian-encoding") ? "little_endian_" : "",
+                          zm.membername.c_str());
+                for (int i = 0; i < depth; ++i) emitContinue("[a%d]", i);
+                emitEnd("[0], %s%s);", dimSizePrefix(dim.size).c_str(), dim.size.c_str());
+                emit(indent, "if(thislen < 0) return thislen; else pos_byte += thislen;");
+            } else {
+                emitStart(indent, "thislen = __%s_encode_array_bits(buf, offset + pos_byte, "
+                                  "pos_bit, maxlen - pos_byte, &this->%s",
+                                  mtn.c_str(),
+                                  zm.membername.c_str());
+                for (int i = 0; i < depth; ++i) emitContinue("[a%d]", i);
+                emitEnd("[0], %s%s, %u);", dimSizePrefix(dim.size).c_str(), dim.size.c_str(), zm.type.numbits);
+                emit(indent, "if (thislen < 0) return thislen;");
+                emit(indent, "__bitfield_advance_offset(&pos_byte, &pos_bit, thislen);");
+            }
             return;
         }
-        if(depth == ndims) {
-            if(mtn == "string") {
+
+        if (depth == ndims) {
+            if (mtn == "string") {
                 emitStart(indent, "char* __cstr = (char*) this->%s", zm.membername.c_str());
-                for(int i = 0; i < depth; ++i)
-                    emitContinue("[a%d]", i);
+                for (int i = 0; i < depth; ++i) emitContinue("[a%d]", i);
                 emitEnd(".c_str();");
-                emit(indent, "thislen = __string_encode_%sarray(buf, offset + pos, maxlen - pos, &__cstr, 1);",
+                emit(indent, "thislen = __string_encode_%sarray(buf, offset + pos_byte, maxlen - pos_byte, &__cstr, 1);",
                              zcm.gopt->getBool("little-endian-encoding") ? "little_endian_" : "");
             } else {
                 emitStart(indent, "thislen = this->%s", zm.membername.c_str());
-                for(int i = 0; i < depth; ++i)
-                    emitContinue("[a%d]", i);
-                emitEnd("._encodeNoHash(buf, offset + pos, maxlen - pos);");
+                for (int i = 0; i < depth; ++i) emitContinue("[a%d]", i);
+                emitEnd("._encodeNoHash(buf, offset + pos_byte, maxlen - pos_byte);");
             }
-            emit(indent, "if(thislen < 0) return thislen; else pos += thislen;");
+            emit(indent, "if(thislen < 0) return thislen; else pos_byte += thislen;");
             return;
         }
 
@@ -480,10 +488,33 @@ struct Emit : public Emitter
         }
         emit(0, "int %s::_encodeNoHash(void* buf, uint32_t offset, uint32_t maxlen) const", sn);
         emit(0, "{");
-        emit(1,     "uint32_t pos = 0;");
+        emit(1,     "uint32_t pos_byte = 0;");
+        for (const auto& zm : zs.members) {
+            if (zm.type.numbits != 0) {
+                emit(1, "uint32_t pos_bit;");
+                break;
+            }
+        }
         emit(1,     "int thislen;");
         emit(0, "");
+        bool inBitMode = false;
+        size_t bitfieldNum = 0;
         for (auto& zm : zs.members) {
+
+            if (!inBitMode && zm.type.numbits != 0) {
+                inBitMode = true;
+                emit(1, "// Start of bitfield %u", bitfieldNum);
+                emit(0, "");
+                emit(1, "pos_bit = 0;");
+                emit(0, "");
+            } else if (inBitMode && zm.type.numbits == 0) {
+                inBitMode = false;
+                emit(1, "if (pos_bit != 0) ++pos_byte;");
+                emit(0, "");
+                emit(1, "// End of bitfield %u", bitfieldNum);
+                emit(0, "");
+                ++bitfieldNum;
+            }
 
             auto& mtn = zm.type.fullname;
             auto* mn = zm.membername.c_str();
@@ -491,18 +522,31 @@ struct Emit : public Emitter
             int ndims = (int)zm.dimensions.size();
             if (ndims == 0) {
                 if (ZCMGen::isPrimitiveType(mtn)) {
-                    if(mtn == "string") {
+                    if (mtn == "string") {
                         emit(1, "char* %s_cstr = (char*) this->%s.c_str();", mn, mn);
-                        emit(1, "thislen = __string_encode_%sarray(buf, offset + pos, maxlen - pos, &%s_cstr, 1);",
-                                zcm.gopt->getBool("little-endian-encoding") ? "little_endian_" : "",
+                        emit(1, "thislen = __string_encode_%sarray(buf, offset + pos_byte, "
+                                "maxlen - pos_byte, &%s_cstr, 1);",
+                                zcm.gopt->getBool("little-endian-encoding")
+                                ? "little_endian_" : "",
                                 mn);
+                        emit(1, "if(thislen < 0) return thislen; else pos_byte += thislen;");
+                    } else if (zm.type.numbits == 0) {
+                        emit(1, "thislen = __%s_encode_%sarray(buf, offset + pos_byte, "
+                                "maxlen - pos_byte, &this->%s, 1);",
+                                mtn.c_str(),
+                                zcm.gopt->getBool("little-endian-encoding")
+                                ? "little_endian_" : "",
+                                mn);
+                        emit(1, "if(thislen < 0) return thislen; else pos_byte += thislen;");
                     } else {
-                        emit(1, "thislen = __%s_encode_%sarray(buf, offset + pos, maxlen - pos, &this->%s, 1);",
-                             mtn.c_str(),
-                             zcm.gopt->getBool("little-endian-encoding") ? "little_endian_" : "",
-                             mn);
+                        emit(1, "thislen = __%s_encode_array_bits(buf, offset + pos_byte, "
+                                "pos_bit, maxlen - pos_byte, &this->%s, 1, %u);",
+                                zm.type.nameUnderscoreCStr(),
+                                mn,
+                                zm.type.numbits);
+                        emit(1, "if (thislen < 0) return thislen;");
+                        emit(1, "__bitfield_advance_offset(&pos_byte, &pos_bit, thislen);");
                     }
-                    emit(1, "if(thislen < 0) return thislen; else pos += thislen;");
                 } else {
                     _encodeRecursive(zm, 0, 0);
                 }
@@ -523,7 +567,12 @@ struct Emit : public Emitter
 
             emit(0,"");
         }
-        emit(1, "return pos;");
+        if (inBitMode) {
+            emit(1, "if (pos_bit != 0) ++pos_byte;");
+            emit(0, "");
+            emit(1, "// End of bitfield %u", bitfieldNum);
+        }
+        emit(1, "return pos_byte;");
         emit(0,"}");
         emit(0,"");
     }
@@ -539,27 +588,54 @@ struct Emit : public Emitter
             emit(0,"");
             return;
         }
-        emit(1,     "uint32_t enc_size = 0;");
+        emit(1, "uint32_t enc_size = 0;");
         for (auto& zm : zs.members) {
+            if (zm.type.numbits != 0) {
+                emit(1, "uint32_t numbits;");
+                break;
+            }
+        }
+        bool inBitMode = false;
+        for (auto& zm : zs.members) {
+
+            if (inBitMode && zm.type.numbits == 0) {
+                inBitMode = false;
+                emit(1, "enc_size += __bitfield_encoded_size(numbits);");
+                emit(0, "");
+            } else if (!inBitMode && zm.type.numbits != 0) {
+                inBitMode = true;
+                emit(0, "");
+                emit(1, "numbits = 0;");
+            }
+
             auto& mtn = zm.type.fullname;
             auto* mn = zm.membername.c_str();
             int ndim = (int)zm.dimensions.size();
 
             if (ZCMGen::isPrimitiveType(mtn) && mtn != "string") {
-                emitStart(1, "enc_size += ");
-                for(int n = 0; n < ndim-1; ++n) {
-                    auto& dim = zm.dimensions[n];
-                    emitContinue("%s%s * ", dimSizePrefix(dim.size).c_str(), dim.size.c_str());
-                }
-                if(ndim > 0) {
-                    auto& dim = zm.dimensions[ndim-1];
-                    emitEnd("__%s_encoded_array_size(NULL, %s%s);",
-                            mtn.c_str(), dimSizePrefix(dim.size).c_str(), dim.size.c_str());
+                if (zm.type.numbits == 0) {
+                    emitStart(1, "enc_size += ");
+                    for (int n = 0; n < ndim - 1; ++n) {
+                        auto& dim = zm.dimensions[n];
+                        emitContinue("%s%s * ", dimSizePrefix(dim.size).c_str(), dim.size.c_str());
+                    }
+                    if (ndim > 0) {
+                        auto& dim = zm.dimensions[ndim - 1];
+                        emitEnd("__%s_encoded_array_size(NULL, %s%s);",
+                                mtn.c_str(), dimSizePrefix(dim.size).c_str(), dim.size.c_str());
+                    } else {
+                        emitEnd("__%s_encoded_array_size(NULL, 1);", mtn.c_str());
+                    }
                 } else {
-                    emitEnd("__%s_encoded_array_size(NULL, 1);", mtn.c_str());
+                    emitStart(1, "numbits += ");
+                    for (int n = 0; n < ndim; ++n) {
+                        auto& dim = zm.dimensions[n];
+                        emitContinue("%s%s * ", dimSizePrefix(dim.size).c_str(), dim.size.c_str());
+                    }
+                    emitEnd("%u; // %s", zm.type.numbits, zm.membername.c_str());
                 }
             } else {
-                for(int n = 0; n < ndim; ++n) {
+                for (int n = 0; n < ndim; ++n) {
                     auto& dim = zm.dimensions[n];
                     emit(1+n, "for (int a%d = 0; a%d < %s%s; ++a%d) {",
                          n, n, dimSizePrefix(dim.size).c_str(), dim.size.c_str(), n);
@@ -577,6 +653,10 @@ struct Emit : public Emitter
                 }
             }
         }
+        if (inBitMode) {
+            emit(1, "enc_size += __bitfield_encoded_size(numbits);");
+            emit(0, "");
+        }
         emit(1, "return enc_size;");
         emit(0,"}");
         emit(0,"");
@@ -589,12 +669,12 @@ struct Emit : public Emitter
 
         int ndims = (int)zm.dimensions.size();
         // primitive array
-        if (depth+1 == ndims &&
+        if (depth + 1 == ndims &&
             ZCMGen::isPrimitiveType(mtn) && mtn != "string") {
 
             auto& dim = zm.dimensions[depth];
             int decodeIndent = 1 + depth;
-            if(!zm.isConstantSizeArray()) {
+            if (!zm.isConstantSizeArray()) {
                 emit(1 + depth, "if(%s > 0) {", dimSizeAccessor(dim.size).c_str());
                 emitStart(2 + depth, "this->%s", mn);
                 for(int i = 0; i < depth; ++i)
@@ -603,35 +683,50 @@ struct Emit : public Emitter
                 ++decodeIndent;
             }
 
-            emitStart(decodeIndent, "thislen = __%s_decode_%sarray(buf, offset + pos, maxlen - pos, &this->%s",
-                                    mtn.c_str(),
-                                    zcm.gopt->getBool("little-endian-encoding") ? "little_endian_" : "",
-                                    mn);
-            for(int i = 0; i < depth; ++i)
-                emitContinue("[a%d]", i);
-            emitEnd("[0], %s);", dimSizeAccessor(dim.size).c_str());
-            emit(decodeIndent, "if(thislen < 0) return thislen; else pos += thislen;");
+            if (zm.type.numbits == 0) {
+                emitStart(decodeIndent, "thislen = __%s_decode_%sarray(buf, offset + pos_byte, "
+                                        "maxlen - pos_byte, &this->%s",
+                                        mtn.c_str(),
+                                        zcm.gopt->getBool("little-endian-encoding")
+                                        ? "little_endian_" : "",
+                                        mn);
+                for (int i = 0; i < depth; ++i) emitContinue("[a%d]", i);
+                emitEnd("[0], %s);", dimSizeAccessor(dim.size).c_str());
+                emit(decodeIndent, "if(thislen < 0) return thislen; else pos_byte += thislen;");
+            } else {
+                emitStart(decodeIndent, "thislen = __%s_decode_array_bits(buf, offset + pos_byte, "
+                                        "pos_bit, maxlen - pos_byte, &this->%s",
+                                        mtn.c_str(),
+                                        mn);
+                for (int i = 0; i < depth; ++i) emitContinue("[a%d]", i);
+                emitEnd("[0], %s, %u);", dimSizeAccessor(dim.size).c_str(), zm.type.numbits);
+                emit(decodeIndent, "if (thislen < 0) return thislen;");
+                emit(decodeIndent, "__bitfield_advance_offset(&pos_byte, &pos_bit, thislen);");
+            }
+
             if (!zm.isConstantSizeArray()) {
                 emit(1 + depth, "}");
             }
-        } else if(depth == ndims) {
+        } else if (depth == ndims) {
             if (mtn == "string") {
                 emit(1 + depth, "int32_t __elem_len;");
-                emit(1 + depth, "thislen = __int32_t_decode_%sarray(buf, offset + pos, maxlen - pos, &__elem_len, 1);",
+                emit(1 + depth, "thislen = __int32_t_decode_%sarray(buf, offset + pos_byte, "
+                                "maxlen - pos_byte, &__elem_len, 1);",
                                 zcm.gopt->getBool("little-endian-encoding") ? "little_endian_" : "");
-                emit(1 + depth, "if(thislen < 0) return thislen; else pos += thislen;");
-                emit(1 + depth, "if((uint32_t)__elem_len > maxlen - pos) return -1;");
+                emit(1 + depth, "if(thislen < 0) return thislen; else pos_byte += thislen;");
+                emit(1 + depth, "if((uint32_t)__elem_len > maxlen - pos_byte) return -1;");
                 emitStart(1 + depth, "this->%s", mn);
                 for(int i = 0; i < depth; ++i)
                     emitContinue("[a%d]", i);
-                emitEnd(".assign(((const char*)buf) + offset + pos, __elem_len - ZCM_CORETYPES_INT8_NUM_BYTES_ON_BUS);");
-                emit(1 + depth, "pos += __elem_len;");
+                emitEnd(".assign(((const char*)buf) + offset + pos_byte, __elem_len - "
+                        "ZCM_CORETYPES_INT8_NUM_BYTES_ON_BUS);");
+                emit(1 + depth, "pos_byte += __elem_len;");
             } else {
                 emitStart(1 + depth, "thislen = this->%s", mn);
                 for(int i = 0; i < depth; ++i)
                     emitContinue("[a%d]", i);
-                emitEnd("._decodeNoHash(buf, offset + pos, maxlen - pos);");
-                emit(1 + depth, "if(thislen < 0) return thislen; else pos += thislen;");
+                emitEnd("._decodeNoHash(buf, offset + pos_byte, maxlen - pos_byte);");
+                emit(1 + depth, "if(thislen < 0) return thislen; else pos_byte += thislen;");
             }
         } else {
             auto& dim = zm.dimensions[depth];
@@ -664,10 +759,34 @@ struct Emit : public Emitter
         }
         emit(0, "int %s::_decodeNoHash(const void* buf, uint32_t offset, uint32_t maxlen)", sn);
         emit(0, "{");
-        emit(1,     "uint32_t pos = 0;");
+        emit(1,     "uint32_t pos_byte = 0;");
+        for (const auto& zm : zs.members) {
+            if (zm.type.numbits != 0) {
+                emit(1, "uint32_t pos_bit;");
+                break;
+            }
+        }
         emit(1,     "int thislen;");
         emit(0, "");
+        bool inBitMode = false;
+        size_t bitfieldNum = 0;
         for (auto& zm : zs.members) {
+
+            if (!inBitMode && zm.type.numbits != 0) {
+                inBitMode = true;
+                emit(1, "// Start of bitfield %u", bitfieldNum);
+                emit(0, "");
+                emit(1, "pos_bit = 0;");
+                emit(0, "");
+            } else if (inBitMode && zm.type.numbits == 0) {
+                inBitMode = false;
+                emit(1, "if (pos_bit != 0) ++pos_byte;");
+                emit(0, "");
+                emit(1, "// End of bitfield %u", bitfieldNum);
+                emit(0, "");
+                ++bitfieldNum;
+            }
+
             auto& mtn = zm.type.fullname;
             auto* mn = zm.membername.c_str();
 
@@ -675,19 +794,30 @@ struct Emit : public Emitter
             if (ndims == 0 && ZCMGen::isPrimitiveType(mtn)) {
                 if(mtn == "string") {
                     emit(1, "int32_t __%s_len__;", mn);
-                    emit(1, "thislen = __int32_t_decode_%sarray(buf, offset + pos, maxlen - pos, &__%s_len__, 1);",
+                    emit(1, "thislen = __int32_t_decode_%sarray(buf, offset + pos_byte, "
+                            "maxlen - pos_byte, &__%s_len__, 1);",
                             zcm.gopt->getBool("little-endian-encoding") ? "little_endian_" : "",
                             mn);
-                    emit(1, "if(thislen < 0) return thislen; else pos += thislen;");
-                    emit(1, "if((uint32_t)__%s_len__ > maxlen - pos) return -1;", mn);
-                    emit(1, "this->%s.assign(((const char*)buf) + offset + pos, __%s_len__ - ZCM_CORETYPES_INT8_NUM_BYTES_ON_BUS);", mn, mn);
-                    emit(1, "pos += __%s_len__;", mn);
-                } else {
-                    emit(1, "thislen = __%s_decode_%sarray(buf, offset + pos, maxlen - pos, &this->%s, 1);",
+                    emit(1, "if(thislen < 0) return thislen; else pos_byte += thislen;");
+                    emit(1, "if((uint32_t)__%s_len__ > maxlen - pos_byte) return -1;", mn);
+                    emit(1, "this->%s.assign(((const char*)buf) + offset + pos_byte, __%s_len__ - "
+                            "ZCM_CORETYPES_INT8_NUM_BYTES_ON_BUS);", mn, mn);
+                    emit(1, "pos_byte += __%s_len__;", mn);
+                } else if (zm.type.numbits == 0) {
+                    emit(1, "thislen = __%s_decode_%sarray(buf, offset + pos_byte, "
+                            "maxlen - pos_byte, &this->%s, 1);",
                             mtn.c_str(),
                             zcm.gopt->getBool("little-endian-encoding") ? "little_endian_" : "",
                             mn);
-                    emit(1, "if(thislen < 0) return thislen; else pos += thislen;");
+                    emit(1, "if(thislen < 0) return thislen; else pos_byte += thislen;");
+                } else {
+                    emit(1, "thislen = __%s_decode_array_bits(buf, offset + pos_byte, "
+                            "pos_bit, maxlen - pos_byte, &this->%s, 1, %u);",
+                            zm.type.nameUnderscoreCStr(),
+                            mn,
+                            zm.type.numbits);
+                    emit(1, "if (thislen < 0) return thislen;");
+                    emit(1, "__bitfield_advance_offset(&pos_byte, &pos_bit, thislen);");
                 }
             } else {
                 _decodeRecursive(zm, 0);
@@ -695,7 +825,12 @@ struct Emit : public Emitter
 
             emit(0,"");
         }
-        emit(1, "return pos;");
+        if (inBitMode) {
+            emit(1, "if (pos_bit != 0) ++pos_byte;");
+            emit(0, "");
+            emit(1, "// End of bitfield %u", bitfieldNum);
+        }
+        emit(1, "return pos_byte;");
         emit(0, "}");
         emit(0, "");
     }

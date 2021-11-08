@@ -43,6 +43,21 @@ static inline uint32_t __bitfield_encoded_size(uint32_t numbits)
     return size;
 }
 
+// Convert numbits into an appropriate increment of offset_byte and offset_bit
+static inline void __bitfield_advance_offset(uint32_t* offset_byte, uint32_t* offset_bit, uint32_t numbits)
+{
+    uint32_t tmp_num_bytes, tmp_num_bits;
+
+    tmp_num_bytes = numbits / ZCM_CORETYPES_INT8_NUM_BITS_ON_BUS;
+    tmp_num_bits = numbits - (tmp_num_bytes * ZCM_CORETYPES_INT8_NUM_BITS_ON_BUS);
+    *offset_byte += tmp_num_bytes;
+    *offset_bit += tmp_num_bits;
+    if (*offset_bit >= ZCM_CORETYPES_INT8_NUM_BITS_ON_BUS) {
+        *offset_bit -= 8;
+        ++*offset_byte;
+    }
+}
+
 // returns number of bits consumed
 #define X(NAME, TYPE, UNSIGNED_TYPE)                                                                                \
 static inline int __ ## NAME ## _encode_array_bits(void *_buf,                                                      \
