@@ -16,4 +16,6 @@ struct bitfield_t
 
     int32_t:28 field9;
     int64_t:55 field10;
+
+    byte:2 field11;
 }
