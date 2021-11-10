@@ -31,7 +31,17 @@ if not zcm.good():
 # set up a subscription on channel "TEST"
 subs = zcm.subscribe("BITFIELD", bitfield_t, handler)
 
+b = bitfield_t()
+b.field1 = 3;
+b.field2 = [ [1, 0, 1, 0], [1, 0, 1, 0] ];
+b.field3 = 0xf;
+b.field4 = 5;
+b.field5 = 7;
+b.field9 = 1 << 27;
+b.field10 = (1 << 52) | 1;
+
 zcm.start()
 while True:
     time.sleep(1)
+    zcm.publish("BITFIELD", b)
 zcm.stop()
