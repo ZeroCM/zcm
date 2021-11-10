@@ -628,7 +628,7 @@ struct PyEmitStruct : public Emitter
         // efficiently packed and unpacked.
         if ((size_t)dimNum == zm.dimensions.size() - 1 &&
             zm.type.fullname == "byte") {
-            emitContinue("\"\"");
+            emitContinue("bytearray()");
             return;
         }
         auto& dim = zm.dimensions[dimNum];
