@@ -4,10 +4,9 @@ using juliazcm.types: example_t,
 
 numReceived = 0
 function handler(rbuf, channel::String, msg::arrays_t)
-    println("Received message on channel: ", channel)
+    ccall(:jl_, Nothing, (Any,), "Received message on channel $(channel)")
     global numReceived
 
-    #@assert (numReceived == msg.m) "Wrong data"
     @assert (numReceived == msg.n) "Wrong data"
 
     for i=1:3
@@ -42,7 +41,7 @@ end
 
 # a handler that receives the raw message bytes
 function untyped_handler(rbuf, channel::String, msgdata::Vector{UInt8})
-    println("Recieved raw message data on channel: ", channel)
+    ccall(:jl_, Nothing, (Any,), "Received raw message data on channel $(channel)")
     decode(arrays_t, msgdata)
 end
 

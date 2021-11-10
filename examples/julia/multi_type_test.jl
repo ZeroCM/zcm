@@ -6,14 +6,14 @@ received_example_t = false
 function handler1(rbuf, channel::String, msg::example_t)
     global received_example_t
     received_example_t = true
-    println("Received example_t message on channel: ", channel)
+    ccall(:jl_, Nothing, (Any,), "Received example_t message on channel $(channel)")
 end
 
 received_example2_t = false
 function handler2(rbuf, channel::String, msg::example2_t)
     global received_example2_t
     received_example2_t = true
-    println("Received example2_t message on channel: ", channel)
+    ccall(:jl_, Nothing, (Any,), "Received example2_t message on channel $(channel)")
 end
 
 zcm = Zcm("inproc")

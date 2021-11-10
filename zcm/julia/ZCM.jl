@@ -277,7 +277,6 @@ function start(zcm::Zcm)
 end
 
 function stop(zcm::Zcm)
-    @warn "Threaded interface was partially broken by Julia 1.6 : you cannot put printouts in handlers"
     while (true)
         ret = ccall(("zcm_try_stop", "libzcm"), Cint, (Ptr{Native.Zcm},), zcm)
         if (ret == Cint(0))

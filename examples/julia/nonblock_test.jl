@@ -3,7 +3,7 @@ using juliazcm.types: example_t
 
 numReceived = 0
 handler = function(rbuf, channel::String, msg::example_t)
-    println("Received message on channel: ", channel)
+    ccall(:jl_, Nothing, (Any,), "Received message on channel $(channel)")
     global numReceived
     @assert (numReceived == msg.timestamp) "Received message with incorrect timestamp"
     numReceived = numReceived + 1
