@@ -27,8 +27,11 @@ int main(int argc, char *argv[])
     b.field3 = 0xf;
     b.field4 = 5;
     b.field5 = 7;
+    b.field6 = 1;
+    b.field7 = 3;
     b.field9 = 1 << 27;
     b.field10 = ((uint64_t)1 << 52) | 1;
+    b.field11 = 3;
 
     while (1) {
         zcm.publish("BITFIELD", &b);
