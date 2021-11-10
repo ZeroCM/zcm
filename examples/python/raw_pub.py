@@ -1,14 +1,15 @@
 #!/usr/bin/python
 
 from zerocm import ZCM
-import sys
-sys.path.insert(0, '../build/types/')
+import sys, os
+blddir= os.path.dirname(os.path.realpath(__file__)) + '/../../build/examples/examples/'
+sys.path.insert(0, blddir + "types/")
 import time
 
 success = "Failure"
 def handler(channel, data):
     global success
-    if data == "test":
+    if data.decode('utf-8') == "test":
         success = "Success"
 
 # make a new zcm object and launch the handle thread
@@ -17,7 +18,7 @@ if not zcm.good():
     print("Unable to initialize zcm")
     exit()
 
-msg = "test"
+msg = "test".encode('utf-8')
 
 # set up a subscription on channel "TEST"
 subs = zcm.subscribe_raw("TEST", handler)

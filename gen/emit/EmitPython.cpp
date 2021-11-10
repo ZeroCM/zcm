@@ -25,7 +25,6 @@ static string getStructFormat(const ZCMMember& zm)
     if (zm.type.numbits != 0) {
         string ret;
         if      (tn == "byte")    ret = "u";
-        else if (tn == "boolean") ret = "s";
         else if (tn == "int8_t")  ret = "s";
         else if (tn == "int16_t") ret = "s";
         else if (tn == "int32_t") ret = "s";
@@ -119,6 +118,8 @@ struct PyEmitStruct : public Emitter
             emit(indent, "__%s_len = struct.unpack('>I', buf.read(4))[0]", mn.c_str());
             emit(indent, "%sbuf.read(__%s_len)[:-1].decode('utf-8', 'replace')%s",
                  accessor, mn.c_str(), sfx);
+        } else if (tn == "boolean") {
+            emit(indent, "%sbool(struct.unpack('b', buf.read(1))[0])%s", accessor, sfx);
         } else if (tn == zs.structname.fullname) {
             emit(indent, "%s%s._decode_one(buf)%s", accessor, sn.c_str(), sfx);
         } else {
@@ -135,7 +136,13 @@ struct PyEmitStruct : public Emitter
         auto* accessor = accessor_.c_str();
         auto* len = len_.c_str();
 
-        if (tn == "byte") {
+        if (zm.type.numbits != 0) {
+            emit(indent, "numbits = %s%s * %u + offset_bit", fixedLen ? "" : "self.", len, zm.type.numbits);
+            emit(indent, "bitbuf = buf.read(math.ceil(numbits / 8))");
+            emit(indent, "formatstr = %s%s * \"%s\"", fixedLen ? "" : "self.", len, getStructFormat(zm).c_str());
+            emit(indent, "%s[*bitstruct.unpack_from('>' + formatstr + '>', bitbuf, offset_bit)]%s",
+                 accessor, suffix);
+        } else if (tn == "byte") {
             emit(indent, "%sbuf.read(%s%s)%s",
                   accessor, fixedLen ? "" : "self.", len, suffix);
         } else if (tn == "boolean") {
@@ -151,13 +158,7 @@ struct PyEmitStruct : public Emitter
             }
         } else if (tn == "int8_t" || tn == "int16_t" || tn == "int32_t" || tn == "int64_t" ||
                    tn == "float"  || tn == "double") {
-            if (zm.type.numbits != 0) {
-                emit(indent, "numbits = %s%s * %u + offset_bit", fixedLen ? "" : "self.", len, zm.type.numbits);
-                emit(indent, "bitbuf = buf.read(math.ceil(numbits / 8))");
-                emit(indent, "formatstr = %s%s * \"%s\"", fixedLen ? "" : "self.", len, getStructFormat(zm).c_str());
-                emit(indent, "%s[*bitstruct.unpack_from('>' + formatstr + '>', bitbuf, offset_bit)]%s",
-                     accessor, suffix);
-            } else if (fixedLen) {
+            if (fixedLen) {
                 emit(indent, "%sstruct.unpack('>%s%s', buf.read(%d))%s",
                      accessor, len, getStructFormat(zm).c_str(),
                      atoi(len) * ZCMGen::getPrimitiveTypeSize(tn),
@@ -312,9 +313,9 @@ struct PyEmitStruct : public Emitter
                     emitDecodeList(zm, accessor, 2+n, n==0,
                                    lastDim.size, lastDimFixedLen);
                     if (inBitMode) {
-                        emit(3, "offset_bit = numbits %% 8");
-                        emit(3, "if (offset_bit != 0):");
-                        emit(4, "buf.seek(-1, os.SEEK_CUR)");
+                        emit(2+n, "offset_bit = numbits %% 8");
+                        emit(2+n, "if (offset_bit != 0):");
+                        emit(3+n, "buf.seek(-1, os.SEEK_CUR)");
                         emit(0, "");
                     }
                 } else {
@@ -334,9 +335,9 @@ struct PyEmitStruct : public Emitter
                     accessor += ".append(";
                     emitDecodeOne(zm, accessor, n+3, ")");
                     if (inBitMode) {
-                        emit(3, "offset_bit = numbits %% 8");
-                        emit(3, "if (offset_bit != 0):");
-                        emit(4, "buf.seek(-1, os.SEEK_CUR)");
+                        emit(2+n, "offset_bit = numbits %% 8");
+                        emit(2+n, "if (offset_bit != 0):");
+                        emit(3+n, "buf.seek(-1, os.SEEK_CUR)");
                         emit(0, "");
                     }
                 }
@@ -344,7 +345,6 @@ struct PyEmitStruct : public Emitter
         }
         flushReadStructFmt(structFmt, structMembers);
         if (inBitMode) {
-            emit(0, "");
             emit(2, "# End of bitfield %u", bitfieldNum);
             emit(0, "");
         }
@@ -413,29 +413,29 @@ struct PyEmitStruct : public Emitter
         auto* accessor = accessor_.c_str();
         auto* len = len_.c_str();
 
-        if (tn == "byte") {
+        if (zm.type.numbits != 0) {
+            string f = getStructFormat(zm);
+            f[0] = 'u'; // Encoding is all unsigned
+            emit(indent, "numbits = %s%s * %u", fixedLen ? "" : "self.", len, zm.type.numbits);
+            emit(indent, "mask = (1 << numbits) - 1");
+            emit(indent, "numbits += offset_bit");
+            emit(indent, "bitbuf = bytearray(math.ceil(numbits / 8))");
+            emit(indent, "if (offset_bit != 0):");
+            emit(indent + 1, "buf.seek(-1, os.SEEK_CUR)");
+            emit(indent + 1, "bitbuf[0] = buf.read(1)[0]");
+            emit(indent + 1, "buf.seek(-1, os.SEEK_CUR)");
+            emit(indent, "formatstr = %s%s * \"%s\"", fixedLen ? "" : "self.", len, f.c_str());
+            emit(indent, "bitstruct.pack_into('>' + formatstr + '>', "
+                         "bitbuf, offset_bit, *(f & mask for f in %s[:%s%s]))",
+                         accessor, fixedLen ? "" : "self.", len);
+            emit(indent, "buf.write(bitbuf)");
+        } else if (tn == "byte") {
             emit(indent, "buf.write(bytearray(%s[:%s%s]))",
                  accessor, (fixedLen ? "" : "self."), len);
             return;
         } else if (tn == "boolean" || tn == "int8_t" || tn == "int16_t" || tn == "int32_t" ||
                    tn == "int64_t" || tn == "float"  || tn == "double") {
-            if (zm.type.numbits != 0) {
-                string f = getStructFormat(zm);
-                f[0] = 'u'; // Encoding is all unsigned
-                emit(indent, "numbits = %s%s * %u", fixedLen ? "" : "self.", len, zm.type.numbits);
-                emit(indent, "mask = (1 << numbits) - 1");
-                emit(indent, "numbits += offset_bit");
-                emit(indent, "bitbuf = bytearray(math.ceil(numbits / 8))");
-                emit(indent, "if (offset_bit != 0):");
-                emit(indent + 1, "buf.seek(-1, os.SEEK_CUR)");
-                emit(indent + 1, "bitbuf[0] = buf.read(1)[0]");
-                emit(indent + 1, "buf.seek(-1, os.SEEK_CUR)");
-                emit(indent, "formatstr = %s%s * \"%s\"", fixedLen ? "" : "self.", len, f.c_str());
-                emit(indent, "bitstruct.pack_into('>' + formatstr + '>', "
-                             "bitbuf, offset_bit, *(f & mask for f in %s[:%s%s]))",
-                             accessor, fixedLen ? "" : "self.", len);
-                emit(indent, "buf.write(bitbuf)");
-            } else if (fixedLen) {
+            if (fixedLen) {
                 emit(indent, "buf.write(struct.pack('>%s%s', *%s[:%s]))",
                      len, getStructFormat(zm).c_str(), accessor, len);
             } else {
@@ -567,7 +567,7 @@ struct PyEmitStruct : public Emitter
                     zm.type.fullname != "string") {
                     emitEncodeList(zm, accessor, 2+n, lastDim.size, lastDimFixedLen);
                     if (inBitMode) {
-                        emit(3, "offset_bit = numbits %% 8");
+                        emit(2+n, "offset_bit = numbits %% 8");
                         emit(0, "");
                     }
                 } else {
@@ -579,7 +579,7 @@ struct PyEmitStruct : public Emitter
                     accessor += "[i" + to_string(n) + "]";
                     emitEncodeOne(zm, accessor, n+3);
                     if (inBitMode) {
-                        emit(3, "offset_bit = numbits %% 8");
+                        emit(2+n, "offset_bit = numbits %% 8");
                         emit(0, "");
                     }
                 }
@@ -587,7 +587,6 @@ struct PyEmitStruct : public Emitter
         }
         flushWriteStructFmt(structFmt, structMembers);
         if (inBitMode) {
-            emit(0, "");
             emit(2, "# End of bitfield %u", bitfieldNum);
         }
         emit(0, "");

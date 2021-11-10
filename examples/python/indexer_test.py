@@ -2,7 +2,7 @@
 
 from zerocm import ZCM, LogFile, LogEvent
 import sys, os
-blddir= os.path.dirname(os.path.realpath(__file__)) + '/../build/'
+blddir= os.path.dirname(os.path.realpath(__file__)) + '/../../build/examples/examples/'
 sys.path.insert(0, blddir + "types/")
 from example_t import example_t
 

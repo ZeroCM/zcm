@@ -1,8 +1,9 @@
 #!/usr/bin/python
 
 from zerocm import ZCM
-import sys
-sys.path.insert(0, '../build/types/')
+import sys, os
+blddir= os.path.dirname(os.path.realpath(__file__)) + '/../../build/examples/examples/'
+sys.path.insert(0, blddir + "types/")
 from example_t import example_t
 import time
 
