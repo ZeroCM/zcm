@@ -27,6 +27,8 @@ public class BitfieldPub
         b.field9 = 1 << 27;
         b.field10 = ((long)1 << 52) | 1;
         b.field11 = 3;
+        byte[][][][] field12 = { { { { 1, 2 }, { -1, 2 } }, { { 1, -2 }, { 1, 2 } } }, { { { 1, 2 }, { 1, 2 } }, { { 1, 2 }, { 1, 2 } } }, { { { 1, 2 }, { 1, 2 } }, { { 1, 2 }, { 1, 2 } } } };
+        b.field12 = field12;
 
         while (true) {
             zcm.publish("BITFIELD", b);

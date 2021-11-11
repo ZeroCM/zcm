@@ -42,13 +42,21 @@ string makeFqn(const ZCMGen& zcm, const string& typeName)
 
 // /** # -> replace1
 //     @ -> replace2
+//     $ -> replace3
 // **/
-static string specialReplace(const string& haystack, const string& replace1)
+static string specialReplace(const string& haystack,
+                             const string& replace1,
+                             const string& replace2 = "",
+                             const string& replace3 = "")
 {
     string ret;
     for (auto& c : haystack) {
         if (c == '#')
             ret += replace1;
+        else if (c == '@')
+            ret += replace2;
+        else if (c == '$')
+            ret += replace3;
         else
             ret += string(1, c);
     }
@@ -107,27 +115,27 @@ struct TypeTable
     {
         tbl.emplace("byte", PrimInfo{
             "byte",
-            "# = ins.readByte();",
+            "# = ins.readByte@($);",
             "outs.writeByte(#);"});
 
         tbl.emplace("int8_t", PrimInfo{
             "byte",
-            "# = ins.readByte();",
+            "# = ins.readByte@($);",
             "outs.writeByte(#);"});
 
         tbl.emplace("int16_t", PrimInfo{
             "short",
-            "# = ins.readShort();",
+            "# = ins.readShort@($);",
             "outs.writeShort(#);"});
 
         tbl.emplace("int32_t", PrimInfo{
             "int",
-            "# = ins.readInt();",
+            "# = ins.readInt@($);",
             "outs.writeInt(#);"});
 
         tbl.emplace("int64_t", PrimInfo{
             "long",
-            "# = ins.readLong();",
+            "# = ins.readLong@($);",
             "outs.writeLong(#);"});
 
         tbl.emplace("string", PrimInfo{
@@ -192,7 +200,7 @@ struct EmitStruct : public Emitter
 
         // base case: generic
         if (depth == ndims) {
-            if (pinfo != NULL) {
+            if (pinfo) {
                 if (zm.type.numbits == 0) {
                     emit(2 + ndims, "%s", specialReplace(pinfo->encode, accessor).c_str());
                 } else {
@@ -219,7 +227,7 @@ struct EmitStruct : public Emitter
         int ndims = (int)zm.dimensions.size();
 
         // base case: primitive array
-        if (depth+1 == ndims && pinfo != nullptr) {
+        if (depth+1 == ndims && zm.type.numbits == 0 && pinfo != nullptr) {
             string accessorArray = makeAccessorArray(zm, "");
 
             // byte array
@@ -232,13 +240,18 @@ struct EmitStruct : public Emitter
 
         // base case: generic
         if (depth == ndims) {
-            emitStart(2 + ndims,"");
-            if (pinfo)
-                emitContinue("%s", specialReplace(pinfo->decode, accessor).c_str());
-            else {
-                emitContinue("%s = %s._decodeRecursiveFactory(ins);", accessor.c_str(), makeFqn(zcm, zm.type.fullname).c_str());
+            if (pinfo) {
+                if (zm.type.numbits == 0) {
+                    emit(2 + ndims, "%s", specialReplace(pinfo->decode, accessor).c_str());
+                } else {
+                    // base case: bitfield
+                    emit(2 + ndims, "%s", specialReplace(pinfo->decode, accessor, "Bits",
+                                                         std::to_string(zm.type.numbits)).c_str());
+                }
+            } else {
+                emit(2 + ndims, "%s = %s._decodeRecursiveFactory(ins);",
+                                accessor.c_str(), makeFqn(zcm, zm.type.fullname).c_str());
             }
-            emitEnd("");
             return;
         }
 
@@ -517,7 +530,21 @@ struct EmitStruct : public Emitter
         if (structHasStringMember(zs))
             emit(2, "char[] __strbuf = null;");
 
+        inBitMode = false;
+        bitfieldNum = 0;
         for (auto& zm : zs.members) {
+            if (!inBitMode && zm.type.numbits != 0) {
+                inBitMode = true;
+                emit(2, "// Start of bitfield %u", bitfieldNum);
+                emit(0, "");
+            } else if (inBitMode && zm.type.numbits == 0) {
+                inBitMode = false;
+                emit(2, "ins.resetBits();");
+                emit(0, "");
+                emit(2, "// End of bitfield %u", bitfieldNum);
+                emit(0, "");
+                ++bitfieldNum;
+            }
             PrimInfo* pinfo = typeTable.find(zm.type.fullname);
             string accessor = makeAccessor(zm, "this");
 
@@ -538,6 +565,11 @@ struct EmitStruct : public Emitter
 
             decodeRecursive(zm, pinfo, accessor, 0);
             emit(0," ");
+        }
+        if (inBitMode) {
+            emit(2, "ins.resetBits();");
+            emit(0, "");
+            emit(2, "// End of bitfield %u", bitfieldNum);
         }
 
         emit(1,"}");

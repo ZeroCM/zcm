@@ -75,7 +75,7 @@ static inline int __ ## NAME ## _encode_array_bits(void *_buf,                  
                                                                                                                     \
     for (element = 0; element < elements; ++element) {                                                              \
         uint32_t bits_left = numbits;                                                                               \
-        do {                                                                                                        \
+        while (bits_left > 0) {                                                                                     \
             if (pos_bit == 0) buf[pos_byte] = 0;                                                                    \
             int32_t shift = (int32_t)(pos_bit + bits_left) - ZCM_CORETYPES_INT8_NUM_BITS_ON_BUS;                    \
             if (shift < 0) {                                                                                        \
@@ -91,7 +91,7 @@ static inline int __ ## NAME ## _encode_array_bits(void *_buf,                  
             bits_left = shift;                                                                                      \
             pos_bit = 0;                                                                                            \
             ++pos_byte;                                                                                             \
-        } while(bits_left > 0);                                                                                     \
+        }                                                                                                           \
     }                                                                                                               \
                                                                                                                     \
     return total_bits;                                                                                              \
@@ -119,11 +119,11 @@ static inline int __ ## NAME ##_decode_array_bits(const void *_buf,             
                                                                                                                     \
     for (element = 0; element < elements; ++element) {                                                              \
         uint32_t bits_left = numbits;                                                                               \
-        do {                                                                                                        \
+        while (bits_left > 0) {                                                                                     \
             uint32_t available_bits = ZCM_CORETYPES_INT8_NUM_BITS_ON_BUS - pos_bit;                                 \
             uint32_t bits_covered = available_bits < bits_left ? available_bits : bits_left;                        \
-            UNSIGNED_TYPE mask = (((UNSIGNED_TYPE)1 << bits_covered) - 1) <<                                        \
-                                 (ZCM_CORETYPES_INT8_NUM_BITS_ON_BUS - bits_covered - pos_bit);                     \
+            uint8_t mask = ((1 << bits_covered) - 1) <<                                                             \
+                           (ZCM_CORETYPES_INT8_NUM_BITS_ON_BUS - bits_covered - pos_bit);                           \
             uint8_t payload = (buf[pos_byte] & mask) << pos_bit;                                                    \
             int32_t shift = ZCM_CORETYPES_INT8_NUM_BITS_ON_BUS - bits_left;                                         \
             /* Sign extend the first shift and none after that */                                                   \
@@ -140,7 +140,7 @@ static inline int __ ## NAME ##_decode_array_bits(const void *_buf,             
                 pos_bit = 0;                                                                                        \
                 ++pos_byte;                                                                                         \
             }                                                                                                       \
-        } while(bits_left > 0);                                                                                     \
+        };                                                                                                          \
     }                                                                                                               \
                                                                                                                     \
     return total_bits;                                                                                              \

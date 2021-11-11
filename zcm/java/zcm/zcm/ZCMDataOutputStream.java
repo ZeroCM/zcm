@@ -17,23 +17,27 @@ public final class ZCMDataOutputStream implements DataOutput
     public ZCMDataOutputStream(int sz)
     {
         this.buf = new byte[sz];
+        this.reset();
     }
 
     public ZCMDataOutputStream(byte buf[])
     {
         this.buf = buf;
+        this.reset();
     }
 
     public void resetBits()
     {
-        if (pos_bit != 0) pos_byte++;
-        pos_bit = 0;
+        if (pos_bit != 0) {
+            pos_bit = 0;
+            ++pos_byte;
+        }
     }
 
     public void reset()
     {
         pos_byte = 0;
-        resetBits();
+        pos_bit = 0;
     }
 
     void ensureSpace(int needed)

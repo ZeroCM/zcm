@@ -14,6 +14,10 @@ def build(ctx):
                 use = 'default zcm examplezcmtypes_c_stlib',
                 source = 'sub.c')
 
+    ctx.program(target = 'bitfield_sub',
+                use = 'default zcm examplezcmtypes_c_stlib',
+                source = 'bitfield_sub.c')
+
     ctx.program(target = 'pubsub',
                 use = 'default zcm examplezcmtypes_c_stlib',
                 source = 'pubsub.c')
