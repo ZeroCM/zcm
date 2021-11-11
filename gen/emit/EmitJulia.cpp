@@ -533,7 +533,7 @@ struct EmitJuliaType : public Emitter
                          accessor, mappedTypename.c_str(), typeSize, sfx);
         } else if (zm.type.numbits != 0) {
             emit(indent, "offset_bit, %s = ZCM.read_bits(%s, buf, %u, offset_bit)",
-                         accessor, accessor, zm.type.numbits);
+                         accessor, mappedTypename.c_str(), zm.type.numbits);
         } else if (tn == "byte" || tn == "int8_t") {
             auto typeSize = ZCMGen::getPrimitiveTypeSize(tn);
             emit(indent, "%s = reinterpret(%s, read(buf, %u))[1]%s",

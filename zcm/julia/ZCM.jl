@@ -314,36 +314,37 @@ function write_topology(zcm::Zcm, name::AbstractString)
           zcm, convert(String, name))
 end
 
-function read_bits(ret::Any, buf::IOBuffer, numbits::Int, offset_bit::Int)
-    bits_left = numbits;
+function read_bits(t::Type, buf::IOBuffer, numbits::Int, offset_bit::Int)
+    ret = Int64(0)
+    bits_left = numbits
     while (bits_left > 0)
-        available_bits = 8 - offset_bit;
-        bits_covered = available_bits < bits_left ? available_bits : bits_left;
-        mask = ((1 << bits_covered) - 1) << (8 - bits_covered - offset_bit);
-        payload::UInt8 = (peek(buf) & mask) << offset_bit;
-        shift = 8 - bits_left;
+        available_bits = 8 - offset_bit
+        bits_covered = available_bits < bits_left ? available_bits : bits_left
+        mask = ((1 << bits_covered) - 1) << (8 - bits_covered - offset_bit)
+        payload::UInt8 = (peek(buf) & mask) << offset_bit
+        shift = 8 - bits_left
         if (bits_left == numbits)
             if (shift < 0)
-                ret = Int64(reinterpret(Int8, payload)) << -shift;
+                ret = Int64(reinterpret(Int8, payload)) << -shift
             else
-                ret = Int64(reinterpret(Int8, payload)) >>  shift;
+                ret = Int64(reinterpret(Int8, payload)) >>  shift
             end
         else
             if (shift < 0)
-                ret |= Int64(payload) << -shift;
+                ret |= Int64(payload) << -shift
             else
-                ret |= Int64(payload) >>>  shift;
+                ret |= Int64(payload) >>>  shift
             end
         end
-        bits_left -= bits_covered;
-        offset_bit += bits_covered;
+        bits_left -= bits_covered
+        offset_bit += bits_covered
         if (offset_bit == 8)
-            offset_bit = 0;
+            offset_bit = 0
             read(buf, 1)
         end
     end
 
-    return offset_bit, ret
+    return offset_bit, reinterpret(t, signed(t)(ret))
 end
 
 function write_bits(buf::IOBuffer, value::Any, numbits::Int, byte_in_progress::UInt8, offset_bit::Int)

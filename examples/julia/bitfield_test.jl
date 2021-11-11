@@ -49,6 +49,15 @@ b.field4 = 5;
 b.field5 = 7;
 b.field9 = 1 << 27;
 b.field10 = (Int64(1) << 52) | 1;
+for i = 1:size(b.field12, 1)
+    for j = 1:size(b.field12, 2)
+        for k = 1:size(b.field12, 3)
+            for l = 1:size(b.field12, 4)
+                b.field12[i, j, k, l] = UInt8(k + l)
+            end
+        end
+    end
+end
 
 start(zcm)
 
