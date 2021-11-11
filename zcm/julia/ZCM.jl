@@ -327,7 +327,11 @@ function read_bits(t::Type, buf::IOBuffer, numbits::Int, offset_bit::Int)
             if (shift < 0)
                 ret = Int64(reinterpret(Int8, payload)) << -shift
             else
-                ret = Int64(reinterpret(Int8, payload)) >>  shift
+                if t != UInt8
+                    ret = Int64(reinterpret(Int8, payload)) >> shift
+                else
+                    ret = Int64(reinterpret(Int8, payload)) >>> shift
+                end
             end
         else
             if (shift < 0)

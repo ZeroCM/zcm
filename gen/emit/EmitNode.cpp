@@ -27,7 +27,8 @@ static string getReaderFunc(const string& type, uint8_t numbits)
     } else if (type == "string") {
          return "R.readString()";
     } else if (numbits != 0) {
-        return "R.readBits(" + to_string(numbits) + ")";
+        return "R.readBits(" + to_string(numbits) +
+               (type == "byte" ? ", false" : "") +  ")";
     } else if (type == "int64_t") {
         return "R.read64()";
     } else if (type == "int32_t") {
@@ -165,7 +166,7 @@ struct EmitModule : public Emitter
         emit(0, "            if (offset_bit !== 0) ++offset_byte;");
         emit(0, "            offset_bit = 0;");
         emit(0, "        },");
-        emit(0, "        readBits: function(numbits) {");
+        emit(0, "        readBits: function(numbits, signExtend = true) {");
         emit(0, "            let bits_left = numbits;");
         emit(0, "            let ret;");
         emit(0, "            do {");
@@ -178,8 +179,15 @@ struct EmitModule : public Emitter
         emit(0, "                    if (numbits > 32) {");
         emit(0, "                        ret = bigint(((payload << 24) >> 24)).shiftRight(shift);");
         emit(0, "                    } else {");
-        emit(0, "                        if (shift < 0) ret = ((payload << 24) >> 24) << -shift;");
-        emit(0, "                        else           ret = ((payload << 24) >> 24) >>  shift;");
+        emit(0, "                        if (shift < 0) {");
+        emit(0, "                            ret = ((payload << 24) >> 24) << -shift;");
+        emit(0, "                        } else {");
+        emit(0, "                            if (signExtend) {");
+        emit(0, "                                ret = ((payload << 24) >> 24) >> shift;");
+        emit(0, "                            } else {");
+        emit(0, "                                ret = ((payload << 24) >>> 24) >>> shift;");
+        emit(0, "                            }");
+        emit(0, "                        }");
         emit(0, "                    }");
         emit(0, "                } else {");
         emit(0, "                    if (numbits > 32) {");

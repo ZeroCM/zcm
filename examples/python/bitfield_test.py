@@ -30,6 +30,7 @@ def handler(channel, msg):
     failed = failed or msg.field8 != []
     failed = failed or msg.field9 != ~(1 << 27) + 1
     failed = failed or msg.field10 != (1 << 52) | 1
+    failed = failed or msg.field11 != 3
     success = "Failed to decode properly" if failed else "Success"
 
 # make a new zcm object and launch the handle thread
@@ -49,6 +50,7 @@ b.field4 = 5;
 b.field5 = 7;
 b.field9 = 1 << 27;
 b.field10 = (1 << 52) | 1;
+b.field11 = 3
 b.field12 = [ [ [ [ 1, 2 ], [ 1, 2 ] ], [ [ 1, 2 ], [ 1, 2 ] ] ], [ [ [ 1, 2 ], [ 1, 2 ] ], [ [ 1, 2 ], [ 1, 2 ] ] ], [ [ [ 1, 2 ], [ 1, 2 ] ], [ [ 1, 2 ], [ 1, 2 ] ] ] ]
 
 zcm.start()

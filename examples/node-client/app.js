@@ -135,15 +135,17 @@ function bitfieldExample()
     b.field5 = 7;
     b.field9 = 1 << 27;
     b.field10 = bigint(1).shiftLeft(52).or(1);
+    b.field11 = 3;
+    b.field12 = [ [ [ [ 1, 2 ], [ -1, 2 ] ], [ [ 1, -2 ], [ 1, 2 ] ] ], [ [ [ 1, 2 ], [ 1, 2 ] ], [ [ 1, 2 ], [ 1, 2 ] ] ], [ [ [ 1, 2 ], [ 1, 2 ] ], [ [ 1, 2 ], [ 1, 2 ] ] ] ]
     z.publish("BITFIELD", b);
   }, 1000);
 }
 
-basicExample();
-recursiveExample();
-multidimExample();
-packageExample();
-encodeExample();
+//basicExample();
+//recursiveExample();
+//multidimExample();
+//packageExample();
+//encodeExample();
 bitfieldExample();
 
 // Intentionally not saving the subscription here to make sure we don't
@@ -167,6 +169,7 @@ z.subscribe("BITFIELD", zcmtypes.bitfield_t, (channel, msg) => {
   if (msg.field10.toString() !== bigint(1).shiftLeft(52).or(1).toString()) {
     console.error("Failed to properly decode bitfield");
   }
+  console.log(JSON.stringify(msg, null, 2));
 }, () => {});
 
 var sub;
