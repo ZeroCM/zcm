@@ -410,9 +410,9 @@ def generate_signature(ctx):
 
     ctx.install_files('${PREFIX}/lib/', ['zcm.gitid'])
 
-from waflib.Build import BuildContext, CleanContext, InstallContext, UninstallContext
+from waflib.Build import BuildContext, CleanContext, ListContext, InstallContext, UninstallContext
 for x in variants:
-    contexts = [BuildContext, CleanContext]
+    contexts = [BuildContext, CleanContext, ListContext]
     if not x.startswith('examples') and not x.startswith('tests'):
         contexts.extend([InstallContext, UninstallContext])
     for y in contexts:

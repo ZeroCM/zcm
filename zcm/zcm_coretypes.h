@@ -77,15 +77,17 @@ static inline int __ ## NAME ## _encode_array_bits(void *_buf,                  
         uint32_t bits_left = numbits;                                                                               \
         do {                                                                                                        \
             if (pos_bit == 0) buf[pos_byte] = 0;                                                                    \
-            UNSIGNED_TYPE mask = ((UNSIGNED_TYPE)1 << bits_left) - 1;                                               \
             int32_t shift = (int32_t)(pos_bit + bits_left) - ZCM_CORETYPES_INT8_NUM_BITS_ON_BUS;                    \
             if (shift < 0) {                                                                                        \
+                uint8_t mask = (1 << bits_left) - 1;                                                                \
                 shift = -shift;                                                                                     \
                 buf[pos_byte] |= (unsigned_p[element] << shift) & (mask << shift);                                  \
                 pos_bit += bits_left;                                                                               \
                 break;                                                                                              \
             }                                                                                                       \
-            buf[pos_byte] |= (unsigned_p[element] >> shift) & (mask >> shift);                                      \
+            /* the cast here just needs to be bigger than a uint8_t */                                              \
+            uint8_t mask = ((uint16_t)1 << (bits_left - shift)) - 1;                                                \
+            buf[pos_byte] |= (unsigned_p[element] >> shift) & mask;                                                 \
             bits_left = shift;                                                                                      \
             pos_bit = 0;                                                                                            \
             ++pos_byte;                                                                                             \

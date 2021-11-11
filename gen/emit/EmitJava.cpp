@@ -176,7 +176,7 @@ struct EmitStruct : public Emitter
         int ndims = (int)zm.dimensions.size();
 
         // base case: primitive array
-        if (depth+1 == ndims && pinfo != nullptr) {
+        if (depth+1 == ndims && zm.type.numbits == 0 && pinfo != nullptr) {
             string accessorArray = makeAccessorArray(zm, "");
             if (pinfo->storage == "byte") {
                 auto& dim = zm.dimensions[depth];
@@ -192,13 +192,16 @@ struct EmitStruct : public Emitter
 
         // base case: generic
         if (depth == ndims) {
-            emitStart(2 + ndims, "");
-            if (pinfo != NULL)
-                emitContinue("%s", specialReplace(pinfo->encode, accessor).c_str());
-            else
-                emitContinue("%s", specialReplace("#._encodeRecursive(outs);", accessor).c_str());
-            emitEnd(" ");
-
+            if (pinfo != NULL) {
+                if (zm.type.numbits == 0) {
+                    emit(2 + ndims, "%s", specialReplace(pinfo->encode, accessor).c_str());
+                } else {
+                    // base case: bitfield
+                    emit(2 + ndims, "outs.writeBits(%s, %u);", accessor.c_str(), zm.type.numbits);
+                }
+            } else {
+                emit(2 + ndims, "%s", specialReplace("#._encodeRecursive(outs);", accessor).c_str());
+            }
             return;
         }
 
@@ -222,7 +225,7 @@ struct EmitStruct : public Emitter
             // byte array
             if (pinfo->storage == "byte") {
                 auto& dim = zm.dimensions[depth];
-                emitStart(2+depth, "ins.readFully(this.%s, 0, %s);", accessorArray.c_str(), dim.size.c_str());
+                emit(2+depth, "ins.readFully(this.%s, 0, %s);", accessorArray.c_str(), dim.size.c_str());
                 return;
             }
         }
@@ -441,23 +444,42 @@ struct EmitStruct : public Emitter
 
         ///////////////// encode //////////////////
 
-        emit(1,"public void encode(DataOutput outs) throws IOException");
+        emit(1,"public void encode(ZCMDataOutputStream outs) throws IOException");
         emit(1,"{");
         emit(2,"outs.writeLong(ZCM_FINGERPRINT);");
         emit(2,"_encodeRecursive(outs);");
         emit(1,"}");
         emit(0," ");
 
-        emit(1,"public void _encodeRecursive(DataOutput outs) throws IOException");
+        emit(1,"public void _encodeRecursive(ZCMDataOutputStream outs) throws IOException");
         emit(1,"{");
         if (structHasStringMember(zs))
             emit(2, "char[] __strbuf = null;");
 
+        bool inBitMode = false;
+        size_t bitfieldNum = 0;
         for (auto& zm : zs.members) {
+            if (!inBitMode && zm.type.numbits != 0) {
+                inBitMode = true;
+                emit(2, "// Start of bitfield %u", bitfieldNum);
+                emit(0, "");
+            } else if (inBitMode && zm.type.numbits == 0) {
+                inBitMode = false;
+                emit(2, "outs.resetBits();");
+                emit(0, "");
+                emit(2, "// End of bitfield %u", bitfieldNum);
+                emit(0, "");
+                ++bitfieldNum;
+            }
             PrimInfo* pinfo = typeTable.find(zm.type.fullname);
             string accessor = makeAccessor(zm, "this");
             encodeRecursive(zm, pinfo, accessor, 0);
             emit(0," ");
+        }
+        if (inBitMode) {
+            emit(2, "outs.resetBits();");
+            emit(0, "");
+            emit(2, "// End of bitfield %u", bitfieldNum);
         }
         emit(1,"}");
         emit(0," ");
@@ -473,7 +495,7 @@ struct EmitStruct : public Emitter
         emit(2, "this(new ZCMDataInputStream(data));");
         emit(1, "}");
         emit(0, " ");
-        emit(1,"public %s(DataInput ins) throws IOException", sn);
+        emit(1,"public %s(ZCMDataInputStream ins) throws IOException", sn);
         emit(1,"{");
         emit(2,"if (ins.readLong() != ZCM_FINGERPRINT)");
         emit(3,     "throw new IOException(\"ZCM Decode error: bad fingerprint\");");
@@ -482,7 +504,7 @@ struct EmitStruct : public Emitter
         emit(1,"}");
         emit(0," ");
 
-        emit(1,"public static %s _decodeRecursiveFactory(DataInput ins) throws IOException", fqn);
+        emit(1,"public static %s _decodeRecursiveFactory(ZCMDataInputStream ins) throws IOException", fqn);
         emit(1,"{");
         emit(2,"%s o = new %s();", fqn, fqn);
         emit(2,"o._decodeRecursive(ins);");
@@ -490,7 +512,7 @@ struct EmitStruct : public Emitter
         emit(1,"}");
         emit(0," ");
 
-        emit(1,"public void _decodeRecursive(DataInput ins) throws IOException");
+        emit(1,"public void _decodeRecursive(ZCMDataInputStream ins) throws IOException");
         emit(1,"{");
         if (structHasStringMember(zs))
             emit(2, "char[] __strbuf = null;");
