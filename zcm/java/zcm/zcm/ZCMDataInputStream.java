@@ -211,34 +211,6 @@ public final class ZCMDataInputStream implements DataInput
         return ret;
     }
 
-    public char readCharBits(int numbits) throws IOException
-    {
-        char ret = 0;
-        int bits_left = numbits;
-        while (bits_left > 0) {
-            int available_bits = 8 - pos_bit;
-            int bits_covered = available_bits < bits_left ? available_bits : bits_left;
-            byte mask = (byte)(((1 << bits_covered) - 1) << (8 - bits_covered - pos_bit));
-            byte payload = (byte)((buf[pos_byte] & mask) << pos_bit);
-            int shift = 8 - bits_left;
-            /* Sign extend the first shift and none after that */
-            if (bits_left == numbits) {
-                if (shift < 0) ret = (char)(payload << -shift);
-                else           ret = (char)(payload >>  shift);
-            } else {
-                if (shift < 0) ret |= (char)((payload & 0xff) << -shift);
-                else           ret |= (char)((payload & 0xff) >>> shift);
-            }
-            bits_left -= bits_covered;
-            pos_bit += bits_covered;
-            if (pos_bit == 8) {
-                pos_bit = 0;
-                ++pos_byte;
-            }
-        }
-        return ret;
-    }
-
     public short readShortBits(int numbits) throws IOException
     {
         short ret = 0;

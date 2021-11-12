@@ -2,6 +2,9 @@
 #include <cmath>
 #include <unordered_map>
 
+#include <iostream>
+#include <type_traits>
+
 extern "C" {
 #include "tokenize.h"
 }
@@ -349,6 +352,22 @@ static int parseConst(ZCMGen& zcmgen, ZCMStruct& zs, tokenize_t* t)
 
     string type = t->token;
 
+    size_t numbits = 0;
+    // Check if a bitfield
+    if (parseTryConsume(t, ":")) {
+        if (!inArray(fixedPointTypes, type)) {
+            semantic_error(t, "Cannot specify number of bits on a non fixed point type.");
+        }
+        tokenizeNextOrFail(t, "bit length");
+        numbits = atoi(t->token);
+        if (numbits == 0) {
+            semantic_error(t, "Failed to parse length of bit field: %s", t->token);
+        } else if (numbits > zcmgen.getPrimitiveTypeNumBits(type)) {
+            semantic_error(t, "Specified bit length larger than member type: %u > %u",
+                           numbits, zcmgen.getPrimitiveTypeNumBits(type));
+        }
+    }
+
     do {
         // get the member name
         parseTryConsumeComment(t);
@@ -382,18 +401,40 @@ static int parseConst(ZCMGen& zcmgen, ZCMStruct& zs, tokenize_t* t)
         char* endptr = NULL;
         #define INT_CASE(MEMBERTYPE, CTYPE, STORE) \
             } else if (type == #MEMBERTYPE) { \
-                long long v = strtoll(t->token, &endptr, 0); \
+                int64_t v = strtoll(t->token, &endptr, 0); \
                 if (endptr == t->token || *endptr != '\0') \
                     parse_error(t, "Expected integer value"); \
                 if (strlen(t->token) > 2 && \
                         t->token[0] == '0' && (t->token[1] == 'x' || t->token[1] == 'X')) { \
-                    if (strlen(t->token) > sizeof(CTYPE) * 2 + 2) \
+                    if (strlen(t->token) > sizeof(CTYPE) * 2 + 2) { \
                         semantic_error(t, "Too many hex digits specified for " \
-                                          #MEMBERTYPE ": %lld", v); \
-                } else if (v < std::numeric_limits<CTYPE>::lowest() || \
-                           v > std::numeric_limits<CTYPE>::max()) { \
-                    semantic_error(t, "Integer value out of bounds for " \
-                                      #MEMBERTYPE ": %lld", v); \
+                                          #MEMBERTYPE ": 0x%llx", v); \
+                    } \
+                    if (numbits != 0 && numbits != 64) { \
+                        CTYPE mask = ~((1 << numbits) - 1); \
+                        CTYPE vtop = ((CTYPE)v) & mask; \
+                        if (vtop != mask && vtop != 0) { \
+                            semantic_error(t, "Too many bits used for " \
+                                              #MEMBERTYPE ":%u : 0x%llx", \
+                                              numbits, v); \
+                        } \
+                    } \
+                } else { \
+                    if (numbits != 0) { \
+                        CTYPE min = -(1L << (numbits - 1)); \
+                        CTYPE max = ~min; \
+                        if (v < min || max < v) {  \
+                            semantic_error(t, "Integer value out of bounds for " \
+                                              #MEMBERTYPE ":%u : %lld", numbits, v); \
+                        } \
+                    } else {  \
+                        CTYPE min = std::numeric_limits<CTYPE>::lowest(); \
+                        CTYPE max = std::numeric_limits<CTYPE>::max(); \
+                        if (v < min || max < v) {  \
+                            semantic_error(t, "Integer value out of bounds for " \
+                                              #MEMBERTYPE ": %lld", v); \
+                        } \
+                    } \
                 } \
                 STORE = (CTYPE) v;
 
@@ -408,7 +449,7 @@ static int parseConst(ZCMGen& zcmgen, ZCMStruct& zs, tokenize_t* t)
                 STORE = (TYPE) v;
 
         if (false) {
-        INT_CASE(byte,    uint8_t, zc.val.u8)
+        INT_CASE(byte,    int8_t,  zc.val.u8)
         INT_CASE(int8_t,  int8_t,  zc.val.i8)
         INT_CASE(int16_t, int16_t, zc.val.i16)
         INT_CASE(int32_t, int32_t, zc.val.i32)

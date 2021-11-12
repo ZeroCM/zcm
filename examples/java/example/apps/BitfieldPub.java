@@ -40,6 +40,9 @@ public class BitfieldPub
         b.field16 = 0b0000010;
         b.field19 = 0b1000100;
         b.field20 = 0b0000010;
+        b.field22 = b.FIELD22_TEST;
+        b.field23 = b.FIELD23_TEST;
+        b.field24 = b.FIELD24_TEST;
 
         while (true) {
             zcm.publish("BITFIELD", b);

@@ -35,5 +35,12 @@ struct bitfield_t
     int8_t field21;
 
     byte:8 field22;
-    const byte FIELD22_TEST = 0xFF;
+    const byte:8 FIELD22_TEST = 0xFF;
+
+    byte:3 field23;
+    const byte:3 FIELD23_TEST = 3;
+
+    byte:3 field24;
+    const byte:3 FIELD24_TEST = 0x07;
+    const byte:3 FIELD25_TEST = 0xff;
 }
