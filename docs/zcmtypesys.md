@@ -1,7 +1,6 @@
 <a style="margin-right: 1rem;" href="javascript:history.go(-1)">Back</a>
 [Home](../README.md)
 # ZCM Type System
-####*Note: There has been a recent change to the zcm hashing system. Check out the announcement [here](announcements/hash_scheme_change.md)*
 
 This page describes the ZCM Type System grammar, encoding, and type hashes in very formal terms. Unless you're
 intimately concerned with the subtlties, feel free to skim this document, and refer back as reference.
@@ -29,13 +28,14 @@ The grammar is given in EBNF using regex-style repetition and character classes:
     file          = zcmtype*
     zcmtype       = 'struct' name '{' field* '}'
     field         = const_field | data_field
-    const_field   = 'const' const_type name '=' const_literal ';'
+    const_field   = 'const' const_type numbits? name '=' const_literal ';'
     const_type    = 'int8_t' | 'int16_t' | 'int32_t' | 'int64_t' | 'float' | 'double'
     const_literal = hex_literal | int_literal | float_literal
-    data_field    = type name arraydim* ';'
+    data_field    = type numbits? name arraydim* ';'
     type          = primative | name
     primative     = 'int8_t' | 'int16_t' | 'int32_t' | 'int64_t' | 'float' | 'double' | 'string' | 'boolean' | 'byte'
     int_type      = 'int8_t' | 'int16_t' | 'int32_t' | 'int64_t'
+    numbits       = ':' uint_literal
     arraydim      = '[' arraysize ']'
     arraysize     = name | uint_literal
     name          = underalpha underalphanum*
@@ -44,7 +44,7 @@ The grammar is given in EBNF using regex-style repetition and character classes:
     hex_literal   = "0x" | hexdigit+
     hexdigit      = [0-9A-Fa-f]
     uint_literal  = [0-9]+
-    int_literal   = '-' uint_literal
+    int_literal   = '-'? uint_literal
 
 ### Semantic Constraints
 
@@ -54,6 +54,8 @@ Using the grammar above, to be well-formed the following constraints must be sat
   - Names used for array sizes must refer to a field in the same 'zcmtype' that has a scalar integer type
   - Names used for 'type' refer to other 'zcmtype' definitions
     - These may exist in other files
+  - The uint_literal specified for numbits must always be less than the number
+    of bits of the corresponding type
 
 ## Encoding formats
 
@@ -81,6 +83,21 @@ Using the grammar above, to be well-formed the following constraints must be sat
    - L is a length byte
    - N is a null byte
 
+### Bitfields
+Bitfields are integer types with a specified number of bits that are bitpacked during encoding.
+Neighboring bitfields will be packed tightly wasting no bits in between - not necessarily
+maintaining byte alignment. This is unlike all other type encodings which maintain byte alignment.
+Bitfields currently only support big endian encoding. All bitfields will behave exactly like
+their non-bitfield type in all regards other than encoding and decoding. `intXX_t` types are
+signed integers and will encode and decode as such. For example when encoding a type that
+contains an `int8_t:3` with the value set to `0b111`, you should expect the decoded message
+to contain a `-1` as the value of this variable. `byte` is unsigned for any language that has
+unsigned types. When encoding a type that contains a `byte:3` with the value set to `0b111`,
+you should expect the decoded message to contain a `7` as the value of this variable for
+languages that support unsigned types. For languages that do not have unsigned types (ahem java...)
+you should expect the decoded message to contain a `-1` as the value of this variable.
+
+
 ### Array Types
 
 Array types are encoded as a simple series of the element type. The encoding does *NOT* include a length field for the
@@ -94,6 +111,7 @@ Nested types are also encoded with zero overhead. Since the decoder knows the la
 type metadata. Circular type dependencies are not currently supported.
 
 ## Type Hashes
+####*Note: Announcement on membername hashing found [here](announcements/hash_scheme_change.md)*
 
 The optimized encoding formats specified above are made possible using a type hash. Each encoded message starts with
 a 64-bit hash field. As seen above, for one message, this is the only size overhead in ZCM Type encodings. Without the

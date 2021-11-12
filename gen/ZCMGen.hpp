@@ -90,9 +90,10 @@ struct ZCMMember
 
 struct ZCMConstant
 {
-    string type;    // int8_t / int16_t / int32_t / int64_t / float / double / string
+    string type;    // byte / int8_t / int16_t / int32_t / int64_t / float / double / string
     string membername;
     union {
+        uint8_t u8;
         int8_t  i8;
         int16_t i16;
         int32_t i32;

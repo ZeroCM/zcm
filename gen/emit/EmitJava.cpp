@@ -406,7 +406,7 @@ struct EmitStruct : public Emitter
             auto* name = zc.membername.c_str();
             auto* value = zc.valstr.c_str();
 
-            if (tn == "int8_t") {
+            if (tn == "int8_t" || tn == "byte") {
                 emit(1, "public static final byte %s = (byte) %s;", name, value);
             } else if (tn == "int16_t") {
                 emit(1, "public static final short %s = (short) %s;", name, value);

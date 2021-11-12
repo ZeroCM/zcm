@@ -67,6 +67,7 @@ public class BitfieldSub implements ZCMSubscriber
                 assert (msg.field16 == 2);
                 assert (msg.field19 == 68);
                 assert (msg.field20 == 2);
+                assert (msg.field22 == -1);
             }
         } catch (IOException ex) {
             System.out.println("Exception: " + ex);

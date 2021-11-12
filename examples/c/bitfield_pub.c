@@ -37,6 +37,7 @@ int main(int argc, char *argv[])
     b.field16 = 0b0000010;
     b.field19 = 0b1000100;
     b.field20 = 0b0000010;
+    b.field22 = -1;
 
     while (1) {
         bitfield_t_publish(zcm, "BITFIELD", &b);

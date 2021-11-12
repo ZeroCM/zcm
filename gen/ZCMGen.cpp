@@ -48,6 +48,7 @@ static vector<string> arrayDimTypes {
 
 // which types can be legally used as const values?
 static vector<string> constTypes {
+    "byte",
     "int8_t",
     "int16_t",
     "int32_t",
@@ -379,22 +380,22 @@ static int parseConst(ZCMGen& zcmgen, ZCMStruct& zs, tokenize_t* t)
         // TODO: This should migrate to either the ctor or a helper function called just
         //       before the ctor
         char* endptr = NULL;
-        #define INT_CASE(TYPE, STORE) \
-            } else if (type == #TYPE) { \
+        #define INT_CASE(MEMBERTYPE, CTYPE, STORE) \
+            } else if (type == #MEMBERTYPE) { \
                 long long v = strtoll(t->token, &endptr, 0); \
                 if (endptr == t->token || *endptr != '\0') \
                     parse_error(t, "Expected integer value"); \
                 if (strlen(t->token) > 2 && \
                         t->token[0] == '0' && (t->token[1] == 'x' || t->token[1] == 'X')) { \
-                    if (strlen(t->token) > sizeof(TYPE) * 2 + 2) \
-                        semantic_error(t, "Too many hex digits specified" \
-                                          #TYPE ": %lld", v); \
-                } else if (v < std::numeric_limits<TYPE>::lowest() || \
-                           v > std::numeric_limits<TYPE>::max()) { \
+                    if (strlen(t->token) > sizeof(CTYPE) * 2 + 2) \
+                        semantic_error(t, "Too many hex digits specified for " \
+                                          #MEMBERTYPE ": %lld", v); \
+                } else if (v < std::numeric_limits<CTYPE>::lowest() || \
+                           v > std::numeric_limits<CTYPE>::max()) { \
                     semantic_error(t, "Integer value out of bounds for " \
-                                      #TYPE ": %lld", v); \
+                                      #MEMBERTYPE ": %lld", v); \
                 } \
-                STORE = (TYPE) v;
+                STORE = (CTYPE) v;
 
         #define FLT_CASE(TYPE, STORE) \
             } else if (type == #TYPE) { \
@@ -407,10 +408,11 @@ static int parseConst(ZCMGen& zcmgen, ZCMStruct& zs, tokenize_t* t)
                 STORE = (TYPE) v;
 
         if (false) {
-        INT_CASE(int8_t,  zc.val.i8)
-        INT_CASE(int16_t, zc.val.i16)
-        INT_CASE(int32_t, zc.val.i32)
-        INT_CASE(int64_t, zc.val.i64)
+        INT_CASE(byte,    uint8_t, zc.val.u8)
+        INT_CASE(int8_t,  int8_t,  zc.val.i8)
+        INT_CASE(int16_t, int16_t, zc.val.i16)
+        INT_CASE(int32_t, int32_t, zc.val.i32)
+        INT_CASE(int64_t, int64_t, zc.val.i64)
         FLT_CASE(float,   zc.val.f)
         FLT_CASE(double,  zc.val.d)
         } else if (type != "string") {

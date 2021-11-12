@@ -31,4 +31,9 @@ struct bitfield_t
     byte:4 field18;
     byte:7 field19;
     byte:7 field20;
+
+    int8_t field21;
+
+    byte:8 field22;
+    const byte FIELD22_TEST = 0xFF;
 }
