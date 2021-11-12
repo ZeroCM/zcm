@@ -708,8 +708,12 @@ struct EmitModule : public Emitter
         auto& dim = zm.dimensions[dimNum];
         if (dim.mode == ZCM_VAR) {
             emitContinue("[]");
-        } else {
+        } else if ((size_t)dimNum == zm.dimensions.size() - 1) {
             emitContinue("new Array(%s).fill(", dim.size.c_str());
+            emitMemberInitializer(zm, dimNum+1);
+            emitContinue(")");
+        } else {
+            emitContinue("new Array(%s).fill(null).map(() => ", dim.size.c_str());
             emitMemberInitializer(zm, dimNum+1);
             emitContinue(")");
         }

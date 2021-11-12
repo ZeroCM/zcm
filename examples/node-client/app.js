@@ -136,7 +136,19 @@ function bitfieldExample()
     b.field9 = 1 << 27;
     b.field10 = bigint(1).shiftLeft(52).or(1);
     b.field11 = 3;
-    b.field12 = [ [ [ [ 1, 2 ], [ -1, 2 ] ], [ [ 1, -2 ], [ 1, 2 ] ] ], [ [ [ 1, 2 ], [ 1, 2 ] ], [ [ 1, 2 ], [ 1, 2 ] ] ], [ [ [ 1, 2 ], [ 1, 2 ] ], [ [ 1, 2 ], [ 1, 2 ] ] ] ]
+    for (let i = 0; i < 3; ++i) {
+      for (let j = 0; j < 2; ++j) {
+        for (let k = 0; k < 2; ++k) {
+          for (let l = 0; l < 2; ++l) {
+            b.field12[i][j][k][l] = k + l + 1;
+          }
+        }
+      }
+    }
+    b.field15 = 0b1000100;
+    b.field16 = 0b0000010;
+    b.field19 = 0b1000100;
+    b.field20 = 0b0000010;
     z.publish("BITFIELD", b);
   }, 1000);
 }
@@ -165,11 +177,45 @@ z.subscribe("PACKAGED", zcmtypes.test_package.packaged_t, function(channel, msg)
 });
 
 z.subscribe("BITFIELD", zcmtypes.bitfield_t, (channel, msg) => {
-  console.log("Typed message received on channel " + channel);
-  if (msg.field10.toString() !== bigint(1).shiftLeft(52).or(1).toString()) {
+  console.log("Message received on channel", channel);
+  if (msg.field1 != -1) console.error("Failed to decode field1");
+  if (msg.field2[0][0] != -1) console.error("Failed to decode field2");
+  if (msg.field2[0][1] !=  0) console.error("Failed to decode field2");
+  if (msg.field2[0][2] != -1) console.error("Failed to decode field2");
+  if (msg.field2[0][3] !=  0) console.error("Failed to decode field2");
+  if (msg.field2[1][0] != -1) console.error("Failed to decode field2");
+  if (msg.field2[1][1] !=  0) console.error("Failed to decode field2");
+  if (msg.field2[1][2] != -1) console.error("Failed to decode field2");
+  if (msg.field2[1][3] !=  0) console.error("Failed to decode field2");
+  if (msg.field3 != -1) console.error("Failed to decode field3");
+  if (msg.field4 != -3) console.error("Failed to decode field4");
+  if (msg.field5 != 7) console.error("Failed to decode field5");
+  if (msg.field6 != 0) console.error("Failed to decode field6");
+  if (msg.field7 != 0) console.error("Failed to decode field7");
+  if (msg.field8_dim1 != 0) console.error("Failed to decode field8_dim1");
+  if (msg.field8_dim2 != 0) console.error("Failed to decode field8_dim2");
+  if (msg.field8.length != 0) console.error("Failed to decode field8");
+  if (msg.field9 != ~(1 << 27) + 1) console.error("Failed to decode field9");
+  if (msg.field10.toString() != bigint(1).shiftLeft(52).or(1).toString()) {
     console.error("Failed to properly decode bitfield");
   }
-  console.log(JSON.stringify(msg, null, 2));
+  if (msg.field11 != 3) console.error("Failed to decode field11");
+  for (let i = 0; i < 3; ++i) {
+    for (let j = 0; j < 2; ++j) {
+      for (let k = 0; k < 2; ++k) {
+        for (let l = 0; l < 2; ++l) {
+          if (msg.field12[i][j][k][l] != k + l + 1) {
+            console.error(`Failed to decode field12[${i}][${j}][${k}][${l}]`);
+            console.error(`${msg.field12[i][j][k][l]} != ${k + l + 1}`);
+          }
+        }
+      }
+    }
+  }
+  if (msg.field15 != -60) console.error("Failed to decode field15");
+  if (msg.field16 != 2) console.error("Failed to decode field16");
+  if (msg.field19 != 68) console.error("Failed to decode field19");
+  if (msg.field20 != 2) console.error("Failed to decode field20");
 }, () => {});
 
 var sub;

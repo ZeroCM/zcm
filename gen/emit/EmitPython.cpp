@@ -244,6 +244,9 @@ struct PyEmitStruct : public Emitter
             } else if (inBitMode && zm.type.numbits == 0) {
                 if (!structFmt.empty()) {
                     flushReadStructFmt(structFmt, structMembers);
+                } else {
+                    emit(2, "if (offset_bit != 0):");
+                    emit(3, "buf.seek(1, os.SEEK_CUR)");
                 }
                 inBitMode = false;
                 emit(0, "");
