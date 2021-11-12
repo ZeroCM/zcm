@@ -27,8 +27,19 @@ public class BitfieldPub
         b.field9 = 1 << 27;
         b.field10 = ((long)1 << 52) | 1;
         b.field11 = 3;
-        byte[][][][] field12 = { { { { 1, 2 }, { -1, 2 } }, { { 1, -2 }, { 1, 2 } } }, { { { 1, 2 }, { 1, 2 } }, { { 1, 2 }, { 1, 2 } } }, { { { 1, 2 }, { 1, 2 } }, { { 1, 2 }, { 1, 2 } } } };
-        b.field12 = field12;
+        for (int i = 0; i < 3; ++i) {
+            for (int j = 0; j < 2; ++j) {
+                for (int k = 0; k < 2; ++k) {
+                    for (int l = 0; l < 2; ++l) {
+                        b.field12[i][j][k][l] = (byte)(k + l + 1);
+                    }
+                }
+            }
+        }
+        b.field15 = 0b1000100;
+        b.field16 = 0b0000010;
+        b.field19 = 0b1000100;
+        b.field20 = 0b0000010;
 
         while (true) {
             zcm.publish("BITFIELD", b);
