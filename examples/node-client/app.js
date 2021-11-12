@@ -153,11 +153,11 @@ function bitfieldExample()
   }, 1000);
 }
 
-//basicExample();
-//recursiveExample();
-//multidimExample();
-//packageExample();
-//encodeExample();
+basicExample();
+recursiveExample();
+multidimExample();
+packageExample();
+encodeExample();
 bitfieldExample();
 
 // Intentionally not saving the subscription here to make sure we don't
