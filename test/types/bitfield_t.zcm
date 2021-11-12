@@ -18,4 +18,17 @@ struct bitfield_t
     int64_t:55 field10;
 
     byte:2 field11;
+    byte:3 field12[3][2][2][2];
+
+    int8_t field13;
+
+    int8_t:4 field14;
+    int8_t:7 field15;
+    int8_t:7 field16;
+
+    int8_t field17;
+
+    byte:4 field18;
+    byte:7 field19;
+    byte:7 field20;
 }

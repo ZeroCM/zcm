@@ -22,10 +22,6 @@ static string getReaderFunc(const string& type, uint8_t numbits)
         return "R.readDouble()";
     } else if (type == "float") {
         return "R.readFloat()";
-    } else if (type == "boolean") {
-         return "R.readBoolean()";
-    } else if (type == "string") {
-         return "R.readString()";
     } else if (numbits != 0) {
         return "R.readBits(" + to_string(numbits) +
                (type == "byte" ? ", false" : "") +  ")";
@@ -39,6 +35,10 @@ static string getReaderFunc(const string& type, uint8_t numbits)
         return "R.read8()";
     } else if (type == "byte") {
         return "R.readU8()";
+    } else if (type == "boolean") {
+         return "R.readBoolean()";
+    } else if (type == "string") {
+         return "R.readString()";
     }
     return "";
 }

@@ -24,8 +24,20 @@ function handler(rbuf, channel::String, msg::bitfield_t)
     @assert (msg.field8 == Matrix{Int8}(undef, 0, 0)) "Bad decode of field8"
     @assert (msg.field9 == ~(1 << 27) + 1) "Bad decode of field9"
     @assert (msg.field10 == (UInt64(1) << 52) | 1) "Bad decode of field10"
-    ccall(:jl_, Nothing, (Any,), "msg.field11 = $(msg.field11)")
     @assert (msg.field11 == 3) "Bad decode of field11"
+    for i = 1:size(msg.field12, 1)
+        for j = 1:size(msg.field12, 2)
+            for k = 1:size(msg.field12, 3)
+                for l = 1:size(msg.field12, 4)
+                    @assert (msg.field12[i, j, k, l] == UInt8(k + l)) "Bad decode of field12"
+                end
+            end
+        end
+    end
+    @assert (msg.field15 == -60) "Bad decode of field 15"
+    @assert (msg.field16 == 2) "Bad decode of field 16"
+    @assert (msg.field19 == 68) "Bad decode of field 19"
+    @assert (msg.field20 == 2) "Bad decode of field 20"
     numReceived = numReceived + 1
 end
 
@@ -61,6 +73,10 @@ for i = 1:size(b.field12, 1)
         end
     end
 end
+b.field15 = 0b1000100
+b.field16 = 0b0000010
+b.field19 = 0b1000100
+b.field20 = 0b0000010
 
 start(zcm)
 

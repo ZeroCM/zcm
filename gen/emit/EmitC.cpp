@@ -499,7 +499,7 @@ struct EmitSource : public Emit
             emitCArrayLoopsStart(zm, "p", FLAG_NONE);
 
             int indent = 2+std::max(0, (int)zm.dimensions.size() - 1);
-            if (zm.type.numbits == 0) {
+            if (!inBitMode) {
                 emit(indent, "thislen = __%s_encode_%sarray(buf, offset + pos_byte, maxlen - pos_byte, %s, %s);",
                      zm.type.nameUnderscoreCStr(),
                      zcm.gopt->getBool("little-endian-encoding") &&
@@ -593,7 +593,7 @@ struct EmitSource : public Emit
             emitCArrayLoopsStart(zm, "p", zm.isConstantSizeArray() ? FLAG_NONE : FLAG_EMIT_MALLOCS);
 
             int indent = 2+std::max(0, (int)zm.dimensions.size() - 1);
-            if (zm.type.numbits == 0) {
+            if (!inBitMode) {
                 emit(indent, "thislen = __%s_decode_%sarray(buf, offset + pos_byte, maxlen - pos_byte, %s, %s);",
                      zm.type.nameUnderscoreCStr(),
                      zcm.gopt->getBool("little-endian-encoding") &&
@@ -717,18 +717,18 @@ struct EmitSource : public Emit
             emitCArrayLoopsStart(zm, "p", FLAG_NONE);
 
             int indent = 2+std::max(0, (int)zm.dimensions.size() - 1);
-            if (inBitMode) {
-                emitStart(indent, "numbits += ");
-                if (zm.dimensions.size() > 1) {
-                    emitContinue("%s * ", makeArraySize(zm, "p", (int)zm.dimensions.size() - 1).c_str());
-                }
-                emitEnd("%u; // %s", zm.type.numbits, zm.membername.c_str());
-            } else {
+            if (!inBitMode) {
                 emit(indent, "size += __%s_encoded_array_size(%s, %s); // %s",
                      zm.type.nameUnderscoreCStr(),
                      makeAccessor(zm, "p", (int)zm.dimensions.size() - 1).c_str(),
                      makeArraySize(zm, "p", (int)zm.dimensions.size() - 1).c_str(),
                      zm.membername.c_str());
+            } else {
+                emitStart(indent, "numbits += ");
+                if (zm.dimensions.size() > 1) {
+                    emitContinue("%s * ", makeArraySize(zm, "p", (int)zm.dimensions.size() - 1).c_str());
+                }
+                emitEnd("%u; // %s", zm.type.numbits, zm.membername.c_str());
             }
 
             emitCArrayLoopsEnd(zm, "p", FLAG_NONE);

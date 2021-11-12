@@ -18,9 +18,9 @@ static void my_handler(const zcm_recv_buf_t *rbuf, const char *channel,
 
     printf("%d\n", msg->field1);
     printf("[");
-    for (size_t j = 0; j < 2; ++j) {
+    for (int j = 0; j < 2; ++j) {
         printf("[");
-        for (size_t i = 0; i < 4; ++i) {
+        for (int i = 0; i < 4; ++i) {
             printf("%d, ", msg->field2[j][i]);
         }
         printf("], ");
@@ -34,9 +34,9 @@ static void my_handler(const zcm_recv_buf_t *rbuf, const char *channel,
     printf("%d\n", msg->field8_dim1);
     printf("%d\n", msg->field8_dim2);
     printf("[");
-    for (size_t j = 0; j < msg->field8_dim1; ++j) {
+    for (int j = 0; j < msg->field8_dim1; ++j) {
         printf("[");
-        for (size_t i = 0; i < msg->field8_dim2; ++i) {
+        for (int i = 0; i < msg->field8_dim2; ++i) {
             printf("%d, ", msg->field8[j][i]);
         }
         printf("]");
@@ -46,13 +46,13 @@ static void my_handler(const zcm_recv_buf_t *rbuf, const char *channel,
     printf("%ld\n", msg->field10);
     printf("%d\n", msg->field11);
     printf("[");
-    for (size_t l = 0; l < 3; ++l) {
+    for (int l = 0; l < 3; ++l) {
         printf("[");
-        for (size_t k = 0; k < 2; ++k) {
+        for (int k = 0; k < 2; ++k) {
             printf("[");
-            for (size_t j = 0; j < 2; ++j) {
+            for (int j = 0; j < 2; ++j) {
                 printf("[");
-                for (size_t i = 0; i < 2; ++i) {
+                for (int i = 0; i < 2; ++i) {
                     printf("%d, ", msg->field12[l][k][j][i]);
                 }
                 printf("], ");
@@ -62,6 +62,10 @@ static void my_handler(const zcm_recv_buf_t *rbuf, const char *channel,
         printf("], ");
     }
     printf("]\n");
+    printf("%d\n", msg->field15);
+    printf("%d\n", msg->field16);
+    printf("%d\n", msg->field19);
+    printf("%d\n", msg->field20);
 }
 
 int main(int argc, char *argv[])

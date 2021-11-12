@@ -33,6 +33,10 @@ int main(int argc, char *argv[])
     b.field9 = 1 << 27;
     b.field10 = ((uint64_t)1 << 52) | 1;
     b.field11 = 3;
+    b.field15 = 0b1000100;
+    b.field16 = 0b0000010;
+    b.field19 = 0b1000100;
+    b.field20 = 0b0000010;
 
     while (1) {
         bitfield_t_publish(zcm, "BITFIELD", &b);

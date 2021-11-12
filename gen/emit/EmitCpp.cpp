@@ -530,7 +530,7 @@ struct Emit : public Emitter
                                 ? "little_endian_" : "",
                                 mn);
                         emit(1, "if(thislen < 0) return thislen; else pos_byte += thislen;");
-                    } else if (zm.type.numbits == 0) {
+                    } else if (!inBitMode) {
                         emit(1, "thislen = __%s_encode_%sarray(buf, offset + pos_byte, "
                                 "maxlen - pos_byte, &this->%s, 1);",
                                 mtn.c_str(),
@@ -613,7 +613,7 @@ struct Emit : public Emitter
             int ndim = (int)zm.dimensions.size();
 
             if (ZCMGen::isPrimitiveType(mtn) && mtn != "string") {
-                if (zm.type.numbits == 0) {
+                if (!inBitMode) {
                     emitStart(1, "enc_size += ");
                     for (int n = 0; n < ndim - 1; ++n) {
                         auto& dim = zm.dimensions[n];
@@ -803,7 +803,7 @@ struct Emit : public Emitter
                     emit(1, "this->%s.assign(((const char*)buf) + offset + pos_byte, __%s_len__ - "
                             "ZCM_CORETYPES_INT8_NUM_BYTES_ON_BUS);", mn, mn);
                     emit(1, "pos_byte += __%s_len__;", mn);
-                } else if (zm.type.numbits == 0) {
+                } else if (!inBitMode) {
                     emit(1, "thislen = __%s_decode_%sarray(buf, offset + pos_byte, "
                             "maxlen - pos_byte, &this->%s, 1);",
                             mtn.c_str(),

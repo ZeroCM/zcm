@@ -314,8 +314,8 @@ function write_topology(zcm::Zcm, name::AbstractString)
           zcm, convert(String, name))
 end
 
-function read_bits(t::Type, buf::IOBuffer, numbits::Int, offset_bit::Int)
-    ret = Int64(0)
+function read_bits(T::Type, buf::IOBuffer, numbits::Int, offset_bit::Int)
+    ret = T(0)
     bits_left = numbits
     while (bits_left > 0)
         available_bits = 8 - offset_bit
@@ -325,19 +325,23 @@ function read_bits(t::Type, buf::IOBuffer, numbits::Int, offset_bit::Int)
         shift = 8 - bits_left
         if (bits_left == numbits)
             if (shift < 0)
-                ret = Int64(reinterpret(Int8, payload)) << -shift
+                ret = T(reinterpret(Int8, payload)) << -shift
             else
-                if t != UInt8
-                    ret = Int64(reinterpret(Int8, payload)) >> shift
+                if T != UInt8
+                    ret = T(reinterpret(Int8, payload)) >> shift
                 else
-                    ret = Int64(reinterpret(Int8, payload)) >>> shift
+                    ret = payload >>> shift
                 end
             end
         else
             if (shift < 0)
-                ret |= Int64(payload) << -shift
+                ret |= T(payload) << -shift
             else
-                ret |= Int64(payload) >>>  shift
+                if T == Int8
+                    ret |= reinterpret(Int8, payload) >>> shift
+                else
+                    ret |= T(payload) >>> shift
+                end
             end
         end
         bits_left -= bits_covered
@@ -348,7 +352,7 @@ function read_bits(t::Type, buf::IOBuffer, numbits::Int, offset_bit::Int)
         end
     end
 
-    return offset_bit, reinterpret(t, signed(t)(ret))
+    return offset_bit, ret
 end
 
 function write_bits(buf::IOBuffer, value::Any, numbits::Int, byte_in_progress::UInt8, offset_bit::Int)

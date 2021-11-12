@@ -527,14 +527,10 @@ struct EmitJuliaType : public Emitter
         if (tn == "string") {
             emit(indent, "%s = String(read(buf, %s(reinterpret(UInt32, read(buf, 4))[1])))[1:end-1]%s",
                          accessor, ntoh.c_str(), sfx);
-        } else if (tn == "boolean") {
-            auto typeSize = ZCMGen::getPrimitiveTypeSize(tn);
-            emit(indent, "%s = reinterpret(%s, read(buf, %u))[1]%s",
-                         accessor, mappedTypename.c_str(), typeSize, sfx);
         } else if (zm.type.numbits != 0) {
             emit(indent, "offset_bit, %s = ZCM.read_bits(%s, buf, %u, offset_bit)",
                          accessor, mappedTypename.c_str(), zm.type.numbits);
-        } else if (tn == "byte" || tn == "int8_t") {
+        } else if (tn == "byte" || tn == "boolean" || tn == "int8_t") {
             auto typeSize = ZCMGen::getPrimitiveTypeSize(tn);
             emit(indent, "%s = reinterpret(%s, read(buf, %u))[1]%s",
                          accessor, mappedTypename.c_str(), typeSize, sfx);

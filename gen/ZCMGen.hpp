@@ -18,6 +18,7 @@ struct ZCMTypename
     string shortname; // e.g., "laser"
 
     // Optional size of bit field if specified
+    // If nonzero, isFixedPoint() will return true
     uint8_t numbits = 0;
 
     ZCMTypename(ZCMGen& zcmgen, const string& name, bool skipPrefix = false);

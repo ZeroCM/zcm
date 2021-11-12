@@ -32,6 +32,15 @@ int main(int argc, char *argv[])
     b.field9 = 1 << 27;
     b.field10 = ((uint64_t)1 << 52) | 1;
     b.field11 = 3;
+    for (size_t i = 0; i < 3; ++i) {
+        for (size_t j = 0; j < 2; ++j) {
+            for (size_t k = 0; k < 2; ++k) {
+                for (size_t l = 0; l < 2; ++l) {
+                    b.field12[i][j][k][l] = k + l;
+                }
+            }
+        }
+    }
 
     while (1) {
         zcm.publish("BITFIELD", &b);
