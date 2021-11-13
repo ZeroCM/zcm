@@ -36,6 +36,7 @@ function handler(rbuf, channel::String, msg::bitfield_t)
     end
     @assert (msg.field15 == -60) "Bad decode of field 15"
     @assert (msg.field16 == 2) "Bad decode of field 16"
+    @assert (msg.field18 == 15) "Bad decode of field 18"
     @assert (msg.field19 == 68) "Bad decode of field 19"
     @assert (msg.field20 == 2) "Bad decode of field 20"
     numReceived = numReceived + 1
@@ -75,8 +76,46 @@ for i = 1:size(b.field12, 1)
 end
 b.field15 = 0b1000100
 b.field16 = 0b0000010
+b.field18 = 0xff
 b.field19 = 0b1000100
 b.field20 = 0b0000010
+
+@assert (b.FIELD22_TEST == 255) "FIELD22_TEST does not have the correct value"
+@assert (b.FIELD23_TEST ==   3) "FIELD23_TEST does not have the correct value"
+@assert (b.FIELD24_TEST ==   7) "FIELD24_TEST does not have the correct value"
+
+@assert (b.SIGN_TEST_0  == 0x0f) "SIGN_TEST_0 does not have the correct value"
+@assert (b.SIGN_TEST_1  ==  -16) "SIGN_TEST_1 does not have the correct value"
+@assert (b.SIGN_TEST_2  == 0x7f) "SIGN_TEST_2 does not have the correct value"
+@assert (b.SIGN_TEST_3  == -128) "SIGN_TEST_3 does not have the correct value"
+
+@assert (b.SIGN_TEST_4  == 0x1fff) "SIGN_TEST_4 does not have the correct value"
+@assert (b.SIGN_TEST_5  ==  -8192) "SIGN_TEST_5 does not have the correct value"
+@assert (b.SIGN_TEST_6  == 0x7fff) "SIGN_TEST_6 does not have the correct value"
+@assert (b.SIGN_TEST_7  == -32768) "SIGN_TEST_7 does not have the correct value"
+
+@assert (b.SIGN_TEST_8  ==  0x01ffffff) "SIGN_TEST_8 does not have the correct value"
+@assert (b.SIGN_TEST_9  ==   -33554432) "SIGN_TEST_9 does not have the correct value"
+@assert (b.SIGN_TEST_10 ==  0x7fffffff) "SIGN_TEST_10 does not have the correct value"
+@assert (b.SIGN_TEST_11 == -2147483648) "SIGN_TEST_11 does not have the correct value"
+
+@assert (b.SIGN_TEST_12 == -1) "SIGN_TEST_12 does not have the correct value"
+@assert (b.SIGN_TEST_13 == 72057594037927935) "SIGN_TEST_13 does not have the correct value"
+@assert (b.SIGN_TEST_14 == -72057594037927936) "SIGN_TEST_14 does not have the correct value"
+@assert (b.SIGN_TEST_15 == 9223372036854775807) "SIGN_TEST_15 does not have the correct value"
+@assert (b.SIGN_TEST_16 == -9223372036854775808) "SIGN_TEST_16 does not have the correct value"
+
+@assert (b.SIGN_TEST_17 == 7) "SIGN_TEST_17 does not have the correct value"
+@assert (b.SIGN_TEST_18 == 0x7f) "SIGN_TEST_18 does not have the correct value"
+@assert (b.SIGN_TEST_19 == 7) "SIGN_TEST_19 does not have the correct value"
+@assert (b.SIGN_TEST_20 == 0x7f) "SIGN_TEST_20 does not have the correct value"
+@assert (b.SIGN_TEST_21 == 7) "SIGN_TEST_21 does not have the correct value"
+@assert (b.SIGN_TEST_22 == 0x7fff) "SIGN_TEST_22 does not have the correct value"
+@assert (b.SIGN_TEST_23 == 7) "SIGN_TEST_23 does not have the correct value"
+@assert (b.SIGN_TEST_24 == 0x7fffffff) "SIGN_TEST_24 does not have the correct value"
+@assert (b.SIGN_TEST_25 == 1) "SIGN_TEST_25 does not have the correct value"
+@assert (b.SIGN_TEST_26 == 7) "SIGN_TEST_26 does not have the correct value"
+@assert (b.SIGN_TEST_27 == 9223372036854775807) "SIGN_TEST_27 does not have the correct value"
 
 start(zcm)
 

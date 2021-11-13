@@ -126,6 +126,43 @@ function encodeExample()
 
 function bitfieldExample()
 {
+  assert(zcmtypes.bitfield_t.FIELD22_TEST == 255);
+  assert(zcmtypes.bitfield_t.FIELD23_TEST ==   3);
+  assert(zcmtypes.bitfield_t.FIELD24_TEST ==   7);
+
+  assert(zcmtypes.bitfield_t.SIGN_TEST_0  == 0x0f);
+  assert(zcmtypes.bitfield_t.SIGN_TEST_1  ==  -16);
+  assert(zcmtypes.bitfield_t.SIGN_TEST_2  == 0x7f);
+  assert(zcmtypes.bitfield_t.SIGN_TEST_3  == -128);
+
+  assert(zcmtypes.bitfield_t.SIGN_TEST_4  == 0x1fff);
+  assert(zcmtypes.bitfield_t.SIGN_TEST_5  ==  -8192);
+  assert(zcmtypes.bitfield_t.SIGN_TEST_6  == 0x7fff);
+  assert(zcmtypes.bitfield_t.SIGN_TEST_7  == -32768);
+
+  assert(zcmtypes.bitfield_t.SIGN_TEST_8  ==  0x01ffffff);
+  assert(zcmtypes.bitfield_t.SIGN_TEST_9  ==   -33554432);
+  assert(zcmtypes.bitfield_t.SIGN_TEST_10 ==  0x7fffffff);
+  assert(zcmtypes.bitfield_t.SIGN_TEST_11 == -2147483648);
+
+  assert(zcmtypes.bitfield_t.SIGN_TEST_12 == "-1");
+  assert(zcmtypes.bitfield_t.SIGN_TEST_13 == "72057594037927935");
+  assert(zcmtypes.bitfield_t.SIGN_TEST_14 == "-72057594037927936");
+  assert(zcmtypes.bitfield_t.SIGN_TEST_15 == "9223372036854775807");
+  assert(zcmtypes.bitfield_t.SIGN_TEST_16 == "-9223372036854775808");
+
+  assert(zcmtypes.bitfield_t.SIGN_TEST_17 == 7);
+  assert(zcmtypes.bitfield_t.SIGN_TEST_18 == 0x7f);
+  assert(zcmtypes.bitfield_t.SIGN_TEST_19 == 7);
+  assert(zcmtypes.bitfield_t.SIGN_TEST_20 == 0x7f);
+  assert(zcmtypes.bitfield_t.SIGN_TEST_21 == 7);
+  assert(zcmtypes.bitfield_t.SIGN_TEST_22 == 0x7fff);
+  assert(zcmtypes.bitfield_t.SIGN_TEST_23 == 7);
+  assert(zcmtypes.bitfield_t.SIGN_TEST_24 == 0x7fffffff);
+  assert(zcmtypes.bitfield_t.SIGN_TEST_25 == 1);
+  assert(zcmtypes.bitfield_t.SIGN_TEST_26 == 7);
+  assert(zcmtypes.bitfield_t.SIGN_TEST_27 == "9223372036854775807");
+
   setInterval(function() {
     var b = new zcmtypes.bitfield_t();
     b.field1 = 3;
@@ -147,6 +184,7 @@ function bitfieldExample()
     }
     b.field15 = 0b1000100;
     b.field16 = 0b0000010;
+    b.field18 =        -1;
     b.field19 = 0b1000100;
     b.field20 = 0b0000010;
     z.publish("BITFIELD", b);
@@ -214,6 +252,7 @@ z.subscribe("BITFIELD", zcmtypes.bitfield_t, (channel, msg) => {
   }
   if (msg.field15 != -60) console.error("Failed to decode field15");
   if (msg.field16 != 2) console.error("Failed to decode field16");
+  if (msg.field18 != 15) console.error("Failed to decode field18");
   if (msg.field19 != 68) console.error("Failed to decode field19");
   if (msg.field20 != 2) console.error("Failed to decode field20");
 }, () => {});

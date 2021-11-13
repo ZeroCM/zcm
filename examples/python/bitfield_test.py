@@ -37,6 +37,7 @@ def handler(channel, msg):
                     assert msg.field12[i][j][k][l] == k + l + 1
     assert msg.field15 == -60
     assert msg.field16 == 2
+    assert msg.field18 == 15
     assert msg.field19 == 68
     assert msg.field20 == 2
     success = "Success"
@@ -69,8 +70,46 @@ for i in range(0, 3):
                 b.field12[i][j][k].append(k + l + 1)
 b.field15 = 0b1000100;
 b.field16 = 0b0000010;
+b.field18 = -1;
 b.field19 = 0b1000100;
 b.field20 = 0b0000010;
+
+assert(b.FIELD22_TEST == 255);
+assert(b.FIELD23_TEST ==   3);
+assert(b.FIELD24_TEST ==   7);
+
+assert(b.SIGN_TEST_0  == 0x0f);
+assert(b.SIGN_TEST_1  ==  -16);
+assert(b.SIGN_TEST_2  == 0x7f);
+assert(b.SIGN_TEST_3  == -128);
+
+assert(b.SIGN_TEST_4  == 0x1fff);
+assert(b.SIGN_TEST_5  ==  -8192);
+assert(b.SIGN_TEST_6  == 0x7fff);
+assert(b.SIGN_TEST_7  == -32768);
+
+assert(b.SIGN_TEST_8  ==  0x01ffffff);
+assert(b.SIGN_TEST_9  ==   -33554432);
+assert(b.SIGN_TEST_10 ==  0x7fffffff);
+assert(b.SIGN_TEST_11 == -2147483648);
+
+assert(b.SIGN_TEST_12 == -1);
+assert(b.SIGN_TEST_13 == 72057594037927935);
+assert(b.SIGN_TEST_14 == -72057594037927936);
+assert(b.SIGN_TEST_15 == 9223372036854775807);
+assert(b.SIGN_TEST_16 == -9223372036854775808);
+
+assert(b.SIGN_TEST_17 == 7);
+assert(b.SIGN_TEST_18 == 0x7f);
+assert(b.SIGN_TEST_19 == 7);
+assert(b.SIGN_TEST_20 == 0x7f);
+assert(b.SIGN_TEST_21 == 7);
+assert(b.SIGN_TEST_22 == 0x7fff);
+assert(b.SIGN_TEST_23 == 7);
+assert(b.SIGN_TEST_24 == 0x7fffffff);
+assert(b.SIGN_TEST_25 == 1);
+assert(b.SIGN_TEST_26 == 7);
+assert(b.SIGN_TEST_27 == 9223372036854775807);
 
 zcm.start()
 for i in range(0,5):

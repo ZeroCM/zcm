@@ -20,6 +20,11 @@ struct ZCMTypename
     // Optional size of bit field if specified
     // If nonzero, isFixedPoint() will return true
     uint8_t numbits = 0;
+    // Treat as a signed "numbits" length integer.
+    // Ex:
+    //   int8_t:3  foo; foo = 0x7; // signExtend would be false and foo would be treated as -1 on a decode
+    //   int8_t:-3 foo; foo = 0x7; // signExtend would be true  and foo would be treated as  7 on a decode
+    bool signExtend = false;
 
     ZCMTypename(ZCMGen& zcmgen, const string& name, bool skipPrefix = false);
     void dump() const;
@@ -52,7 +57,8 @@ struct ZCMTypename
 
 };
 
-enum ZCMDimensionMode {
+enum ZCMDimensionMode
+{
     ZCM_CONST,
     ZCM_VAR,
 };
@@ -101,7 +107,20 @@ struct ZCMConstant
         float   f;
         double  d;
     } val;
-    string valstr;   // value as a string, as specified in the .zcm file
+    // value as a string, as specified in the .zcm file
+    // If const is a bitfield, this string will already be sign extended for you
+    // The only weird case is for "byte" where this field is not sign extended.
+    // If you want to sign extend the byte, you must do so yourself
+    string valstr;
+
+    // Optional size of bit field if specified
+    // If nonzero, isFixedPoint() will return true
+    uint8_t numbits = 0;
+    // Treat as a signed "numbits" length integer.
+    // Ex:
+    //   const int8_t:3  foo = 0x7; // signExtend would be false and foo would be treated as -1
+    //   const int8_t:-3 foo = 0x7; // signExtend would be true  and foo would be treated as  7
+    bool signExtend = false;
 
     // Comments in the ZCM type definition immediately before a constant are
     // attached to the constant.

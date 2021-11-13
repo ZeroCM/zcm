@@ -29,13 +29,14 @@ The grammar is given in EBNF using regex-style repetition and character classes:
     zcmtype       = 'struct' name '{' field* '}'
     field         = const_field | data_field
     const_field   = 'const' const_type numbits? name '=' const_literal ';'
-    const_type    = 'int8_t' | 'int16_t' | 'int32_t' | 'int64_t' | 'float' | 'double'
+    const_type    = int_type | float_type
     const_literal = hex_literal | int_literal | float_literal
     data_field    = type numbits? name arraydim* ';'
     type          = primative | name
-    primative     = 'int8_t' | 'int16_t' | 'int32_t' | 'int64_t' | 'float' | 'double' | 'string' | 'boolean' | 'byte'
+    primative     = int_type | float_type | 'string' | 'boolean' | 'byte'
     int_type      = 'int8_t' | 'int16_t' | 'int32_t' | 'int64_t'
-    numbits       = ':' uint_literal
+    float_type    = 'float' | 'double'
+    numbits       = ':' int_literal
     arraydim      = '[' arraysize ']'
     arraysize     = name | uint_literal
     name          = underalpha underalphanum*
@@ -56,6 +57,7 @@ Using the grammar above, to be well-formed the following constraints must be sat
     - These may exist in other files
   - The uint_literal specified for numbits must always be less than the number
     of bits of the corresponding type
+  - Sign extension of bitfields via negative numbits are not allowed on `byte` type
 
 ## Encoding formats
 
@@ -65,16 +67,16 @@ Using the grammar above, to be well-formed the following constraints must be sat
     <thead>
     <tr><th>  Type     </th><th> Encoded Size </th><th> Format</th></tr>
     </thead>
-    <tr><td>  int8_t   </td><td> 1 byte         </td><td>  X              </td></tr>
-    <tr><td>  int8_t   </td><td> 1 byte         </td><td>  X              </td></tr>
-    <tr><td>  int16_t  </td><td> 2 bytes        </td><td>  XX             </td></tr>
-    <tr><td>  int32_t  </td><td> 4 bytes        </td><td>  XXXX           </td></tr>
-    <tr><td>  int64_t  </td><td> 8 bytes        </td><td>  XXXXXXXX       </td></tr>
-    <tr><td>  float    </td><td> 4 bytes        </td><td>  XXXX           </td></tr>
-    <tr><td>  double   </td><td> 8 bytes        </td><td>  XXXXXXXX       </td></tr>
-    <tr><td>  string   </td><td> 4+len+1 bytes  </td><td>  LLLL&lt;chars&gt;N   </td></tr>
-    <tr><td>  boolean  </td><td> 1 byte         </td><td>  X              </td></tr>
-    <tr><td>  byte     </td><td> 1 byte         </td><td>  X              </td></tr>
+    <tr><td>  int8_t     </td><td> 1 byte                   </td><td>  X              </td></tr>
+    <tr><td>  int16_t    </td><td> 2 bytes                  </td><td>  XX             </td></tr>
+    <tr><td>  int32_t    </td><td> 4 bytes                  </td><td>  XXXX           </td></tr>
+    <tr><td>  int64_t    </td><td> 8 bytes                  </td><td>  XXXXXXXX       </td></tr>
+    <tr><td>  float      </td><td> 4 bytes                  </td><td>  XXXX           </td></tr>
+    <tr><td>  double     </td><td> 8 bytes                  </td><td>  XXXXXXXX       </td></tr>
+    <tr><td>  string     </td><td> 4+len+1 bytes            </td><td>  LLLL&lt;chars&gt;N   </td></tr>
+    <tr><td>  boolean    </td><td> 1 byte                   </td><td>  X              </td></tr>
+    <tr><td>  byte       </td><td> 1 byte                   </td><td>  X              </td></tr>
+    <tr><td>  _bitfield_ </td><td> bitpacked with neighbors </td><td>  |+             </td></tr>
 </table>
 
  Where:
@@ -82,6 +84,7 @@ Using the grammar above, to be well-formed the following constraints must be sat
    - X is a data byte
    - L is a length byte
    - N is a null byte
+   - | is an individual bit
 
 ### Bitfields
 Bitfields are integer types with a specified number of bits that are bitpacked during encoding.
@@ -91,11 +94,16 @@ Bitfields currently only support big endian encoding. All bitfields will behave 
 their non-bitfield type in all regards other than encoding and decoding. `intXX_t` types are
 signed integers and will encode and decode as such. For example when encoding a type that
 contains an `int8_t:3` with the value set to `0b111`, you should expect the decoded message
-to contain a `-1` as the value of this variable. `byte` is unsigned for any language that has
-unsigned types. When encoding a type that contains a `byte:3` with the value set to `0b111`,
-you should expect the decoded message to contain a `7` as the value of this variable for
-languages that support unsigned types. For languages that do not have unsigned types (ahem java...)
-you should expect the decoded message to contain a `-1` as the value of this variable.
+to contain a `3` as the value of this variable. Sign extension is configurable by specifying a
+negative sign before the number of bits in the bitfield. A type with an `int8_t:-3` with the value
+set to `0b111` will have its sign extended upon decode. You should expect the received value to be
+`-1` (`0b11111111`). `byte` is unsigned for any language that has unsigned types. When encoding a
+type that contains a `byte:3` with the value set to `0b111`, you should expect the decoded message
+to contain a `7` as the value of this variable for languages that support unsigned types.
+For languages that do not have unsigned types (ahem java...) you should expect the decoded message
+to also contain a `7` as the value of this variable. For a type containing a `byte:8` with the
+value set to `0xff`, you should expect the decoded message to contain a `255` for languages that
+support unsigned types and a `-1` for languages that do not.
 
 
 ### Array Types

@@ -1,8 +1,8 @@
 #include "ZCMGen.hpp"
 #include <cmath>
 #include <unordered_map>
-
 #include <iostream>
+#include <iomanip>
 #include <type_traits>
 
 extern "C" {
@@ -353,18 +353,32 @@ static int parseConst(ZCMGen& zcmgen, ZCMStruct& zs, tokenize_t* t)
     string type = t->token;
 
     size_t numbits = 0;
+    bool signExtend = false;
     // Check if a bitfield
     if (parseTryConsume(t, ":")) {
         if (!inArray(fixedPointTypes, type)) {
             semantic_error(t, "Cannot specify number of bits on a non fixed point type.");
         }
         tokenizeNextOrFail(t, "bit length");
-        numbits = atoi(t->token);
+        int bits = atoi(t->token);
+        if (bits < 0) {
+            numbits = -bits;
+            signExtend = true;
+        } else {
+            numbits = bits;
+        }
         if (numbits == 0) {
-            semantic_error(t, "Failed to parse length of bit field: %s", t->token);
+            parse_error(t, "Failed to parse length of bit field: %s", t->token);
         } else if (numbits > zcmgen.getPrimitiveTypeNumBits(type)) {
             semantic_error(t, "Specified bit length larger than member type: %u > %u",
-                           numbits, zcmgen.getPrimitiveTypeNumBits(type));
+                              numbits, zcmgen.getPrimitiveTypeNumBits(type));
+        } else if (type == "byte" && signExtend) {
+            semantic_error(t, "byte is unsigned in all languages that support unsigned "
+                              "types. byte bitfields cannot have sign extension enabled");
+        } else if (type != "byte" && numbits == zcmgen.getPrimitiveTypeNumBits(type) && !signExtend) {
+            semantic_error(t, "Cannot have a bitfield without sign extension when "
+                              "using all of the bits in a type.",
+                              numbits, zcmgen.getPrimitiveTypeNumBits(type));
         }
     }
 
@@ -391,6 +405,9 @@ static int parseConst(ZCMGen& zcmgen, ZCMStruct& zs, tokenize_t* t)
         // create a new const member
         ZCMConstant zc {type, membername, t->token};
 
+        zc.numbits = numbits;
+        zc.signExtend = signExtend;
+
         // Attach the last comment if one was defined.
         if (zcmgen.comment != "")
             std::swap(zc.comment, zcmgen.comment);
@@ -402,16 +419,22 @@ static int parseConst(ZCMGen& zcmgen, ZCMStruct& zs, tokenize_t* t)
         #define INT_CASE(MEMBERTYPE, CTYPE, STORE) \
             } else if (type == #MEMBERTYPE) { \
                 int64_t v = strtoll(t->token, &endptr, 0); \
+                if (errno == ERANGE) { \
+                    uint64_t vU = strtoull(t->token, &endptr, 0); \
+                    v = (int64_t)vU; \
+                } \
                 if (endptr == t->token || *endptr != '\0') \
                     parse_error(t, "Expected integer value"); \
-                if (strlen(t->token) > 2 && \
-                        t->token[0] == '0' && (t->token[1] == 'x' || t->token[1] == 'X')) { \
+                bool isHex = strlen(t->token) > 2 && \
+                             t->token[0] == '0' && \
+                             (t->token[1] == 'x' || t->token[1] == 'X'); \
+                if (isHex) { \
                     if (strlen(t->token) > sizeof(CTYPE) * 2 + 2) { \
                         semantic_error(t, "Too many hex digits specified for " \
                                           #MEMBERTYPE ": 0x%llx", v); \
                     } \
                     if (numbits != 0 && numbits != 64) { \
-                        CTYPE mask = ~((1 << numbits) - 1); \
+                        CTYPE mask = ~((1L << numbits) - 1); \
                         CTYPE vtop = ((CTYPE)v) & mask; \
                         if (vtop != mask && vtop != 0) { \
                             semantic_error(t, "Too many bits used for " \
@@ -421,11 +444,27 @@ static int parseConst(ZCMGen& zcmgen, ZCMStruct& zs, tokenize_t* t)
                     } \
                 } else { \
                     if (numbits != 0) { \
-                        CTYPE min = -(1L << (numbits - 1)); \
-                        CTYPE max = ~min; \
-                        if (v < min || max < v) {  \
-                            semantic_error(t, "Integer value out of bounds for " \
-                                              #MEMBERTYPE ":%u : %lld", numbits, v); \
+                        if (signExtend) { \
+                            CTYPE min = -(1L << (numbits - 1)); \
+                            CTYPE max = ~min; \
+                            if (v < min || max < v) {  \
+                                semantic_error(t, "Integer value out of bounds [%ld, %ld] for " \
+                                                  #MEMBERTYPE ":%u : %lld", \
+                                                  (int64_t)min, (int64_t)max, numbits, v); \
+                            } \
+                            int shift = zcmgen.getPrimitiveTypeNumBits(zc.type) - numbits; \
+                            v = (CTYPE)(v << shift) >> shift; \
+                            zc.valstr = std::to_string(v); \
+                        } else if (numbits != 64) { \
+                            CTYPE min = 0; \
+                            CTYPE max = (1L << numbits) - 1; \
+                            if (v < min || max < v) {  \
+                                semantic_error(t, "Integer value out of bounds [0, %u] for " \
+                                                  #MEMBERTYPE ":%u : %lld", max, numbits, v); \
+                            } \
+                            int shift = zcmgen.getPrimitiveTypeNumBits(zc.type) - numbits; \
+                            v = (CTYPE)(v << shift) >> shift; \
+                            zc.valstr = std::to_string(v); \
                         } \
                     } else {  \
                         CTYPE min = std::numeric_limits<CTYPE>::lowest(); \
@@ -435,6 +474,19 @@ static int parseConst(ZCMGen& zcmgen, ZCMStruct& zs, tokenize_t* t)
                                               #MEMBERTYPE ": %lld", v); \
                         } \
                     } \
+                } \
+                if (numbits != 64 && (numbits == 0 || signExtend)) { \
+                    int shift = zcmgen.getPrimitiveTypeNumBits(#CTYPE) - numbits; \
+                    v = (CTYPE)(v << shift) >> shift; \
+                    std::stringstream ss; \
+                    if (isHex) { \
+                        ss << "0x" \
+                           << std::hex \
+                           << std::setfill('0') \
+                           << std::setw(zcmgen.getPrimitiveTypeSize(zc.type) * 2); \
+                    } \
+                    ss << (uint64_t)((CTYPE)v & (std::make_unsigned<CTYPE>::type)-1); \
+                    zc.valstr = ss.str(); \
                 } \
                 STORE = (CTYPE) v;
 
@@ -449,10 +501,10 @@ static int parseConst(ZCMGen& zcmgen, ZCMStruct& zs, tokenize_t* t)
                 STORE = (TYPE) v;
 
         if (false) {
-        INT_CASE(byte,    int8_t,  zc.val.u8)
-        INT_CASE(int8_t,  int8_t,  zc.val.i8)
-        INT_CASE(int16_t, int16_t, zc.val.i16)
-        INT_CASE(int32_t, int32_t, zc.val.i32)
+        INT_CASE(byte,    uint8_t, zc.val.i64)
+        INT_CASE(int8_t,   int8_t, zc.val.i64)
+        INT_CASE(int16_t, int16_t, zc.val.i64)
+        INT_CASE(int32_t, int32_t, zc.val.i64)
         INT_CASE(int64_t, int64_t, zc.val.i64)
         FLT_CASE(float,   zc.val.f)
         FLT_CASE(double,  zc.val.d)
@@ -515,7 +567,17 @@ static int parseMember(ZCMGen& zcmgen, ZCMStruct& zs, tokenize_t* t)
             semantic_error(t, "Cannot specify number of bits on a non fixed point type.");
         }
         tokenizeNextOrFail(t, "bit length");
-        zt.numbits = atoi(t->token);
+        int bits = atoi(t->token);
+        if (bits < 0) {
+            if (zt.fullname == "byte") {
+                semantic_error(t, "Sign extension behavior for byte bitfield is "
+                                  "language dependent and cannot be specified");
+            }
+            zt.numbits = -bits;
+            zt.signExtend = true;
+        } else {
+            zt.numbits = bits;
+        }
         if (zt.numbits == 0) {
             semantic_error(t, "Failed to parse length of bit field: %s", t->token);
         } else if (zt.numbits > zcmgen.getPrimitiveTypeNumBits(zt.fullname)) {

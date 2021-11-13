@@ -38,11 +38,51 @@ public class BitfieldPub
         }
         b.field15 = 0b1000100;
         b.field16 = 0b0000010;
+        b.field18 = -1;
         b.field19 = 0b1000100;
         b.field20 = 0b0000010;
         b.field22 = b.FIELD22_TEST;
         b.field23 = b.FIELD23_TEST;
         b.field24 = b.FIELD24_TEST;
+
+        assert (b.SIGN_TEST_0  ==  (1L <<  4) - 1);
+        assert (b.SIGN_TEST_1  == -(1L <<  4)    );
+        assert (b.SIGN_TEST_2  ==  (1L <<  7) - 1);
+        assert (b.SIGN_TEST_3  == -(1L <<  7)    );
+
+        assert (b.SIGN_TEST_4  ==  (1L << 13) - 1);
+        assert (b.SIGN_TEST_5  == -(1L << 13)    );
+        assert (b.SIGN_TEST_6  ==  (1L << 15) - 1);
+        assert (b.SIGN_TEST_7  == -(1L << 15)    );
+
+        assert (b.SIGN_TEST_8  ==  (1L << 25) - 1);
+        assert (b.SIGN_TEST_9  == -(1L << 25)    );
+        assert (b.SIGN_TEST_10 ==  (1L << 31) - 1);
+        assert (b.SIGN_TEST_11 == -(1L << 31)    );
+
+        assert (b.SIGN_TEST_12 ==  -1);
+        assert (b.SIGN_TEST_13 ==  (1L << 56) - 1);
+        assert (b.SIGN_TEST_14 == -(1L << 56)    );
+        assert (b.SIGN_TEST_15 ==  (1L << 63) - 1);
+        assert (b.SIGN_TEST_16 == -(1L << 63)    );
+
+        assert (b.SIGN_TEST_12 ==  -1);
+        assert (b.SIGN_TEST_13 ==  (1L << 56) - 1);
+        assert (b.SIGN_TEST_14 == -(1L << 56)    );
+        assert (b.SIGN_TEST_15 ==  (1L << 63) - 1);
+        assert (b.SIGN_TEST_16 == -(1L << 63)    );
+
+        assert (b.SIGN_TEST_17 == 0x07);
+        assert (b.SIGN_TEST_18 == 0x7f);
+        assert (b.SIGN_TEST_19 == 0x07);
+        assert (b.SIGN_TEST_20 == 0x7f);
+        assert (b.SIGN_TEST_21 == 0x0007);
+        assert (b.SIGN_TEST_22 == 0x7fff);
+        assert (b.SIGN_TEST_23 == 0x00000007);
+        assert (b.SIGN_TEST_24 == 0x7fffffff);
+        assert (b.SIGN_TEST_25 == 0x0000000000000001L);
+        assert (b.SIGN_TEST_26 == 0x0000000000000007L);
+        assert (b.SIGN_TEST_27 == 0x7fffffffffffffffL);
 
         while (true) {
             zcm.publish("BITFIELD", b);

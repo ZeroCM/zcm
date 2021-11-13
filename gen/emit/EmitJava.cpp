@@ -6,6 +6,7 @@
 #include "util/FileUtil.hpp"
 
 #include <iostream>
+#include <iomanip>
 
 static string dotsToSlashes(const string& s)
 {
@@ -404,22 +405,22 @@ struct EmitStruct : public Emitter
 
             auto& tn = zc.type;
             auto* name = zc.membername.c_str();
-            auto* value = zc.valstr.c_str();
+            string value = zc.valstr;
 
             if (tn == "int8_t" || tn == "byte") {
-                emit(1, "public static final byte %s = (byte) %s;", name, value);
+                emit(1, "public static final byte %s = (byte) %s;", name, value.c_str());
             } else if (tn == "int16_t") {
-                emit(1, "public static final short %s = (short) %s;", name, value);
+                emit(1, "public static final short %s = (short) %s;", name, value.c_str());
             } else if (tn == "int32_t") {
-                emit(1, "public static final int %s = %s;", name, value);
+                emit(1, "public static final int %s = %s;", name, value.c_str());
             } else if (tn == "int64_t") {
-                emit(1, "public static final long %s = %sL;", name, value);
+                emit(1, "public static final long %s = %sL;", name, value.c_str());
             } else if (tn == "float") {
-                emit(1, "public static final float %s = %sf;", name, value);
+                emit(1, "public static final float %s = %sf;", name, value.c_str());
             } else if (tn == "double") {
-                emit(1, "public static final double %s = %s;", name, value);
+                emit(1, "public static final double %s = %s;", name, value.c_str());
             } else if (tn == "string") {
-                emit(1, "public static final String %s = %s;", name, value);
+                emit(1, "public static final String %s = %s;", name, value.c_str());
             } else {
                 assert(0);
             }

@@ -744,20 +744,30 @@ struct EmitModule : public Emitter
 
         for (size_t i = 0; i < zs.constants.size(); ++i) {
             static string hexPrefix = "0x";
-            if (zs.constants[i].type == "int64_t") {
-                if (zs.constants[i].valstr.size() > 2 &&
-                    zs.constants[i].valstr.compare(0, hexPrefix.length(), hexPrefix) == 0)
+            const auto& zc = zs.constants[i];
+            bool isHex = zc.valstr.size() > 2 &&
+                         zc.valstr.compare(0, hexPrefix.length(), hexPrefix) == 0;
+            bool isNeg = zc.val.i64 < 0;
+            if (zc.type == "int64_t") {
+                if (isHex && !isNeg) {
                     emit(indent, "%s.%s = bigint(\"%s\", 16).toString();", prefix.c_str(),
-                                 zs.constants[i].membername.c_str(),
-                                 zs.constants[i].valstr.c_str() + 2);
-                else
-                    emit(indent, "%s.%s = bigint(\"%s\").toString();", prefix.c_str(),
-                                 zs.constants[i].membername.c_str(),
-                                 zs.constants[i].valstr.c_str());
+                                 zc.membername.c_str(),
+                                 zc.valstr.c_str() + 2);
+                } else {
+                    emit(indent, "%s.%s = bigint(\"%lld\").toString();", prefix.c_str(),
+                                 zc.membername.c_str(),
+                                 zc.val.i64);
+                }
             } else {
-                emit(indent, "%s.%s = %s;", prefix.c_str(),
-                             zs.constants[i].membername.c_str(),
-                             zs.constants[i].valstr.c_str());
+                if (isHex && !isNeg) {
+                    emit(indent, "%s.%s = %s;", prefix.c_str(),
+                                 zc.membername.c_str(),
+                                 zc.valstr.c_str());
+                } else {
+                    emit(indent, "%s.%s = %lld;", prefix.c_str(),
+                                 zc.membername.c_str(),
+                                 zc.val.i64);
+                }
             }
         }
     }

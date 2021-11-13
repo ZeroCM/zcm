@@ -167,8 +167,9 @@ struct EmitHeader : public Emit
             assert(ZCMGen::isLegalConstType(zc.type));
             string suffix = (zc.type == "int64_t") ? "LL" : "";
             emitComment(0, zc.comment.c_str());
-            emit(0, "#define %s_%s %s%s", tnUpper.c_str(),
-                 zc.membername.c_str(), zc.valstr.c_str(), suffix.c_str());
+            emit(0, "#define %s_%s ((%s)%s%s)", tnUpper.c_str(),
+                 zc.membername.c_str(), mapTypeName(zc.type).c_str(),
+                 zc.valstr.c_str(), suffix.c_str());
         }
         if (zs.constants.size() > 0)
             emit(0, "");
