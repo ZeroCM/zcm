@@ -71,6 +71,16 @@ static void my_handler(const zcm_recv_buf_t *rbuf, const char *channel,
     printf("%d\n", msg->field22);
     printf("%d\n", msg->field23);
     printf("%d\n", msg->field24);
+    printf("%d\n", msg->field25);
+    printf("%d\n", msg->field26);
+    printf("%d\n", msg->field27);
+    printf("%d\n", msg->field28);
+    printf("%d\n", msg->field29);
+    printf("%d\n", msg->field30);
+    printf("%d\n", msg->field31);
+    printf("%d\n", msg->field32);
+    printf("%ld\n", msg->field33);
+    printf("%ld\n", msg->field34);
 }
 
 int main(int argc, char *argv[])

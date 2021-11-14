@@ -187,6 +187,19 @@ function bitfieldExample()
     b.field18 =        -1;
     b.field19 = 0b1000100;
     b.field20 = 0b0000010;
+    b.field22 = b.FIELD22_TEST;
+    b.field23 = b.FIELD23_TEST;
+    b.field24 = b.FIELD24_TEST;
+    b.field25 = 0xff;
+    b.field26 = 0xff;
+    b.field27 = 0x7f;
+    b.field28 = 0x7f;
+    b.field29 = 0x7fff;
+    b.field30 = 0x7fff;
+    b.field31 = 0x7fffffff;
+    b.field32 = 0x7fffffff;
+    b.field33 = bigint("7fffffffffffffff", 16);
+    b.field34 = bigint("7fffffffffffffff", 16);
     z.publish("BITFIELD", b);
   }, 1000);
 }
@@ -255,6 +268,19 @@ z.subscribe("BITFIELD", zcmtypes.bitfield_t, (channel, msg) => {
   if (msg.field18 != 15) console.error("Failed to decode field18");
   if (msg.field19 != 68) console.error("Failed to decode field19");
   if (msg.field20 != 2) console.error("Failed to decode field20");
+  if (msg.field22 != msg.FIELD22_TEST) "Bad decode of field 22"
+  if (msg.field23 != msg.FIELD23_TEST) "Bad decode of field 23"
+  if (msg.field24 != msg.FIELD24_TEST) "Bad decode of field 24"
+  if (msg.field25 != 3) console.log("Bad decode of field 25");
+  if (msg.field26 != 255) console.log("Bad decode of field 26");
+  if (msg.field27 != 3) console.log("Bad decode of field 27");
+  if (msg.field28 != 0x7f) console.log("Bad decode of field 28");
+  if (msg.field29 != 3) console.log("Bad decode of field 29");
+  if (msg.field30 != 0x7fff) console.log("Bad decode of field 30");
+  if (msg.field31 != 0xf) console.log("Bad decode of field 31");
+  if (msg.field32 != 0x7fffffff) console.log("Bad decode of field 32");
+  if (msg.field33 != 0xf) console.log("Bad decode of field 33");
+  if (msg.field34 != 0x7fffffffffffffff) console.log("Bad decode of field 34");
 }, () => {});
 
 var sub;

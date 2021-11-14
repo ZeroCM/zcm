@@ -245,9 +245,11 @@ struct EmitStruct : public Emitter
                 if (zm.type.numbits == 0) {
                     emit(2 + ndims, "%s", specialReplace(pinfo->decode, accessor).c_str());
                 } else {
+                    string readArg = std::to_string(zm.type.numbits);
+                    readArg += zm.type.signExtend ? ", true" : ", false";
                     // base case: bitfield
                     emit(2 + ndims, "%s", specialReplace(pinfo->decode, accessor, "Bits",
-                                                         std::to_string(zm.type.numbits)).c_str());
+                                                         readArg).c_str());
                 }
             } else {
                 emit(2 + ndims, "%s = %s._decodeRecursiveFactory(ins);",

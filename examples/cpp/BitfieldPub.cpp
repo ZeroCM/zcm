@@ -41,6 +41,23 @@ int main(int argc, char *argv[])
             }
         }
     }
+    b.field15 = 0b1000100;
+    b.field16 = 0b0000010;
+    b.field19 = 0b1000100;
+    b.field20 = 0b0000010;
+    b.field22 = b.FIELD22_TEST;
+    b.field23 = b.FIELD23_TEST;
+    b.field24 = b.FIELD24_TEST;
+    b.field25 = 0xff;
+    b.field26 = 0xff;
+    b.field27 = 0xff;
+    b.field28 = 0xff;
+    b.field29 = 0xffff;
+    b.field30 = 0xffff;
+    b.field31 = 0xffffffff;
+    b.field32 = 0xffffffff;
+    b.field33 = 0xffffffffffffffff;
+    b.field34 = 0xffffffffffffffff;
 
     while (1) {
         zcm.publish("BITFIELD", &b);

@@ -103,53 +103,59 @@ static inline int __ ## NAME ## _encode_array_bits(void *_buf,                  
     X(int64_t, int64_t, uint64_t)
 #undef X
 
-#define X(NAME, TYPE, UNSIGNED_TYPE)                                                                                \
-static inline int __ ## NAME ##_decode_array_bits(const void *_buf,                                                 \
-                                                  uint32_t offset_bytes, uint32_t offset_bits, uint32_t maxbytes,   \
-                                                  TYPE* p, uint32_t elements, uint32_t numbits)                     \
-{                                                                                                                   \
-    uint32_t total_bits = elements * numbits;                                                                       \
-    if (maxbytes < __bitfield_encoded_size(total_bits + offset_bits)) return -1;                                    \
-                                                                                                                    \
-    uint32_t pos_byte = offset_bytes;                                                                               \
-    uint32_t pos_bit = offset_bits;                                                                                 \
-    uint32_t element;                                                                                               \
-                                                                                                                    \
-    const uint8_t *buf = (const uint8_t*) _buf;                                                                     \
-                                                                                                                    \
-    for (element = 0; element < elements; ++element) {                                                              \
-        uint32_t bits_left = numbits;                                                                               \
-        while (bits_left > 0) {                                                                                     \
-            uint32_t available_bits = ZCM_CORETYPES_INT8_NUM_BITS_ON_BUS - pos_bit;                                 \
-            uint32_t bits_covered = available_bits < bits_left ? available_bits : bits_left;                        \
-            uint8_t mask = ((1 << bits_covered) - 1) <<                                                             \
-                           (ZCM_CORETYPES_INT8_NUM_BITS_ON_BUS - bits_covered - pos_bit);                           \
-            uint8_t payload = (buf[pos_byte] & mask) << pos_bit;                                                    \
-            int32_t shift = ZCM_CORETYPES_INT8_NUM_BITS_ON_BUS - bits_left;                                         \
-            /* Sign extend the first shift and none after that */                                                   \
-            if (bits_left == numbits) {                                                                             \
-                if (shift < 0) p[element] = ((TYPE)((int8_t)payload)) << -shift;                                    \
-                else           p[element] = ((TYPE)((int8_t)payload)) >>  shift;                                    \
-            } else {                                                                                                \
-                if (shift < 0) p[element] |= ((UNSIGNED_TYPE)payload) << -shift;                                    \
-                else           p[element] |= ((UNSIGNED_TYPE)payload) >>  shift;                                    \
-            }                                                                                                       \
-            bits_left -= bits_covered;                                                                              \
-            pos_bit += bits_covered;                                                                                \
-            if (pos_bit == ZCM_CORETYPES_INT8_NUM_BITS_ON_BUS) {                                                    \
-                pos_bit = 0;                                                                                        \
-                ++pos_byte;                                                                                         \
-            }                                                                                                       \
-        };                                                                                                          \
-    }                                                                                                               \
-                                                                                                                    \
-    return total_bits;                                                                                              \
+#define X(NAME, TYPE, SIGN, INT8_SIGN_TYPE)                                                     \
+static inline int __ ## NAME ##_decode_array_ ## SIGN(                                          \
+    const void *_buf,                                                                           \
+    uint32_t offset_bytes, uint32_t offset_bits, uint32_t maxbytes,                             \
+    TYPE* p, uint32_t elements, uint32_t numbits                                                \
+)                                                                                               \
+{                                                                                               \
+    uint32_t total_bits = elements * numbits;                                                   \
+    if (maxbytes < __bitfield_encoded_size(total_bits + offset_bits)) return -1;                \
+                                                                                                \
+    uint32_t pos_byte = offset_bytes;                                                           \
+    uint32_t pos_bit = offset_bits;                                                             \
+    uint32_t element;                                                                           \
+                                                                                                \
+    const uint8_t *buf = (const uint8_t*) _buf;                                                 \
+                                                                                                \
+    for (element = 0; element < elements; ++element) {                                          \
+        uint32_t bits_left = numbits;                                                           \
+        while (bits_left > 0) {                                                                 \
+            uint32_t available_bits = ZCM_CORETYPES_INT8_NUM_BITS_ON_BUS - pos_bit;             \
+            uint32_t bits_covered = available_bits < bits_left ? available_bits : bits_left;    \
+            uint8_t mask = ((1 << bits_covered) - 1) <<                                         \
+                           (ZCM_CORETYPES_INT8_NUM_BITS_ON_BUS - bits_covered - pos_bit);       \
+            uint8_t payload = (buf[pos_byte] & mask) << pos_bit;                                \
+            int32_t shift = ZCM_CORETYPES_INT8_NUM_BITS_ON_BUS - bits_left;                     \
+            /* Sign extend the first shift and none after that */                               \
+            if (bits_left == numbits) {                                                         \
+                if (shift < 0) p[element] = ((int64_t)((INT8_SIGN_TYPE)payload)) << -shift;     \
+                else           p[element] = ((int64_t)((INT8_SIGN_TYPE)payload)) >>  shift;     \
+            } else {                                                                            \
+                if (shift < 0) p[element] |= ((uint64_t)payload) << -shift;                     \
+                else           p[element] |= payload >>  shift;                                 \
+            }                                                                                   \
+            bits_left -= bits_covered;                                                          \
+            pos_bit += bits_covered;                                                            \
+            if (pos_bit == ZCM_CORETYPES_INT8_NUM_BITS_ON_BUS) {                                \
+                pos_bit = 0;                                                                    \
+                ++pos_byte;                                                                     \
+            }                                                                                   \
+        };                                                                                      \
+    }                                                                                           \
+                                                                                                \
+    return total_bits;                                                                          \
 }
-    X(byte, uint8_t, uint8_t)
-    X(int8_t, int8_t, uint8_t)
-    X(int16_t, int16_t, uint16_t)
-    X(int32_t, int32_t, uint32_t)
-    X(int64_t, int64_t, uint64_t)
+    X(byte,    uint8_t, bits,             uint8_t)
+    X(int8_t,  int8_t,  bits,             uint8_t)
+    X(int16_t, int16_t, bits,             uint8_t)
+    X(int32_t, int32_t, bits,             uint8_t)
+    X(int64_t, int64_t, bits,             uint8_t)
+    X(int8_t,  int8_t,  bits_sign_extend,  int8_t)
+    X(int16_t, int16_t, bits_sign_extend,  int8_t)
+    X(int32_t, int32_t, bits_sign_extend,  int8_t)
+    X(int64_t, int64_t, bits_sign_extend,  int8_t)
 #undef X
 
 /**

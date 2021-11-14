@@ -39,6 +39,19 @@ function handler(rbuf, channel::String, msg::bitfield_t)
     @assert (msg.field18 == 15) "Bad decode of field 18"
     @assert (msg.field19 == 68) "Bad decode of field 19"
     @assert (msg.field20 == 2) "Bad decode of field 20"
+    @assert (msg.field22 == msg.FIELD22_TEST) "Bad decode of field 22"
+    @assert (msg.field23 == msg.FIELD23_TEST) "Bad decode of field 23"
+    @assert (msg.field24 == msg.FIELD24_TEST) "Bad decode of field 24"
+    @assert (msg.field25 == 3) "Bad decode of field 25"
+    @assert (msg.field26 == 255) "Bad decode of field 26"
+    @assert (msg.field27 == 3) "Bad decode of field 27"
+    @assert (msg.field28 == 0x7f) "Bad decode of field 28"
+    @assert (msg.field29 == 3) "Bad decode of field 29"
+    @assert (msg.field30 == 0x7fff) "Bad decode of field 30"
+    @assert (msg.field31 == 0xf) "Bad decode of field 31"
+    @assert (msg.field32 == 0x7fffffff) "Bad decode of field 32"
+    @assert (msg.field33 == 0xf) "Bad decode of field 33"
+    @assert (msg.field34 == 0x7fffffffffffffff) "Bad decode of field 34"
     numReceived = numReceived + 1
 end
 
@@ -79,6 +92,19 @@ b.field16 = 0b0000010
 b.field18 = 0xff
 b.field19 = 0b1000100
 b.field20 = 0b0000010
+b.field22 = b.FIELD22_TEST;
+b.field23 = b.FIELD23_TEST;
+b.field24 = b.FIELD24_TEST;
+b.field25 = 0xff;
+b.field26 = 0xff;
+b.field27 = 0x7f;
+b.field28 = 0x7f;
+b.field29 = 0x7fff;
+b.field30 = 0x7fff;
+b.field31 = 0x7fffffff;
+b.field32 = 0x7fffffff;
+b.field33 = 0x7fffffffffffffff;
+b.field34 = 0x7fffffffffffffff;
 
 @assert (b.FIELD22_TEST == 255) "FIELD22_TEST does not have the correct value"
 @assert (b.FIELD23_TEST ==   3) "FIELD23_TEST does not have the correct value"

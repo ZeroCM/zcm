@@ -183,7 +183,7 @@ public final class ZCMDataInputStream implements DataInput
         return null;
     }
 
-    public byte readByteBits(int numbits) throws IOException
+    public byte readByteBits(int numbits, boolean signExtend) throws IOException
     {
         byte ret = 0;
         int bits_left = numbits;
@@ -195,8 +195,13 @@ public final class ZCMDataInputStream implements DataInput
             int shift = 8 - bits_left;
             /* Sign extend the first shift and none after that */
             if (bits_left == numbits) {
-                if (shift < 0) ret = (byte)(payload << -shift);
-                else           ret = (byte)(payload >>  shift);
+                if (shift < 0) {
+                    ret = (byte)(payload << -shift);
+                } else {
+                    ret = signExtend ?
+                          (byte)(payload >> shift) :
+                          (byte)((payload & 0xff) >>> shift);
+                }
             } else {
                 if (shift < 0) ret |= (byte)((payload & 0xff) << -shift);
                 else           ret |= (byte)((payload & 0xff) >>> shift);
@@ -211,7 +216,7 @@ public final class ZCMDataInputStream implements DataInput
         return ret;
     }
 
-    public short readShortBits(int numbits) throws IOException
+    public short readShortBits(int numbits, boolean signExtend) throws IOException
     {
         short ret = 0;
         int bits_left = numbits;
@@ -223,8 +228,15 @@ public final class ZCMDataInputStream implements DataInput
             int shift = 8 - bits_left;
             /* Sign extend the first shift and none after that */
             if (bits_left == numbits) {
-                if (shift < 0) ret = (short)(payload << -shift);
-                else           ret = (short)(payload >>  shift);
+                if (shift < 0) {
+                    ret = signExtend ?
+                          (short)(payload << -shift) :
+                          (short)((payload & 0xff) << -shift);
+                } else {
+                    ret = signExtend ?
+                          (short)(payload >> shift) :
+                          (short)((payload & 0xff) >>> shift);
+                }
             } else {
                 if (shift < 0) ret |= (short)((payload & 0xff) << -shift);
                 else           ret |= (short)((payload & 0xff) >>> shift);
@@ -239,7 +251,7 @@ public final class ZCMDataInputStream implements DataInput
         return ret;
     }
 
-    public int readIntBits(int numbits) throws IOException
+    public int readIntBits(int numbits, boolean signExtend) throws IOException
     {
         int ret = 0;
         int bits_left = numbits;
@@ -251,8 +263,15 @@ public final class ZCMDataInputStream implements DataInput
             int shift = 8 - bits_left;
             /* Sign extend the first shift and none after that */
             if (bits_left == numbits) {
-                if (shift < 0) ret = payload << -shift;
-                else           ret = payload >>  shift;
+                if (shift < 0) {
+                    ret = signExtend ?
+                          (int)payload << -shift :
+                          (payload & 0xff) << -shift;
+                } else {
+                    ret = signExtend ?
+                          payload >> shift :
+                          (payload & 0xff) >>> shift;
+                }
             } else {
                 if (shift < 0) ret |= (payload & 0xff) << -shift;
                 else           ret |= (payload & 0xff) >>> shift;
@@ -267,7 +286,7 @@ public final class ZCMDataInputStream implements DataInput
         return ret;
     }
 
-    public long readLongBits(int numbits) throws IOException
+    public long readLongBits(int numbits, boolean signExtend) throws IOException
     {
         long ret = 0;
         int bits_left = numbits;
@@ -279,8 +298,15 @@ public final class ZCMDataInputStream implements DataInput
             int shift = 8 - bits_left;
             /* Sign extend the first shift and none after that */
             if (bits_left == numbits) {
-                if (shift < 0) ret = ((long)payload) << -shift;
-                else           ret = ((long)payload) >>  shift;
+                if (shift < 0) {
+                    ret = signExtend ?
+                          (long)payload << -shift :
+                          (long)(payload & 0xff) << -shift;
+                } else {
+                    ret = signExtend ?
+                          (long)(payload >> shift) :
+                          (long)((payload & 0xff) >>> shift);
+                }
             } else {
                 if (shift < 0) ret |= (long)(payload & 0xff) << -shift;
                 else           ret |= (long)(payload & 0xff) >>> shift;

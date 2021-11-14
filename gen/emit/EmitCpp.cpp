@@ -694,9 +694,10 @@ struct Emit : public Emitter
                 emitEnd("[0], %s);", dimSizeAccessor(dim.size).c_str());
                 emit(decodeIndent, "if(thislen < 0) return thislen; else pos_byte += thislen;");
             } else {
-                emitStart(decodeIndent, "thislen = __%s_decode_array_bits(buf, offset + pos_byte, "
+                emitStart(decodeIndent, "thislen = __%s_decode_array_bits%s(buf, offset + pos_byte, "
                                         "pos_bit, maxlen - pos_byte, &this->%s",
                                         mtn.c_str(),
+                                        zm.type.signExtend ? "_sign_extend" : "",
                                         mn);
                 for (int i = 0; i < depth; ++i) emitContinue("[a%d]", i);
                 emitEnd("[0], %s, %u);", dimSizeAccessor(dim.size).c_str(), zm.type.numbits);
@@ -811,9 +812,10 @@ struct Emit : public Emitter
                             mn);
                     emit(1, "if(thislen < 0) return thislen; else pos_byte += thislen;");
                 } else {
-                    emit(1, "thislen = __%s_decode_array_bits(buf, offset + pos_byte, "
+                    emit(1, "thislen = __%s_decode_array_bits%s(buf, offset + pos_byte, "
                             "pos_bit, maxlen - pos_byte, &this->%s, 1, %u);",
                             zm.type.nameUnderscoreCStr(),
+                            zm.type.signExtend ? "_sign_extend" : "",
                             mn,
                             zm.type.numbits);
                     emit(1, "if (thislen < 0) return thislen;");

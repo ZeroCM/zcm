@@ -43,6 +43,19 @@ struct bitfield_t
     byte:3 field24;
     const byte:3 FIELD24_TEST = 0x07;
 
+    int8_t filler1;
+
+    byte:2     field25;
+    byte:8     field26;
+    int8_t:2   field27;
+    int8_t:7   field28;
+    int16_t:2  field29;
+    int16_t:15 field30;
+    int32_t:4  field31;
+    int32_t:31 field32;
+    int64_t:4  field33;
+    int64_t:63 field34;
+
     const int8_t:-5   SIGN_TEST_0  = 0x0f;               // Should have the value  (1 <<  4) - 1
     const int8_t:-5   SIGN_TEST_1  = 0x10;               // Should have the value -(1 <<  4)
     const int8_t:-8   SIGN_TEST_2  = 0x7f;               // Should have the value  (1 <<  7) - 1

@@ -40,6 +40,19 @@ def handler(channel, msg):
     assert msg.field18 == 15
     assert msg.field19 == 68
     assert msg.field20 == 2
+    assert msg.field22 == msg.FIELD22_TEST
+    assert msg.field23 == msg.FIELD23_TEST
+    assert msg.field24 == msg.FIELD24_TEST
+    assert msg.field25 == 3
+    assert msg.field26 == 255
+    assert msg.field27 == 3
+    assert msg.field28 == 0x7f
+    assert msg.field29 == 3
+    assert msg.field30 == 0x7fff
+    assert msg.field31 == 0xf
+    assert msg.field32 == 0x7fffffff
+    assert msg.field33 == 0xf
+    assert msg.field34 == 0x7fffffffffffffff
     success = "Success"
 
 # make a new zcm object and launch the handle thread
@@ -73,6 +86,19 @@ b.field16 = 0b0000010;
 b.field18 = -1;
 b.field19 = 0b1000100;
 b.field20 = 0b0000010;
+b.field22 = b.FIELD22_TEST;
+b.field23 = b.FIELD23_TEST;
+b.field24 = b.FIELD24_TEST;
+b.field25 = 0xff;
+b.field26 = 0xff;
+b.field27 = 0x7f;
+b.field28 = 0x7f;
+b.field29 = 0x7fff;
+b.field30 = 0x7fff;
+b.field31 = 0x7fffffff;
+b.field32 = 0x7fffffff;
+b.field33 = 0x7fffffffffffffff;
+b.field34 = 0x7fffffffffffffff;
 
 assert(b.FIELD22_TEST == 255);
 assert(b.FIELD23_TEST ==   3);

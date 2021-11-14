@@ -16,7 +16,7 @@ void setupOptionsNode(GetOpt& gopt)
     gopt.addString(0, "npath", ".", "Location for zcmtypes.js file");
 }
 
-static string getReaderFunc(const string& type, uint8_t numbits)
+static string getReaderFunc(const string& type, uint8_t numbits, bool signExtend)
 {
     if (type == "double") {
         return "R.readDouble()";
@@ -24,7 +24,7 @@ static string getReaderFunc(const string& type, uint8_t numbits)
         return "R.readFloat()";
     } else if (numbits != 0) {
         return "R.readBits(" + to_string(numbits) +
-               (type == "byte" ? ", false" : "") +  ")";
+               (signExtend ? ", true" : ", false") +  ")";
     } else if (type == "int64_t") {
         return "R.read64()";
     } else if (type == "int32_t") {
@@ -169,23 +169,26 @@ struct EmitModule : public Emitter
         emit(0, "        readBits: function(numbits, signExtend = true) {");
         emit(0, "            let bits_left = numbits;");
         emit(0, "            let ret;");
-        emit(0, "            do {");
+        emit(0, "            while (bits_left > 0) {");
         emit(0, "                const available_bits = 8 - offset_bit;");
         emit(0, "                const bits_covered = available_bits < bits_left ? available_bits : bits_left;");
         emit(0, "                const mask = ((1 << bits_covered) - 1) << (8 - bits_covered - offset_bit);");
         emit(0, "                const payload = (buf.readUInt8(offset_byte) & mask) << offset_bit;");
         emit(0, "                const shift = 8 - bits_left;");
         emit(0, "                if (bits_left == numbits) {");
+        emit(0, "                    let signExtendedPayload = signExtend ?");
+        emit(0, "                                              (payload << 24) >> 24 :");
+        emit(0, "                                              (payload << 24) >>> 24;");
         emit(0, "                    if (numbits > 32) {");
-        emit(0, "                        ret = bigint(((payload << 24) >> 24)).shiftRight(shift);");
+        emit(0, "                        ret = bigint(signExtendedPayload).shiftRight(shift);");
         emit(0, "                    } else {");
         emit(0, "                        if (shift < 0) {");
-        emit(0, "                            ret = ((payload << 24) >> 24) << -shift;");
+        emit(0, "                            ret = signExtendedPayload << -shift;");
         emit(0, "                        } else {");
         emit(0, "                            if (signExtend) {");
-        emit(0, "                                ret = ((payload << 24) >> 24) >> shift;");
+        emit(0, "                                ret = signExtendedPayload >> shift;");
         emit(0, "                            } else {");
-        emit(0, "                                ret = ((payload << 24) >>> 24) >>> shift;");
+        emit(0, "                                ret = signExtendedPayload >>> shift;");
         emit(0, "                            }");
         emit(0, "                        }");
         emit(0, "                    }");
@@ -203,7 +206,7 @@ struct EmitModule : public Emitter
         emit(0, "                    offset_bit = 0;");
         emit(0, "                    ++offset_byte;");
         emit(0, "                }");
-        emit(0, "            } while(bits_left > 0);");
+        emit(0, "            }");
         emit(0, "            return ret;");
         emit(0, "        },");
         emit(0, "    };");
@@ -266,7 +269,7 @@ struct EmitModule : public Emitter
         emit(0, "        writeBits: function(value, numbits) {");
         emit(0, "            const isbigint = bigint.isInstance(value);");
         emit(0, "            let bits_left = numbits;");
-        emit(0, "            do {");
+        emit(0, "            while (bits_left > 0) {");
         emit(0, "                if (offset_bit == 0) buf.writeUInt8(0, offset_byte);");
         emit(0, "                let payload = buf.readUInt8(offset_byte);");
         emit(0, "                const mask = isbigint ?");
@@ -288,7 +291,7 @@ struct EmitModule : public Emitter
         emit(0, "                bits_left = shift;");
         emit(0, "                offset_bit = 0;");
         emit(0, "                ++offset_byte;");
-        emit(0, "            } while(bits_left > 0);");
+        emit(0, "            }");
         emit(0, "        },");
         emit(0, "        writeArray: function(arr, size, writeValFunc) {");
         emit(0, "            for (var i = 0; i < size; ++i)");
@@ -515,7 +518,7 @@ struct EmitModule : public Emitter
         auto* tn = zm.type.nameUnderscoreCStr();
         auto* sfx = sfx_.c_str();
 
-        auto readerFunc = getReaderFunc(tn, zm.type.numbits);
+        auto readerFunc = getReaderFunc(tn, zm.type.numbits, zm.type.signExtend);
 
         if (readerFunc != "") {
             emit(indent, "%s%s%s;", accessor, readerFunc.c_str(), sfx);
@@ -532,7 +535,7 @@ struct EmitModule : public Emitter
         auto* len = len_.c_str();
         const char* suffix = isFirst ? "" : ")";
 
-        auto readerFunc = getReaderFunc(tn, zm.type.numbits);
+        auto readerFunc = getReaderFunc(tn, zm.type.numbits, zm.type.signExtend);
 
         if (readerFunc == "") {
             fprintf(stderr, "Unable to encode list of type: %s\n", tn.c_str());

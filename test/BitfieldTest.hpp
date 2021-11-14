@@ -16,7 +16,7 @@ class BitfieldTest : public CxxTest::TestSuite
     void setUp() override {}
     void tearDown() override {}
 
-    static constexpr size_t expectEncSize = 38;
+    static constexpr size_t expectEncSize = 57;
     uint8_t enc[expectEncSize] = {
         0b11101010, // fields 1, 2, 3, and 4
         0b10111110, // fields 1, 2, 3, and 4
@@ -56,6 +56,25 @@ class BitfieldTest : public CxxTest::TestSuite
         0,          // field21
         0b11111111, // field22
         0b01111100, // fields 23 and 24
+        0,          // filler1
+        0b11111111, // fields 25 and 26
+        0b11111111, // fields 26, 27, and 28
+        0b11111111, // fields 28, 29, and 30
+        0b11111111, // field30
+        0b11111111, // fields 30 and 31
+        0b11111111, // field32
+        0b11111111, // field32
+        0b11111111, // field32
+        0b11111111, // fields 32 and 33
+        0b11111111, // fields 33 and 34
+        0b11111111, // field34
+        0b11111111, // field34
+        0b11111111, // field34
+        0b11111111, // field34
+        0b11111111, // field34
+        0b11111111, // field34
+        0b11111111, // field34
+        0b11000000, // field34
     };
 
     void testCEncode()
@@ -107,6 +126,16 @@ class BitfieldTest : public CxxTest::TestSuite
         b.field22 = BITFIELD_T_FIELD22_TEST;
         b.field23 = BITFIELD_T_FIELD23_TEST;
         b.field24 = BITFIELD_T_FIELD24_TEST;
+        b.field25 = 0xff;
+        b.field26 = 0xff;
+        b.field27 = 0xff;
+        b.field28 = 0xff;
+        b.field29 = 0xffff;
+        b.field30 = 0xffff;
+        b.field31 = 0xffffffff;
+        b.field32 = 0xffffffff;
+        b.field33 = 0xffffffffffffffff;
+        b.field34 = 0xffffffffffffffff;
 
         TS_ASSERT_EQUALS(__bitfield_t_encoded_array_size(&b, 1), expectEncSize);
 
@@ -175,6 +204,16 @@ class BitfieldTest : public CxxTest::TestSuite
         TS_ASSERT_EQUALS(b.field22, BITFIELD_T_FIELD22_TEST);
         TS_ASSERT_EQUALS(b.field23, BITFIELD_T_FIELD23_TEST);
         TS_ASSERT_EQUALS(b.field24, BITFIELD_T_FIELD24_TEST);
+        TS_ASSERT_EQUALS(b.field25, 3);
+        TS_ASSERT_EQUALS(b.field26, 255);
+        TS_ASSERT_EQUALS(b.field27, 3);
+        TS_ASSERT_EQUALS(b.field28, 0x7f);
+        TS_ASSERT_EQUALS(b.field29, 3);
+        TS_ASSERT_EQUALS(b.field30, 0x7fff);
+        TS_ASSERT_EQUALS(b.field31, 0xf);
+        TS_ASSERT_EQUALS(b.field32, 0x7fffffff);
+        TS_ASSERT_EQUALS(b.field33, 0xf);
+        TS_ASSERT_EQUALS(b.field34, 0x7fffffffffffffff);
     }
 
     void testCppEncode()
@@ -226,6 +265,16 @@ class BitfieldTest : public CxxTest::TestSuite
         b.field22 = b.FIELD22_TEST;
         b.field23 = b.FIELD23_TEST;
         b.field24 = b.FIELD24_TEST;
+        b.field25 = 0xff;
+        b.field26 = 0xff;
+        b.field27 = 0xff;
+        b.field28 = 0xff;
+        b.field29 = 0xffff;
+        b.field30 = 0xffff;
+        b.field31 = 0xffffffff;
+        b.field32 = 0xffffffff;
+        b.field33 = 0xffffffffffffffffL;
+        b.field34 = 0xffffffffffffffffL;
 
         TS_ASSERT_EQUALS(b._getEncodedSizeNoHash(), expectEncSize);
 
@@ -294,6 +343,16 @@ class BitfieldTest : public CxxTest::TestSuite
         TS_ASSERT_EQUALS(b.field22, b.FIELD22_TEST);
         TS_ASSERT_EQUALS(b.field23, b.FIELD23_TEST);
         TS_ASSERT_EQUALS(b.field24, b.FIELD24_TEST);
+        TS_ASSERT_EQUALS(b.field25, 3);
+        TS_ASSERT_EQUALS(b.field26, 255);
+        TS_ASSERT_EQUALS(b.field27, 3);
+        TS_ASSERT_EQUALS(b.field28, 0x7f);
+        TS_ASSERT_EQUALS(b.field29, 3);
+        TS_ASSERT_EQUALS(b.field30, 0x7fff);
+        TS_ASSERT_EQUALS(b.field31, 0xf);
+        TS_ASSERT_EQUALS(b.field32, 0x7fffffff);
+        TS_ASSERT_EQUALS(b.field33, 0xf);
+        TS_ASSERT_EQUALS(b.field34, 0x7fffffffffffffff);
     }
 
     void testCConsts()

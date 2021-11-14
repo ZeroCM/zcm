@@ -501,7 +501,8 @@ struct EmitSource : public Emit
 
             int indent = 2+std::max(0, (int)zm.dimensions.size() - 1);
             if (!inBitMode) {
-                emit(indent, "thislen = __%s_encode_%sarray(buf, offset + pos_byte, maxlen - pos_byte, %s, %s);",
+                emit(indent, "thislen = __%s_encode_%sarray(buf, offset + pos_byte, "
+                             "maxlen - pos_byte, %s, %s);",
                      zm.type.nameUnderscoreCStr(),
                      zcm.gopt->getBool("little-endian-encoding") &&
                          zcm.isPrimitiveType(zm.type.nameUnderscore()) ?
@@ -510,7 +511,8 @@ struct EmitSource : public Emit
                      makeArraySize(zm, "p", (int)zm.dimensions.size() - 1).c_str());
                 emit(indent, "if (thislen < 0) return thislen; else pos_byte += thislen;");
             } else {
-                emit(indent, "thislen = __%s_encode_array_bits(buf, offset + pos_byte, pos_bit, maxlen - pos_byte, %s, %s, %u);",
+                emit(indent, "thislen = __%s_encode_array_bits(buf, offset + pos_byte, pos_bit, "
+                             "maxlen - pos_byte, %s, %s, %u);",
                      zm.type.nameUnderscoreCStr(),
                      makeAccessor(zm, "p", (int)zm.dimensions.size() - 1).c_str(),
                      makeArraySize(zm, "p", (int)zm.dimensions.size() - 1).c_str(),
@@ -595,7 +597,8 @@ struct EmitSource : public Emit
 
             int indent = 2+std::max(0, (int)zm.dimensions.size() - 1);
             if (!inBitMode) {
-                emit(indent, "thislen = __%s_decode_%sarray(buf, offset + pos_byte, maxlen - pos_byte, %s, %s);",
+                emit(indent, "thislen = __%s_decode_%sarray(buf, offset + pos_byte, "
+                             "maxlen - pos_byte, %s, %s);",
                      zm.type.nameUnderscoreCStr(),
                      zcm.gopt->getBool("little-endian-encoding") &&
                          zcm.isPrimitiveType(zm.type.nameUnderscore()) ?
@@ -604,8 +607,10 @@ struct EmitSource : public Emit
                      makeArraySize(zm, "p", (int)zm.dimensions.size() - 1).c_str());
                 emit(indent, "if (thislen < 0) return thislen; else pos_byte += thislen;");
             } else {
-                emit(indent, "thislen = __%s_decode_array_bits(buf, offset + pos_byte, pos_bit, maxlen - pos_byte, %s, %s, %u);",
+                emit(indent, "thislen = __%s_decode_array_bits%s(buf, offset + pos_byte, "
+                             "pos_bit, maxlen - pos_byte, %s, %s, %u);",
                      zm.type.nameUnderscoreCStr(),
+                     zm.type.signExtend ? "_sign_extend" : "",
                      makeAccessor(zm, "p", (int)zm.dimensions.size() - 1).c_str(),
                      makeArraySize(zm, "p", (int)zm.dimensions.size() - 1).c_str(),
                      zm.type.numbits);

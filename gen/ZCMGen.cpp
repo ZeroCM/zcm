@@ -375,7 +375,9 @@ static int parseConst(ZCMGen& zcmgen, ZCMStruct& zs, tokenize_t* t)
         } else if (type == "byte" && signExtend) {
             semantic_error(t, "byte is unsigned in all languages that support unsigned "
                               "types. byte bitfields cannot have sign extension enabled");
-        } else if (type != "byte" && numbits == zcmgen.getPrimitiveTypeNumBits(type) && !signExtend) {
+        } else if (type != "byte" &&
+                   numbits == zcmgen.getPrimitiveTypeNumBits(type) &&
+                   !signExtend) {
             semantic_error(t, "Cannot have a bitfield without sign extension when "
                               "using all of the bits in a type.",
                               numbits, zcmgen.getPrimitiveTypeNumBits(type));
@@ -583,6 +585,15 @@ static int parseMember(ZCMGen& zcmgen, ZCMStruct& zs, tokenize_t* t)
         } else if (zt.numbits > zcmgen.getPrimitiveTypeNumBits(zt.fullname)) {
             semantic_error(t, "Specified bit length larger than member type: %u > %u",
                            zt.numbits, zcmgen.getPrimitiveTypeNumBits(zt.fullname));
+        } else if (zt.fullname == "byte" && zt.signExtend) {
+            semantic_error(t, "byte is unsigned in all languages that support unsigned "
+                              "types. byte bitfields cannot have sign extension enabled");
+        } else if (zt.fullname != "byte" &&
+                   zt.numbits == zcmgen.getPrimitiveTypeNumBits(zt.fullname) &&
+                   !zt.signExtend) {
+            semantic_error(t, "Cannot have a bitfield without sign extension when "
+                              "using all of the bits in a type.",
+                              zt.numbits, zcmgen.getPrimitiveTypeNumBits(zt.fullname));
         }
     }
 

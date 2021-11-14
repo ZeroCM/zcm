@@ -44,6 +44,16 @@ public class BitfieldPub
         b.field22 = b.FIELD22_TEST;
         b.field23 = b.FIELD23_TEST;
         b.field24 = b.FIELD24_TEST;
+        b.field25 = (byte)0xff;
+        b.field26 = (byte)0xff;
+        b.field27 = (byte)0xff;
+        b.field28 = (byte)0xff;
+        b.field29 = (short)0xffff;
+        b.field30 = (short)0xffff;
+        b.field31 = (int)0xffffffff;
+        b.field32 = (int)0xffffffff;
+        b.field33 = (long)0xffffffffffffffffL;
+        b.field34 = (long)0xffffffffffffffffL;
 
         assert (b.SIGN_TEST_0  ==  (1L <<  4) - 1);
         assert (b.SIGN_TEST_1  == -(1L <<  4)    );

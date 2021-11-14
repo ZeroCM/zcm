@@ -61,6 +61,12 @@ Using the grammar above, to be well-formed the following constraints must be sat
 
 ## Encoding formats
 
+Note that if your machine architecture does not natively support `int8_t` and `uint8_t`
+types, signed zcmtype members may not decode negative numbers properly. Similarly sign
+extension on bitfields may also not function properly. These are known issues and if you need
+them addressed, please create an issue on
+[zcm's github issue page](https://github.com/ZeroCM/zcm/issues).
+
 ### Primitives
 
 <table>

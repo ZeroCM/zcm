@@ -13,12 +13,17 @@ static void print_value_scalar(TypeDb& db, zcm_field_t *field, void *data, int *
 
     switch(field->type) {
 
-        case ZCM_FIELD_BYTE:
+        case ZCM_FIELD_BYTE: {
+            uint8_t i = *(uint8_t *) data;
+            printf(" %u", i);
+            if (is_ascii(i)) printf(" (%c)", i);
+            break;
+        }
+
         case ZCM_FIELD_INT8_T: {
             int8_t i = *(int8_t *) data;
             printf(" %d", i);
-            if(is_ascii(i))
-                printf(" (%c)", i);
+            if (is_ascii(i)) printf(" (%c)", i);
             break;
         }
 
