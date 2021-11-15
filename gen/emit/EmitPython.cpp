@@ -24,7 +24,8 @@ static string getStructFormat(const ZCMMember& zm)
     // Handle bitfields
     if (zm.type.numbits != 0) {
         string ret;
-        if      (tn == "byte")    ret = "u";
+        if (!zm.type.signExtend)  ret = "u";
+        else if (tn == "byte")    ret = "u";
         else if (tn == "int8_t")  ret = "s";
         else if (tn == "int16_t") ret = "s";
         else if (tn == "int32_t") ret = "s";
