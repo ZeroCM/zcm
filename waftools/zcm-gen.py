@@ -298,7 +298,7 @@ def zcmgen(ctx, **kw):
     if 'java' in lang:
         ctx(name     = uselib_name + '_java',
             features = 'javac jar',
-            uselib   = ['zcmjar', genfiles_name],
+            use      = ['zcmjar', genfiles_name],
             srcdir   = ctx.path.find_or_declare('java/' + javapkg.split('.')[0]),
             outdir   = 'java/classes',  # path to output (for .class)
             basedir  = 'java/classes',  # basedir for jar
