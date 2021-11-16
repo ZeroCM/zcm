@@ -1,0 +1,18 @@
+- Introduced bitfields in ZCM types
+- ZCM types support const strings
+- Transport API now natively supports regex subscriptions
+- Changed to julia version 1.6
+- ZCM can now generate a traffic topology map for visualization
+- Spy lite can now filter by channel prefix
+- Spy lite supports real-time decoding of encoded types
+- Spy lite displays traffic bandwidth
+- Added bandwidth analyzer via indexer plugin
+- ZCM bridge now has a watchdog timeout
+- Logger can now run on multiple cores to increase decoding throughput
+- Fixed stream synchronization in generic serial
+- Can driver now has full linux support
+- Added arduino support and examples
+- ZMQ now operates on a round robin message dispatch ordering
+- Eventlogs more reliably handle bad data
+- CI runs on docker
+- General stability fixes
