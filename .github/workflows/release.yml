@@ -73,26 +73,14 @@ jobs:
       - name: Image digest
         run: echo ${{ steps.docker_build.outputs.digest }}
 
-      - name: Read CHANGELOG
-        id: changelog
-        run: |
-          CHANGELOG=$(cat docs/changelog.md) && \
-          CHANGELOG="${CHANGELOG//'%'/'%25'}" && \
-          CHANGELOG="${CHANGELOG//$'\n'/'%0A'}" && \
-          CHANGELOG="${CHANGELOG//$'\r'/'%0D'}" && \
-          export CHANGELOG && \
-          echo "::set-output name=body::$CHANGELOG"
-
       - name: Create Release
         id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: ncipollo/release-action@v1
         with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
-          body: |
-              ${{ steps.changelog.outputs.body }}
+          name: Release ${{ github.ref }}
+          tag: ${{ github.ref }}
+          bodyFile: "docs/changelog.md"
+          token: ${{ secrets.GITHUB_TOKEN }}
           draft: false
           prerelease: false
 
