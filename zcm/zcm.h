@@ -12,8 +12,8 @@ extern "C" {
  *   u: Micro
  */
 #define ZCM_MAJOR_VERSION 1
-#define ZCM_MINOR_VERSION 0
-#define ZCM_MICRO_VERSION 3
+#define ZCM_MINOR_VERSION 1
+#define ZCM_MICRO_VERSION 0
 
 #include <stdint.h>
 
