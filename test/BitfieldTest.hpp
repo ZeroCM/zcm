@@ -393,6 +393,25 @@ class BitfieldTest : public CxxTest::TestSuite
         TS_ASSERT_EQUALS(BITFIELD_T_SIGN_TEST_25, 0x0000000000000001);
         TS_ASSERT_EQUALS(BITFIELD_T_SIGN_TEST_26, 0x0000000000000007);
         TS_ASSERT_EQUALS(BITFIELD_T_SIGN_TEST_27, 0x7fffffffffffffff);
+
+        TS_ASSERT_EQUALS(BITFIELD_T_SIGN_TEST_28, 0x7f);
+        TS_ASSERT_EQUALS(BITFIELD_T_SIGN_TEST_29, 0xff);
+        TS_ASSERT_EQUALS(BITFIELD_T_SIGN_TEST_30, 0x7f);
+        TS_ASSERT_EQUALS(BITFIELD_T_SIGN_TEST_31, -1);
+        TS_ASSERT_EQUALS(BITFIELD_T_SIGN_TEST_32, 127);
+        TS_ASSERT_EQUALS(BITFIELD_T_SIGN_TEST_33, -1);
+        TS_ASSERT_EQUALS(BITFIELD_T_SIGN_TEST_34, 0x7fff);
+        TS_ASSERT_EQUALS(BITFIELD_T_SIGN_TEST_35, -1);
+        TS_ASSERT_EQUALS(BITFIELD_T_SIGN_TEST_36, 32767);
+        TS_ASSERT_EQUALS(BITFIELD_T_SIGN_TEST_37, -1);
+        TS_ASSERT_EQUALS(BITFIELD_T_SIGN_TEST_38, 0x7fffffff);
+        TS_ASSERT_EQUALS(BITFIELD_T_SIGN_TEST_39, -1);
+        TS_ASSERT_EQUALS(BITFIELD_T_SIGN_TEST_40, 2147483647);
+        TS_ASSERT_EQUALS(BITFIELD_T_SIGN_TEST_41, -1);
+        TS_ASSERT_EQUALS(BITFIELD_T_SIGN_TEST_42, 0x7fffffffffffffffL);
+        TS_ASSERT_EQUALS(BITFIELD_T_SIGN_TEST_43, -1);
+        TS_ASSERT_EQUALS(BITFIELD_T_SIGN_TEST_44, 9223372036854775807L);
+        TS_ASSERT_EQUALS(BITFIELD_T_SIGN_TEST_45, -1);
     }
 
     void testCppConsts()
@@ -433,5 +452,24 @@ class BitfieldTest : public CxxTest::TestSuite
         TS_ASSERT_EQUALS(cpp::bitfield_t::SIGN_TEST_25, 0x0000000000000001);
         TS_ASSERT_EQUALS(cpp::bitfield_t::SIGN_TEST_26, 0x0000000000000007);
         TS_ASSERT_EQUALS(cpp::bitfield_t::SIGN_TEST_27, 0x7fffffffffffffff);
+
+        TS_ASSERT_EQUALS(cpp::bitfield_t::SIGN_TEST_28, 0x7f);
+        TS_ASSERT_EQUALS(cpp::bitfield_t::SIGN_TEST_29, 0xff);
+        TS_ASSERT_EQUALS(cpp::bitfield_t::SIGN_TEST_30, 0x7f);
+        TS_ASSERT_EQUALS(cpp::bitfield_t::SIGN_TEST_31, -1);
+        TS_ASSERT_EQUALS(cpp::bitfield_t::SIGN_TEST_32, 127);
+        TS_ASSERT_EQUALS(cpp::bitfield_t::SIGN_TEST_33, -1);
+        TS_ASSERT_EQUALS(cpp::bitfield_t::SIGN_TEST_34, 0x7fff);
+        TS_ASSERT_EQUALS(cpp::bitfield_t::SIGN_TEST_35, -1);
+        TS_ASSERT_EQUALS(cpp::bitfield_t::SIGN_TEST_36, 32767);
+        TS_ASSERT_EQUALS(cpp::bitfield_t::SIGN_TEST_37, -1);
+        TS_ASSERT_EQUALS(cpp::bitfield_t::SIGN_TEST_38, 0x7fffffff);
+        TS_ASSERT_EQUALS(cpp::bitfield_t::SIGN_TEST_39, -1);
+        TS_ASSERT_EQUALS(cpp::bitfield_t::SIGN_TEST_40, 2147483647);
+        TS_ASSERT_EQUALS(cpp::bitfield_t::SIGN_TEST_41, -1);
+        TS_ASSERT_EQUALS(cpp::bitfield_t::SIGN_TEST_42, 0x7fffffffffffffffL);
+        TS_ASSERT_EQUALS(cpp::bitfield_t::SIGN_TEST_43, -1);
+        TS_ASSERT_EQUALS(cpp::bitfield_t::SIGN_TEST_44, 9223372036854775807L);
+        TS_ASSERT_EQUALS(cpp::bitfield_t::SIGN_TEST_45, -1);
     }
 };

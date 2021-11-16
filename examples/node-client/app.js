@@ -163,6 +163,25 @@ function bitfieldExample()
   assert(zcmtypes.bitfield_t.SIGN_TEST_26 == 7);
   assert(zcmtypes.bitfield_t.SIGN_TEST_27 == "9223372036854775807");
 
+  assert(zcmtypes.bitfield_t.SIGN_TEST_28 == 0x7f);
+  assert(zcmtypes.bitfield_t.SIGN_TEST_29 == 0xff);
+  assert(zcmtypes.bitfield_t.SIGN_TEST_30 == 0x7f);
+  assert(zcmtypes.bitfield_t.SIGN_TEST_31 == -1);
+  assert(zcmtypes.bitfield_t.SIGN_TEST_32 == 127);
+  assert(zcmtypes.bitfield_t.SIGN_TEST_33 == -1);
+  assert(zcmtypes.bitfield_t.SIGN_TEST_34 == 0x7fff);
+  assert(zcmtypes.bitfield_t.SIGN_TEST_35 == -1);
+  assert(zcmtypes.bitfield_t.SIGN_TEST_36 == 32767);
+  assert(zcmtypes.bitfield_t.SIGN_TEST_37 == -1);
+  assert(zcmtypes.bitfield_t.SIGN_TEST_38 == 0x7fffffff);
+  assert(zcmtypes.bitfield_t.SIGN_TEST_39 == -1);
+  assert(zcmtypes.bitfield_t.SIGN_TEST_40 == 2147483647);
+  assert(zcmtypes.bitfield_t.SIGN_TEST_41 == -1);
+  assert(zcmtypes.bitfield_t.SIGN_TEST_42 == "9223372036854775807");
+  assert(zcmtypes.bitfield_t.SIGN_TEST_43 == -1);
+  assert(zcmtypes.bitfield_t.SIGN_TEST_44 == "9223372036854775807");
+  assert(zcmtypes.bitfield_t.SIGN_TEST_45 == -1);
+
   setInterval(function() {
     var b = new zcmtypes.bitfield_t();
     b.field1 = 3;

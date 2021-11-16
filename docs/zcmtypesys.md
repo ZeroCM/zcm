@@ -29,7 +29,7 @@ The grammar is given in EBNF using regex-style repetition and character classes:
     zcmtype       = 'struct' name '{' field* '}'
     field         = const_field | data_field
     const_field   = 'const' const_type numbits? name '=' const_literal ';'
-    const_type    = int_type | float_type
+    const_type    = int_type | float_type | 'byte'
     const_literal = hex_literal | int_literal | float_literal
     data_field    = type numbits? name arraydim* ';'
     type          = primative | name
@@ -55,9 +55,10 @@ Using the grammar above, to be well-formed the following constraints must be sat
   - Names used for array sizes must refer to a field in the same 'zcmtype' that has a scalar integer type
   - Names used for 'type' refer to other 'zcmtype' definitions
     - These may exist in other files
-  - The uint_literal specified for numbits must always be less than the number
-    of bits of the corresponding type
-  - Sign extension of bitfields via negative numbits are not allowed on `byte` type
+  - The absolute value of the int_literal specified for numbits must always be less
+    than the number of bits of the corresponding type
+  - Sign extension of bitfields via negative numbits are not allowed on `byte` type.
+    See the bitfields section below for how sign extension works.
 
 ## Encoding formats
 
@@ -73,16 +74,16 @@ them addressed, please create an issue on
     <thead>
     <tr><th>  Type     </th><th> Encoded Size </th><th> Format</th></tr>
     </thead>
-    <tr><td>  int8_t     </td><td> 1 byte                   </td><td>  X              </td></tr>
-    <tr><td>  int16_t    </td><td> 2 bytes                  </td><td>  XX             </td></tr>
-    <tr><td>  int32_t    </td><td> 4 bytes                  </td><td>  XXXX           </td></tr>
-    <tr><td>  int64_t    </td><td> 8 bytes                  </td><td>  XXXXXXXX       </td></tr>
-    <tr><td>  float      </td><td> 4 bytes                  </td><td>  XXXX           </td></tr>
-    <tr><td>  double     </td><td> 8 bytes                  </td><td>  XXXXXXXX       </td></tr>
-    <tr><td>  string     </td><td> 4+len+1 bytes            </td><td>  LLLL&lt;chars&gt;N   </td></tr>
-    <tr><td>  boolean    </td><td> 1 byte                   </td><td>  X              </td></tr>
-    <tr><td>  byte       </td><td> 1 byte                   </td><td>  X              </td></tr>
-    <tr><td>  _bitfield_ </td><td> bitpacked with neighbors </td><td>  |+             </td></tr>
+    <tr><td>  int8_t     </td><td> 1 byte                   </td><td>  X                  </td></tr>
+    <tr><td>  int16_t    </td><td> 2 bytes                  </td><td>  XX                 </td></tr>
+    <tr><td>  int32_t    </td><td> 4 bytes                  </td><td>  XXXX               </td></tr>
+    <tr><td>  int64_t    </td><td> 8 bytes                  </td><td>  XXXXXXXX           </td></tr>
+    <tr><td>  float      </td><td> 4 bytes                  </td><td>  XXXX               </td></tr>
+    <tr><td>  double     </td><td> 8 bytes                  </td><td>  XXXXXXXX           </td></tr>
+    <tr><td>  string     </td><td> 4+len+1 bytes            </td><td>  LLLL&lt;chars&gt;N </td></tr>
+    <tr><td>  boolean    </td><td> 1 byte                   </td><td>  X                  </td></tr>
+    <tr><td>  byte       </td><td> 1 byte                   </td><td>  X                  </td></tr>
+    <tr><td>  _bitfield_ </td><td> bitpacked with neighbors </td><td>  |+                 </td></tr>
 </table>
 
  Where:
@@ -93,23 +94,25 @@ them addressed, please create an issue on
    - | is an individual bit
 
 ### Bitfields
+
 Bitfields are integer types with a specified number of bits that are bitpacked during encoding.
-Neighboring bitfields will be packed tightly wasting no bits in between - not necessarily
-maintaining byte alignment. This is unlike all other type encodings which maintain byte alignment.
+Neighboring bitfields will be packed tightly, wasting no bits in between (not necessarily
+maintaining byte alignment). This is unlike all other type encodings which maintain byte alignment.
 Bitfields currently only support big endian encoding. All bitfields will behave exactly like
-their non-bitfield type in all regards other than encoding and decoding. `intXX_t` types are
-signed integers and will encode and decode as such. For example when encoding a type that
-contains an `int8_t:3` with the value set to `0b111`, you should expect the decoded message
-to contain a `3` as the value of this variable. Sign extension is configurable by specifying a
-negative sign before the number of bits in the bitfield. A type with an `int8_t:-3` with the value
-set to `0b111` will have its sign extended upon decode. You should expect the received value to be
-`-1` (`0b11111111`). `byte` is unsigned for any language that has unsigned types. When encoding a
-type that contains a `byte:3` with the value set to `0b111`, you should expect the decoded message
-to contain a `7` as the value of this variable for languages that support unsigned types.
-For languages that do not have unsigned types (ahem java...) you should expect the decoded message
-to also contain a `7` as the value of this variable. For a type containing a `byte:8` with the
-value set to `0xff`, you should expect the decoded message to contain a `255` for languages that
-support unsigned types and a `-1` for languages that do not.
+their non-bitfield type in all regards other than encoding and decoding. Sign extension is
+configurable by specifying a negative sign before the number of bits in the bitfield. When
+encoding a type that contains an `int8_t:3` with the value set to `0b111`, you should expect the
+decoded message to contain a `7` as the value of this variable. A type with an `int8_t:-3` with
+the value set to `0b111` will have its sign extended upon decode. You should expect the received
+value to be `-1` (`0b11111111`).
+
+`byte` is unsigned for any language that supports unsigned types. When encoding a type that
+contains a `byte:3` with the value set to `0b111`, you should expect the decoded message to
+contain a `7` as the value of this variable for languages that support unsigned types.
+For languages that do not support unsigned types (ahem java...) you should still expect the
+decoded message to contain a `7` as the value of this variable. However, for a type containing
+a `byte:8` with the value set to `0xff`, you should expect the decoded message to contain a
+`255` for languages that support unsigned types and a `-1` for languages that do not.
 
 
 ### Array Types

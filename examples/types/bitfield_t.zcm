@@ -88,4 +88,27 @@ struct bitfield_t
     const int64_t:1   SIGN_TEST_25 = 0x0000000000000001; // Should have the value -(1 <<  1) - 1
     const int64_t:3   SIGN_TEST_26 = 0x0000000000000007; // Should have the value  (1 <<  3) - 1
     const int64_t:63  SIGN_TEST_27 = 0x7fffffffffffffff; // Should have the value  (1 << 63) - 1
+
+    const byte    SIGN_TEST_28 = 0x7f;
+    const byte    SIGN_TEST_29 = 0xff;
+
+    const int8_t  SIGN_TEST_30 = 0x7f;
+    const int8_t  SIGN_TEST_31 = 0xff;
+    const int8_t  SIGN_TEST_32 = 127;
+    const int8_t  SIGN_TEST_33 = -1;
+
+    const int16_t SIGN_TEST_34 = 0x7fff;
+    const int16_t SIGN_TEST_35 = 0xffff;
+    const int16_t SIGN_TEST_36 = 32767;
+    const int16_t SIGN_TEST_37 = -1;
+
+    const int32_t SIGN_TEST_38 = 0x7fffffff;
+    const int32_t SIGN_TEST_39 = 0xffffffff;
+    const int32_t SIGN_TEST_40 = 2147483647;
+    const int32_t SIGN_TEST_41 = -1;
+
+    const int64_t SIGN_TEST_42 = 0x7fffffffffffffff;
+    const int64_t SIGN_TEST_43 = 0xffffffffffffffff;
+    const int64_t SIGN_TEST_44 = 9223372036854775807;
+    const int64_t SIGN_TEST_45 = -1;
 }

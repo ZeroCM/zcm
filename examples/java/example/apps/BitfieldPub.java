@@ -94,6 +94,25 @@ public class BitfieldPub
         assert (b.SIGN_TEST_26 == 0x0000000000000007L);
         assert (b.SIGN_TEST_27 == 0x7fffffffffffffffL);
 
+        assert (b.SIGN_TEST_28 == 0x7f);
+        assert (b.SIGN_TEST_29 == -1);
+        assert (b.SIGN_TEST_30 == 0x7f);
+        assert (b.SIGN_TEST_31 == -1);
+        assert (b.SIGN_TEST_32 == 127);
+        assert (b.SIGN_TEST_33 == -1);
+        assert (b.SIGN_TEST_34 == 0x7fff);
+        assert (b.SIGN_TEST_35 == -1);
+        assert (b.SIGN_TEST_36 == 32767);
+        assert (b.SIGN_TEST_37 == -1);
+        assert (b.SIGN_TEST_38 == 0x7fffffff);
+        assert (b.SIGN_TEST_39 == -1);
+        assert (b.SIGN_TEST_40 == 2147483647);
+        assert (b.SIGN_TEST_41 == -1);
+        assert (b.SIGN_TEST_42 == 0x7fffffffffffffffL);
+        assert (b.SIGN_TEST_43 == -1);
+        assert (b.SIGN_TEST_44 == 9223372036854775807L);
+        assert (b.SIGN_TEST_45 == -1);
+
         while (true) {
             zcm.publish("BITFIELD", b);
             try { Thread.sleep(1000); } catch (InterruptedException ex) {}

@@ -23,13 +23,7 @@ static string getStructFormat(const ZCMMember& zm)
 
     // Handle bitfields
     if (zm.type.numbits != 0) {
-        string ret;
-        if (!zm.type.signExtend)  ret = "u";
-        else if (tn == "byte")    ret = "u";
-        else if (tn == "int8_t")  ret = "s";
-        else if (tn == "int16_t") ret = "s";
-        else if (tn == "int32_t") ret = "s";
-        else if (tn == "int64_t") ret = "s";
+        string ret = zm.type.signExtend ? "s" : "u";
         ret += to_string(zm.type.numbits);
         return ret;
     }
@@ -70,7 +64,7 @@ struct PyEmitStruct : public Emitter
              "import struct");
         for (auto& zm : zs.members) {
             if (zm.type.numbits != 0) {
-                emit(0, "import os, math, bitstruct, ctypes");
+                emit(0, "import os, math, bitstruct");
                 break;
             }
         }

@@ -418,7 +418,7 @@ static int parseConst(ZCMGen& zcmgen, ZCMStruct& zs, tokenize_t* t)
         // TODO: This should migrate to either the ctor or a helper function called just
         //       before the ctor
         char* endptr = NULL;
-        #define INT_CASE(MEMBERTYPE, CTYPE, STORE) \
+        #define INT_CASE(MEMBERTYPE, CTYPE) \
             } else if (type == #MEMBERTYPE) { \
                 int64_t v = strtoll(t->token, &endptr, 0); \
                 if (errno == ERANGE) { \
@@ -454,19 +454,13 @@ static int parseConst(ZCMGen& zcmgen, ZCMStruct& zs, tokenize_t* t)
                                                   #MEMBERTYPE ":%u : %lld", \
                                                   (int64_t)min, (int64_t)max, numbits, v); \
                             } \
-                            int shift = zcmgen.getPrimitiveTypeNumBits(zc.type) - numbits; \
-                            v = (CTYPE)(v << shift) >> shift; \
-                            zc.valstr = std::to_string(v); \
-                        } else if (numbits != 64) { \
+                        } else { \
                             CTYPE min = 0; \
                             CTYPE max = (1L << numbits) - 1; \
                             if (v < min || max < v) {  \
                                 semantic_error(t, "Integer value out of bounds [0, %u] for " \
                                                   #MEMBERTYPE ":%u : %lld", max, numbits, v); \
                             } \
-                            int shift = zcmgen.getPrimitiveTypeNumBits(zc.type) - numbits; \
-                            v = (CTYPE)(v << shift) >> shift; \
-                            zc.valstr = std::to_string(v); \
                         } \
                     } else {  \
                         CTYPE min = std::numeric_limits<CTYPE>::lowest(); \
@@ -477,20 +471,24 @@ static int parseConst(ZCMGen& zcmgen, ZCMStruct& zs, tokenize_t* t)
                         } \
                     } \
                 } \
-                if (numbits != 64 && (numbits == 0 || signExtend)) { \
-                    int shift = zcmgen.getPrimitiveTypeNumBits(#CTYPE) - numbits; \
-                    v = (CTYPE)(v << shift) >> shift; \
-                    std::stringstream ss; \
-                    if (isHex) { \
-                        ss << "0x" \
-                           << std::hex \
-                           << std::setfill('0') \
-                           << std::setw(zcmgen.getPrimitiveTypeSize(zc.type) * 2); \
-                    } \
-                    ss << (uint64_t)((CTYPE)v & (std::make_unsigned<CTYPE>::type)-1); \
-                    zc.valstr = ss.str(); \
+                if (signExtend) { \
+                    int shift = zcmgen.getPrimitiveTypeNumBits(zc.type) - numbits; \
+                    v = (int64_t)((CTYPE)(v << shift) >> shift); \
+                } else { \
+                    v = (int64_t)(CTYPE)v; \
                 } \
-                STORE = (CTYPE) v;
+                std::stringstream ss; \
+                if (isHex) { \
+                    ss << "0x" \
+                       << std::hex \
+                       << std::setfill('0') \
+                       << std::setw(zcmgen.getPrimitiveTypeSize(zc.type) * 2); \
+                    ss << (uint64_t)((CTYPE)v & (std::make_unsigned<CTYPE>::type)-1); \
+                } else { \
+                    ss << v; \
+                } \
+                zc.valstr = ss.str(); \
+                zc.val.i64 = v;
 
         #define FLT_CASE(TYPE, STORE) \
             } else if (type == #TYPE) { \
@@ -503,11 +501,11 @@ static int parseConst(ZCMGen& zcmgen, ZCMStruct& zs, tokenize_t* t)
                 STORE = (TYPE) v;
 
         if (false) {
-        INT_CASE(byte,    uint8_t, zc.val.i64)
-        INT_CASE(int8_t,   int8_t, zc.val.i64)
-        INT_CASE(int16_t, int16_t, zc.val.i64)
-        INT_CASE(int32_t, int32_t, zc.val.i64)
-        INT_CASE(int64_t, int64_t, zc.val.i64)
+        INT_CASE(byte,    uint8_t)
+        INT_CASE(int8_t,   int8_t)
+        INT_CASE(int16_t, int16_t)
+        INT_CASE(int32_t, int32_t)
+        INT_CASE(int64_t, int64_t)
         FLT_CASE(float,   zc.val.f)
         FLT_CASE(double,  zc.val.d)
         } else if (type != "string") {

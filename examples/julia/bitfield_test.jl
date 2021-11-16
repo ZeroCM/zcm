@@ -143,6 +143,25 @@ b.field34 = 0x7fffffffffffffff;
 @assert (b.SIGN_TEST_26 == 7) "SIGN_TEST_26 does not have the correct value"
 @assert (b.SIGN_TEST_27 == 9223372036854775807) "SIGN_TEST_27 does not have the correct value"
 
+@assert (b.SIGN_TEST_28 == 0x7f) "SIGN_TEST_28 does not have the correct value"
+@assert (b.SIGN_TEST_29 == 0xff) "SIGN_TEST_29 does not have the correct value"
+@assert (b.SIGN_TEST_30 == 0x7f) "SIGN_TEST_30 does not have the correct value"
+@assert (b.SIGN_TEST_31 == -1) "SIGN_TEST_31 does not have the correct value"
+@assert (b.SIGN_TEST_32 == 127) "SIGN_TEST_32 does not have the correct value"
+@assert (b.SIGN_TEST_33 == -1) "SIGN_TEST_33 does not have the correct value"
+@assert (b.SIGN_TEST_34 == 0x7fff) "SIGN_TEST_34 does not have the correct value"
+@assert (b.SIGN_TEST_35 == -1) "SIGN_TEST_35 does not have the correct value"
+@assert (b.SIGN_TEST_36 == 32767) "SIGN_TEST_36 does not have the correct value"
+@assert (b.SIGN_TEST_37 == -1) "SIGN_TEST_37 does not have the correct value"
+@assert (b.SIGN_TEST_38 == 0x7fffffff) "SIGN_TEST_38 does not have the correct value"
+@assert (b.SIGN_TEST_39 == -1) "SIGN_TEST_39 does not have the correct value"
+@assert (b.SIGN_TEST_40 == 2147483647) "SIGN_TEST_40 does not have the correct value"
+@assert (b.SIGN_TEST_41 == -1) "SIGN_TEST_41 does not have the correct value"
+@assert (b.SIGN_TEST_42 == 0x7fffffffffffffff) "SIGN_TEST_42 does not have the correct value"
+@assert (b.SIGN_TEST_43 == -1) "SIGN_TEST_43 does not have the correct value"
+@assert (b.SIGN_TEST_44 == 9223372036854775807) "SIGN_TEST_44 does not have the correct value"
+@assert (b.SIGN_TEST_45 == -1) "SIGN_TEST_45 does not have the correct value"
+
 start(zcm)
 
 publish(zcm, "BITFIELD", b)

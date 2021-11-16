@@ -79,9 +79,9 @@ static inline int __ ## NAME ## _encode_array_bits(void *_buf,                  
             if (pos_bit == 0) buf[pos_byte] = 0;                                                                    \
             int32_t shift = (int32_t)(pos_bit + bits_left) - ZCM_CORETYPES_INT8_NUM_BITS_ON_BUS;                    \
             if (shift < 0) {                                                                                        \
-                uint8_t mask = (1L << bits_left) - 1;                                                               \
+                uint8_t mask = (1 << bits_left) - 1;                                                                \
                 shift = -shift;                                                                                     \
-                buf[pos_byte] |= (unsigned_p[element] << shift) & (mask << shift);                                  \
+                buf[pos_byte] |= (unsigned_p[element] & mask) << shift;                                             \
                 pos_bit += bits_left;                                                                               \
                 break;                                                                                              \
             }                                                                                                       \
