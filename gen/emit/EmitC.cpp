@@ -167,8 +167,9 @@ struct EmitHeader : public Emit
             assert(ZCMGen::isLegalConstType(zc.type));
             string suffix = (zc.type == "int64_t") ? "LL" : "";
             emitComment(0, zc.comment.c_str());
-            emit(0, "#define %s_%s %s%s", tnUpper.c_str(),
-                 zc.membername.c_str(), zc.valstr.c_str(), suffix.c_str());
+            emit(0, "#define %s_%s ((%s)%s%s)", tnUpper.c_str(),
+                 zc.membername.c_str(), mapTypeName(zc.type).c_str(),
+                 zc.valstr.c_str(), suffix.c_str());
         }
         if (zs.constants.size() > 0)
             emit(0, "");
@@ -463,31 +464,73 @@ struct EmitSource : public Emit
 
         emit(0,"int __%s_encode_array(void* buf, uint32_t offset, uint32_t maxlen, const %s* p, uint32_t elements)", tn_, tn_);
         emit(0,"{");
-        emit(1,    "uint32_t pos = 0, element;");
+        emit(1,    "uint32_t pos_byte = 0, element;");
+        for (const auto& zm : zs.members) {
+            if (zm.type.numbits != 0) {
+                emit(1, "uint32_t pos_bit;");
+                break;
+            }
+        }
         if (zs.members.size() > 0) {
             emit(1, "int thislen;");
         }
         emit(0,"");
         emit(1,    "for (element = 0; element < elements; ++element) {");
         emit(0,"");
+        bool inBitMode = false;
+        size_t bitfieldNum = 0;
         for (auto& zm : zs.members) {
+
+            if (!inBitMode && zm.type.numbits != 0) {
+                inBitMode = true;
+                emit(2, "// Start of bitfield %u", bitfieldNum);
+                emit(0, "");
+                emit(2, "pos_bit = 0;");
+                emit(0, "");
+            } else if (inBitMode && zm.type.numbits == 0) {
+                inBitMode = false;
+                emit(2, "if (pos_bit != 0) ++pos_byte;");
+                emit(0, "");
+                emit(2, "// End of bitfield %u", bitfieldNum);
+                emit(0, "");
+                ++bitfieldNum;
+            }
+
+            emit(2, "/* %s */", zm.membername.c_str());
             emitCArrayLoopsStart(zm, "p", FLAG_NONE);
 
             int indent = 2+std::max(0, (int)zm.dimensions.size() - 1);
-            emit(indent, "thislen = __%s_encode_%sarray(buf, offset + pos, maxlen - pos, %s, %s);",
-                 zm.type.nameUnderscoreCStr(),
-                 zcm.gopt->getBool("little-endian-encoding") &&
-                     zcm.isPrimitiveType(zm.type.nameUnderscore()) ?
-                     "little_endian_" : "",
-                 makeAccessor(zm, "p", (int)zm.dimensions.size() - 1).c_str(),
-                 makeArraySize(zm, "p", (int)zm.dimensions.size() - 1).c_str());
-            emit(indent, "if (thislen < 0) return thislen; else pos += thislen;");
+            if (!inBitMode) {
+                emit(indent, "thislen = __%s_encode_%sarray(buf, offset + pos_byte, "
+                             "maxlen - pos_byte, %s, %s);",
+                     zm.type.nameUnderscoreCStr(),
+                     zcm.gopt->getBool("little-endian-encoding") &&
+                         zcm.isPrimitiveType(zm.type.nameUnderscore()) ?
+                         "little_endian_" : "",
+                     makeAccessor(zm, "p", (int)zm.dimensions.size() - 1).c_str(),
+                     makeArraySize(zm, "p", (int)zm.dimensions.size() - 1).c_str());
+                emit(indent, "if (thislen < 0) return thislen; else pos_byte += thislen;");
+            } else {
+                emit(indent, "thislen = __%s_encode_array_bits(buf, offset + pos_byte, pos_bit, "
+                             "maxlen - pos_byte, %s, %s, %u);",
+                     zm.type.nameUnderscoreCStr(),
+                     makeAccessor(zm, "p", (int)zm.dimensions.size() - 1).c_str(),
+                     makeArraySize(zm, "p", (int)zm.dimensions.size() - 1).c_str(),
+                     zm.type.numbits);
+                emit(indent, "if (thislen < 0) return thislen;");
+                emit(indent, "__bitfield_advance_offset(&pos_byte, &pos_bit, thislen);");
+            }
 
             emitCArrayLoopsEnd(zm, "p", FLAG_NONE);
             emit(0,"");
         }
+        if (inBitMode) {
+            emit(2, "if (pos_bit != 0) ++pos_byte;");
+            emit(0, "");
+            emit(2, "// End of bitfield %u", bitfieldNum);
+        }
         emit(1,   "}");
-        emit(1, "return pos;");
+        emit(1, "return pos_byte;");
         emit(0,"}");
         emit(0,"");
     }
@@ -519,29 +562,72 @@ struct EmitSource : public Emit
 
         emit(0,"int __%s_decode_array(const void* buf, uint32_t offset, uint32_t maxlen, %s* p, uint32_t elements)", tn_, tn_);
         emit(0,"{");
-        emit(1,    "uint32_t pos = 0, element;");
+        emit(1,    "uint32_t pos_byte = 0, element;");
+        for (const auto& zm : zs.members) {
+            if (zm.type.numbits != 0) {
+                emit(1, "uint32_t pos_bit;");
+                break;
+            }
+        }
         emit(1,    "int thislen;");
         emit(0,"");
         emit(1,    "for (element = 0; element < elements; ++element) {");
         emit(0,"");
+        bool inBitMode = false;
+        size_t bitfieldNum = 0;
         for (auto& zm : zs.members) {
+
+            if (!inBitMode && zm.type.numbits != 0) {
+                inBitMode = true;
+                emit(2, "// Start of bitfield %u", bitfieldNum);
+                emit(0, "");
+                emit(2, "pos_bit = 0;");
+                emit(0, "");
+            } else if (inBitMode && zm.type.numbits == 0) {
+                inBitMode = false;
+                emit(2, "if (pos_bit != 0) ++pos_byte;");
+                emit(0, "");
+                emit(2, "// End of bitfield %u", bitfieldNum);
+                emit(0, "");
+                ++bitfieldNum;
+            }
+
+            emit(2, "/* %s */", zm.membername.c_str());
             emitCArrayLoopsStart(zm, "p", zm.isConstantSizeArray() ? FLAG_NONE : FLAG_EMIT_MALLOCS);
 
             int indent = 2+std::max(0, (int)zm.dimensions.size() - 1);
-            emit(indent, "thislen = __%s_decode_%sarray(buf, offset + pos, maxlen - pos, %s, %s);",
-                 zm.type.nameUnderscoreCStr(),
-                 zcm.gopt->getBool("little-endian-encoding") &&
-                     zcm.isPrimitiveType(zm.type.nameUnderscore()) ?
-                     "little_endian_" : "",
-                 makeAccessor(zm, "p", (int)zm.dimensions.size() - 1).c_str(),
-                 makeArraySize(zm, "p", (int)zm.dimensions.size() - 1).c_str());
-            emit(indent, "if (thislen < 0) return thislen; else pos += thislen;");
+            if (!inBitMode) {
+                emit(indent, "thislen = __%s_decode_%sarray(buf, offset + pos_byte, "
+                             "maxlen - pos_byte, %s, %s);",
+                     zm.type.nameUnderscoreCStr(),
+                     zcm.gopt->getBool("little-endian-encoding") &&
+                         zcm.isPrimitiveType(zm.type.nameUnderscore()) ?
+                         "little_endian_" : "",
+                     makeAccessor(zm, "p", (int)zm.dimensions.size() - 1).c_str(),
+                     makeArraySize(zm, "p", (int)zm.dimensions.size() - 1).c_str());
+                emit(indent, "if (thislen < 0) return thislen; else pos_byte += thislen;");
+            } else {
+                emit(indent, "thislen = __%s_decode_array_bits%s(buf, offset + pos_byte, "
+                             "pos_bit, maxlen - pos_byte, %s, %s, %u);",
+                     zm.type.nameUnderscoreCStr(),
+                     zm.type.signExtend ? "_sign_extend" : "",
+                     makeAccessor(zm, "p", (int)zm.dimensions.size() - 1).c_str(),
+                     makeArraySize(zm, "p", (int)zm.dimensions.size() - 1).c_str(),
+                     zm.type.numbits);
+                emit(indent, "if (thislen < 0) return thislen;");
+                emit(indent, "__bitfield_advance_offset(&pos_byte, &pos_bit, thislen);");
+            }
 
             emitCArrayLoopsEnd(zm, "p", FLAG_NONE);
             emit(0,"");
         }
+        if (inBitMode) {
+            emit(2, "if (pos_bit != 0) ++pos_byte;");
+            emit(0, "");
+            emit(2, "// End of bitfield %u", bitfieldNum);
+        }
         emit(1,   "}");
-        emit(1, "return pos;");
+        emit(1, "return pos_byte;");
         emit(0,"}");
         emit(0,"");
     }
@@ -614,19 +700,48 @@ struct EmitSource : public Emit
         emit(0,"uint32_t __%s_encoded_array_size(const %s* p, uint32_t elements)", tn_, tn_);
         emit(0,"{");
         emit(1,"uint32_t size = 0, element;");
+        for (auto& zm : zs.members) {
+            if (zm.type.numbits != 0) {
+                emit(1, "uint32_t numbits;");
+                break;
+            }
+        }
         emit(1,    "for (element = 0; element < elements; ++element) {");
         emit(0,"");
+        bool inBitMode = false;
         for (auto& zm : zs.members) {
+
+            if (inBitMode && zm.type.numbits == 0) {
+                inBitMode = false;
+                emit(2, "size += __bitfield_encoded_size(numbits);");
+                emit(0, "");
+            } else if (!inBitMode && zm.type.numbits != 0) {
+                inBitMode = true;
+                emit(2, "numbits = 0;");
+            }
+
             emitCArrayLoopsStart(zm, "p", FLAG_NONE);
 
             int indent = 2+std::max(0, (int)zm.dimensions.size() - 1);
-            emit(indent, "size += __%s_encoded_array_size(%s, %s);",
-                 zm.type.nameUnderscoreCStr(),
-                 makeAccessor(zm, "p", (int)zm.dimensions.size() - 1).c_str(),
-                 makeArraySize(zm, "p", (int)zm.dimensions.size() - 1).c_str());
+            if (!inBitMode) {
+                emit(indent, "size += __%s_encoded_array_size(%s, %s); // %s",
+                     zm.type.nameUnderscoreCStr(),
+                     makeAccessor(zm, "p", (int)zm.dimensions.size() - 1).c_str(),
+                     makeArraySize(zm, "p", (int)zm.dimensions.size() - 1).c_str(),
+                     zm.membername.c_str());
+            } else {
+                emitStart(indent, "numbits += ");
+                if (zm.dimensions.size() > 1) {
+                    emitContinue("%s * ", makeArraySize(zm, "p", (int)zm.dimensions.size() - 1).c_str());
+                }
+                emitEnd("%u; // %s", zm.type.numbits, zm.membername.c_str());
+            }
 
             emitCArrayLoopsEnd(zm, "p", FLAG_NONE);
-            emit(0,"");
+            if (!inBitMode) emit(0,"");
+        }
+        if (inBitMode) {
+            emit(2, "size += __bitfield_encoded_size(numbits);");
         }
         emit(1,"}");
         emit(1, "return size;");
@@ -696,7 +811,10 @@ struct EmitSource : public Emit
 
             emit(3,"f->name = \"%s\";", m.membername.c_str());
             emit(3,"f->type = %s;", typeval.c_str());
-            emit(3,"f->typestr = \"%s\";", m.type.fullname.c_str());
+            if (m.type.numbits == 0)
+                emit(3,"f->typestr = \"%s\";", m.type.fullname.c_str());
+            else
+                emit(3,"f->typestr = \"%s:%u\";", m.type.fullname.c_str(), m.type.numbits);
 
             int num_dim = m.dimensions.size();
             emit(3,"f->num_dim = %d;", num_dim);
@@ -752,6 +870,7 @@ struct EmitSource : public Emit
         emit(1,"");
         emit(1,"return &typeinfo;");
         emit(0,"}");
+        emit(0,"");
     }
 
     void emitCCloneArray()

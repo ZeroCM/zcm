@@ -61,6 +61,17 @@ int main(int argc, char* argv[])
         if (int res = zcm.handleFile(fname))
             return res;
 
+    if (zcm.gopt->getBool("little-endian-encoding")) {
+        for (const auto& s : zcm.structs) {
+            for (const auto& zm : s.members) {
+                if (zm.type.numbits != 0) {
+                    fprintf(stderr, "Error: little endian bit fields are not supported\n");
+                    return 1;
+                }
+            }
+        }
+    }
+
     unordered_set<string> reservedTokens;
     reservedTokens.insert("IS_LITTLE_ENDIAN");
     merge(reservedTokens, getReservedKeywordsC());

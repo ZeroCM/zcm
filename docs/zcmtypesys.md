@@ -1,7 +1,6 @@
 <a style="margin-right: 1rem;" href="javascript:history.go(-1)">Back</a>
 [Home](../README.md)
 # ZCM Type System
-####*Note: There has been a recent change to the zcm hashing system. Check out the announcement [here](announcements/hash_scheme_change.md)*
 
 This page describes the ZCM Type System grammar, encoding, and type hashes in very formal terms. Unless you're
 intimately concerned with the subtlties, feel free to skim this document, and refer back as reference.
@@ -29,13 +28,15 @@ The grammar is given in EBNF using regex-style repetition and character classes:
     file          = zcmtype*
     zcmtype       = 'struct' name '{' field* '}'
     field         = const_field | data_field
-    const_field   = 'const' const_type name '=' const_literal ';'
-    const_type    = 'int8_t' | 'int16_t' | 'int32_t' | 'int64_t' | 'float' | 'double'
+    const_field   = 'const' const_type numbits? name '=' const_literal ';'
+    const_type    = int_type | float_type | 'byte'
     const_literal = hex_literal | int_literal | float_literal
-    data_field    = type name arraydim* ';'
+    data_field    = type numbits? name arraydim* ';'
     type          = primative | name
-    primative     = 'int8_t' | 'int16_t' | 'int32_t' | 'int64_t' | 'float' | 'double' | 'string' | 'boolean' | 'byte'
+    primative     = int_type | float_type | 'string' | 'boolean' | 'byte'
     int_type      = 'int8_t' | 'int16_t' | 'int32_t' | 'int64_t'
+    float_type    = 'float' | 'double'
+    numbits       = ':' int_literal
     arraydim      = '[' arraysize ']'
     arraysize     = name | uint_literal
     name          = underalpha underalphanum*
@@ -44,7 +45,7 @@ The grammar is given in EBNF using regex-style repetition and character classes:
     hex_literal   = "0x" | hexdigit+
     hexdigit      = [0-9A-Fa-f]
     uint_literal  = [0-9]+
-    int_literal   = '-' uint_literal
+    int_literal   = '-'? uint_literal
 
 ### Semantic Constraints
 
@@ -54,8 +55,18 @@ Using the grammar above, to be well-formed the following constraints must be sat
   - Names used for array sizes must refer to a field in the same 'zcmtype' that has a scalar integer type
   - Names used for 'type' refer to other 'zcmtype' definitions
     - These may exist in other files
+  - The absolute value of the int_literal specified for numbits must always be less
+    than the number of bits of the corresponding type
+  - Sign extension of bitfields via negative numbits are not allowed on `byte` type.
+    See the bitfields section below for how sign extension works.
 
 ## Encoding formats
+
+Note that if your machine architecture does not natively support `int8_t` and `uint8_t`
+types, signed zcmtype members may not decode negative numbers properly. Similarly sign
+extension on bitfields may also not function properly. These are known issues and if you need
+them addressed, please create an issue on
+[zcm's github issue page](https://github.com/ZeroCM/zcm/issues).
 
 ### Primitives
 
@@ -63,16 +74,16 @@ Using the grammar above, to be well-formed the following constraints must be sat
     <thead>
     <tr><th>  Type     </th><th> Encoded Size </th><th> Format</th></tr>
     </thead>
-    <tr><td>  int8_t   </td><td> 1 byte         </td><td>  X              </td></tr>
-    <tr><td>  int8_t   </td><td> 1 byte         </td><td>  X              </td></tr>
-    <tr><td>  int16_t  </td><td> 2 bytes        </td><td>  XX             </td></tr>
-    <tr><td>  int32_t  </td><td> 4 bytes        </td><td>  XXXX           </td></tr>
-    <tr><td>  int64_t  </td><td> 8 bytes        </td><td>  XXXXXXXX       </td></tr>
-    <tr><td>  float    </td><td> 4 bytes        </td><td>  XXXX           </td></tr>
-    <tr><td>  double   </td><td> 8 bytes        </td><td>  XXXXXXXX       </td></tr>
-    <tr><td>  string   </td><td> 4+len+1 bytes  </td><td>  LLLL&lt;chars&gt;N   </td></tr>
-    <tr><td>  boolean  </td><td> 1 byte         </td><td>  X              </td></tr>
-    <tr><td>  byte     </td><td> 1 byte         </td><td>  X              </td></tr>
+    <tr><td>  int8_t     </td><td> 1 byte                   </td><td>  X                  </td></tr>
+    <tr><td>  int16_t    </td><td> 2 bytes                  </td><td>  XX                 </td></tr>
+    <tr><td>  int32_t    </td><td> 4 bytes                  </td><td>  XXXX               </td></tr>
+    <tr><td>  int64_t    </td><td> 8 bytes                  </td><td>  XXXXXXXX           </td></tr>
+    <tr><td>  float      </td><td> 4 bytes                  </td><td>  XXXX               </td></tr>
+    <tr><td>  double     </td><td> 8 bytes                  </td><td>  XXXXXXXX           </td></tr>
+    <tr><td>  string     </td><td> 4+len+1 bytes            </td><td>  LLLL&lt;chars&gt;N </td></tr>
+    <tr><td>  boolean    </td><td> 1 byte                   </td><td>  X                  </td></tr>
+    <tr><td>  byte       </td><td> 1 byte                   </td><td>  X                  </td></tr>
+    <tr><td>  _bitfield_ </td><td> bitpacked with neighbors </td><td>  |+                 </td></tr>
 </table>
 
  Where:
@@ -80,6 +91,29 @@ Using the grammar above, to be well-formed the following constraints must be sat
    - X is a data byte
    - L is a length byte
    - N is a null byte
+   - | is an individual bit
+
+### Bitfields
+
+Bitfields are integer types with a specified number of bits that are bitpacked during encoding.
+Neighboring bitfields will be packed tightly, wasting no bits in between (not necessarily
+maintaining byte alignment). This is unlike all other type encodings which maintain byte alignment.
+Bitfields currently only support big endian encoding. All bitfields will behave exactly like
+their non-bitfield type in all regards other than encoding and decoding. Sign extension is
+configurable by specifying a negative sign before the number of bits in the bitfield. When
+encoding a type that contains an `int8_t:3` with the value set to `0b111`, you should expect the
+decoded message to contain a `7` as the value of this variable. A type with an `int8_t:-3` with
+the value set to `0b111` will have its sign extended upon decode. You should expect the received
+value to be `-1` (`0b11111111`).
+
+`byte` is unsigned for any language that supports unsigned types. When encoding a type that
+contains a `byte:3` with the value set to `0b111`, you should expect the decoded message to
+contain a `7` as the value of this variable for languages that support unsigned types.
+For languages that do not support unsigned types (ahem java...) you should still expect the
+decoded message to contain a `7` as the value of this variable. However, for a type containing
+a `byte:8` with the value set to `0xff`, you should expect the decoded message to contain a
+`255` for languages that support unsigned types and a `-1` for languages that do not.
+
 
 ### Array Types
 
@@ -94,6 +128,7 @@ Nested types are also encoded with zero overhead. Since the decoder knows the la
 type metadata. Circular type dependencies are not currently supported.
 
 ## Type Hashes
+####*Note: Announcement on membername hashing found [here](announcements/hash_scheme_change.md)*
 
 The optimized encoding formats specified above are made possible using a type hash. Each encoded message starts with
 a 64-bit hash field. As seen above, for one message, this is the only size overhead in ZCM Type encodings. Without the

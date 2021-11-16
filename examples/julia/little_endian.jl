@@ -3,7 +3,7 @@ using juliazcm.types: little_endian_t
 
 numReceived = 0
 function handler(rbuf, channel::String, msg::little_endian_t)
-    println("Received message on channel: ", channel)
+    ccall(:jl_, Nothing, (Any,), "Received message on channel $(channel)")
     global numReceived
     @assert (numReceived == msg.timestamp) "Received message with incorrect timestamp"
     numReceived = numReceived + 1
@@ -11,7 +11,7 @@ end
 
 # a handler that receives the raw message bytes
 function untyped_handler(rbuf, channel::String, msgdata::Vector{UInt8})
-    println("Recieved raw message data on channel: ", channel)
+    ccall(:jl_, Nothing, (Any,), "Received raw message data on channel $(channel)")
     buf = IOBuffer(msgdata)
     @assert (ntoh(reinterpret(Int64, read(buf, 8))[1]) == ZCM.getHash(little_endian_t))
             "Hash should always be encoded as network format"

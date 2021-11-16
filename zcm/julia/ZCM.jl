@@ -22,6 +22,8 @@ export Zcm,
        handle_nonblock,
        set_queue_size,
        write_topology,
+       read_bits,
+       write_bits,
        LogEvent,
        LogFile,
        read_next_event,
@@ -275,7 +277,6 @@ function start(zcm::Zcm)
 end
 
 function stop(zcm::Zcm)
-    @warn "Threaded interface was partially broken by Julia 1.6 : you cannot put printouts in handlers"
     while (true)
         ret = ccall(("zcm_try_stop", "libzcm"), Cint, (Ptr{Native.Zcm},), zcm)
         if (ret == Cint(0))
@@ -311,6 +312,70 @@ function write_topology(zcm::Zcm, name::AbstractString)
     ccall(("zcm_write_topology", "libzcm"), Cint,
           (Ptr{Native.Zcm}, Cstring),
           zcm, convert(String, name))
+end
+
+function read_bits(T::Type, buf::IOBuffer, numbits::Int, offset_bit::Int, signExtend::Bool)
+    ret = T(0)
+    bits_left = numbits
+    while (bits_left > 0)
+        available_bits = 8 - offset_bit
+        bits_covered = available_bits < bits_left ? available_bits : bits_left
+        mask = ((1 << bits_covered) - 1) << (8 - bits_covered - offset_bit)
+        payload::UInt8 = (peek(buf) & mask) << offset_bit
+        shift = 8 - bits_left
+        if (bits_left == numbits)
+            if (shift < 0)
+                if signExtend
+                    ret = T(reinterpret(Int8, payload)) << -shift
+                else
+                    ret = T(payload) << -shift
+                end
+            else
+                if signExtend
+                    ret = T(reinterpret(Int8, payload)) >> shift
+                else
+                    ret = payload >>> shift
+                end
+            end
+        else
+            if (shift < 0)
+                ret |= T(payload) << -shift
+            else
+                if T == Int8
+                    ret |= reinterpret(Int8, payload >>> shift)
+                else
+                    ret |= T(payload) >>> shift
+                end
+            end
+        end
+        bits_left -= bits_covered
+        offset_bit += bits_covered
+        if (offset_bit == 8)
+            offset_bit = 0
+            read(buf, 1)
+        end
+    end
+
+    return offset_bit, ret
+end
+
+function write_bits(buf::IOBuffer, value::Any, numbits::Int, byte_in_progress::UInt8, offset_bit::Int)
+    bits_left = numbits;
+    while (bits_left > 0)
+        mask::UInt64 = (1 << bits_left) - 1;
+        shift = offset_bit + bits_left - 8;
+        if (shift < 0)
+            byte_in_progress |= UInt8((value & mask) << -shift)
+            offset_bit += bits_left;
+            return byte_in_progress, offset_bit
+        end
+        byte_in_progress |= UInt8((value & mask) >> shift)
+        write(buf, byte_in_progress);
+        bits_left = shift;
+        offset_bit = 0;
+        byte_in_progress = UInt8(0)
+    end
+    return byte_in_progress, offset_bit
 end
 
 mutable struct LogEvent

@@ -6,8 +6,8 @@
 #include "util/FileUtil.hpp"
 using std::to_string;
 
-#include <queue>
-using std::queue;
+#include <vector>
+using std::vector;
 
 #include <iostream>
 using std::cerr;
@@ -17,18 +17,26 @@ void setupOptionsPython(GetOpt& gopt)
     gopt.addString(0, "ppath", "./", "Python destination directory");
 }
 
-static char getStructFormat(const ZCMMember& zm)
+static string getStructFormat(const ZCMMember& zm)
 {
     auto& tn = zm.type.fullname;
-    if (tn == "byte")    return 'B';
-    if (tn == "boolean") return 'b';
-    if (tn == "int8_t")  return 'b';
-    if (tn == "int16_t") return 'h';
-    if (tn == "int32_t") return 'i';
-    if (tn == "int64_t") return 'q';
-    if (tn == "float")   return 'f';
-    if (tn == "double")  return 'd';
-    return 0;
+
+    // Handle bitfields
+    if (zm.type.numbits != 0) {
+        string ret = zm.type.signExtend ? "s" : "u";
+        ret += to_string(zm.type.numbits);
+        return ret;
+    }
+
+    if (tn == "byte")    return "B";
+    if (tn == "boolean") return "b";
+    if (tn == "int8_t")  return "b";
+    if (tn == "int16_t") return "h";
+    if (tn == "int32_t") return "i";
+    if (tn == "int64_t") return "q";
+    if (tn == "float")   return "f";
+    if (tn == "double")  return "d";
+    return "";
 }
 
 struct PyEmitStruct : public Emitter
@@ -53,7 +61,14 @@ struct PyEmitStruct : public Emitter
              "    import cStringIO.StringIO as BytesIO\n"
              "except ImportError:\n"
              "    from io import BytesIO\n"
-             "import struct\n");
+             "import struct");
+        for (auto& zm : zs.members) {
+            if (zm.type.numbits != 0) {
+                emit(0, "import os, math, bitstruct");
+                break;
+            }
+        }
+        emit(0, "");
 
         emitPythonDependencies();
 
@@ -71,8 +86,15 @@ struct PyEmitStruct : public Emitter
         emit(1, "IS_LITTLE_ENDIAN = %s;",
                 zcm.gopt->getBool("little-endian-encoding") ? "True" : "False");
         for (auto& zc : zs.constants) {
-            assert(ZCMGen::isLegalConstType(zc.type));
-            emit(1, "%s = %s", zc.membername.c_str(), zc.valstr.c_str());
+            static string hexPrefix = "0x";
+            bool isHex = zc.valstr.size() > 2 &&
+                         zc.valstr.compare(0, hexPrefix.length(), hexPrefix) == 0;
+            bool isNeg = zc.val.i64 < 0;
+            if (isHex && !isNeg) {
+                emit(1, "%s = %s;", zc.membername.c_str(), zc.valstr.c_str());
+            } else {
+                emit(1, "%s = %lld;", zc.membername.c_str(), zc.val.i64);
+            }
         }
         if (zs.constants.size() > 0)
             emit(0, "");
@@ -98,29 +120,13 @@ struct PyEmitStruct : public Emitter
             emit(indent, "__%s_len = struct.unpack('>I', buf.read(4))[0]", mn.c_str());
             emit(indent, "%sbuf.read(__%s_len)[:-1].decode('utf-8', 'replace')%s",
                  accessor, mn.c_str(), sfx);
-        } else if (tn == "byte") {
-            emit(indent, "%sstruct.unpack('B', buf.read(1))[0]%s", accessor, sfx);
         } else if (tn == "boolean") {
             emit(indent, "%sbool(struct.unpack('b', buf.read(1))[0])%s", accessor, sfx);
-        } else if (tn == "int8_t") {
-            emit(indent, "%sstruct.unpack('b', buf.read(1))[0]%s", accessor, sfx);
-        } else if (tn == "int16_t") {
-            emit(indent, "%sstruct.unpack('>h', buf.read(2))[0]%s", accessor, sfx);
-        } else if (tn == "int32_t") {
-            emit(indent, "%sstruct.unpack('>i', buf.read(4))[0]%s", accessor, sfx);
-        } else if (tn == "int64_t") {
-            emit(indent, "%sstruct.unpack('>q', buf.read(8))[0]%s", accessor, sfx);
-        } else if (tn == "float") {
-            emit(indent, "%sstruct.unpack('>f', buf.read(4))[0]%s", accessor, sfx);
-        } else if (tn == "double") {
-            emit(indent, "%sstruct.unpack('>d', buf.read(8))[0]%s", accessor, sfx);
+        } else if (tn == zs.structname.fullname) {
+            emit(indent, "%s%s._decode_one(buf)%s", accessor, sn.c_str(), sfx);
         } else {
-            if (tn == zs.structname.fullname) {
-                emit(indent, "%s%s._decode_one(buf)%s", accessor, sn.c_str(), sfx);
-            } else {
-                emit(indent, "%s%s._decode_one(buf)%s",
-                             accessor, zm.type.nameUnderscoreCStr(), sfx);
-            }
+            emit(indent, "%s%s._decode_one(buf)%s",
+                         accessor, zm.type.nameUnderscoreCStr(), sfx);
         }
     }
 
@@ -132,35 +138,41 @@ struct PyEmitStruct : public Emitter
         auto* accessor = accessor_.c_str();
         auto* len = len_.c_str();
 
-        if (tn == "byte") {
+        if (zm.type.numbits != 0) {
+            emit(indent, "numbits = %s%s * %u + offset_bit", fixedLen ? "" : "self.", len, zm.type.numbits);
+            emit(indent, "bitbuf = buf.read(math.ceil(numbits / 8))");
+            emit(indent, "formatstr = %s%s * \"%s\"", fixedLen ? "" : "self.", len, getStructFormat(zm).c_str());
+            emit(indent, "%s[*bitstruct.unpack_from('>' + formatstr + '>', bitbuf, offset_bit)]%s",
+                 accessor, suffix);
+        } else if (tn == "byte") {
             emit(indent, "%sbuf.read(%s%s)%s",
                   accessor, fixedLen ? "" : "self.", len, suffix);
         } else if (tn == "boolean") {
             if(fixedLen) {
-                emit(indent, "%smap(bool, struct.unpack('>%s%c', buf.read(%d)))%s",
-                     accessor, len, getStructFormat(zm),
+                emit(indent, "%smap(bool, struct.unpack('>%s%s', buf.read(%d)))%s",
+                     accessor, len, getStructFormat(zm).c_str(),
                      atoi(len) * ZCMGen::getPrimitiveTypeSize(tn),
                      suffix);
             } else {
                 emit(indent,
-                     "%smap(bool, struct.unpack('>%%d%c' %% self.%s, buf.read(self.%s)))%s",
-                     accessor, getStructFormat(zm), len, len, suffix);
+                     "%smap(bool, struct.unpack('>%%d%s' %% self.%s, buf.read(self.%s)))%s",
+                     accessor, getStructFormat(zm).c_str(), len, len, suffix);
             }
         } else if (tn == "int8_t" || tn == "int16_t" || tn == "int32_t" || tn == "int64_t" ||
                    tn == "float"  || tn == "double") {
-            if(fixedLen) {
-                emit (indent, "%sstruct.unpack('>%s%c', buf.read(%d))%s",
-                      accessor, len, getStructFormat(zm),
-                      atoi(len) * ZCMGen::getPrimitiveTypeSize(tn),
-                      suffix);
+            if (fixedLen) {
+                emit(indent, "%sstruct.unpack('>%s%s', buf.read(%d))%s",
+                     accessor, len, getStructFormat(zm).c_str(),
+                     atoi(len) * ZCMGen::getPrimitiveTypeSize(tn),
+                     suffix);
             } else {
                 if (ZCMGen::getPrimitiveTypeSize(tn) > 1) {
-                    emit(indent, "%sstruct.unpack('>%%d%c' %% self.%s, buf.read(self.%s * %d))%s",
-                         accessor, getStructFormat(zm), len, len,
+                    emit(indent, "%sstruct.unpack('>%%d%s' %% self.%s, buf.read(self.%s * %d))%s",
+                         accessor, getStructFormat(zm).c_str(), len, len,
                          ZCMGen::getPrimitiveTypeSize(tn), suffix);
                 } else {
-                    emit(indent, "%sstruct.unpack('>%%d%c' %% self.%s, buf.read(self.%s))%s",
-                         accessor, getStructFormat(zm), len, len, suffix);
+                    emit(indent, "%sstruct.unpack('>%%d%s' %% self.%s, buf.read(self.%s))%s",
+                         accessor, getStructFormat(zm).c_str(), len, len, suffix);
                 }
             }
         } else {
@@ -168,28 +180,42 @@ struct PyEmitStruct : public Emitter
         }
     }
 
-    void flushReadStructFmt(std::queue<int>& formats, std::queue<const ZCMMember*>& members)
+    void flushReadStructFmt(vector<string>& formats, vector<const ZCMMember*>& members)
     {
         size_t nfmts = formats.size();
         assert(nfmts == members.size());
-        if (nfmts == 0)
-            return;
+        if (nfmts == 0) return;
 
-        emitStart(0, "        ");
-        int fmtsize = 0;
-        while (members.size() > 0) {
-            auto* zm = members.front(); members.pop();
-            emitContinue("self.%s", zm->membername.c_str());
-            if (members.size() > 0)
-                emitContinue (", ");
-            fmtsize += ZCMGen::getPrimitiveTypeSize(zm->type.fullname);
+        if (members[0]->type.numbits != 0) {
+            size_t numbits = 0;
+            for (const auto* zm : members) numbits += zm->type.numbits;
+            emit(2, "numbits = %u + offset_bit", numbits);
+            emit(2, "bitbuf = buf.read(math.ceil(numbits / 8))");
+            emitStart(2, "");
+            for (size_t i = 0; i < members.size(); ++i) {
+                const auto* zm = members[i];
+                emitContinue("self.%s", zm->membername.c_str());
+                if (i != members.size() - 1) emitContinue (", ");
+            }
+            emitContinue (" = bitstruct.unpack_from(\">");
+            for (const auto& f : formats) emitContinue("%s", f.c_str());
+            emitEnd(">\", bitbuf, offset_bit)%s", nfmts == 1 ? "[0]" : "");
+        } else {
+            emitStart(0, "        ");
+            int fmtsize = 0;
+            for (size_t i = 0; i < members.size(); ++i) {
+                const auto* zm = members[i];
+                emitContinue("self.%s", zm->membername.c_str());
+                if (i != members.size() - 1) emitContinue (", ");
+                fmtsize += ZCMGen::getPrimitiveTypeSize(zm->type.fullname);
+            }
+            emitContinue (" = struct.unpack(\">");
+            for (const auto& f : formats) emitContinue("%s", f.c_str());
+            emitEnd("\", buf.read(%d))%s", fmtsize, nfmts == 1 ? "[0]" : "");
         }
-        emitContinue (" = struct.unpack(\">");
-        while (formats.size() > 0) {
-            int f = formats.front(); formats.pop();
-            emitContinue("%c", f);
-        }
-        emitEnd("\", buf.read(%d))%s", fmtsize, nfmts == 1 ? "[0]" : "");
+
+        formats.clear();
+        members.clear();
     }
 
     void emitPythonDecodeOne()
@@ -197,23 +223,59 @@ struct PyEmitStruct : public Emitter
         emit(1, "def _decode_one(buf):");
         emit(2, "self = %s()", zs.structname.shortname.c_str());
 
-        std::queue<int> structFmt;
-        std::queue<const ZCMMember*> structMembers;
+        vector<string> structFmt;
+        vector<const ZCMMember*> structMembers;
 
+        bool inBitMode = false;
+        size_t bitfieldNum = 0;
         for (auto& zm : zs.members) {
-            char fmt = getStructFormat(zm);
+
+            string fmt = getStructFormat(zm);
+            bool isolate = fmt.empty() || zm.type.fullname == "boolean";
+
+            if (!inBitMode && zm.type.numbits != 0) {
+                if (!structFmt.empty()) {
+                    flushReadStructFmt(structFmt, structMembers);
+                }
+                inBitMode = true;
+                emit(0, "");
+                emit(2, "# Start of bitfield %u", bitfieldNum);
+                emit(0, "");
+                emit(2, "offset_bit = 0;");
+                emit(0, "");
+            } else if (inBitMode && zm.type.numbits == 0) {
+                if (!structFmt.empty()) {
+                    flushReadStructFmt(structFmt, structMembers);
+                } else {
+                    emit(2, "if (offset_bit != 0):");
+                    emit(3, "buf.seek(1, os.SEEK_CUR)");
+                }
+                inBitMode = false;
+                emit(0, "");
+                emit(2, "# End of bitfield %u", bitfieldNum);
+                emit(0, "");
+                ++bitfieldNum;
+            }
 
             if (zm.dimensions.size() == 0) {
-                if (fmt && zm.type.fullname != "boolean") {
-                    structFmt.push((int)fmt);
-                    structMembers.push(&zm);
-                } else {
-                    flushReadStructFmt(structFmt, structMembers);
+                if (isolate) {
                     string accessor = "self." + zm.membername + " = ";
                     emitDecodeOne(zm, accessor.c_str(), 2, "");
+                } else {
+                    structFmt.push_back(fmt);
+                    structMembers.push_back(&zm);
                 }
             } else {
-                flushReadStructFmt(structFmt, structMembers);
+                if (!structFmt.empty()) {
+                    flushReadStructFmt(structFmt, structMembers);
+                    if (inBitMode) {
+                        emit(2, "offset_bit = numbits %% 8");
+                        emit(2, "if (offset_bit != 0):");
+                        emit(3, "buf.seek(-1, os.SEEK_CUR)");
+                        emit(0, "");
+                    }
+                }
+
                 string accessor = "self." + zm.membername;
 
                 // iterate through the dimensions of the member, building up
@@ -255,6 +317,12 @@ struct PyEmitStruct : public Emitter
 
                     emitDecodeList(zm, accessor, 2+n, n==0,
                                    lastDim.size, lastDimFixedLen);
+                    if (inBitMode) {
+                        emit(2+n, "offset_bit = numbits %% 8");
+                        emit(2+n, "if (offset_bit != 0):");
+                        emit(3+n, "buf.seek(-1, os.SEEK_CUR)");
+                        emit(0, "");
+                    }
                 } else {
                     // member is either a string type or an inner ZCM type.  Each
                     // array element must be decoded individually
@@ -271,10 +339,20 @@ struct PyEmitStruct : public Emitter
                     }
                     accessor += ".append(";
                     emitDecodeOne(zm, accessor, n+3, ")");
+                    if (inBitMode) {
+                        emit(2+n, "offset_bit = numbits %% 8");
+                        emit(2+n, "if (offset_bit != 0):");
+                        emit(3+n, "buf.seek(-1, os.SEEK_CUR)");
+                        emit(0, "");
+                    }
                 }
             }
         }
         flushReadStructFmt(structFmt, structMembers);
+        if (inBitMode) {
+            emit(2, "# End of bitfield %u", bitfieldNum);
+            emit(0, "");
+        }
         emit(2, "return self");
 
         emit(1, "_decode_one = staticmethod(_decode_one)");
@@ -340,44 +418,84 @@ struct PyEmitStruct : public Emitter
         auto* accessor = accessor_.c_str();
         auto* len = len_.c_str();
 
-        if (tn == "byte") {
+        if (zm.type.numbits != 0) {
+            string f = getStructFormat(zm);
+            f[0] = 'u'; // Encoding is all unsigned
+            emit(indent, "numbits = %s%s * %u", fixedLen ? "" : "self.", len, zm.type.numbits);
+            emit(indent, "mask = (1 << numbits) - 1");
+            emit(indent, "numbits += offset_bit");
+            emit(indent, "bitbuf = bytearray(math.ceil(numbits / 8))");
+            emit(indent, "if (offset_bit != 0):");
+            emit(indent + 1, "buf.seek(-1, os.SEEK_CUR)");
+            emit(indent + 1, "bitbuf[0] = buf.read(1)[0]");
+            emit(indent + 1, "buf.seek(-1, os.SEEK_CUR)");
+            emit(indent, "formatstr = %s%s * \"%s\"", fixedLen ? "" : "self.", len, f.c_str());
+            emit(indent, "bitstruct.pack_into('>' + formatstr + '>', "
+                         "bitbuf, offset_bit, *(f & mask for f in %s[:%s%s]))",
+                         accessor, fixedLen ? "" : "self.", len);
+            emit(indent, "buf.write(bitbuf)");
+        } else if (tn == "byte") {
             emit(indent, "buf.write(bytearray(%s[:%s%s]))",
                  accessor, (fixedLen ? "" : "self."), len);
             return;
         } else if (tn == "boolean" || tn == "int8_t" || tn == "int16_t" || tn == "int32_t" ||
                    tn == "int64_t" || tn == "float"  || tn == "double") {
             if (fixedLen) {
-                emit(indent, "buf.write(struct.pack('>%s%c', *%s[:%s]))",
-                     len, getStructFormat(zm), accessor, len);
+                emit(indent, "buf.write(struct.pack('>%s%s', *%s[:%s]))",
+                     len, getStructFormat(zm).c_str(), accessor, len);
             } else {
-                emit(indent, "buf.write(struct.pack('>%%d%c' %% self.%s, *%s[:self.%s]))",
-                     getStructFormat(zm), len, accessor, len);
+                emit(indent, "buf.write(struct.pack('>%%d%s' %% self.%s, *%s[:self.%s]))",
+                     getStructFormat(zm).c_str(), len, accessor, len);
             }
         } else {
             assert(0);
         }
     }
 
-    void flushWriteStructFmt(std::queue<int>& formats, std::queue<const ZCMMember*>& members)
+    void flushWriteStructFmt(vector<string>& formats, vector<const ZCMMember*>& members)
     {
         size_t nfmts = formats.size();
         assert(nfmts == members.size());
         if (nfmts == 0)
             return;
 
-        emitStart(2, "buf.write(struct.pack(\">");
-        while (formats.size() > 0) {
-            int f = formats.front(); formats.pop();
-            emitContinue("%c", f);
+        if (members[0]->type.numbits != 0) {
+            size_t numbits = 0;
+            for (const auto* zm : members) numbits += zm->type.numbits;
+            emit(2, "numbits = offset_bit + %u", numbits);
+            emit(2, "bitbuf = bytearray(math.ceil(numbits / 8))");
+            emit(2, "if (offset_bit != 0):");
+            emit(3, "buf.seek(-1, os.SEEK_CUR)");
+            emit(3, "bitbuf[0] = buf.read(1)[0]");
+            emit(3, "buf.seek(-1, os.SEEK_CUR)");
+            emitStart(2, "bitstruct.pack_into(\">");
+            for (string f : formats) {
+                f[0] = 'u'; // make unsigned for encoding
+                emitContinue("%s", f.c_str());
+            }
+            emitContinue ("\", bitbuf, offset_bit, ");
+            for (size_t i = 0; i < members.size(); ++i) {
+                auto* zm = members[i];
+                emitContinue("self.%s & ((1 << %u) - 1)",
+                             zm->membername.c_str(), zm->type.numbits);
+                if (i != members.size() - 1) emitContinue(", ");
+            }
+            emitEnd(")");
+            emit(2, "buf.write(bitbuf)");
+        } else {
+            emitStart(2, "buf.write(struct.pack(\">");
+            for (const auto& f : formats) emitContinue("%s", f.c_str());
+            emitContinue ("\", ");
+            for (size_t i = 0; i < members.size(); ++i) {
+                auto* zm = members[i];
+                emitContinue("self.%s", zm->membername.c_str());
+                if (i != members.size() - 1) emitContinue(", ");
+            }
+            emitEnd("))");
         }
-        emitContinue ("\", ");
-        while (members.size() > 0) {
-            auto* zm = members.front(); members.pop();
-            emitContinue("self.%s", zm->membername.c_str());
-            if (members.size() > 0)
-                emitContinue(", ");
-        }
-        emitEnd("))");
+
+        formats.clear();
+        members.clear();
     }
 
     void emitPythonEncodeOne()
@@ -388,21 +506,52 @@ struct PyEmitStruct : public Emitter
             return;
         }
 
-        std::queue<int> structFmt;
-        std::queue<const ZCMMember*> structMembers;
+        vector<string> structFmt;
+        vector<const ZCMMember*> structMembers;
 
+        bool inBitMode = false;
+        size_t bitfieldNum = 0;
         for (auto& zm : zs.members) {
-            char fmt = getStructFormat(zm);
-            if (zm.dimensions.size() == 0) {
-                if (fmt) {
-                    structFmt.push((int)fmt);
-                    structMembers.push(&zm);
-                } else {
+            string fmt = getStructFormat(zm);
+            bool isolate = fmt.empty() || zm.type.fullname == "boolean";
+
+            if (!inBitMode && zm.type.numbits != 0) {
+                if (!structFmt.empty()) {
                     flushWriteStructFmt(structFmt, structMembers);
-                    emitEncodeOne (zm, "self."+zm.membername, 2);
+                }
+                inBitMode = true;
+                emit(0, "");
+                emit(2, "# Start of bitfield %u", bitfieldNum);
+                emit(0, "");
+                emit(2, "offset_bit = 0;");
+                emit(0, "");
+            } else if (inBitMode && zm.type.numbits == 0) {
+                if (!structFmt.empty()) {
+                    flushWriteStructFmt(structFmt, structMembers);
+                }
+                inBitMode = false;
+                emit(0, "");
+                emit(2, "# End of bitfield %u", bitfieldNum);
+                emit(0, "");
+                ++bitfieldNum;
+            }
+
+            if (zm.dimensions.size() == 0) {
+                if (isolate) {
+                    emitEncodeOne(zm, "self." + zm.membername, 2);
+                } else {
+                    structFmt.push_back(fmt);
+                    structMembers.push_back(&zm);
                 }
             } else {
-                flushWriteStructFmt(structFmt, structMembers);
+                if (!structFmt.empty()) {
+                    flushWriteStructFmt(structFmt, structMembers);
+                    if (inBitMode) {
+                        emit(2, "offset_bit = numbits %% 8");
+                        emit(0, "");
+                    }
+                }
+
                 string accessor = "self." + zm.membername;
                 size_t n = 0;
                 for (; n < zm.dimensions.size()-1; ++n) {
@@ -422,6 +571,10 @@ struct PyEmitStruct : public Emitter
                 if (ZCMGen::isPrimitiveType(zm.type.fullname) &&
                     zm.type.fullname != "string") {
                     emitEncodeList(zm, accessor, 2+n, lastDim.size, lastDimFixedLen);
+                    if (inBitMode) {
+                        emit(2+n, "offset_bit = numbits %% 8");
+                        emit(0, "");
+                    }
                 } else {
                     if (lastDimFixedLen) {
                         emit(2+n, "for i%d in range(%s):", n, lastDim.size.c_str());
@@ -430,11 +583,17 @@ struct PyEmitStruct : public Emitter
                     }
                     accessor += "[i" + to_string(n) + "]";
                     emitEncodeOne(zm, accessor, n+3);
+                    if (inBitMode) {
+                        emit(2+n, "offset_bit = numbits %% 8");
+                        emit(0, "");
+                    }
                 }
             }
         }
         flushWriteStructFmt(structFmt, structMembers);
-
+        if (inBitMode) {
+            emit(2, "# End of bitfield %u", bitfieldNum);
+        }
         emit(0, "");
     }
 
@@ -474,7 +633,7 @@ struct PyEmitStruct : public Emitter
         // efficiently packed and unpacked.
         if ((size_t)dimNum == zm.dimensions.size() - 1 &&
             zm.type.fullname == "byte") {
-            emitContinue("\"\"");
+            emitContinue("bytearray()");
             return;
         }
         auto& dim = zm.dimensions[dimNum];

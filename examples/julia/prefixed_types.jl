@@ -19,7 +19,7 @@ end
 
 numPackagedReceived = 0
 function handlerPackaged(rbuf, channel::String, msg::packaged_t)
-    println("Received message on channel: ", channel)
+    ccall(:jl_, Nothing, (Any,), "Received message on channel $(channel)")
     global numPackagedReceived
     checkPackaged(msg, (numPackagedReceived % 2) == 0)
     numPackagedReceived += 1
@@ -35,7 +35,7 @@ end
 
 numExampleReceived = 0
 function handlerExample(rbuf, channel::String, msg::example_t)
-    println("Received message on channel: ", channel)
+    ccall(:jl_, Nothing, (Any,), "Received message on channel $(channel)")
     global numExampleReceived
     checkExample(msg, numExampleReceived)
     numExampleReceived += 1

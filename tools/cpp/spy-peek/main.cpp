@@ -22,7 +22,7 @@ static void sighandler(int code)
 static void handler(const zcm_recv_buf_t *rbuf, const char *channel,
                     void *ser)
 {
-    printf("Message received on channel: \"%s\"\n", channel);
+    printf("Message received on channel: \"%s\" of size %u\n", channel, rbuf->data_size);
     if (verbose) {
         printf("Raw data: ");
         for (size_t i = 0; i < rbuf->data_size; ++i) {

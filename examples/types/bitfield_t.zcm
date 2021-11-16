@@ -1,0 +1,114 @@
+struct bitfield_t
+{
+    int8_t:-2 field1;
+    int8_t:-1 field2[2][4];
+    int16_t:-4 field3;
+    int16_t:-3 field4;
+
+    int8_t field5;
+
+    int8_t:-2 field6;
+    int8_t:-3 field7;
+
+    int8_t:-4 field8_dim1;
+    int8_t    field8_dim2;
+    int8_t:-3 field8[field8_dim1][field8_dim2];
+
+    int32_t:-28 field9;
+    int64_t:-55 field10;
+
+    byte:2 field11;
+    byte:3 field12[3][2][2][2];
+
+    int8_t field13;
+
+    int8_t:-4 field14;
+    int8_t:-7 field15;
+    int8_t:-7 field16;
+
+    int8_t field17;
+
+    byte:4 field18;
+    byte:7 field19;
+    byte:7 field20;
+
+    int8_t field21;
+
+    byte:8 field22;
+    const byte:8 FIELD22_TEST = 0xFF;
+
+    byte:3 field23;
+    const byte:3 FIELD23_TEST = 3;
+
+    byte:3 field24;
+    const byte:3 FIELD24_TEST = 0x07;
+
+    int8_t filler1;
+
+    byte:2     field25;
+    byte:8     field26;
+    int8_t:2   field27;
+    int8_t:7   field28;
+    int16_t:2  field29;
+    int16_t:15 field30;
+    int32_t:4  field31;
+    int32_t:31 field32;
+    int64_t:4  field33;
+    int64_t:63 field34;
+
+    const int8_t:-5   SIGN_TEST_0  = 0x0f;               // Should have the value  (1 <<  4) - 1
+    const int8_t:-5   SIGN_TEST_1  = 0x10;               // Should have the value -(1 <<  4)
+    const int8_t:-8   SIGN_TEST_2  = 0x7f;               // Should have the value  (1 <<  7) - 1
+    const int8_t:-8   SIGN_TEST_3  = 0x80;               // Should have the value -(1 <<  7)
+
+    const int16_t:-14 SIGN_TEST_4  = 0x1fff;             // Should have the value  (1 << 13) - 1
+    const int16_t:-14 SIGN_TEST_5  = 0x2000;             // Should have the value -(1 << 13)
+    const int16_t:-16 SIGN_TEST_6  = 0x7fff;             // Should have the value  (1 << 15) - 1
+    const int16_t:-16 SIGN_TEST_7  = 0x8000;             // Should have the value -(1 << 15)
+
+    const int32_t:-26 SIGN_TEST_8  = 0x01ffffff;         // Should have the value  (1 << 25) - 1
+    const int32_t:-26 SIGN_TEST_9  = 0x02000000;         // Should have the value -(1 << 25)
+    const int32_t:-32 SIGN_TEST_10 = 0x7fffffff;         // Should have the value  (1 << 31) - 1
+    const int32_t:-32 SIGN_TEST_11 = 0x80000000;         // Should have the value -(1 << 31)
+
+    const int64_t:-1  SIGN_TEST_12 = 0x0000000000000001; // Should have the value -(1 <<  1) - 1
+    const int64_t:-57 SIGN_TEST_13 = 0x00ffffffffffffff; // Should have the value  (1 << 56) - 1
+    const int64_t:-57 SIGN_TEST_14 = 0x0100000000000000; // Should have the value -(1 << 56)
+    const int64_t:-64 SIGN_TEST_15 = 0x7fffffffffffffff; // Should have the value  (1 << 63) - 1
+    const int64_t:-64 SIGN_TEST_16 = 0x8000000000000000; // Should have the value -(1 << 63)
+
+    const byte:3      SIGN_TEST_17 = 0x07;               // Should have the value  (1 <<  3) - 1
+    const byte:7      SIGN_TEST_18 = 0x7f;               // Should have the value  (1 <<  7) - 1
+    const int8_t:3    SIGN_TEST_19 = 0x07;               // Should have the value  (1 <<  3) - 1
+    const int8_t:7    SIGN_TEST_20 = 0x7f;               // Should have the value  (1 <<  7) - 1
+    const int16_t:3   SIGN_TEST_21 = 0x0007;             // Should have the value  (1 <<  3) - 1
+    const int16_t:15  SIGN_TEST_22 = 0x7fff;             // Should have the value  (1 << 15) - 1
+    const int32_t:3   SIGN_TEST_23 = 0x00000007;         // Should have the value  (1 <<  3) - 1
+    const int32_t:31  SIGN_TEST_24 = 0x7fffffff;         // Should have the value  (1 << 31) - 1
+    const int64_t:1   SIGN_TEST_25 = 0x0000000000000001; // Should have the value -(1 <<  1) - 1
+    const int64_t:3   SIGN_TEST_26 = 0x0000000000000007; // Should have the value  (1 <<  3) - 1
+    const int64_t:63  SIGN_TEST_27 = 0x7fffffffffffffff; // Should have the value  (1 << 63) - 1
+
+    const byte    SIGN_TEST_28 = 0x7f;
+    const byte    SIGN_TEST_29 = 0xff;
+
+    const int8_t  SIGN_TEST_30 = 0x7f;
+    const int8_t  SIGN_TEST_31 = 0xff;
+    const int8_t  SIGN_TEST_32 = 127;
+    const int8_t  SIGN_TEST_33 = -1;
+
+    const int16_t SIGN_TEST_34 = 0x7fff;
+    const int16_t SIGN_TEST_35 = 0xffff;
+    const int16_t SIGN_TEST_36 = 32767;
+    const int16_t SIGN_TEST_37 = -1;
+
+    const int32_t SIGN_TEST_38 = 0x7fffffff;
+    const int32_t SIGN_TEST_39 = 0xffffffff;
+    const int32_t SIGN_TEST_40 = 2147483647;
+    const int32_t SIGN_TEST_41 = -1;
+
+    const int64_t SIGN_TEST_42 = 0x7fffffffffffffff;
+    const int64_t SIGN_TEST_43 = 0xffffffffffffffff;
+    const int64_t SIGN_TEST_44 = 9223372036854775807;
+    const int64_t SIGN_TEST_45 = -1;
+}

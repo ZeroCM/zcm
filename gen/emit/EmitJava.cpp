@@ -42,13 +42,21 @@ string makeFqn(const ZCMGen& zcm, const string& typeName)
 
 // /** # -> replace1
 //     @ -> replace2
+//     $ -> replace3
 // **/
-static string specialReplace(const string& haystack, const string& replace1)
+static string specialReplace(const string& haystack,
+                             const string& replace1,
+                             const string& replace2 = "",
+                             const string& replace3 = "")
 {
     string ret;
     for (auto& c : haystack) {
         if (c == '#')
             ret += replace1;
+        else if (c == '@')
+            ret += replace2;
+        else if (c == '$')
+            ret += replace3;
         else
             ret += string(1, c);
     }
@@ -107,27 +115,27 @@ struct TypeTable
     {
         tbl.emplace("byte", PrimInfo{
             "byte",
-            "# = ins.readByte();",
+            "# = ins.readByte@($);",
             "outs.writeByte(#);"});
 
         tbl.emplace("int8_t", PrimInfo{
             "byte",
-            "# = ins.readByte();",
+            "# = ins.readByte@($);",
             "outs.writeByte(#);"});
 
         tbl.emplace("int16_t", PrimInfo{
             "short",
-            "# = ins.readShort();",
+            "# = ins.readShort@($);",
             "outs.writeShort(#);"});
 
         tbl.emplace("int32_t", PrimInfo{
             "int",
-            "# = ins.readInt();",
+            "# = ins.readInt@($);",
             "outs.writeInt(#);"});
 
         tbl.emplace("int64_t", PrimInfo{
             "long",
-            "# = ins.readLong();",
+            "# = ins.readLong@($);",
             "outs.writeLong(#);"});
 
         tbl.emplace("string", PrimInfo{
@@ -176,7 +184,7 @@ struct EmitStruct : public Emitter
         int ndims = (int)zm.dimensions.size();
 
         // base case: primitive array
-        if (depth+1 == ndims && pinfo != nullptr) {
+        if (depth+1 == ndims && zm.type.numbits == 0 && pinfo != nullptr) {
             string accessorArray = makeAccessorArray(zm, "");
             if (pinfo->storage == "byte") {
                 auto& dim = zm.dimensions[depth];
@@ -192,13 +200,16 @@ struct EmitStruct : public Emitter
 
         // base case: generic
         if (depth == ndims) {
-            emitStart(2 + ndims, "");
-            if (pinfo != NULL)
-                emitContinue("%s", specialReplace(pinfo->encode, accessor).c_str());
-            else
-                emitContinue("%s", specialReplace("#._encodeRecursive(outs);", accessor).c_str());
-            emitEnd(" ");
-
+            if (pinfo) {
+                if (zm.type.numbits == 0) {
+                    emit(2 + ndims, "%s", specialReplace(pinfo->encode, accessor).c_str());
+                } else {
+                    // base case: bitfield
+                    emit(2 + ndims, "outs.writeBits(%s, %u);", accessor.c_str(), zm.type.numbits);
+                }
+            } else {
+                emit(2 + ndims, "%s", specialReplace("#._encodeRecursive(outs);", accessor).c_str());
+            }
             return;
         }
 
@@ -216,26 +227,33 @@ struct EmitStruct : public Emitter
         int ndims = (int)zm.dimensions.size();
 
         // base case: primitive array
-        if (depth+1 == ndims && pinfo != nullptr) {
+        if (depth+1 == ndims && zm.type.numbits == 0 && pinfo != nullptr) {
             string accessorArray = makeAccessorArray(zm, "");
 
             // byte array
             if (pinfo->storage == "byte") {
                 auto& dim = zm.dimensions[depth];
-                emitStart(2+depth, "ins.readFully(this.%s, 0, %s);", accessorArray.c_str(), dim.size.c_str());
+                emit(2+depth, "ins.readFully(this.%s, 0, %s);", accessorArray.c_str(), dim.size.c_str());
                 return;
             }
         }
 
         // base case: generic
         if (depth == ndims) {
-            emitStart(2 + ndims,"");
-            if (pinfo)
-                emitContinue("%s", specialReplace(pinfo->decode, accessor).c_str());
-            else {
-                emitContinue("%s = %s._decodeRecursiveFactory(ins);", accessor.c_str(), makeFqn(zcm, zm.type.fullname).c_str());
+            if (pinfo) {
+                if (zm.type.numbits == 0) {
+                    emit(2 + ndims, "%s", specialReplace(pinfo->decode, accessor).c_str());
+                } else {
+                    string readArg = std::to_string(zm.type.numbits);
+                    readArg += zm.type.signExtend ? ", true" : ", false";
+                    // base case: bitfield
+                    emit(2 + ndims, "%s", specialReplace(pinfo->decode, accessor, "Bits",
+                                                         readArg).c_str());
+                }
+            } else {
+                emit(2 + ndims, "%s = %s._decodeRecursiveFactory(ins);",
+                                accessor.c_str(), makeFqn(zcm, zm.type.fullname).c_str());
             }
-            emitEnd("");
             return;
         }
 
@@ -390,7 +408,7 @@ struct EmitStruct : public Emitter
             auto* name = zc.membername.c_str();
             auto* value = zc.valstr.c_str();
 
-            if (tn == "int8_t") {
+            if (tn == "int8_t" || tn == "byte") {
                 emit(1, "public static final byte %s = (byte) %s;", name, value);
             } else if (tn == "int16_t") {
                 emit(1, "public static final short %s = (short) %s;", name, value);
@@ -441,23 +459,42 @@ struct EmitStruct : public Emitter
 
         ///////////////// encode //////////////////
 
-        emit(1,"public void encode(DataOutput outs) throws IOException");
+        emit(1,"public void encode(ZCMDataOutputStream outs) throws IOException");
         emit(1,"{");
         emit(2,"outs.writeLong(ZCM_FINGERPRINT);");
         emit(2,"_encodeRecursive(outs);");
         emit(1,"}");
         emit(0," ");
 
-        emit(1,"public void _encodeRecursive(DataOutput outs) throws IOException");
+        emit(1,"public void _encodeRecursive(ZCMDataOutputStream outs) throws IOException");
         emit(1,"{");
         if (structHasStringMember(zs))
             emit(2, "char[] __strbuf = null;");
 
+        bool inBitMode = false;
+        size_t bitfieldNum = 0;
         for (auto& zm : zs.members) {
+            if (!inBitMode && zm.type.numbits != 0) {
+                inBitMode = true;
+                emit(2, "// Start of bitfield %u", bitfieldNum);
+                emit(0, "");
+            } else if (inBitMode && zm.type.numbits == 0) {
+                inBitMode = false;
+                emit(2, "outs.resetBits();");
+                emit(0, "");
+                emit(2, "// End of bitfield %u", bitfieldNum);
+                emit(0, "");
+                ++bitfieldNum;
+            }
             PrimInfo* pinfo = typeTable.find(zm.type.fullname);
             string accessor = makeAccessor(zm, "this");
             encodeRecursive(zm, pinfo, accessor, 0);
             emit(0," ");
+        }
+        if (inBitMode) {
+            emit(2, "outs.resetBits();");
+            emit(0, "");
+            emit(2, "// End of bitfield %u", bitfieldNum);
         }
         emit(1,"}");
         emit(0," ");
@@ -473,7 +510,7 @@ struct EmitStruct : public Emitter
         emit(2, "this(new ZCMDataInputStream(data));");
         emit(1, "}");
         emit(0, " ");
-        emit(1,"public %s(DataInput ins) throws IOException", sn);
+        emit(1,"public %s(ZCMDataInputStream ins) throws IOException", sn);
         emit(1,"{");
         emit(2,"if (ins.readLong() != ZCM_FINGERPRINT)");
         emit(3,     "throw new IOException(\"ZCM Decode error: bad fingerprint\");");
@@ -482,7 +519,7 @@ struct EmitStruct : public Emitter
         emit(1,"}");
         emit(0," ");
 
-        emit(1,"public static %s _decodeRecursiveFactory(DataInput ins) throws IOException", fqn);
+        emit(1,"public static %s _decodeRecursiveFactory(ZCMDataInputStream ins) throws IOException", fqn);
         emit(1,"{");
         emit(2,"%s o = new %s();", fqn, fqn);
         emit(2,"o._decodeRecursive(ins);");
@@ -490,12 +527,26 @@ struct EmitStruct : public Emitter
         emit(1,"}");
         emit(0," ");
 
-        emit(1,"public void _decodeRecursive(DataInput ins) throws IOException");
+        emit(1,"public void _decodeRecursive(ZCMDataInputStream ins) throws IOException");
         emit(1,"{");
         if (structHasStringMember(zs))
             emit(2, "char[] __strbuf = null;");
 
+        inBitMode = false;
+        bitfieldNum = 0;
         for (auto& zm : zs.members) {
+            if (!inBitMode && zm.type.numbits != 0) {
+                inBitMode = true;
+                emit(2, "// Start of bitfield %u", bitfieldNum);
+                emit(0, "");
+            } else if (inBitMode && zm.type.numbits == 0) {
+                inBitMode = false;
+                emit(2, "ins.resetBits();");
+                emit(0, "");
+                emit(2, "// End of bitfield %u", bitfieldNum);
+                emit(0, "");
+                ++bitfieldNum;
+            }
             PrimInfo* pinfo = typeTable.find(zm.type.fullname);
             string accessor = makeAccessor(zm, "this");
 
@@ -516,6 +567,11 @@ struct EmitStruct : public Emitter
 
             decodeRecursive(zm, pinfo, accessor, 0);
             emit(0," ");
+        }
+        if (inBitMode) {
+            emit(2, "ins.resetBits();");
+            emit(0, "");
+            emit(2, "// End of bitfield %u", bitfieldNum);
         }
 
         emit(1,"}");

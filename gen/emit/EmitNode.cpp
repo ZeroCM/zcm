@@ -16,29 +16,31 @@ void setupOptionsNode(GetOpt& gopt)
     gopt.addString(0, "npath", ".", "Location for zcmtypes.js file");
 }
 
-static string getReaderFunc(const string& type)
+static string getReaderFunc(const string& type, uint8_t numbits, bool signExtend)
 {
     if (type == "double") {
-        return "readDouble";
+        return "R.readDouble()";
     } else if (type == "float") {
-        return "readFloat";
+        return "R.readFloat()";
+    } else if (numbits != 0) {
+        return "R.readBits(" + to_string(numbits) +
+               (signExtend ? ", true" : ", false") +  ")";
     } else if (type == "int64_t") {
-        return "read64";
+        return "R.read64()";
     } else if (type == "int32_t") {
-        return "read32";
+        return "R.read32()";
     } else if (type == "int16_t") {
-        return "read16";
+        return "R.read16()";
     } else if (type == "int8_t") {
-        return "read8";
+        return "R.read8()";
     } else if (type == "byte") {
-        return "readU8";
+        return "R.readU8()";
     } else if (type == "boolean") {
-         return "readBoolean";
+         return "R.readBoolean()";
     } else if (type == "string") {
-         return "readString";
-    } else {
-        return "";
+         return "R.readString()";
     }
+    return "";
 }
 
 static string getWriterFunc(const string& type)
@@ -99,58 +101,59 @@ struct EmitModule : public Emitter
         emit(0, "");
         emit(0, "function createReader(data)");
         emit(0, "{");
-        emit(0, "    var buf = new Buffer(data);");
-        emit(0, "    var offset = 0;");
-        emit(0, "    var methods = {");
+        emit(0, "    let buf = new Buffer(data);");
+        emit(0, "    let offset_byte = 0;");
+        emit(0, "    let offset_bit = 0;");
+        emit(0, "    let methods = {");
         emit(0, "        readDouble: function() {");
-        emit(0, "            var ret = buf.readDoubleBE(offset);");
-        emit(0, "            offset += 8;");
+        emit(0, "            var ret = buf.readDoubleBE(offset_byte);");
+        emit(0, "            offset_byte += 8;");
         emit(0, "            return ret;");
         emit(0, "        },");
         emit(0, "        readFloat: function() {");
-        emit(0, "            var ret = buf.readFloatBE(offset);");
-        emit(0, "            offset += 4;");
+        emit(0, "            var ret = buf.readFloatBE(offset_byte);");
+        emit(0, "            offset_byte += 4;");
         emit(0, "            return ret;");
         emit(0, "        },");
         emit(0, "        read64: function() {");
-        emit(0, "            var ret = bigint(ref.readInt64BE(buf, offset));");
-        emit(0, "            offset += 8;");
+        emit(0, "            var ret = bigint(ref.readInt64BE(buf, offset_byte));");
+        emit(0, "            offset_byte += 8;");
         emit(0, "            return ret;");
         emit(0, "        },");
         emit(0, "        readU64: function() {");
-        emit(0, "            var ret = bigint(ref.readUInt64BE(buf, offset));");
-        emit(0, "            offset += 8;");
+        emit(0, "            var ret = bigint(ref.readUInt64BE(buf, offset_byte));");
+        emit(0, "            offset_byte += 8;");
         emit(0, "            return ret;");
         emit(0, "        },");
         emit(0, "        read32: function() {");
-        emit(0, "            var ret = buf.readInt32BE(offset);");
-        emit(0, "            offset += 4;");
+        emit(0, "            var ret = buf.readInt32BE(offset_byte);");
+        emit(0, "            offset_byte += 4;");
         emit(0, "            return ret;");
         emit(0, "        },");
         emit(0, "        read16: function() {");
-        emit(0, "            var ret = buf.readInt16BE(offset);");
-        emit(0, "            offset += 2;");
+        emit(0, "            var ret = buf.readInt16BE(offset_byte);");
+        emit(0, "            offset_byte += 2;");
         emit(0, "            return ret;");
         emit(0, "        },");
         emit(0, "        read8: function() {");
-        emit(0, "            var ret = buf.readInt8(offset);");
-        emit(0, "            offset += 1;");
+        emit(0, "            var ret = buf.readInt8(offset_byte);");
+        emit(0, "            offset_byte += 1;");
         emit(0, "            return ret;");
         emit(0, "        },");
         emit(0, "        readU8: function() {");
-        emit(0, "            var ret = buf.readUInt8(offset);");
-        emit(0, "            offset += 1;");
+        emit(0, "            var ret = buf.readUInt8(offset_byte);");
+        emit(0, "            offset_byte += 1;");
         emit(0, "            return ret;");
         emit(0, "        },");
         emit(0, "        readBoolean: function() {");
-        emit(0, "            var ret = buf.readInt8(offset);");
-        emit(0, "            offset += 1;");
+        emit(0, "            var ret = buf.readInt8(offset_byte);");
+        emit(0, "            offset_byte += 1;");
         emit(0, "            return ret != 0;");
         emit(0, "        },");
         emit(0, "        readString: function() {");
         emit(0, "            var len = methods.read32();");
-        emit(0, "            var ret = ref.readCString(buf, offset);");
-        emit(0, "            offset += len;");
+        emit(0, "            var ret = ref.readCString(buf, offset_byte);");
+        emit(0, "            offset_byte += len;");
         emit(0, "            return ret;");
         emit(0, "        },");
         emit(0, "        readArray: function(size, readValFunc) {");
@@ -158,58 +161,137 @@ struct EmitModule : public Emitter
         emit(0, "            for (var i = 0; i < size; ++i)");
         emit(0, "                arr[i] = readValFunc();");
         emit(0, "            return arr;");
-        emit(0, "        }");
+        emit(0, "        },");
+        emit(0, "        resetBits: function() {");
+        emit(0, "            if (offset_bit !== 0) ++offset_byte;");
+        emit(0, "            offset_bit = 0;");
+        emit(0, "        },");
+        emit(0, "        readBits: function(numbits, signExtend = true) {");
+        emit(0, "            let bits_left = numbits;");
+        emit(0, "            let ret;");
+        emit(0, "            while (bits_left > 0) {");
+        emit(0, "                const available_bits = 8 - offset_bit;");
+        emit(0, "                const bits_covered = available_bits < bits_left ? available_bits : bits_left;");
+        emit(0, "                const mask = ((1 << bits_covered) - 1) << (8 - bits_covered - offset_bit);");
+        emit(0, "                const payload = (buf.readUInt8(offset_byte) & mask) << offset_bit;");
+        emit(0, "                const shift = 8 - bits_left;");
+        emit(0, "                if (bits_left == numbits) {");
+        emit(0, "                    let signExtendedPayload = signExtend ?");
+        emit(0, "                                              (payload << 24) >> 24 :");
+        emit(0, "                                              (payload << 24) >>> 24;");
+        emit(0, "                    if (numbits > 32) {");
+        emit(0, "                        ret = bigint(signExtendedPayload).shiftRight(shift);");
+        emit(0, "                    } else {");
+        emit(0, "                        if (shift < 0) {");
+        emit(0, "                            ret = signExtendedPayload << -shift;");
+        emit(0, "                        } else {");
+        emit(0, "                            if (signExtend) {");
+        emit(0, "                                ret = signExtendedPayload >> shift;");
+        emit(0, "                            } else {");
+        emit(0, "                                ret = signExtendedPayload >>> shift;");
+        emit(0, "                            }");
+        emit(0, "                        }");
+        emit(0, "                    }");
+        emit(0, "                } else {");
+        emit(0, "                    if (numbits > 32) {");
+        emit(0, "                        ret = ret.or(bigint(payload).shiftRight(shift));");
+        emit(0, "                    } else {");
+        emit(0, "                        if (shift < 0) ret |= payload << -shift;");
+        emit(0, "                        else           ret |= payload >>> shift;");
+        emit(0, "                    }");
+        emit(0, "                }");
+        emit(0, "                bits_left -= bits_covered;");
+        emit(0, "                offset_bit += bits_covered;");
+        emit(0, "                if (offset_bit == 8) {");
+        emit(0, "                    offset_bit = 0;");
+        emit(0, "                    ++offset_byte;");
+        emit(0, "                }");
+        emit(0, "            }");
+        emit(0, "            return ret;");
+        emit(0, "        },");
         emit(0, "    };");
         emit(0, "    return methods;");
         emit(0, "}");
         emit(0, "");
         emit(0, "function createWriter(size)");
         emit(0, "{");
-        emit(0, "    var buf = new Buffer(size);");
-        emit(0, "    var offset = 0;");
-        emit(0, "    var methods = {");
+        emit(0, "    let buf = new Buffer(size);");
+        emit(0, "    let offset_byte = 0;");
+        emit(0, "    let offset_bit = 0;");
+        emit(0, "    let methods = {");
         emit(0, "        writeDouble: function(value) {");
-        emit(0, "            buf.writeDoubleBE(value, offset);");
-        emit(0, "            offset += 8;");
+        emit(0, "            buf.writeDoubleBE(value, offset_byte);");
+        emit(0, "            offset_byte += 8;");
         emit(0, "        },");
         emit(0, "        writeFloat: function(value) {");
-        emit(0, "            buf.writeFloatBE(value, offset);");
-        emit(0, "            offset += 4;");
+        emit(0, "            buf.writeFloatBE(value, offset_byte);");
+        emit(0, "            offset_byte += 4;");
         emit(0, "        },");
         emit(0, "        write64: function(value) {");
-        emit(0, "            ref.writeInt64BE(buf, offset, bigint.isInstance(value) ?");
+        emit(0, "            ref.writeInt64BE(buf, offset_byte, bigint.isInstance(value) ?");
         emit(0, "                                          value.toString() : value);");
-        emit(0, "            offset += 8;");
+        emit(0, "            offset_byte += 8;");
         emit(0, "        },");
         emit(0, "        writeU64: function(value) {");
-        emit(0, "            ref.writeUInt64BE(buf, offset, bigint.isInstance(value) ?");
+        emit(0, "            ref.writeUInt64BE(buf, offset_byte, bigint.isInstance(value) ?");
         emit(0, "                                           value.toString() : value);");
-        emit(0, "            offset += 8;");
+        emit(0, "            offset_byte += 8;");
         emit(0, "        },");
         emit(0, "        write32: function(value) {");
-        emit(0, "            buf.writeInt32BE(value, offset);");
-        emit(0, "            offset += 4;");
+        emit(0, "            buf.writeInt32BE(value, offset_byte);");
+        emit(0, "            offset_byte += 4;");
         emit(0, "        },");
         emit(0, "        write16: function(value) {");
-        emit(0, "            buf.writeInt16BE(value, offset);");
-        emit(0, "            offset += 2;");
+        emit(0, "            buf.writeInt16BE(value, offset_byte);");
+        emit(0, "            offset_byte += 2;");
         emit(0, "        },");
         emit(0, "        write8: function(value) {");
-        emit(0, "            buf.writeInt8(value, offset);");
-        emit(0, "            offset += 1;");
+        emit(0, "            buf.writeInt8(value, offset_byte);");
+        emit(0, "            offset_byte += 1;");
         emit(0, "        },");
         emit(0, "        writeU8: function(value) {");
-        emit(0, "            buf.writeUInt8(value, offset);");
-        emit(0, "            offset += 1;");
+        emit(0, "            buf.writeUInt8(value, offset_byte);");
+        emit(0, "            offset_byte += 1;");
         emit(0, "        },");
         emit(0, "        writeBoolean: function(value) {");
-        emit(0, "            buf.writeInt8(value, offset);");
-        emit(0, "            offset += 1;");
+        emit(0, "            buf.writeInt8(value, offset_byte);");
+        emit(0, "            offset_byte += 1;");
         emit(0, "        },");
         emit(0, "        writeString: function(value) {");
         emit(0, "            methods.write32(value.length+1);");
-        emit(0, "            ref.writeCString(buf, offset, value);");
-        emit(0, "            offset += value.length+1;");
+        emit(0, "            ref.writeCString(buf, offset_byte, value);");
+        emit(0, "            offset_byte += value.length+1;");
+        emit(0, "        },");
+        emit(0, "        resetBits: function() {");
+        emit(0, "            if (offset_bit !== 0) ++offset_byte;");
+        emit(0, "            offset_bit = 0;");
+        emit(0, "        },");
+        emit(0, "        writeBits: function(value, numbits) {");
+        emit(0, "            const isbigint = bigint.isInstance(value);");
+        emit(0, "            let bits_left = numbits;");
+        emit(0, "            while (bits_left > 0) {");
+        emit(0, "                if (offset_bit == 0) buf.writeUInt8(0, offset_byte);");
+        emit(0, "                let payload = buf.readUInt8(offset_byte);");
+        emit(0, "                const mask = isbigint ?");
+        emit(0, "                             bigint(1).shiftLeft(bits_left).prev() :");
+        emit(0, "                             (1 << bits_left) - 1;");
+        emit(0, "                const shift = (offset_bit + bits_left) - 8;");
+        emit(0, "                if (shift < 0) {");
+        emit(0, "                    payload |= isbigint ?");
+        emit(0, "                               value.and(mask).shiftLeft(-shift).toJSNumber() :");
+        emit(0, "                               (value & mask) << -shift;");
+        emit(0, "                    buf.writeUInt8(payload, offset_byte);");
+        emit(0, "                    offset_bit += bits_left;");
+        emit(0, "                    break;");
+        emit(0, "                }");
+        emit(0, "                payload |= isbigint ?");
+        emit(0, "                           value.and(mask).shiftRight(shift).toJSNumber() :");
+        emit(0, "                           (value & mask) >> shift;");
+        emit(0, "                buf.writeUInt8(payload, offset_byte);");
+        emit(0, "                bits_left = shift;");
+        emit(0, "                offset_bit = 0;");
+        emit(0, "                ++offset_byte;");
+        emit(0, "            }");
         emit(0, "        },");
         emit(0, "        writeArray: function(arr, size, writeValFunc) {");
         emit(0, "            for (var i = 0; i < size; ++i)");
@@ -245,7 +327,11 @@ struct EmitModule : public Emitter
         auto writerFunc = getWriterFunc(tn);
 
         if (writerFunc != "") {
-            emit(indent, "W.%s(%s);", writerFunc.c_str(), accessor);
+            if (zm.type.numbits != 0) {
+                emit(indent, "W.writeBits(%s, %u);", accessor, zm.type.numbits);
+            } else {
+                emit(indent, "W.%s(%s);", writerFunc.c_str(), accessor);
+            }
         } else {
             emit(indent, "%s_encode_one(%s, W)", tn, accessor);
         }
@@ -260,13 +346,12 @@ struct EmitModule : public Emitter
 
         auto writerFunc = getWriterFunc(tn);
 
-        if (writerFunc != "") {
-            if (fixedLen) {
-                emit(indent, "W.writeArray(%s, %s, W.%s);", accessor, len, writerFunc.c_str());
-            } else {
-                emit(indent, "W.writeArray(%s, msg.%s, W.%s);",
-                             accessor, len, writerFunc.c_str());
-            }
+        if (zm.type.numbits != 0) {
+            emit(indent, "W.writeArray(%s, %s%s, (f) => { return W.writeBits(f, %u); });",
+                 accessor, fixedLen ? "" : "msg.", len, zm.type.numbits);
+        } else if (writerFunc != "") {
+            emit(indent, "W.writeArray(%s, %s%s, W.%s);",
+                 accessor, fixedLen ? "" : "msg.", len, writerFunc.c_str());
         } else {
             fprintf(stderr, "Unable to encode list of type: %s\n", tn.c_str());
             assert(0);
@@ -284,7 +369,15 @@ struct EmitModule : public Emitter
             return;
         }
 
+        bool inBitMode = false;
         for (auto& zm : zs.members) {
+            if (!inBitMode && zm.type.numbits != 0) {
+                inBitMode = true;
+            } else if (inBitMode && zm.type.numbits == 0) {
+                inBitMode = false;
+                emit(1, "W.resetBits();");
+            }
+
             if (zm.dimensions.size() == 0) {
                 emitEncodeSingleMember(zm, "msg." + zm.membername, 1);
             } else {
@@ -324,6 +417,9 @@ struct EmitModule : public Emitter
                     emit(i + 1, "}");
                 }
             }
+        }
+        if (inBitMode) {
+            emit(1, "W.resetBits();");
         }
         emit(0, "}");
     }
@@ -422,10 +518,10 @@ struct EmitModule : public Emitter
         auto* tn = zm.type.nameUnderscoreCStr();
         auto* sfx = sfx_.c_str();
 
-        auto readerFunc = getReaderFunc(tn);
+        auto readerFunc = getReaderFunc(tn, zm.type.numbits, zm.type.signExtend);
 
         if (readerFunc != "") {
-            emit(indent, "%sR.%s()%s;", accessor, readerFunc.c_str(), sfx);
+            emit(indent, "%s%s%s;", accessor, readerFunc.c_str(), sfx);
         } else {
             emit(indent, "%s%s_decode_one(R)%s", accessor, tn, sfx);
         }
@@ -439,14 +535,17 @@ struct EmitModule : public Emitter
         auto* len = len_.c_str();
         const char* suffix = isFirst ? "" : ")";
 
-        auto readerFunc = getReaderFunc(tn);
+        auto readerFunc = getReaderFunc(tn, zm.type.numbits, zm.type.signExtend);
 
         if (readerFunc == "") {
             fprintf(stderr, "Unable to encode list of type: %s\n", tn.c_str());
             assert(0);
         }
 
-        emit(indent, "%sR.readArray(%s%s, R.%s)%s",
+        if (StringUtil::endswith(readerFunc, ")")) {
+            readerFunc = string("() => { return ") + readerFunc + string("; }");
+        }
+        emit(indent, "%sR.readArray(%s%s, %s)%s",
                      accessor, (fixedLen ? "" : "msg."),
                      len, readerFunc.c_str(), suffix);
     }
@@ -458,7 +557,15 @@ struct EmitModule : public Emitter
         emit(0, "%s_decode_one = function(R)", sn);
         emit(0, "{");
         emit(1,     "var msg = new %s();", sn);
+        bool inBitMode = false;
         for (auto& zm : zs.members) {
+            if (!inBitMode && zm.type.numbits != 0) {
+                inBitMode = true;
+            } else if (inBitMode && zm.type.numbits == 0) {
+                inBitMode = false;
+                emit(1, "R.resetBits();");
+            }
+
             if (zm.dimensions.size() == 0) {
                 string accessor = "msg." + zm.membername + " = ";
                 emitDecodeSingleMember(zm, accessor.c_str(), 1, "");
@@ -520,6 +627,9 @@ struct EmitModule : public Emitter
                 for (int i = (int) n - 1; i >= 0; --i)
                     emit(i + 1, "}");
             }
+        }
+        if (inBitMode) {
+            emit(1, "R.resetBits();");
         }
         emit(1, "return msg;");
         emit(0, "}");
@@ -601,8 +711,12 @@ struct EmitModule : public Emitter
         auto& dim = zm.dimensions[dimNum];
         if (dim.mode == ZCM_VAR) {
             emitContinue("[]");
-        } else {
+        } else if ((size_t)dimNum == zm.dimensions.size() - 1) {
             emitContinue("new Array(%s).fill(", dim.size.c_str());
+            emitMemberInitializer(zm, dimNum+1);
+            emitContinue(")");
+        } else {
+            emitContinue("new Array(%s).fill(null).map(() => ", dim.size.c_str());
             emitMemberInitializer(zm, dimNum+1);
             emitContinue(")");
         }
@@ -633,20 +747,30 @@ struct EmitModule : public Emitter
 
         for (size_t i = 0; i < zs.constants.size(); ++i) {
             static string hexPrefix = "0x";
-            if (zs.constants[i].type == "int64_t") {
-                if (zs.constants[i].valstr.size() > 2 &&
-                    zs.constants[i].valstr.compare(0, hexPrefix.length(), hexPrefix) == 0)
+            const auto& zc = zs.constants[i];
+            bool isHex = zc.valstr.size() > 2 &&
+                         zc.valstr.compare(0, hexPrefix.length(), hexPrefix) == 0;
+            bool isNeg = zc.val.i64 < 0;
+            if (zc.type == "int64_t") {
+                if (isHex && !isNeg) {
                     emit(indent, "%s.%s = bigint(\"%s\", 16).toString();", prefix.c_str(),
-                                 zs.constants[i].membername.c_str(),
-                                 zs.constants[i].valstr.c_str() + 2);
-                else
-                    emit(indent, "%s.%s = bigint(\"%s\").toString();", prefix.c_str(),
-                                 zs.constants[i].membername.c_str(),
-                                 zs.constants[i].valstr.c_str());
+                                 zc.membername.c_str(),
+                                 zc.valstr.c_str() + 2);
+                } else {
+                    emit(indent, "%s.%s = bigint(\"%lld\").toString();", prefix.c_str(),
+                                 zc.membername.c_str(),
+                                 zc.val.i64);
+                }
             } else {
-                emit(indent, "%s.%s = %s;", prefix.c_str(),
-                             zs.constants[i].membername.c_str(),
-                             zs.constants[i].valstr.c_str());
+                if (isHex && !isNeg) {
+                    emit(indent, "%s.%s = %s;", prefix.c_str(),
+                                 zc.membername.c_str(),
+                                 zc.valstr.c_str());
+                } else {
+                    emit(indent, "%s.%s = %lld;", prefix.c_str(),
+                                 zc.membername.c_str(),
+                                 zc.val.i64);
+                }
             }
         }
     }

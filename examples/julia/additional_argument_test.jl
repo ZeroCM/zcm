@@ -10,7 +10,7 @@ end
 # ensure that argument is provided, we just have to pass it as an
 # additional argument to `subscribe()`
 function handler(rbuf, channel::String, msg::example_t, received_timestamps::Vector)
-    println("Received message on channel: ", channel)
+    ccall(:jl_, Nothing, (Any,), "Received message on channel $(channel)")
     @assert msg.timestamp == length(received_timestamps) "Received message with incorrect timestamp"
     push!(received_timestamps, msg.timestamp)
 end

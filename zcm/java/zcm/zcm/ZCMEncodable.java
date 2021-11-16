@@ -13,17 +13,17 @@ public interface ZCMEncodable
      * Invoked by ZCM.
      * @param outs Any data to be sent should be written to this output stream.
      */
-    public void encode(DataOutput outs) throws IOException;
+    public void encode(ZCMDataOutputStream outs) throws IOException;
 
 
     /** Encode the data without the magic header. Most users will
      * never use this function.
      **/
-    public void _encodeRecursive(DataOutput outs) throws IOException;
+    public void _encodeRecursive(ZCMDataOutputStream outs) throws IOException;
 
     /** Decode the data without the magic header. Most users will
      * never use this function.
      **/
-    public void _decodeRecursive(DataInput ins) throws IOException;
+    public void _decodeRecursive(ZCMDataInputStream ins) throws IOException;
 
 }

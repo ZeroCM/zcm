@@ -1,6 +1,7 @@
 struct example_t
 {
     int64_t  utime;
+
     double   position[3];
     double   orientation[4];
     int32_t  num_ranges;

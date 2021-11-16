@@ -19,7 +19,7 @@ end
 
 numReceived = 0
 function handler(rbuf, channel::String, msg::packaged_t)
-    println("Received message on channel: ", channel)
+    ccall(:jl_, Nothing, (Any,), "Received message on channel $(channel)")
     global numReceived
     checkMsg(msg, (numReceived % 2) == 0)
     numReceived += 1

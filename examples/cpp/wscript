@@ -6,9 +6,17 @@ def build(ctx):
                 use = 'default zcm examplezcmtypes_cpp',
                 source = 'Pub.cpp')
 
+    ctx.program(target = 'bitfield_pub',
+                use = 'default zcm examplezcmtypes_cpp',
+                source = 'BitfieldPub.cpp')
+
     ctx.program(target = 'sub',
                 use = 'default zcm examplezcmtypes_cpp',
                 source = 'Sub.cpp')
+
+    ctx.program(target = 'bitfield_sub',
+                use = 'default zcm examplezcmtypes_cpp',
+                source = 'BitfieldSub.cpp')
 
     ctx.program(target = 'sub-functional',
                 use = 'default zcm examplezcmtypes_cpp',

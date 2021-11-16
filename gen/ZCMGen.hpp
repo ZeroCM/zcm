@@ -17,6 +17,15 @@ struct ZCMTypename
     string package;   // package name, e.g., "com.foo.prj"
     string shortname; // e.g., "laser"
 
+    // Optional size of bit field if specified
+    // If nonzero, isFixedPoint() will return true
+    uint8_t numbits = 0;
+    // Treat as a signed "numbits" length integer.
+    // Ex:
+    //   int8_t:3  foo; foo = 0x7; // signExtend would be false and foo would be treated as -1 on a decode
+    //   int8_t:-3 foo; foo = 0x7; // signExtend would be true  and foo would be treated as  7 on a decode
+    bool signExtend = false;
+
     ZCMTypename(ZCMGen& zcmgen, const string& name, bool skipPrefix = false);
     void dump() const;
 
@@ -26,6 +35,8 @@ struct ZCMTypename
 
     static bool isSame(const ZCMTypename& a, const ZCMTypename& b)
     { return a.fullname == b.fullname; }
+
+    bool isFixedPoint() const;
 
     //////////////////////////////////////////////////////////////////////////////
     mutable string underscore;
@@ -46,7 +57,8 @@ struct ZCMTypename
 
 };
 
-enum ZCMDimensionMode {
+enum ZCMDimensionMode
+{
     ZCM_CONST,
     ZCM_VAR,
 };
@@ -84,9 +96,10 @@ struct ZCMMember
 
 struct ZCMConstant
 {
-    string type;    // int8_t / int16_t / int32_t / int64_t / float / double / string
+    string type;    // byte / int8_t / int16_t / int32_t / int64_t / float / double / string
     string membername;
     union {
+        uint8_t u8;
         int8_t  i8;
         int16_t i16;
         int32_t i32;
@@ -94,7 +107,20 @@ struct ZCMConstant
         float   f;
         double  d;
     } val;
-    string valstr;   // value as a string, as specified in the .zcm file
+    // value as a string, as specified in the .zcm file
+    // If const is a bitfield, this string will already be sign extended for you
+    // The only weird case is for "byte" where this field is not sign extended.
+    // If you want to sign extend the byte, you must do so yourself
+    string valstr;
+
+    // Optional size of bit field if specified
+    // If nonzero, isFixedPoint() will return true
+    uint8_t numbits = 0;
+    // Treat as a signed "numbits" length integer.
+    // Ex:
+    //   const int8_t:3  foo = 0x7; // signExtend would be false and foo would be treated as -1
+    //   const int8_t:-3 foo = 0x7; // signExtend would be true  and foo would be treated as  7
+    bool signExtend = false;
 
     // Comments in the ZCM type definition immediately before a constant are
     // attached to the constant.
@@ -171,6 +197,7 @@ struct ZCMGen
     static bool isPrimitiveType(const string& t);
 
     static size_t getPrimitiveTypeSize(const string& tn);
+    static size_t getPrimitiveTypeNumBits(const string& tn);
 
     // Returns true if the argument is a built-in type usable as and array dim
     static bool isArrayDimType(const string& t);

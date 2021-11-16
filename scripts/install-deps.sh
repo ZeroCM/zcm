@@ -62,6 +62,7 @@ else
     PKGS+='python3 python3-pip '
 fi
 PIP_PKGS+='Cython '
+PIP_PKGS+='bitstruct '
 
 ## LibElf
 PKGS+='libelf-dev libelf1 '
