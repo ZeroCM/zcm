@@ -538,6 +538,9 @@ struct PyEmitStruct : public Emitter
 
             if (zm.dimensions.size() == 0) {
                 if (isolate) {
+                    if (!structFmt.empty()) {
+                        flushWriteStructFmt(structFmt, structMembers);
+                    }
                     emitEncodeOne(zm, "self." + zm.membername, 2);
                 } else {
                     structFmt.push_back(fmt);
