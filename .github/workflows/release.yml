@@ -10,7 +10,7 @@ jobs:
     name: Create Release
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       packages: write
     defaults:
       run:
