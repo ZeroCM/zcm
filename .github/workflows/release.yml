@@ -77,8 +77,8 @@ jobs:
         id: create_release
         uses: ncipollo/release-action@v1
         with:
-          name: Release ${{ github.ref }}
-          tag: ${{ github.ref }}
+          name: Release ${{ github.ref_name }}
+          tag: ${{ github.ref_name }}
           bodyFile: "docs/changelog.md"
           token: ${{ secrets.GITHUB_TOKEN }}
           draft: false
