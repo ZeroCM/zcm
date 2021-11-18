@@ -112,7 +112,10 @@ fi
 
 ## Node
 if $USE_NODE; then
-    bash -c "export NVM_DIR=\$HOME/.nvm; [ -s \"\$NVM_DIR/nvm.sh\" ] && \\. \"\$NVM_DIR/nvm.sh\"; nvm --version" > /dev/null 2>&1
+    bash -c "export NVM_DIR=\$HOME/.nvm; \
+        [ -s \"\$NVM_DIR/nvm.sh\" ] && \
+        \\. \"\$NVM_DIR/nvm.sh\"; \
+        nvm --version" > /dev/null 2>&1
     nvmExists=$?
     if [ $nvmExists -ne 0 ]; then
         echo "Downloading NVM"
@@ -124,8 +127,12 @@ if $USE_NODE; then
         $outfile
         rm $outfile
     fi
-    echo "Installing node version 4.2.6"
-    bash -c "export NVM_DIR=\$HOME/.nvm; [ -s \"\$NVM_DIR/nvm.sh\" ] && \\. \"\$NVM_DIR/nvm.sh\"; nvm install 4.2.6 && nvm alias default 4.2.6"
+    echo "Installing node version v10.23.3"
+    bash -c "export NVM_DIR=\$HOME/.nvm; \
+        [ -s \"\$NVM_DIR/nvm.sh\" ] && \
+        \\. \"\$NVM_DIR/nvm.sh\"; \
+        nvm install v10.23.3 && \
+        nvm alias default v10.23.3"
 fi
 
 ## Julia
