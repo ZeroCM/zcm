@@ -319,12 +319,12 @@ function zcm(zcmtypes, zcmurl)
     parent.start();
 }
 
-function zcm_create(zcmtypes, zcmurl, http)
+function zcm_create(zcmtypes, zcmurl, http, socketIoOptions = {})
 {
     var ret = new zcm(zcmtypes, zcmurl);
 
     if (http) {
-        var io = require('socket.io')(http);
+        var io = require('socket.io')(http, { ...socketIoOptions, path: "/zcm" });
 
         io.on('connection', function (socket) {
             var subscriptions = {};
