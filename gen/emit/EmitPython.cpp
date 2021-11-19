@@ -90,7 +90,7 @@ struct PyEmitStruct : public Emitter
             bool isHex = zc.valstr.size() > 2 &&
                          zc.valstr.compare(0, hexPrefix.length(), hexPrefix) == 0;
             bool isNeg = zc.val.i64 < 0;
-            if (isHex && !isNeg) {
+            if (!zc.isFixedPoint() || (isHex && !isNeg)) {
                 emit(1, "%s = %s;", zc.membername.c_str(), zc.valstr.c_str());
             } else {
                 emit(1, "%s = %lld;", zc.membername.c_str(), zc.val.i64);
