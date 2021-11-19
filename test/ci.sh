@@ -23,7 +23,7 @@ build_examples() {
     source $ROOTDIR/examples/env $1
     $ROOTDIR/waf build_examples
     $ROOTDIR/waf build_tests
-    $ROOTDIR/build/tests/test/runner
+    $ROOTDIR/run-tests.sh
 }
 
 # Basic build
