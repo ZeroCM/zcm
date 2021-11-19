@@ -1,12 +1,12 @@
-var imported = document.createElement('script');
-imported.src = '/socket.io/socket.io.js';
-document.head.appendChild(imported);
-
 var zcm = (function(){
 
-    function create()
+    function create(socketOptions = { path: "/zcm" })
     {
-        var socket = io();
+        var imported = document.createElement('script');
+        imported.src = `${path}socket.io.js`;
+        document.head.appendChild(imported);
+
+        var socket = io(socketOptions);
 
         var subscriptions = {};
 
