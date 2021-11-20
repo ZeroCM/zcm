@@ -7,12 +7,12 @@
     "autoformat": "prettier '**/*.js' --write",
     "postinstall": "cp ../../build/tests/test/types/zcmtypes.js node_modules/"
   },
-  "dependencies": {
-    "zerocm": "file:../../build/zcm/js/zerocm-1.1.2.tgz"
-  },
   "devDependencies": {
     "prettier": "^2.4.1"
   },
   "author": "The Zcm Team",
-  "license": "LGPL"
+  "license": "LGPL",
+  "dependencies": {
+    "zerocm": "file:../../build/zcm/js/zerocm-1.1.2.tgz"
+  }
 }
