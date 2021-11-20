@@ -29,7 +29,10 @@ int main(int argc, char *argv[])
     for(int i = 0; i < my_data.num_ranges; i++)
         my_data.ranges[i] = i%20000;
 
+    #if !defined(__clang__)
     my_data.name = my_data.test_const_string;
+    #endif
+
     my_data.enabled = true;
 
     while (1) {

@@ -13,6 +13,11 @@ THISDIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
 ROOTDIR=${THISDIR%/test}
 ####
 
+BLD=tests
+if [ $# -ne 0 ]; then
+    BLD=$BLD$1
+fi
+
 #### We want to exit with an error code if anything goes wrong
 set -o errtrace
 set -uo pipefail
@@ -31,13 +36,30 @@ echo
 echo "**********************************"
 echo "Running core tests"
 echo "**********************************"
-#$ROOTDIR/build/tests/test/runner
+$ROOTDIR/build/$BLD/test/runner
 echo "Success"
+
+if [ $# -ne 0 ]; then
+    echo "Skipping non c/c++ lanugage tests in sanitizer mode"
+    exit 0
+fi
 
 echo
 echo
 echo "**********************************"
 echo "Running python tests"
 echo "**********************************"
-python $THISDIR/python/bitfield-test.py
+$PYTHON $THISDIR/python/bitfield-test.py
+echo "Success"
+
+echo
+echo
+echo "**********************************"
+echo "Running node tests"
+echo "**********************************"
+pushd $THISDIR/node
+nvm use
+rm -rf node_modules
+npm i --unsafe-perm
+node index.js
 echo "Success"
