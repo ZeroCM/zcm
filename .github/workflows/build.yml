@@ -81,12 +81,9 @@ jobs:
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache
 
-      - name: Image digest
-        run: echo ${{ steps.docker_build.outputs.digest }}
-
       - name: Run tests
         run: |
-            docker run --rm ${{ steps.repo_slug.outputs.result }}
+            docker run --rm ${{ steps.meta.outputs.tags }}
 
       - name: Log in to the Container registry
         uses: docker/login-action@v1
