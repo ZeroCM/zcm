@@ -37,7 +37,21 @@ struct SpyInfo
 
     MsgInfo *getCurrentMsginfo(const char **channel)
     {
-        auto& ch = names[decode_index];
+        string ch;
+
+        assert(decode_index >= 0);
+
+        size_t num = 0;
+        for (const auto& channel : names) {
+            if (!prefix_filter.empty() && channel.rfind(prefix_filter, 0) != 0)
+                continue;
+            if (num == (size_t)decode_index) {
+                ch = channel;
+                break;
+            }
+            num++;
+        }
+        assert(!ch.empty());
         MsgInfo **m = lookup(minfomap, ch);
         assert(m);
         if (channel)
@@ -47,7 +61,13 @@ struct SpyInfo
 
     bool isValidChannelnum(size_t index)
     {
-        return index < names.size();
+        size_t num = 0;
+        for (const auto& channel : names) {
+            if (!prefix_filter.empty() && channel.rfind(prefix_filter, 0) != 0)
+                continue;
+            num++;
+        }
+        return index < num;
     }
 
     void addMessage(const char *channel, const zcm_recv_buf_t *rbuf)
@@ -102,6 +122,7 @@ struct SpyInfo
 
         DEBUG(5, "start-loop\n");
 
+        size_t numShowing = 0;
         for (size_t i = 0; i < names.size(); i++) {
             auto& channel = names[i];
             if (!prefix_filter.empty() && channel.rfind(prefix_filter, 0) != 0)
@@ -110,12 +131,13 @@ struct SpyInfo
             assert(minfo != NULL);
             float hz = (*minfo)->getHertz();
             printf("   %3zu)  %-31s%12" PRIu64 "    %7.2f",
-                   i, channel.c_str(), (*minfo)->getNumMsgs(), hz);
+                   numShowing, channel.c_str(), (*minfo)->getNumMsgs(), hz);
             if (showBandwidth) {
                 float bandwidth = (*minfo)->getBandwidthBps() / 1024;
                 printf("     %7.2f", bandwidth);
             }
             printf("\n");
+            numShowing++;
         }
 
         printf("\n");
