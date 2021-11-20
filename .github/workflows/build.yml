@@ -76,6 +76,7 @@ jobs:
           builder: ${{ steps.buildx.outputs.name }}
           platforms: linux/amd64
           push: false
+          load: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=local,src=/tmp/.buildx-cache

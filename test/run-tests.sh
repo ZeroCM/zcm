@@ -39,7 +39,7 @@ echo
 echo "**********************************"
 echo "Running python tests"
 echo "**********************************"
-python $THISDIR/python/bitfield-test.py
+$PYTHON $THISDIR/python/bitfield-test.py
 echo "Success"
 
 echo
@@ -49,5 +49,6 @@ echo "Running node tests"
 echo "**********************************"
 pushd $THISDIR/node
 nvm use
+npm i --unsafe-perm
 node index.js
 echo "Success"
