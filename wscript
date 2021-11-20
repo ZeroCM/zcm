@@ -34,6 +34,10 @@ def options(ctx):
     add_zcm_configure_options(ctx)
     add_zcm_build_options(ctx)
 
+    gr = ctx.add_option_group('Verification Options')
+    gr.add_option('--match-version', dest = 'version_match', action = 'store',
+                  help = 'Ensure ZCM version matches this number')
+
 def add_zcm_configure_options(ctx):
     gr = ctx.add_option_group('ZCM Configuration Options')
 
@@ -128,6 +132,11 @@ def version(ctx):
 
     if versionZCM != versionNODE_EX:
         raise WafError("Version mismatch between core and nodejs")
+
+    versionMatch = getattr(waflib.Options.options, "version_match").lstrip("v")
+    if versionMatch:
+        if versionZCM != versionMatch:
+            raise WafError("Version does not match: %s != %s" % (versionMatch, versionZCM))
 
     Logs.pprint('RED','ZCM Version: %s' % (versionZCM))
 
