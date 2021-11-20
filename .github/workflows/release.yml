@@ -22,6 +22,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
+      - name: Check Version
+        run: ./waf version --match-version ${{ github.ref_name }}
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v1
 
