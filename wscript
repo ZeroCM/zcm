@@ -133,8 +133,9 @@ def version(ctx):
     if versionZCM != versionNODE_EX:
         raise WafError("Version mismatch between core and nodejs")
 
-    versionMatch = getattr(waflib.Options.options, "version_match").lstrip("v")
+    versionMatch = getattr(waflib.Options.options, "version_match")
     if versionMatch:
+        versionMatch = versionMatch.lstrip("v")
         if versionZCM != versionMatch:
             raise WafError("Version does not match: %s != %s" % (versionMatch, versionZCM))
 
