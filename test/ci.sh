@@ -35,9 +35,9 @@ build_examples() {
     source $ROOTDIR/examples/env $1
     set -u -o pipefail
     trap command_failed ERR
-    $ROOTDIR/waf build_examples
-    $ROOTDIR/waf build_tests
-    $ROOTDIR/test/run-tests.sh
+    $ROOTDIR/waf build_examples$2
+    $ROOTDIR/waf build_tests$2
+    $ROOTDIR/test/run-tests.sh "$2"
 }
 
 # Basic build
@@ -49,7 +49,7 @@ $ROOTDIR/waf configure --use-all --use-third-party --use-dev \
                        --track-traffic-topology=true --prefix=$tmpdir
 $ROOTDIR/waf build
 $ROOTDIR/waf install
-(build_examples $tmpdir)
+(build_examples $tmpdir "")
 
 # Full build asan
 $ROOTDIR/waf distclean
@@ -57,4 +57,4 @@ $ROOTDIR/waf configure --use-all --use-third-party --use-dev \
                        --track-traffic-topology=true --prefix=$tmpdirAsan
 $ROOTDIR/waf build_asan
 $ROOTDIR/waf install_asan
-(build_examples $tmpdirAsan)
+(build_examples $tmpdirAsan "_asan")
