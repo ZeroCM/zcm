@@ -31,7 +31,7 @@ echo
 echo "**********************************"
 echo "Running core tests"
 echo "**********************************"
-#$ROOTDIR/build/tests/test/runner
+$ROOTDIR/build/tests/test/runner
 echo "Success"
 
 echo
@@ -40,4 +40,14 @@ echo "**********************************"
 echo "Running python tests"
 echo "**********************************"
 python $THISDIR/python/bitfield-test.py
+echo "Success"
+
+echo
+echo
+echo "**********************************"
+echo "Running node tests"
+echo "**********************************"
+pushd $THISDIR/node
+nvm use
+node index.js
 echo "Success"

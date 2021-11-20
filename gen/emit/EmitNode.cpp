@@ -762,7 +762,7 @@ struct EmitModule : public Emitter
                                  zc.val.i64);
                 }
             } else {
-                if (isHex && !isNeg) {
+                if (!zc.isFixedPoint() || (isHex && !isNeg)) {
                     emit(indent, "%s.%s = %s;", prefix.c_str(),
                                  zc.membername.c_str(),
                                  zc.valstr.c_str());
