@@ -43,6 +43,9 @@ msg.orientation = [1.1, 2.2, 3.3, 4.4];
 msg.ranges = [10, 20]
 msg.num_ranges = len(msg.ranges)
 msg.name = "this is a test"
+msg.ignore0 = 0
+msg.ignore1 = 0
+msg.ignore2 = 0
 msg.enabled = True
 
 assert(msg.test_const_8_max_hex  == -1);

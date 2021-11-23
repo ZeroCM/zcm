@@ -7,6 +7,7 @@ struct example_t
     int32_t  num_ranges;
     int16_t  ranges[num_ranges];
     string   name;
+    int16_t  ignore0, ignore1, ignore2;
     boolean  enabled;
 
     const int8_t  test_const_8_max_hex  = 0xff;

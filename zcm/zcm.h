@@ -13,7 +13,7 @@ extern "C" {
  */
 #define ZCM_MAJOR_VERSION 1
 #define ZCM_MINOR_VERSION 1
-#define ZCM_MICRO_VERSION 4
+#define ZCM_MICRO_VERSION 5
 
 #include <stdint.h>
 
