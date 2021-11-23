@@ -259,6 +259,9 @@ struct PyEmitStruct : public Emitter
 
             if (zm.dimensions.size() == 0) {
                 if (isolate) {
+                    if (!structFmt.empty()) {
+                        flushReadStructFmt(structFmt, structMembers);
+                    }
                     string accessor = "self." + zm.membername + " = ";
                     emitDecodeOne(zm, accessor.c_str(), 2, "");
                 } else {
