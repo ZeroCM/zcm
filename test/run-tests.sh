@@ -28,6 +28,8 @@ function command_failed() {
 }
 trap command_failed ERR
 
+export LD_LIBRARY_PATH=$ROOTDIR/build/$BLD/test/types
+
 export JAVA_HOME=$(readlink -f /usr/bin/javac | sed "s:/bin/javac::")
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
