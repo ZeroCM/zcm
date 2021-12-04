@@ -276,7 +276,7 @@ def zcmgen(ctx, **kw):
     if 'c_stlib' in lang:
         ctx.stlib(name            = uselib_name + '_c_stlib',
                   target          = uselib_name,
-                  use             = ['default', 'zcm'],
+                  use             = ['default', 'zcm', uselib_name + '_genfiles'],
                   includes        = inc,
                   export_includes = inc,
                   source          = csrc)
@@ -284,7 +284,7 @@ def zcmgen(ctx, **kw):
     if 'c_shlib' in lang:
         ctx.shlib(name            = uselib_name + '_c_shlib',
                   target          = uselib_name,
-                  use             = ['default', 'zcm'],
+                  use             = ['default', 'zcm', uselib_name + '_genfiles'],
                   includes        = inc,
                   export_includes = inc,
                   source          = csrc)
@@ -292,13 +292,13 @@ def zcmgen(ctx, **kw):
     if 'cpp' in lang:
         ctx(target          = uselib_name + '_cpp',
             rule            = 'touch ${TGT}',
-            use             = ['zcm'],
+            use             = ['zcm', uselib_name + '_genfiles'],
             export_includes = inc)
 
     if 'java' in lang:
         ctx(name     = uselib_name + '_java',
             features = 'javac jar',
-            use      = ['zcmjar', genfiles_name],
+            use      = ['zcmjar', genfiles_name, uselib_name + '_genfiles'],
             srcdir   = ctx.path.find_or_declare('java/' + javapkg.split('.')[0]),
             outdir   = 'java/classes',  # path to output (for .class)
             basedir  = 'java/classes',  # basedir for jar
@@ -306,11 +306,25 @@ def zcmgen(ctx, **kw):
 
     if 'python' in lang:
         ctx(target = uselib_name + '_python',
-            rule   = 'touch ${TGT}')
+            rule   = 'touch ${TGT}',
+            use    = ['zcm', uselib_name + '_genfiles'])
 
     if 'julia' in lang:
         ctx(target = uselib_name + '_julia',
-            rule   = 'touch ${TGT}')
+            rule   = 'touch ${TGT}',
+            use    = ['zcm', uselib_name + '_genfiles'])
+
+    ctx(target = uselib_name,
+        rule   = 'touch ${TGT}',
+        use    = [ 'zcm',
+                   uselib_name + '_nodejs',
+                   uselib_name + '_juliapkgs',
+                   uselib_name + '_c_shlib',
+                   uselib_name + '_c_stlib',
+                   uselib_name + '_cpp',
+                   uselib_name + '_java',
+                   uselib_name + '_python',
+                   uselib_name + '_julia' ])
 
 
 @extension('.zcm')
