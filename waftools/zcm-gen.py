@@ -256,6 +256,7 @@ def zcmgen(ctx, **kw):
              littleEndian = littleEndian,
              juliapkg     = juliapkg,
              javapkg      = javapkg)
+    tg.post()
     for s in tg.source:
         ctx.add_manual_dependency(s, zcmgen)
 
@@ -290,10 +291,14 @@ def zcmgen(ctx, **kw):
                   source          = csrc)
 
     if 'cpp' in lang:
-        ctx(target          = uselib_name + '_cpp',
-            rule            = 'touch ${TGT}',
-            use             = ['zcm'],
-            export_includes = inc)
+        cpp = ctx(target          = uselib_name + '_cpp',
+                  rule            = 'touch ${TGT}',
+                  use             = ['zcm'],
+                  export_includes = inc)
+        cpp.post()
+        for t1 in cpp.tasks:
+            for t2 in tg.tasks:
+                t1.set_run_after(t2)
 
     if 'java' in lang:
         ctx(name     = uselib_name + '_java',
@@ -305,12 +310,20 @@ def zcmgen(ctx, **kw):
             destfile = uselib_name + '.jar')
 
     if 'python' in lang:
-        ctx(target = uselib_name + '_python',
-            rule   = 'touch ${TGT}')
+        py = ctx(target = uselib_name + '_python',
+                 rule   = 'touch ${TGT}')
+        py.post()
+        for t1 in py.tasks:
+            for t2 in tg.tasks:
+                t1.set_run_after(t2)
 
     if 'julia' in lang:
-        ctx(target = uselib_name + '_julia',
-            rule   = 'touch ${TGT}')
+        jl = ctx(target = uselib_name + '_julia',
+                 rule   = 'touch ${TGT}')
+        jl.post()
+        for t1 in jl.tasks:
+            for t2 in tg.tasks:
+                t1.set_run_after(t2)
 
 
 @extension('.zcm')
