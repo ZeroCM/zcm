@@ -88,6 +88,8 @@ def add_zcm_build_options(ctx):
                    help='Leave the debugging symbols in the resulting object files')
     gr.add_option('-d', '--debug', dest='debug', default=False, action='store_true',
                    help='Compile all C/C++ code in debug mode: no optimizations and full symbols')
+    ctx.add_option('-g', '--skip-signatures', dest='skip_git', default=False, action='store_true',
+                   help='Skip building the git signature')
 
 def configure(ctx):
     for e in variants:
@@ -453,7 +455,10 @@ def build(ctx):
         ctx.recurse('tools')
         ctx.recurse('DEBIAN')
         ctx.install_as('${PREFIX}/share/doc/zcm/copyright', 'LICENSE')
-        generate_signature(ctx)
+        if not waflib.Options.options.skip_git:
+            generate_signature(ctx)
+        else:
+            Logs.pprint('RED', '\nSkipping git signatures\n')
 
 
 def distclean(ctx):
