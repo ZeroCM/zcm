@@ -882,6 +882,7 @@ void ZCMMember::dump() const
 
 void ZCMStruct::dump() const
 {
+    // RRR (Bendes): This is wrong. Needs to be hex format not PRId64 format
     printf("struct %s [hash=0x%16" PRId64 "]\n", structname.fullname.c_str(), hash);
     for (auto& zm : members)
         zm.dump();
