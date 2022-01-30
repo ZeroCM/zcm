@@ -4,6 +4,8 @@
 
 #include "util/StringUtil.hpp"
 
+#include "zcm/json/json.h"
+
 extern "C" {
 #include "getopt.h"
 }
@@ -27,7 +29,6 @@ struct ZCMTypename
     bool signExtend = false;
 
     ZCMTypename(ZCMGen& zcmgen, const string& name, bool skipPrefix = false);
-    void dump() const;
 
     // Returns { conflicting tokens }
     unordered_set<string>
@@ -88,7 +89,7 @@ struct ZCMMember
     unordered_set<string>
         getConflictingTokens(const unordered_set<string>& reservedTokens) const;
 
-    void dump() const;
+    void dump(zcm::Json::Value& root) const;
     ZCMMember(const ZCMTypename& type, const string& membername) :
         type(type), membername(membername)
     {}
@@ -163,7 +164,7 @@ struct ZCMStruct
     unordered_set<string>
         getConflictingTokens(const unordered_set<string>& reservedTokens) const;
 
-    void dump() const;
+    void dump(zcm::Json::Value& root) const;
     ZCMStruct(ZCMGen& zcmgen, const string& zcmfile, const string& structname);
 };
 

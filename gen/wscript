@@ -4,7 +4,7 @@
 def build(ctx):
     ctx.program(target = 'zcm-gen',
                 includes = '.', # need this because some files under emit include up to base dir
-                use = 'default',
+                use = 'default zcm', # depends on zcm only for json support
                 source = ctx.path.ant_glob('*.c *.cpp **/*.c **/*.cpp', excl='disabled/*'))
 
     ctx.install_files('${PREFIX}/share/waf/',
