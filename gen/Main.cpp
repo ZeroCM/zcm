@@ -15,7 +15,7 @@ int main(int argc, char* argv[])
     gopt.addBool('t', "tokenize",               0,  "Show tokenization");
     gopt.addBool(0,   "package",                0,  "Show only package");
     gopt.addBool(0,   "output-files",           0,  "Show output filenames only");
-    gopt.addBool('d', "debug",                  0,  "Show parsed file");
+    gopt.addBool('d', "summary",                0,  "Show parsed file");
     gopt.addBool(0,   "lazy",                   0,  "Generate output file only if .zcm is newer");
     gopt.addString(0, "package-prefix",         "",
                       "Add this package name as a prefix to the declared package");
@@ -120,7 +120,7 @@ int main(int argc, char* argv[])
 
     int did_something = 0;
     int ret = 0;
-    if (gopt.getBool("debug")) {
+    if (gopt.getBool("summary")) {
         did_something = 1;
         zcm.dump();
     }

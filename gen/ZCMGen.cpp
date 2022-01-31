@@ -850,47 +850,38 @@ int ZCMGen::handleFile(const string& path)
         return res;
 }
 
-void ZCMTypename::dump() const
+void ZCMMember::dump(zcm::Json::Value& root) const
 {
-    printf("\t%-20s", fullname.c_str());
-}
+    root[membername]["typename"] = type.fullname;
 
-void ZCMMember::dump() const
-{
-    type.dump();
-
-    printf("  ");
-
-    printf("%s", membername.c_str());
-
-    for (auto& dim : dimensions) {
+    for (size_t i = 0; i < dimensions.size(); ++i) {
+        const auto& dim = dimensions[i];
+        root[membername]["dims"][(int)i]["size"] = dim.size;
         switch (dim.mode) {
             case ZCM_CONST:
-                printf(" [ (const) %s ]", dim.size.c_str());
+                root[membername]["dims"][(int)i]["type"] = "const";
                 break;
             case ZCM_VAR:
-                printf(" [ (var) %s ]", dim.size.c_str());
+                root[membername]["dims"][(int)i]["type"] = "var";
                 break;
             default:
                 // oops! unhandled case
                 assert(0);
         }
     }
-
-    printf("\n");
 }
 
-void ZCMStruct::dump() const
+void ZCMStruct::dump(zcm::Json::Value& root) const
 {
-    printf("struct %s [hash=0x%16" PRId64 "]\n", structname.fullname.c_str(), hash);
-    for (auto& zm : members)
-        zm.dump();
+    root[structname.fullname]["hash"] = (zcm::Json::Value::UInt64)hash;
+    for (auto& zm : members) zm.dump(root[structname.fullname]["members"]);
 }
 
 void ZCMGen::dump() const
 {
-    for (auto& zs : structs)
-        zs.dump();
+    zcm::Json::Value root;
+    for (auto& zs : structs) zs.dump(root);
+    std::cout << root << std::endl;
 }
 
 /** Find and return the member whose name is name. **/
