@@ -168,11 +168,13 @@ if $USE_JULIA; then
 
         if $JULIA_0_6_MODE; then
             wget -q https://julialang-s3.julialang.org/bin/linux/$FOLDER/0.6/julia-0.6.4-linux-$ARCH.tar.gz
+            if [ $? -ne 0 ]; then >&2 echo "Unable to download julia 0.6"; exit 1; fi
             tar -xaf julia-0.6.4-linux-$ARCH.tar.gz
             rm -rf $ROOTDIR/deps/julia
             mv julia-9d11f62bcb $ROOTDIR/deps/julia
         else
             wget -q https://julialang-s3.julialang.org/bin/linux/$FOLDER/1.6/julia-1.6.0-linux-$ARCH.tar.gz
+            if [ $? -ne 0 ]; then >&2 echo "Unable to download julia 1.6"; exit 1; fi
             tar -xaf julia-1.6.0-linux-$ARCH.tar.gz
             rm -rf $ROOTDIR/deps/julia
             mv julia-1.6.0 $ROOTDIR/deps/julia
