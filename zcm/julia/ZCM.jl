@@ -87,11 +87,17 @@ end
 
 using .Native: RecvBuf
 
+struct SubscriptionHandler{F}
+    jl_handler::F
+    msgtype
+    additional_args::Tuple
+end
+
 """
 The Subscription type contains the Julia handler and also all of the various C pointers
 """
 struct Subscription{F}
-    jl_handler::F
+    jl_handler::SubscriptionHandler{F}
     c_handler::Ptr{Cvoid}
     native_sub::Ptr{Native.Sub}
 end
@@ -134,58 +140,70 @@ function strerrno(err::Int)
     end
 end
 
-function handler_wrapper(rbuf::Native.RecvBuf, channelbytes::Cstring, handler)
+function handler_wrapper(rbuf::Native.RecvBuf, channelbytes::Cstring,
+                         sub::Ref{S}) where S <: SubscriptionHandler
+
+    println("entering handler")
     channel = unsafe_string(channelbytes)
     msgdata = unsafe_wrap(Vector{UInt8}, rbuf.data, rbuf.data_size)
-    handler(rbuf, channel, msgdata)
+
+    println("deref sub")
+    s = sub[]
+    println("$(s.msgtype)")
+    println("$(s.additional_args)")
+    println("$(s.jl_handler)")
+
+    if s.msgtype == Nothing
+        s.jl_handler(rbuf, channel, msgdata, s.additional_args...)
+    else
+        d = decode(s.msgtype, msgdata)
+        s.jl_handler(rbuf, channel, d, s.additional_args...)
+    end
+
     return nothing
 end
 
-function typed_handler(handler, msgtype::Type{T}, args...) where T <: AbstractZcmType
-    (rbuf, channel, msgdata) -> handler(rbuf, channel, decode(T, msgdata), args...)
-end
-
-function typed_handler(handler, msgtype::Type{Nothing}, args...)
-    (rbuf, channel, msgdata) -> handler(rbuf, channel, msgdata, args...)
-end
-
-sub_handler(::Type{T}) where {T} =
-    @cfunction(handler_wrapper, Cvoid, (Ref{Native.RecvBuf}, Cstring, Ref{T}))
-
 """
-    subscribe(zcm::Zcm, channel::AbstractString, handler, additional_args...)
+    subscribe(zcm::Zcm, channel::AbstractString, handler, msgtype, additional_args...)
 
 Adds a subscription using ZCM object `zcm` on the given channel. The `handler`
 must be a function or callable object, and will be called with:
 
-    handler(rbuf::RecvBuf, channel::String, msgdata::Vector{UInt8})
+    if msgtype = Nothing
+        handler(rbuf::RecvBuf, channel::String, msgdata::Vector{UInt8})
+    else
+        handler(rbuf::RecvBuf, channel::String, msg::msgtype)
 
 If additional arguments are supplied to `subscribe()` after the handler,
 then they will also be passed to the handler each time it is called. So:
 
-    subscribe(zcm, channel, handler, X, Y, Z)
+    subscribe(zcm, channel, handler, msgType, X, Y, Z)
 
 will cause `handler()` to be invoked with:
 
-    handler(rbuf, channel, msgdata, X, Y, Z)
+    handler(rbuf, channel, msg, X, Y, Z)
 """
 function subscribe(zcm::Zcm, channel::AbstractString,
                    handler, msgtype=Nothing,
                    additional_args...)
-    callback = typed_handler(handler, msgtype, additional_args...)
-    c_handler = sub_handler(typeof(callback))
+
+    c_handler = @cfunction(handler_wrapper, Cvoid,
+                           (Ref{Native.RecvBuf}, Cstring, Ref{Subscription}))
+
+    handler = SubscriptionHandler(handler, msgtype, additional_args)
+
     csub = Ptr{Native.Sub}(C_NULL)
     while (true)
         csub = ccall(("zcm_try_subscribe", "libzcm"), Ptr{Native.Sub},
                      (Ptr{Native.Zcm}, Cstring, Ptr{Cvoid}, Ptr{Cvoid}),
-                     zcm, channel, c_handler, Ref(callback))
+                     zcm, channel, c_handler, Ref(handler))
         if (csub == C_NULL)
             yield()
         else
             break
         end
     end
-    sub = Subscription(callback, c_handler, csub)
+    sub = Subscription(handler, c_handler, csub)
     push!(zcm.subscriptions, sub)
     return sub
 end
