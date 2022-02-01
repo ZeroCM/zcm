@@ -108,6 +108,7 @@ struct zcm_blocking
     void start();
     int stop(bool block);
     int handle();
+    int handle_nonblock();
 
 
     void pause();
@@ -126,6 +127,8 @@ struct zcm_blocking
     void sendThreadFunc();
     void recvThreadFunc();
     void hndlThreadFunc();
+
+    bool startRecvThread();
 
     void dispatchMsg(zcm_msg_t* msg);
     bool dispatchOneMessage(bool returnIfPaused);
@@ -357,29 +360,44 @@ int zcm_blocking_t::stop(bool block)
     return ZCM_EOK;
 }
 
-int zcm_blocking_t::handle()
+bool zcm_blocking_t::startRecvThread()
 {
-    {
-        unique_lock<mutex> lk1(recvModeMutex);
-        if (recvMode != RECV_MODE_NONE && recvMode != RECV_MODE_HANDLE) {
-            ZCM_DEBUG("Err: call to handle() when 'recvMode != RECV_MODE_NONE && recvMode != RECV_MODE_HANDLE'");
-            return ZCM_EINVALID;
-        }
-
-        // If this is the first time handle() is called, we need to start the recv thread
-        if (recvMode == RECV_MODE_NONE) {
-            recvMode = RECV_MODE_HANDLE;
-
-            unique_lock<mutex> lk2(recvStateMutex);
-            lk1.unlock();
-            // Spawn the recv thread
-            recvThreadState = THREAD_STATE_RUNNING;
-            recvQueue.enable();
-            recvThread = thread{&zcm_blocking::recvThreadFunc, this};
-        }
+    unique_lock<mutex> lk1(recvModeMutex);
+    if (recvMode != RECV_MODE_NONE && recvMode != RECV_MODE_HANDLE) {
+        ZCM_DEBUG("Err: call to handle() or handle_nonblock() "
+                  "when 'recvMode != RECV_MODE_NONE && recvMode != RECV_MODE_HANDLE'");
+        return false;
     }
 
+    // If this is the first time handle() is called, we need to start the recv thread
+    if (recvMode == RECV_MODE_NONE) {
+        recvMode = RECV_MODE_HANDLE;
+
+        unique_lock<mutex> lk2(recvStateMutex);
+        lk1.unlock();
+        // Spawn the recv thread
+        recvThreadState = THREAD_STATE_RUNNING;
+        recvQueue.enable();
+        recvThread = thread{&zcm_blocking::recvThreadFunc, this};
+    }
+
+    return true;
+}
+
+int zcm_blocking_t::handle()
+{
+    if (!startRecvThread()) return ZCM_EINVALID;
+
     unique_lock<mutex> lk(dispOneMutex);
+    return dispatchOneMessage(true) ? ZCM_EOK : ZCM_EAGAIN;
+}
+
+int zcm_blocking_t::handle_nonblock()
+{
+    if (!startRecvThread()) return ZCM_EINVALID;
+
+    unique_lock<mutex> lk(dispOneMutex);
+    if (!recvQueue.hasMessage()) return ZCM_EAGAIN;
     return dispatchOneMessage(true) ? ZCM_EOK : ZCM_EAGAIN;
 }
 
@@ -890,6 +908,11 @@ void zcm_blocking_stop(zcm_blocking_t* zcm)
 int zcm_blocking_handle(zcm_blocking_t* zcm)
 {
     return zcm->handle();
+}
+
+int zcm_blocking_handle_nonblock(zcm_blocking_t* zcm)
+{
+    return zcm->handle_nonblock();
 }
 
 void zcm_blocking_set_queue_size(zcm_blocking_t* zcm, uint32_t sz)

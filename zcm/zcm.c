@@ -320,8 +320,21 @@ int zcm_write_topology(zcm_t* zcm, const char* name)
 
 int zcm_handle_nonblock(zcm_t* zcm)
 {
+    int ret = ZCM_EUNKNOWN;
+#ifndef ZCM_EMBEDDED
+    switch (zcm->type) {
+        case ZCM_BLOCKING:
+            ret = zcm_blocking_handle_nonblock(zcm->impl);
+            break;
+        case ZCM_NONBLOCKING:
+            ret = zcm_nonblocking_handle_nonblock(zcm->impl);
+            break;
+    }
+#else
     ZCM_ASSERT(zcm->type == ZCM_NONBLOCKING);
-    return zcm_nonblocking_handle_nonblock(zcm->impl);
+    ret = zcm_nonblocking_handle_nonblock(zcm->impl);
+#endif
+    return ret;
 }
 
 
