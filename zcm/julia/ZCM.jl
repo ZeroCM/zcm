@@ -165,10 +165,8 @@ function make_handler_wrapper(::Type{T}) where T <: SubscriptionHandler
 
         return nothing
     end
+    return handler_wrapper
 end
-
-sub_handler(::Type{T}) where {T} =
-    @cfunction(make_handler_wrapper(T), Cvoid, (Ref{Native.RecvBuf}, Cstring, Ref{T}))
 
 """
     subscribe(zcm::Zcm, channel::AbstractString, handler, msgtype, additional_args...)
@@ -195,7 +193,8 @@ function subscribe(zcm::Zcm, channel::AbstractString,
                    additional_args...)
 
     handler = SubscriptionHandler(handler, msgtype, additional_args)
-    c_handler = sub_handler(typeof(handler))
+    wrapper = make_handler_wrapper(typeof(handler))
+    c_handler = @cfunction(wrapper, Cvoid, (Ref{Native.RecvBuf}, Cstring, jtr{Cvoid}))
     csub = Ptr{Native.Sub}(C_NULL)
     while (true)
         csub = ccall(("zcm_try_subscribe", "libzcm"), Ptr{Native.Sub},
