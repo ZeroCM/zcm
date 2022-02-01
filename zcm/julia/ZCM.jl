@@ -98,7 +98,7 @@ The Subscription type contains the Julia handler and also all of the various C p
 """
 struct Subscription{F}
     jl_handler::SubscriptionHandler{F}
-    c_handler::Ptr{Cvoid}
+    c_handler::Union{Ptr{Cvoid}, Base.CFunction}
     native_sub::Ptr{Native.Sub}
 end
 
@@ -142,14 +142,14 @@ end
 
 function make_handler_wrapper(::Type{T}) where T <: SubscriptionHandler
     function handler_wrapper(rbuf::Native.RecvBuf, channelbytes::Cstring,
-                             sub::Ptr{Cvoid})
+                             subptr::Ptr{Cvoid})
 
         println("entering handler")
         channel = unsafe_string(channelbytes)
         msgdata = unsafe_wrap(Vector{UInt8}, rbuf.data, rbuf.data_size)
 
         println("deref sub")
-        s = unsafe_pointer_to_objref(sub)::T
+        s = (unsafe_pointer_to_objref(subptr)::Ref{T})[]
         println("$(s.msgtype)")
         println("$(s.additional_args)")
         println("$(s.jl_handler)")
@@ -194,7 +194,8 @@ function subscribe(zcm::Zcm, channel::AbstractString,
 
     handler = SubscriptionHandler(handler, msgtype, additional_args)
     wrapper = make_handler_wrapper(typeof(handler))
-    c_handler = @cfunction(wrapper, Cvoid, (Ref{Native.RecvBuf}, Cstring, jtr{Cvoid}))
+    # RRR: this is incompatible on some architectures (including arm)
+    c_handler = @cfunction($wrapper, Cvoid, (Ref{Native.RecvBuf}, Cstring, Ptr{Cvoid}))
     csub = Ptr{Native.Sub}(C_NULL)
     while (true)
         csub = ccall(("zcm_try_subscribe", "libzcm"), Ptr{Native.Sub},
