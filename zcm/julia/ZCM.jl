@@ -140,28 +140,35 @@ function strerrno(err::Int)
     end
 end
 
-function handler_wrapper(rbuf::Native.RecvBuf, channelbytes::Cstring,
-                         sub::Ref{S}) where S <: SubscriptionHandler
+function make_handler_wrapper(::Type{T}) where T <: SubscriptionHandler
+    function handler_wrapper(rbuf::Native.RecvBuf, channelbytes::Cstring,
+                             sub::Ptr{Cvoid})
 
-    println("entering handler")
-    channel = unsafe_string(channelbytes)
-    msgdata = unsafe_wrap(Vector{UInt8}, rbuf.data, rbuf.data_size)
+        println("entering handler")
+        channel = unsafe_string(channelbytes)
+        msgdata = unsafe_wrap(Vector{UInt8}, rbuf.data, rbuf.data_size)
 
-    println("deref sub")
-    s = sub[]
-    println("$(s.msgtype)")
-    println("$(s.additional_args)")
-    println("$(s.jl_handler)")
+        println("deref sub")
+        s = unsafe_pointer_to_objref(sub)::T
+        println("$(s.msgtype)")
+        println("$(s.additional_args)")
+        println("$(s.jl_handler)")
 
-    if s.msgtype == Nothing
-        s.jl_handler(rbuf, channel, msgdata, s.additional_args...)
-    else
-        d = decode(s.msgtype, msgdata)
-        s.jl_handler(rbuf, channel, d, s.additional_args...)
+        if s.msgtype == Nothing
+            s.jl_handler(rbuf, channel, msgdata, s.additional_args...)
+        else
+            d = decode(s.msgtype, msgdata)
+            s.jl_handler(rbuf, channel, d, s.additional_args...)
+        end
+
+        println("done with handler")
+
+        return nothing
     end
-
-    return nothing
 end
+
+sub_handler(::Type{T}) where {T} =
+    @cfunction(make_handler_wrapper(T), Cvoid, (Ref{Native.RecvBuf}, Cstring, Ref{T}))
 
 """
     subscribe(zcm::Zcm, channel::AbstractString, handler, msgtype, additional_args...)
@@ -187,11 +194,8 @@ function subscribe(zcm::Zcm, channel::AbstractString,
                    handler, msgtype=Nothing,
                    additional_args...)
 
-    c_handler = @cfunction(handler_wrapper, Cvoid,
-                           (Ref{Native.RecvBuf}, Cstring, Ref{Subscription}))
-
     handler = SubscriptionHandler(handler, msgtype, additional_args)
-
+    c_handler = sub_handler(typeof(handler))
     csub = Ptr{Native.Sub}(C_NULL)
     while (true)
         csub = ccall(("zcm_try_subscribe", "libzcm"), Ptr{Native.Sub},
