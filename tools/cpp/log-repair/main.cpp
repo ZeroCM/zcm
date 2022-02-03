@@ -54,7 +54,7 @@ struct Args
         infile = string(argv[optind]);
 
         if (outfile.empty() && !verify) {
-            cerr << "Must specify output file" << endl;
+            cerr << "Must specify output file or verify mode" << endl;
             return false;
         }
 
@@ -65,17 +65,17 @@ struct Args
     {
         cerr << "usage: zcm-log-repair [options] [FILE]" << endl
              << "" << endl
-             << "    Reads packets from an ZCM log file and re-writes that log file" << endl
-             << "    ensuring that all events are stored in recv_utime order." << endl
+             << "    Reads packets from a ZCM log file and writes them to an output "
+             << "    log file ensuring that all events are stored in recv_utime order." << endl
              << "    This is generally only required if the original log was captured" << endl
              << "    using multiple zcm shards and the user requires a strict ordering" << endl
              << "    of events in the log." << endl
              << "" << endl
              << "Options:" << endl
              << "" << endl
+             << "  -h, --help             Shows this help text and exits" << endl
              << "  -o, --output=filename  specify output file" << endl
              << "  -v, --verify           verify input log is monotonic in timestamp" << endl
-             << "  -h, --help             Shows some help text and exits." << endl
              << endl;
     }
 };
@@ -85,7 +85,6 @@ struct LogRepair
     Args args;
     zcm::LogFile* logIn  = nullptr;
     zcm::LogFile* logOut = nullptr;
-    zcm::LogFile* logVer = nullptr;
 
     const zcm::LogEvent*         event;
     off_t                        length;
@@ -97,18 +96,8 @@ struct LogRepair
 
     ~LogRepair()
     {
-        if (logIn)  {
-            if (logIn->good()) logIn->close();
-            delete  logIn;
-        }
-        if (logOut) {
-            if (logOut->good()) logOut->close();
-            delete logOut;
-        }
-        if (logVer) {
-            if (logVer->good()) logVer->close();
-            delete logVer;
-        }
+        if (logIn) delete logIn;
+        if (logOut) delete logOut;
     }
 
     bool init(int argc, char *argv[])
@@ -134,6 +123,7 @@ struct LogRepair
         length = ftello(logIn->getFilePtr());
         fseeko(logIn->getFilePtr(), 0, SEEK_SET);
 
+        // RRR (Bendes): This is arbitrary. Why are you doing this?
         timestamps.reserve(1e6);
 
         return true;
@@ -141,6 +131,15 @@ struct LogRepair
 
     int run()
     {
+        // RRR (Bendes): Doesn't feel responsible to assume we have enough memory
+        //               to build an lookup table of the entire log. Otherwise this
+        //               essentially puts an upper bound on how big a log can be.
+        //               But I see the desire to not to O(n^2) to do it naively
+        //               in passes and to get to something that's better average
+        //               runtime complexity is just more complicated. Maybe just
+        //               drop a comment in here that indicates we know it's a
+        //               problem and are willing to address whenever it becomes
+        //               an issue?
         cout << "Reading log" << endl;
         progress = 0;
         cout << progress << "%" << flush;
@@ -189,11 +188,11 @@ struct LogRepair
         }
 
         cout << endl << "Flushing to disk" << endl;
-        logOut->close();
+        delete logOut;
 
         cout << "Verifying output" << endl;
-        logVer = new zcm::LogFile(args.verify ? args.infile : args.outfile, "r");
-        if (!logVer->good()) {
+        logOut = new zcm::LogFile(args.verify ? args.infile : args.outfile, "r");
+        if (!logOut->good()) {
             cerr << "Error: Failed to open log for verification" << endl;
             return 1;
         }
@@ -204,7 +203,7 @@ struct LogRepair
         while (true) {
             if (done) return 1;
 
-            event = logVer->readNextEvent();
+            event = logOut->readNextEvent();
             if (!event) break;
             if (event->timestamp != timestamps[i++].first) {
                 cerr << endl << "Error: output log timestamp mismatch" << endl;
@@ -223,7 +222,7 @@ struct LogRepair
             cerr << endl << "Error: output log was missing "
                  << timestamps.size() - i << " events" << endl;
         }
-        logVer->close();
+        logOut->close();
 
         return 0;
     }
