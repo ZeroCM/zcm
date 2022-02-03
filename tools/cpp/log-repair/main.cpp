@@ -25,19 +25,22 @@ struct Args
 {
     string infile    = "";
     string outfile   = "";
+    bool   verifyOnly = false;
 
     bool init(int argc, char *argv[])
     {
         struct option long_opts[] = {
             { "help",                no_argument, 0, 'h' },
             { "output",        required_argument, 0, 'o' },
+            { "verify-only",         no_argument, 0, 'v' },
             { 0, 0, 0, 0 }
         };
 
         int c;
-        while ((c = getopt_long(argc, argv, "ho:f", long_opts, 0)) >= 0) {
+        while ((c = getopt_long(argc, argv, "ho:v", long_opts, 0)) >= 0) {
             switch (c) {
-                case 'o':          outfile   = string(optarg); break;
+                case 'o': outfile    = string(optarg); break;
+                case 'v': verifyOnly = true;           break;
                 case 'h': default: usage(); return false;
             };
         }
@@ -71,6 +74,9 @@ struct Args
              << "Options:" << endl
              << "" << endl
              << "  -o, --output=filename  specify output file" << endl
+             << "  -v, --verify-only      Skip writing output file, only verify that" << endl
+             << "                         an already existing output file is the repaired" << endl
+             << "                         version of the input." << endl
              << "  -h, --help             Shows some help text and exits." << endl
              << endl;
     }
@@ -118,10 +124,12 @@ struct LogRepair
             return false;
         }
 
-        logOut = new zcm::LogFile(args.outfile, "w");
-        if (!logOut->good()) {
-            cerr << "Error: Failed to create output log" << endl;
-            return false;
+        if (!args.verifyOnly) {
+            logOut = new zcm::LogFile(args.outfile, "w");
+            if (!logOut->good()) {
+                cerr << "Error: Failed to create output log" << endl;
+                return false;
+            }
         }
 
         fseeko(logIn->getFilePtr(), 0, SEEK_END);
@@ -158,23 +166,25 @@ struct LogRepair
         cout << "Repairing log data" << endl;
         sort(timestamps.begin(), timestamps.end());
 
-        cout << "Writing new log" << endl;
-        progress = 0;
-        cout << progress << "%" << flush;
-        for (size_t i = 0; i < timestamps.size(); ++i) {
-            if (done) return 1;
+        if (!args.verifyOnly) {
+            cout << "Writing new log" << endl;
+            progress = 0;
+            cout << progress << "%" << flush;
+            for (size_t i = 0; i < timestamps.size(); ++i) {
+                if (done) return 1;
 
-            size_t p = (100 * i) / timestamps.size();
-            if (p != progress) {
-                progress = p;
-                cout << "\r" << progress << "%" << flush;
+                logOut->writeEvent(logIn->readEventAtOffset(timestamps[i].second));
+
+                size_t p = (100 * i) / timestamps.size();
+                if (p != progress) {
+                    progress = p;
+                    cout << "\r" << progress << "%" << flush;
+                }
             }
 
-            logOut->writeEvent(logIn->readEventAtOffset(timestamps[i].second));
+            cout << endl << "Flushing to disk" << endl;
+            logOut->close();
         }
-
-        cout << endl << "Flushing to disk" << endl;
-        logOut->close();
 
         cout << "Verifying output" << endl;
         logVer = new zcm::LogFile(args.outfile, "r");
@@ -189,9 +199,12 @@ struct LogRepair
         while (true) {
             if (done) return 1;
 
-            event = logIn->readNextEvent();
+            event = logVer->readNextEvent();
+            if (!event) break;
             if (event->timestamp != timestamps[i++].first) {
                 cerr << endl << "Error: output log timestamp mismatch" << endl;
+                cerr << "Expected " << timestamps[i].first << " got "
+                     << event->timestamp << " (idx " << i << ")" << endl;
                 return 1;
             }
 
@@ -200,6 +213,10 @@ struct LogRepair
                 progress = p;
                 cout << "\r" << progress << "%" << flush;
             }
+        }
+        if (i < timestamps.size()) {
+            cerr << endl << "Error: output log was missing "
+                 << timestamps.size() - i << " events" << endl;
         }
 
         return 0;
