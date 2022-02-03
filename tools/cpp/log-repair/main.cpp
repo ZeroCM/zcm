@@ -23,16 +23,16 @@ static void sighandler(int signal)
 
 struct Args
 {
-    string infile    = "";
-    string outfile   = "";
-    bool   verifyOnly = false;
+    string infile  = "";
+    string outfile = "";
+    bool   verify  = false;
 
     bool init(int argc, char *argv[])
     {
         struct option long_opts[] = {
-            { "help",                no_argument, 0, 'h' },
-            { "output",        required_argument, 0, 'o' },
-            { "verify-only",         no_argument, 0, 'v' },
+            { "help",         no_argument, 0, 'h' },
+            { "output", required_argument, 0, 'o' },
+            { "verify",       no_argument, 0, 'v' },
             { 0, 0, 0, 0 }
         };
 
@@ -40,7 +40,7 @@ struct Args
         while ((c = getopt_long(argc, argv, "ho:v", long_opts, 0)) >= 0) {
             switch (c) {
                 case 'o': outfile    = string(optarg); break;
-                case 'v': verifyOnly = true;           break;
+                case 'v': verify = true;           break;
                 case 'h': default: usage(); return false;
             };
         }
@@ -53,7 +53,7 @@ struct Args
 
         infile = string(argv[optind]);
 
-        if (outfile.empty()) {
+        if (outfile.empty() && !verify) {
             cerr << "Must specify output file" << endl;
             return false;
         }
@@ -74,9 +74,7 @@ struct Args
              << "Options:" << endl
              << "" << endl
              << "  -o, --output=filename  specify output file" << endl
-             << "  -v, --verify-only      Skip writing output file, only verify that" << endl
-             << "                         an already existing output file is the repaired" << endl
-             << "                         version of the input." << endl
+             << "  -v, --verify           verify input log is monotonic in timestamp" << endl
              << "  -h, --help             Shows some help text and exits." << endl
              << endl;
     }
@@ -124,7 +122,7 @@ struct LogRepair
             return false;
         }
 
-        if (!args.verifyOnly) {
+        if (!args.verify) {
             logOut = new zcm::LogFile(args.outfile, "w");
             if (!logOut->good()) {
                 cerr << "Error: Failed to create output log" << endl;
@@ -153,6 +151,13 @@ struct LogRepair
             event  = logIn->readNextEvent();
             if (!event) break;
 
+            if (args.verify && !timestamps.empty() &&
+                event->timestamp < timestamps.back().first) {
+                cerr << endl << "Detected nonmonotonic timestamp at event "
+                     << timestamps.size() << endl;
+                return 1;
+            }
+
             timestamps.emplace_back(event->timestamp, offset);
 
             size_t p = (size_t)((100 * offset) / length);
@@ -162,34 +167,34 @@ struct LogRepair
             }
         }
         cout << endl << "Read " << timestamps.size() << " events" << endl;
+        logIn->close();
 
-        cout << "Repairing log data" << endl;
+        if (args.verify) return 0;
+
         sort(timestamps.begin(), timestamps.end());
 
-        if (!args.verifyOnly) {
-            cout << "Writing new log" << endl;
-            progress = 0;
-            cout << progress << "%" << flush;
-            for (size_t i = 0; i < timestamps.size(); ++i) {
-                if (done) return 1;
+        cout << "Writing new log" << endl;
+        progress = 0;
+        cout << progress << "%" << flush;
+        for (size_t i = 0; i < timestamps.size(); ++i) {
+            if (done) return 1;
 
-                logOut->writeEvent(logIn->readEventAtOffset(timestamps[i].second));
+            logOut->writeEvent(logIn->readEventAtOffset(timestamps[i].second));
 
-                size_t p = (100 * i) / timestamps.size();
-                if (p != progress) {
-                    progress = p;
-                    cout << "\r" << progress << "%" << flush;
-                }
+            size_t p = (100 * i) / timestamps.size();
+            if (p != progress) {
+                progress = p;
+                cout << "\r" << progress << "%" << flush;
             }
-
-            cout << endl << "Flushing to disk" << endl;
-            logOut->close();
         }
 
+        cout << endl << "Flushing to disk" << endl;
+        logOut->close();
+
         cout << "Verifying output" << endl;
-        logVer = new zcm::LogFile(args.outfile, "r");
+        logVer = new zcm::LogFile(args.verify ? args.infile : args.outfile, "r");
         if (!logVer->good()) {
-            cerr << "Error: Failed to open output log for verification" << endl;
+            cerr << "Error: Failed to open log for verification" << endl;
             return 1;
         }
 
@@ -218,6 +223,7 @@ struct LogRepair
             cerr << endl << "Error: output log was missing "
                  << timestamps.size() - i << " events" << endl;
         }
+        logVer->close();
 
         return 0;
     }
