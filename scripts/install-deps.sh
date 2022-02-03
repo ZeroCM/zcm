@@ -61,6 +61,7 @@ if $USE_PYTHON_2; then
 else
     PKGS+='python3 python3-pip '
 fi
+PIP_PKGS+='urllib3 '
 PIP_PKGS+='Cython '
 PIP_PKGS+='bitstruct '
 
