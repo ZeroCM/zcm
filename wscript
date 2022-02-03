@@ -363,6 +363,9 @@ def setup_environment(ctx):
     ctx.post_mode = waflib.Build.POST_LAZY
     process_zcm_build_options(ctx)
 
+    os.environ['WAFCACHE'] = os.environ['HOME'] + '/.cache/wafcache'
+    ctx.load('wafcache')
+
     WARNING_FLAGS = ['-Wall', '-Werror', '-Wno-unused-function']
     SYM_FLAGS = ['-g']
     OPT_FLAGS = ['-O3']
@@ -464,3 +467,8 @@ def build(ctx):
 def distclean(ctx):
     ctx.exec_command('rm -f waftools/*.pyc')
     waflib.Scripting.distclean(ctx)
+
+def cache_invalidate(ctx):
+    ret = os.system('rm -rf ~/.cache/wafcache_`whoami`')
+    if ret != 0:
+        raise WafError('Failed to invalidate cache')
