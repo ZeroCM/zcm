@@ -67,6 +67,7 @@ def add_zcm_configure_options(ctx):
                   action='store', help='Include the zcmtype name in the hash generation')
 
     add_use_option('dev',         'Enable all dev tools')
+    add_use_option('build-cache', 'Enable the build cache for faster rebuilds')
     add_use_option('clang',       'Enable build using clang sanitizers')
     add_use_option('cxxtest',     'Enable build of cxxtests')
 
@@ -172,7 +173,8 @@ def process_zcm_configure_options(ctx):
     env.HASH_TYPENAME      = getattr(opt, 'hash_typename')
     env.HASH_MEMBER_NAMES  = getattr(opt, 'hash_member_names')
 
-    env.USING_CLANG            = hasoptDev('use_clang')  and attempt_use_clang(ctx)
+    env.USING_CACHE            = hasoptDev('use_build_cache') and attempt_use_cache(ctx)
+    env.USING_CLANG            = hasoptDev('use_clang') and attempt_use_clang(ctx)
     env.USING_CXXTEST          = hasoptDev('use_cxxtest') and attempt_use_cxxtest(ctx)
     env.TRACK_TRAFFIC_TOPOLOGY = getattr(opt, 'track_traffic_topology')
 
@@ -221,6 +223,7 @@ def process_zcm_configure_options(ctx):
     print_entry("hash-member-names", env.HASH_MEMBER_NAMES == 'true', True)
 
     Logs.pprint('BLUE', '\nDev Configuration:')
+    print_entry("Build Cache",             env.USING_CACHE)
     print_entry("Clang",                   env.USING_CLANG)
     print_entry("CxxTest",                 env.USING_CXXTEST)
     print_entry("Record Traffic Topology", env.TRACK_TRAFFIC_TOPOLOGY == 'true')
@@ -314,6 +317,11 @@ def attempt_use_third_party(ctx):
                        'and then reconfigure')
     return True
 
+def attempt_use_cache(ctx):
+    os.environ['WAFCACHE'] = os.environ['HOME'] + '/.cache/wafcache'
+    ctx.load('wafcache')
+    return True
+
 def attempt_use_clang(ctx):
     ctx.load('clang-custom')
     ctx.env.CLANG_VERSION = ctx.assert_clang_version(3.6)
@@ -325,6 +333,8 @@ def process_zcm_build_options(ctx):
     opt = waflib.Options.options
     ctx.env.USING_OPT = not opt.debug
     ctx.env.USING_SYM = opt.debug or opt.symbols
+    if ctx.env.USING_CACHE:
+        attempt_use_cache(ctx)
 
 def setup_environment_gnu(ctx):
     FLAGS = ['-Wno-unused-local-typedefs',
@@ -362,9 +372,6 @@ def setup_environment_tsan(ctx):
 def setup_environment(ctx):
     ctx.post_mode = waflib.Build.POST_LAZY
     process_zcm_build_options(ctx)
-
-    os.environ['WAFCACHE'] = os.environ['HOME'] + '/.cache/wafcache'
-    ctx.load('wafcache')
 
     WARNING_FLAGS = ['-Wall', '-Werror', '-Wno-unused-function']
     SYM_FLAGS = ['-g']
