@@ -79,8 +79,9 @@ struct Args
 struct LogRepair
 {
     Args args;
-    zcm::LogFile *logIn  = nullptr;
-    zcm::LogFile *logOut = nullptr;
+    zcm::LogFile* logIn  = nullptr;
+    zcm::LogFile* logOut = nullptr;
+    zcm::LogFile* logVer = nullptr;
 
     const zcm::LogEvent*         event;
     off_t                        length;
@@ -99,6 +100,10 @@ struct LogRepair
         if (logOut) {
             if (logOut->good()) logOut->close();
             delete logOut;
+        }
+        if (logVer) {
+            if (logVer->good()) logVer->close();
+            delete logVer;
         }
     }
 
@@ -169,8 +174,33 @@ struct LogRepair
         }
 
         cout << endl << "Flushing to disk" << endl;
-        logIn->close();
         logOut->close();
+
+        cout << "Verifying output" << endl;
+        logVer = new zcm::LogFile(args.outfile, "r");
+        if (!logVer->good()) {
+            cerr << "Error: Failed to open output log for verification" << endl;
+            return 1;
+        }
+
+        size_t i = 0;
+        progress = 0;
+        cout << progress << "%" << flush;
+        while (true) {
+            if (done) return 1;
+
+            event = logIn->readNextEvent();
+            if (event->timestamp != timestamps[i++].first) {
+                cerr << endl << "Error: output log timestamp mismatch" << endl;
+                return 1;
+            }
+
+            size_t p = (100 * i) / timestamps.size();
+            if (p != progress) {
+                progress = p;
+                cout << "\r" << progress << "%" << flush;
+            }
+        }
 
         return 0;
     }
@@ -188,7 +218,11 @@ int main(int argc, char* argv[])
 
     int ret = lr.run();
 
-    cout << endl << "zcm-log-repair done" << endl;
+    if (ret == 0) {
+        cout << endl << "Success" << endl;
+    } else {
+        cerr << endl << "Failure" << endl;
+    }
 
     return ret;
 }
