@@ -4,6 +4,7 @@
 def build(ctx):
     ctx.recurse('util');
     ctx.recurse('logplayer');
+    ctx.recurse('log-repair');
     ctx.recurse('repeater');
     ctx.recurse('spy-peek');
 
