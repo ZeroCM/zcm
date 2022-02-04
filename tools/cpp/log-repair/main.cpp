@@ -123,6 +123,8 @@ struct LogRepair
         length = ftello(logIn->getFilePtr());
         fseeko(logIn->getFilePtr(), 0, SEEK_SET);
 
+        timestamps.reserve(1e6);
+
         return true;
     }
 
@@ -151,6 +153,10 @@ struct LogRepair
 
             timestamps.emplace_back(event->timestamp, offset);
 
+            if (timestamps.size() == timestamps.capacity()) {
+                timestamps.reserve(timestamps.capacity() * 2);
+            }
+
             size_t p = (size_t)((100 * offset) / length);
             if (p != progress) {
                 progress = p;
@@ -158,7 +164,6 @@ struct LogRepair
             }
         }
         cout << endl << "Read " << timestamps.size() << " events" << endl;
-        logIn->close();
 
         if (args.verify) return 0;
 
@@ -214,7 +219,6 @@ struct LogRepair
             cerr << endl << "Error: output log was missing "
                  << timestamps.size() - i << " events" << endl;
         }
-        logOut->close();
 
         return 0;
     }
