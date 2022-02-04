@@ -123,6 +123,7 @@ struct LogRepair
         length = ftello(logIn->getFilePtr());
         fseeko(logIn->getFilePtr(), 0, SEEK_SET);
 
+        // somewhat arbitrary, but starting with a high capacity helps speed up the read-in
         timestamps.reserve(1e6);
 
         return true;
