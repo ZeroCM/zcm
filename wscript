@@ -291,7 +291,7 @@ def attempt_use_zmq(ctx):
     return True
 
 def attempt_use_cxxtest(ctx):
-    ctx.load('cxxtest')
+    ctx.recurse('deps/cxxtest')
     return True
 
 def attempt_use_elf(ctx):
@@ -373,6 +373,8 @@ def setup_environment(ctx):
     ctx.post_mode = waflib.Build.POST_LAZY
     process_zcm_build_options(ctx)
 
+    ctx.env.SRCPATH = ctx.path.get_src().abspath()
+
     WARNING_FLAGS = ['-Wall', '-Werror', '-Wno-unused-function']
     SYM_FLAGS = ['-g']
     OPT_FLAGS = ['-O3']
@@ -401,10 +403,6 @@ def setup_environment(ctx):
     if ctx.env.USING_SYM:
         ctx.env.CFLAGS_default   += SYM_FLAGS
         ctx.env.CXXFLAGS_default += SYM_FLAGS
-
-    ## Run special compiler-specific configuration
-    if ctx.env.USING_CXXTEST:
-        ctx.setup_cxxtest()
 
     ## Building for asan?
     if ctx.variant.endswith('asan'):
