@@ -123,23 +123,15 @@ struct LogRepair
         length = ftello(logIn->getFilePtr());
         fseeko(logIn->getFilePtr(), 0, SEEK_SET);
 
-        // RRR (Bendes): This is arbitrary. Why are you doing this?
-        timestamps.reserve(1e6);
-
         return true;
     }
 
     int run()
     {
-        // RRR (Bendes): Doesn't feel responsible to assume we have enough memory
-        //               to build an lookup table of the entire log. Otherwise this
-        //               essentially puts an upper bound on how big a log can be.
-        //               But I see the desire to not to O(n^2) to do it naively
-        //               in passes and to get to something that's better average
-        //               runtime complexity is just more complicated. Maybe just
-        //               drop a comment in here that indicates we know it's a
-        //               problem and are willing to address whenever it becomes
-        //               an issue?
+        // XXX: Note we are reading ALL of the event timestamps into memory, so
+        //      this will use something like 16 * num_events memory. In some use
+        //      cases that won't be ideal, so if people are running into that, we
+        //      can try a different approach.
         cout << "Reading log" << endl;
         progress = 0;
         cout << progress << "%" << flush;
