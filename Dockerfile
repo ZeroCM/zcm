@@ -10,6 +10,9 @@ COPY ./scripts/install-deps.sh ./scripts/install-deps.sh
 
 RUN bash -c './scripts/install-deps.sh -i -s'
 
+RUN update-alternatives --install /usr/bin/python python /usr/bin/python3 1 && \
+    update-alternatives --install /usr/bin/pip pip /usr/bin/pip3 1
+
 COPY DEBIAN/ ./DEBIAN
 COPY LICENSE ./LICENSE
 COPY config/ ./config
@@ -25,12 +28,12 @@ COPY waftools/ ./waftools
 COPY wscript ./wscript
 COPY zcm/ ./zcm
 
-ENV PYTHON /usr/bin/python3
 ENV PATH ${PATH}:/root/.local/bin:$ZCM_HOME/deps/julia/bin
 ENV NVM_DIR /root/.nvm
 
 RUN bash -c 'export JAVA_HOME=$(readlink -f /usr/bin/javac | sed "s:/bin/javac::") && \
              [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" && \
+             . $ZCM_HOME/deps/cxxtest/.env && \
              ./waf distclean configure --use-all --use-dev && \
              ./waf build && \
              ./waf install && \
@@ -38,4 +41,5 @@ RUN bash -c 'export JAVA_HOME=$(readlink -f /usr/bin/javac | sed "s:/bin/javac::
 
 CMD bash -c 'export JAVA_HOME=$(readlink -f /usr/bin/javac | sed "s:/bin/javac::") && \
              [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" && \
+             . $ZCM_HOME/deps/cxxtest/.env && \
              ./test/ci.sh'

@@ -72,3 +72,5 @@ if [ $ret -ne 0 ]; then
     ret=$?
     if [ $ret -ne 0 ]; then echo "Unable to find julia"; fi
 fi
+
+. $ROOTDIR/deps/cxxtest/.env

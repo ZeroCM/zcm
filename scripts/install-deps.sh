@@ -64,14 +64,14 @@ fi
 PIP_PKGS+='Cython '
 PIP_PKGS+='bitstruct '
 
+# Build cache dep
+PIP_PKGS+='urllib3 '
+
 ## LibElf
 PKGS+='libelf-dev libelf1 '
 
 ## Gtk+3
 PKGS+='libgtk-3-dev '
-
-## CxxTest
-PKGS+='cxxtest '
 
 ## Clang tools for code sanitizers, style checkers, etc.
 PKGS+='clang '
@@ -191,6 +191,12 @@ if $USE_JULIA; then
         echo "Found julia on system. Skipping install"
     fi
 fi
+
+# Install cxxtest
+rm -rf $ROOTDIR/deps/cxxtest
+wget -O $ROOTDIR/deps/cxxtest.zip https://github.com/ZeroCM/cxxtest/archive/master.zip
+unzip -d $ROOTDIR/deps $ROOTDIR/deps/cxxtest.zip
+mv $ROOTDIR/deps/cxxtest{-master,}
 
 echo "Updating db"
 sudo updatedb
