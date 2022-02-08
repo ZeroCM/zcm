@@ -102,7 +102,7 @@ int main(int argc, char* argv[])
 
     zcm::LogFile outlog(args.outlog, "w");
     if (!outlog.good()) {
-        cerr << "Unable to open output zcm log: " << args.inlog << endl;
+        cerr << "Unable to open output zcm log: " << args.outlog << endl;
         return 1;
     }
 
