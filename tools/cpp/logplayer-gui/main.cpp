@@ -222,7 +222,7 @@ struct LogPlayer
                 char *endptr;
                 double logTimePerc = std::strtod(toks[2].c_str(), &endptr);
                 if (endptr == toks[2].c_str()) continue;
-                addBookmark(type, logTimePerc, false);
+                addBookmark(type, logTimePerc);
             } else if (toks[0] == "CHANNEL") {
                 if (toks.size() < 4) continue;
                 channelMap[toks[1]].pubChannel = toks[2];
@@ -242,6 +242,12 @@ struct LogPlayer
         jlpFile.open(jlpPath.c_str(), ios::out);
         if (!jlpFile.is_open()) return; // no jlp file is fine
 
+        map<string, ChannelInfo> _channelMap;
+        {
+            unique_lock<mutex> lk(zcmLk);
+            _channelMap = channelMap;
+        }
+
         for (const auto& b : bookmarks) {
             jlpFile << "BOOKMARK "
                     << bookmarkTypeToSting(b.type) << " "
@@ -249,7 +255,7 @@ struct LogPlayer
                     << std::fixed << b.logTimePerc << endl;
         }
 
-        for (const auto& c : channelMap) {
+        for (const auto& c : _channelMap) {
             jlpFile << "CHANNEL "
                     << c.first << " "
                     << c.second.pubChannel << " "
@@ -265,7 +271,7 @@ struct LogPlayer
         redrawCv.notify_all();
     }
 
-    void addBookmark(BookmarkType type, double logTimePerc, bool saveFile)
+    void addBookmark(BookmarkType type, double logTimePerc)
     {
         bookmarks.emplace_back(type, logTimePerc);
         {
@@ -277,7 +283,6 @@ struct LogPlayer
                 bookmarks.back().addedToGui = true;
             }
         }
-        if (saveFile) savePreferences();
     }
 
     bool toggleChannelPublish(GtkTreeIter iter)
@@ -352,7 +357,10 @@ struct LogPlayer
         if (!args.init(argc, argv))
             return false;
 
-        initializeZcm();
+        {
+            unique_lock<mutex> lk(zcmLk);
+            initializeZcm();
+        }
 
         return true;
     }
@@ -370,7 +378,7 @@ struct LogPlayer
         gtk_widget_set_sensitive(txtPrefix, enable);
     }
 
-    void addChannels(map<string, ChannelInfo> channelMap)
+    void addChannels(const map<string, ChannelInfo>& channelMap)
     {
         GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(tblData));
 
@@ -540,7 +548,8 @@ struct LogPlayer
             unique_lock<mutex> lk(zcmLk);
             perc = (double) (currMsgUtime - firstMsgUtime) / (double) totalTimeUs;
         }
-        addBookmark(BookmarkType::PLAIN, perc, true);
+        addBookmark(BookmarkType::PLAIN, perc);
+        savePreferences();
     }
 
     static void bookmarkClicked(GtkWidget *bookmark, LogPlayer *me)
@@ -1088,6 +1097,7 @@ struct LogPlayer
             float _speedTarget;
             bool wasPaused = false;
             uint64_t _requestTimeUs;
+            map<string, ChannelInfo> _channelMap;
             {
                 unique_lock<mutex> lk(zcmLk);
                 zcmCv.wait(lk, [&](){
@@ -1106,6 +1116,8 @@ struct LogPlayer
 
                 _requestTimeUs = requestTimeUs;
                 requestTimeUs = numeric_limits<uint64_t>::max();
+
+                _channelMap = channelMap;
             }
 
             bool reset = _speedTarget != lastSpeedTarget || wasPaused;
@@ -1144,7 +1156,15 @@ struct LogPlayer
 
             // Total difference of timestamps of the current and
             // first message (after speed or play/pause changes)
-            uint64_t logDiffUs = (uint64_t) le->timestamp - lastLogUtime;
+            uint64_t logDiffUs = 0;
+            if ((uint64_t)le->timestamp < lastLogUtime) {
+                cerr << "Subsequent log events have utimes that are out of order" << endl
+                     << "Consider running:" << endl
+                     << "zcm-log-repair " << args.filename
+                     << " -o " << args.filename << ".repaired" << endl;
+            } else {
+                logDiffUs = (uint64_t) le->timestamp - lastLogUtime;
+            }
 
             // How much real time should have elapsed given the speed target
             uint64_t logDiffSpeedUs = logDiffUs / _speedTarget;
@@ -1167,7 +1187,7 @@ struct LogPlayer
             diffUs = diffUs > busyWaitUs ? diffUs - busyWaitUs : 0;
 
             // Sleep until we're supposed to wake up and busy wait
-            if (diffUs > 0) {
+            if (diffUs != 0) {
                 // Introducing time differences to starting times rather than last loop
                 // times eliminates linear increase of delay when message are published
                 timespec delay;
@@ -1184,19 +1204,24 @@ struct LogPlayer
 
             ChannelInfo c;
 
-            if (!channelMap.count(le->channel)) {
+            bool addToMainChannelMap = false;
+
+            if (!_channelMap.count(le->channel)) {
                 c.pubChannel = le->channel;
                 c.enabled = true;
                 c.addedToGui = false;
-                channelMap[le->channel] = c;
+                _channelMap[le->channel] = c;
+                addToMainChannelMap = true;
             }
 
-            c = channelMap[le->channel];
+            c = _channelMap[le->channel];
 
             if (c.enabled) zcmOut->publish(c.pubChannel.c_str(), le->data, le->datalen);
 
             {
                 unique_lock<mutex> lk(zcmLk);
+
+                if (addToMainChannelMap) channelMap[le->channel] = c;
 
                 currMsgUtime = (uint64_t) le->timestamp;
 

@@ -65,7 +65,7 @@ struct Args
     {
         cerr << "usage: zcm-log-repair [options] [FILE]" << endl
              << "" << endl
-             << "    Reads packets from a ZCM log file and writes them to an output "
+             << "    Reads packets from a ZCM log file and writes them to an output " << endl
              << "    log file ensuring that all events are stored in recv_utime order." << endl
              << "    This is generally only required if the original log was captured" << endl
              << "    using multiple zcm shards and the user requires a strict ordering" << endl
