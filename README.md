@@ -53,7 +53,7 @@ To learn how you can contribute to this project, check out [Contributing](docs/c
  - [Dependencies & Building](docs/building.md)
  - [Tools](docs/tools.md)
  - [Frequently Asked Questions](docs/FAQs.md)
- - [Continuous Integration](http://ci.zcm-project.org)
+ - [Continuous Integration](https://github.com/ZeroCM/zcm/actions/workflows/build.yml)
  - [Contributing](docs/contributing.md)
 
 ## Features
