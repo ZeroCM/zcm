@@ -99,7 +99,7 @@ public class CsvWriter implements ZCMSubscriber
                                Long.toHexString(fingerprint));
                 return;
             }
-            Object o = cls.getConstructor(DataInput.class).newInstance(dins);
+            Object o = cls.getConstructor(ZCMDataInputStream.class).newInstance(dins);
 
             if (plugin != null) {
                 numLinesWritten += plugin.printCustom(channel, o, utime, output);
