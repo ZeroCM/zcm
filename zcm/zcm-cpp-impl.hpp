@@ -567,14 +567,24 @@ inline bool LogFile::good() const
     return eventlog != nullptr;
 }
 
+inline void LogFile::flush()
+{
+    zcm_eventlog_flush(eventlog);
+}
+
 inline int LogFile::seekToTimestamp(int64_t timestamp)
 {
     return zcm_eventlog_seek_to_timestamp(eventlog, timestamp);
 }
 
-inline FILE* LogFile::getFilePtr()
+inline int LogFile::seekToOffset(off_t offset, int whence)
 {
-    return zcm_eventlog_get_fileptr(eventlog);
+    return zcm_eventlog_seek_to_offset(eventlog, offset, whence);
+}
+
+inline off_t LogFile::getCursor() const
+{
+    return zcm_eventlog_get_cursor(eventlog);
 }
 
 inline const LogEvent* LogFile::cplusplusIfyEvent(zcm_eventlog_event_t* evt)

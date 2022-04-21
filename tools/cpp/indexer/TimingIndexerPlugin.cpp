@@ -35,8 +35,8 @@ void TimingIndexerPlugin::tearDown(const zcm::Json::Value& index,
 {
     std::cout << "sorting " << name() << std::endl;
 
-    fseeko(log.getFilePtr(), 0, SEEK_END);
-    off_t logSize = ftello(log.getFilePtr());
+    log.seekToOffset(0, SEEK_END);
+    off_t logSize = log.getCursor();
 
     auto comparator = [&](off_t a, off_t b) {
         if (a < 0 || b < 0 || a > logSize || b > logSize) {

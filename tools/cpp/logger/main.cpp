@@ -544,7 +544,7 @@ struct Logger
 
         if (args.fflush_interval_ms >= 0 &&
             (le->timestamp - last_fflush_time) > (u64)args.fflush_interval_ms * 1000) {
-            Platform::fflush(log->getFilePtr());
+            log->flush();
             last_fflush_time = le->timestamp;
         }
 

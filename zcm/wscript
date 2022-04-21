@@ -7,7 +7,7 @@ from waflib.Errors import WafError
 def build(ctx):
     ctx.env.RPATH_zcm = [ctx.path.get_bld().abspath()]
 
-    DEPS = ['default', 'zcm_json']
+    DEPS = ['default', 'zcm_json', 'explain']
     if ctx.env.USING_ZMQ:
         DEPS += ['zmq']
 

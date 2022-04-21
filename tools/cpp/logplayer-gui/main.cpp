@@ -336,7 +336,7 @@ struct LogPlayer
             return false;
         }
 
-        fseeko(zcmIn->getFilePtr(), 0, SEEK_END);
+        zcmIn->seekToOffset(0, SEEK_END);
 
         const zcm::LogEvent* leEnd = zcmIn->readPrevEvent();
         if (!leEnd) leEnd = zcmIn->readPrevEvent(); // In case log was cut off at end

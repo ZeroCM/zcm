@@ -27,8 +27,16 @@ struct _zcm_eventlog_event_t
 typedef struct _zcm_eventlog_t zcm_eventlog_t;
 struct _zcm_eventlog_t
 {
+    // read
+    size_t   aligned_size;
+    uint8_t* data;
+    size_t   size;
+    size_t   offset;
+
+    // write
     FILE* f;
-    int64_t eventcount;
+
+    int64_t  eventcount;
 };
 
 /**** Methods for creation/deletion ****/
@@ -39,6 +47,10 @@ void zcm_eventlog_destroy(zcm_eventlog_t* eventlog);
 /**** Methods for general operations ****/
 FILE* zcm_eventlog_get_fileptr(zcm_eventlog_t* eventlog);
 int zcm_eventlog_seek_to_timestamp(zcm_eventlog_t* eventlog, int64_t ts);
+// adheres to same guidelines as fseek
+int zcm_eventlog_seek_to_offset(zcm_eventlog_t* eventlog, off_t offset, int whence);
+off_t zcm_eventlog_get_cursor(const zcm_eventlog_t* eventlog);
+void zcm_eventlog_flush(zcm_eventlog_t* eventlog);
 
 
 /**** Methods for read/write ****/

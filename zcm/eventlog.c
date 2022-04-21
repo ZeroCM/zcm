@@ -3,43 +3,129 @@
 #include <assert.h>
 #include <string.h>
 
+#include <linux/mman.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+
+#include <libexplain/mmap.h>
+#include <errno.h>
+
+#include "util/debug.h"
+
 #define MAGIC ((int32_t) 0xEDA1DA01L)
 
 zcm_eventlog_t *zcm_eventlog_create(const char *path, const char *mode)
 {
     assert(!strcmp(mode, "r") || !strcmp(mode, "w") || !strcmp(mode, "a"));
-    if(*mode == 'w')
+
+    int prot;
+
+    if (*mode == 'w') {
+        prot = PROT_WRITE;
         mode = "wb";
-    else if(*mode == 'r')
+    } else if (*mode == 'r') {
+        prot = PROT_READ;
         mode = "rb";
-    else if(*mode == 'a')
+    } else if (*mode == 'a') {
+        prot = PROT_WRITE;
         mode = "ab";
-    else
-        return NULL;
-
-    zcm_eventlog_t *l = (zcm_eventlog_t*) calloc(1, sizeof(zcm_eventlog_t));
-
-    l->f = fopen(path, mode);
-    if (!l->f) {
-        free (l);
+    } else {
         return NULL;
     }
 
+    ZCM_DEBUG("opening file");
+    FILE* f = fopen(path, mode);
+    if (!f) return NULL;
+
+    int fd = fileno(f);
+
+    size_t aligned_size;
+    struct stat sb;
+    uint8_t *data;
+    if (prot != PROT_WRITE) {
+        ZCM_DEBUG("getting size");
+        if (fstat(fd, &sb) == -1) return NULL;
+
+        aligned_size = ((sb.st_size / sysconf(_SC_PAGESIZE)) + 1) * sysconf(_SC_PAGESIZE);
+
+        ZCM_DEBUG("mapping log into memory %lu %lu %lu", sb.st_size, aligned_size, sysconf(_SC_PAGESIZE));
+        data = mmap(NULL, aligned_size, prot, MAP_SHARED, fd, 0);
+        if (data == MAP_FAILED) {
+            ZCM_DEBUG("errno %s", explain_mmap(NULL, aligned_size, prot, MAP_SHARED, fd, 0));
+            perror("");
+            fclose(f);
+            return NULL;
+        }
+        fclose(f);
+    }
+
+    ZCM_DEBUG("allocating memory");
+    zcm_eventlog_t *l = (zcm_eventlog_t*) malloc(sizeof(zcm_eventlog_t));
+    if (!l) return NULL;
+
+    if (prot == PROT_WRITE) {
+        l->aligned_size = 0;
+        l->data = NULL;
+        l->size = 0;
+        l->f = f;
+    } else {
+        l->aligned_size = aligned_size;
+        l->data = data;
+        l->size = sb.st_size;
+        l->f = NULL;
+    }
+
+    l->offset = 0;
     l->eventcount = 0;
 
+    ZCM_DEBUG("done");
     return l;
 }
 
 void zcm_eventlog_destroy(zcm_eventlog_t *l)
 {
-    fflush(l->f);
-    fclose(l->f);
+    if (l->f) {
+        fflush(l->f);
+        fclose(l->f);
+    } else {
+        munmap(l->data, l->size);
+    }
     free(l);
 }
 
-FILE *zcm_eventlog_get_fileptr(zcm_eventlog_t *l)
+void zcm_eventlog_flush(zcm_eventlog_t *l)
 {
-    return l->f;
+    if (l->f) fflush(l->f);
+}
+
+int zcm_eventlog_seek_to_offset(zcm_eventlog_t *l, off_t offset, int whence)
+{
+    if (l->f) return fseeko(l->f, offset, whence);
+
+    switch (whence) {
+        case SEEK_SET:
+            if (offset > l->size) return -1;
+            l->offset = offset;
+            break;
+        case SEEK_CUR:
+            if (l->offset + offset > l->size) return -1;
+            l->offset += offset;
+            break;
+        case SEEK_END:
+            if (offset > l->size) return -1;
+            l->offset = l->size - offset;
+            break;
+        default:
+            return -1;
+    }
+    return 0;
+}
+
+off_t zcm_eventlog_get_cursor(const zcm_eventlog_t* l)
+{
+    return l->f ? ftello(l->f) : l->offset;
 }
 
 // Returns 0 on success -1 on failure
@@ -48,8 +134,8 @@ static int sync_stream(zcm_eventlog_t *l)
     uint32_t magic = 0;
     int r;
     do {
-        r = fgetc(l->f);
-        if (r < 0) return -1;
+        if (l->offset >= l->size) return -1;
+        r = l->data[l->offset++];
         magic = (magic << 8) | r;
     } while( (int32_t)magic != MAGIC );
     return 0;
@@ -60,13 +146,12 @@ static int sync_stream_backwards(zcm_eventlog_t *l)
     uint32_t magic = 0;
     int r;
     do {
-        if (ftello (l->f) < 2) return -1;
-        fseeko (l->f, -2, SEEK_CUR);
-        r = fgetc(l->f);
-        if (r < 0) return 1;
+        if (l->offset < 2) return -1;
+        l->offset -= 2;
+        r = l->data[l->offset++];
         magic = ((magic >> 8) & 0x00ffffff) | (((uint32_t)r << 24) & 0xff000000);
     } while( (int32_t)magic != MAGIC );
-    fseeko (l->f, sizeof(uint32_t) - 1, SEEK_CUR);
+    l->offset += sizeof(uint32_t) - 1;
     return 0;
 }
 
@@ -76,9 +161,9 @@ static int64_t get_next_event_time(zcm_eventlog_t *l)
 
     int64_t event_num;
     int64_t timestamp;
-    if (0 != fread64(l->f, &event_num)) return -1;
-    if (0 != fread64(l->f, &timestamp)) return -1;
-    fseeko (l->f, -(sizeof(int64_t) * 2 + sizeof(int32_t)), SEEK_CUR);
+    if (0 != read64(l, &event_num)) return -1;
+    if (0 != read64(l, &timestamp)) return -1;
+    l->offset -= sizeof(int64_t) * 2 + sizeof(int32_t);
 
     l->eventcount = event_num;
 
@@ -87,9 +172,6 @@ static int64_t get_next_event_time(zcm_eventlog_t *l)
 
 int zcm_eventlog_seek_to_timestamp(zcm_eventlog_t *l, int64_t timestamp)
 {
-    fseeko (l->f, 0, SEEK_END);
-    off_t file_len = ftello(l->f);
-
     int64_t cur_time;
     double frac1 = 0;               // left bracket
     double frac2 = 1;               // right bracket
@@ -98,8 +180,8 @@ int zcm_eventlog_seek_to_timestamp(zcm_eventlog_t *l, int64_t timestamp)
 
     while (1) {
         frac = 0.5 * (frac1 + frac2);
-        off_t offset = (off_t)(frac * file_len);
-        fseeko(l->f, offset, SEEK_SET);
+        if (zcm_eventlog_seek_to_offset(l, frac * l->size, SEEK_SET) < 0)
+            return -1;
         cur_time = get_next_event_time(l);
         if (cur_time < 0)
             return -1;
@@ -127,27 +209,27 @@ static zcm_eventlog_event_t *zcm_event_read_helper(zcm_eventlog_t *l, int rewind
     zcm_eventlog_event_t *le =
         (zcm_eventlog_event_t*) calloc(1, sizeof(zcm_eventlog_event_t));
 
-    off_t startOffset = ftello(l->f);
+    off_t startOffset = l->offset;
 
-    if (fread64(l->f, &le->eventnum)) {
+    if (read64(l, &le->eventnum)) {
         free(le);
         le = NULL;
         goto done;
     }
 
-    if (fread64(l->f, &le->timestamp)) {
+    if (read64(l, &le->timestamp)) {
         free(le);
         le = NULL;
         goto done;
     }
 
-    if (fread32(l->f, &le->channellen)) {
+    if (read32(l, &le->channellen)) {
         free(le);
         le = NULL;
         goto done;
     }
 
-    if (fread32(l->f, &le->datalen)) {
+    if (read32(l, &le->datalen)) {
         free(le);
         le = NULL;
         goto done;
@@ -168,8 +250,8 @@ static zcm_eventlog_event_t *zcm_event_read_helper(zcm_eventlog_t *l, int rewind
     }
 
     le->channel = (char *) calloc(1, le->channellen+1);
-    size_t readRet = fread(le->channel, 1, le->channellen, l->f);
-    if (readRet != (size_t) le->channellen) {
+    int readRet = readn(l, (uint8_t*)le->channel, le->channellen);
+    if (readRet < 0) {
         free(le->channel);
         free(le);
         le = NULL;
@@ -177,8 +259,8 @@ static zcm_eventlog_event_t *zcm_event_read_helper(zcm_eventlog_t *l, int rewind
     }
 
     le->data = calloc(1, le->datalen+1);
-    readRet = fread(le->data, 1, le->datalen, l->f);
-    if (readRet != (size_t) le->datalen) {
+    readRet = readn(l, le->data, le->datalen);
+    if (readRet < 0) {
         free(le->channel);
         free(le->data);
         free(le);
@@ -188,23 +270,21 @@ static zcm_eventlog_event_t *zcm_event_read_helper(zcm_eventlog_t *l, int rewind
 
     // Check that there's a valid event or the EOF after this event.
     int32_t next_magic;
-    if (0 == fread32(l->f, &next_magic)) {
+    if (0 == read32(l, &next_magic)) {
         if (next_magic != MAGIC) {
-            fprintf(stderr, "Invalid header after log data\n");
+            fprintf(stderr, "Invalid header after log data %i != %i\n", next_magic, MAGIC);
             free(le->channel);
             free(le->data);
             free(le);
             le = NULL;
             return NULL;
         }
-        fseeko (l->f, -4, SEEK_CUR);
+        l->offset -= 4;
     }
 
 done:
-    if (rewindWhenDone) {
-        off_t numRead = ftello (l->f) - startOffset;
-        fseeko (l->f, -(off_t)(numRead + 4), SEEK_CUR);
-    }
+    if (rewindWhenDone)
+        zcm_eventlog_seek_to_offset(l, startOffset > 4 ? startOffset - 4 : 0, SEEK_SET);
     return le;
 }
 
@@ -222,7 +302,7 @@ zcm_eventlog_event_t *zcm_eventlog_read_prev_event(zcm_eventlog_t *l)
 
 zcm_eventlog_event_t *zcm_eventlog_read_event_at_offset(zcm_eventlog_t *l, off_t offset)
 {
-    fseeko(l->f, offset, SEEK_SET);
+    if (zcm_eventlog_seek_to_offset(l, offset, SEEK_SET) < 0) return NULL;
     if (sync_stream(l)) return NULL;
     return zcm_event_read_helper(l, 0);
 }

@@ -129,9 +129,9 @@ int main(int argc, char* argv[])
         cerr << "Unable to open logfile: " << args.logfile << endl;
         return 1;
     }
-    fseeko(log.getFilePtr(), 0, SEEK_END);
+    log.seekToOffset(0, SEEK_END);
     // TODO: Look into handling large logfiles
-    off_t logSize = ftello(log.getFilePtr());
+    off_t logSize = log.getCursor();
 
     ofstream output;
     output.open(args.output);
@@ -273,15 +273,15 @@ int main(int argc, char* argv[])
         cout << "]" << endl;
 
         off_t offset = 0;
-        fseeko(log.getFilePtr(), 0, SEEK_SET);
+        log.seekToOffset(0, SEEK_SET);
 
         for (auto& p : pluginGroups[i])
             p.runThroughLog = p.plugin->setUp(index, index[p.plugin->name()], log);
 
-        fseeko(log.getFilePtr(), 0, SEEK_SET);
+        log.seekToOffset(0, SEEK_SET);
 
         while (1) {
-            offset = ftello(log.getFilePtr());
+            offset = log.getCursor();
 
             static int lastPrintPercent = 0;
             int percent = (100.0 * offset / logSize) * 100;
@@ -315,7 +315,7 @@ int main(int argc, char* argv[])
         cout << endl;
 
         for (auto& p : pluginGroups[i]) {
-            fseeko(log.getFilePtr(), 0, SEEK_SET);
+            log.seekToOffset(0, SEEK_SET);
             p.plugin->tearDown(index, index[p.plugin->name()], log);
         }
     }

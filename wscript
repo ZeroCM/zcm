@@ -375,6 +375,8 @@ def setup_environment(ctx):
 
     ctx.env.SRCPATH = ctx.path.get_src().abspath()
 
+    ctx.check_cfg(package='libexplain', args='--cflags --libs', uselib_store='explain')
+
     WARNING_FLAGS = ['-Wall', '-Werror', '-Wno-unused-function']
     SYM_FLAGS = ['-g']
     OPT_FLAGS = ['-O3']

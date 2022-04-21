@@ -138,10 +138,12 @@ struct LogFile
     inline ~LogFile();
     inline bool good() const;
     inline void close();
+    inline void flush();
 
     /**** Methods general operations ****/
     inline int seekToTimestamp(int64_t timestamp);
-    inline FILE* getFilePtr();
+    inline int seekToOffset(off_t offset, int whence);
+    inline off_t getCursor() const;
 
     /**** Methods for read/write ****/
     // NOTE: user should NOT hold-onto the returned ptr across successive calls

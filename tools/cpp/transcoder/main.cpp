@@ -96,9 +96,9 @@ int main(int argc, char* argv[])
         cerr << "Unable to open input zcm log: " << args.inlog << endl;
         return 1;
     }
-    fseeko(inlog.getFilePtr(), 0, SEEK_END);
-    off64_t logSize = ftello(inlog.getFilePtr());
-    fseeko(inlog.getFilePtr(), 0, SEEK_SET);
+    inlog.seekToOffset(0, SEEK_END);
+    off64_t logSize = inlog.getCursor();
+    inlog.seekToOffset(0, SEEK_SET);
 
     zcm::LogFile outlog(args.outlog, "w");
     if (!outlog.good()) {
@@ -127,7 +127,7 @@ int main(int argc, char* argv[])
     off64_t offset;
 
     while (1) {
-        offset = ftello(inlog.getFilePtr());
+        offset = inlog.getCursor();
 
         static int lastPrintPercent = 0;
         int percent = (100.0 * offset / (logSize == 0 ? 1 : logSize)) * 100;

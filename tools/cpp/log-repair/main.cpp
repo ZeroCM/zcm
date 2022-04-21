@@ -119,9 +119,9 @@ struct LogRepair
             }
         }
 
-        fseeko(logIn->getFilePtr(), 0, SEEK_END);
-        length = ftello(logIn->getFilePtr());
-        fseeko(logIn->getFilePtr(), 0, SEEK_SET);
+        logIn->seekToOffset(0, SEEK_END);
+        length = logIn->getCursor();
+        logIn->seekToOffset(0, SEEK_SET);
 
         // somewhat arbitrary, but starting with a high capacity helps speed up the read-in
         timestamps.reserve(1e6);
@@ -141,7 +141,7 @@ struct LogRepair
         while (true) {
             if (done) return 1;
 
-            offset = ftello(logIn->getFilePtr());
+            offset = logIn->getCursor();
             event  = logIn->readNextEvent();
             if (!event) break;
 
