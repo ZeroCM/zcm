@@ -187,6 +187,11 @@ static zcm_eventlog_event_t *zcm_event_read_helper(zcm_eventlog_t *l, int rewind
     }
 
     // Check that there's a valid event or the EOF after this event.
+    // RRR (Bendes): I think this should actually change to be a byte-by-byte
+    //               check for the next magic word. The next magic word could
+    //               restart halfway into the magic word and that would be fine
+    //               but the below code wouldn't allow that.
+    /*
     int32_t next_magic;
     if (0 == fread32(l->f, &next_magic)) {
         if (next_magic != MAGIC) {
@@ -199,6 +204,7 @@ static zcm_eventlog_event_t *zcm_event_read_helper(zcm_eventlog_t *l, int rewind
         }
         fseeko (l->f, -4, SEEK_CUR);
     }
+    */
 
 done:
     if (rewindWhenDone) {
