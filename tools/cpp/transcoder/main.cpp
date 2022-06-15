@@ -126,13 +126,13 @@ int main(int argc, char* argv[])
     const zcm::LogEvent* evt;
     off64_t offset;
 
+    static int lastPrintPercent = 0;
     while (1) {
         offset = ftello(inlog.getFilePtr());
 
-        static int lastPrintPercent = 0;
-        int percent = (100.0 * offset / (logSize == 0 ? 1 : logSize)) * 100;
+        int percent = 100.0 * offset / (logSize == 0 ? 1 : logSize);
         if (percent != lastPrintPercent) {
-            cout << "\r" << "Percent Complete: " << (percent / 100) << flush;
+            cout << "\r" << "Percent Complete: " << percent << flush;
             lastPrintPercent = percent;
         }
 
@@ -162,6 +162,8 @@ int main(int argc, char* argv[])
 
         numInEvents++;
     }
+    if (lastPrintPercent != 100)
+        cout << "\r" << "Percent Complete: 100" << flush;
     cout << endl;
 
     inlog.close();
