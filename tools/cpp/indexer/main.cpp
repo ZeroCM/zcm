@@ -280,13 +280,13 @@ int main(int argc, char* argv[])
 
         fseeko(log.getFilePtr(), 0, SEEK_SET);
 
+        static int lastPrintPercent = 0;
         while (1) {
             offset = ftello(log.getFilePtr());
 
-            static int lastPrintPercent = 0;
-            int percent = (100.0 * offset / logSize) * 100;
+            int percent = 100.0 * offset / logSize;
             if (percent != lastPrintPercent) {
-                cout << "\r" << "Percent Complete: " << (percent / 100) << flush;
+                cout << "\r" << "Percent Complete: " << percent << flush;
                 lastPrintPercent = percent;
             }
 
@@ -311,7 +311,8 @@ int main(int argc, char* argv[])
                 numEvents++;
             }
         }
-
+        if (lastPrintPercent != 100)
+            cout << "\r" << "Percent Complete: 100" << flush;
         cout << endl;
 
         for (auto& p : pluginGroups[i]) {
