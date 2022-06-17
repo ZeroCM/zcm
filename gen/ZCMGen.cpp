@@ -4,6 +4,7 @@
 #include <iostream>
 #include <iomanip>
 #include <type_traits>
+#include <limits>
 
 extern "C" {
 #include "tokenize.h"
