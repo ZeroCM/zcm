@@ -195,7 +195,7 @@ static zcm_eventlog_event_t *zcm_event_read_helper(zcm_eventlog_t *l, int rewind
             free(le->data);
             free(le);
             le = NULL;
-            return NULL;
+            goto done;
         }
         fseeko (l->f, -4, SEEK_CUR);
     }
@@ -204,6 +204,9 @@ done:
     if (rewindWhenDone) {
         off_t numRead = ftello (l->f) - startOffset;
         fseeko (l->f, -(off_t)(numRead + 4), SEEK_CUR);
+    } else if (le == NULL) {
+        off_t numRead = ftello (l->f) - startOffset;
+        fseeko (l->f, -(off_t)numRead, SEEK_CUR);
     }
     return le;
 }
