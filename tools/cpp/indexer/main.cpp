@@ -329,13 +329,21 @@ int main(int argc, char* argv[])
     for (auto p : defaults) delete p.plugin;
     defaults.clear();
 
+    cout << "Indexed " << numEvents << " events" << endl;
+
     zcm::Json::StreamWriterBuilder builder;
     builder["indentation"] = args.readable ? "    " : "";
     std::unique_ptr<zcm::Json::StreamWriter> writer(builder.newStreamWriter());
     writer->write(index, &output);
+    if (output.fail()) {
+        cerr << "Failure occurred while writing output file" << endl;
+        return 1;
+    }
     output << endl;
     output.close();
-
-    cout << "Indexed " << numEvents << " events" << endl;
+    if (output.fail()) {
+        cerr << "Failure occurred while closing output file" << endl;
+        return 1;
+    }
     return 0;
 }
