@@ -141,15 +141,13 @@ int main(int argc, char* argv[])
 
         vector<const zcm::LogEvent*> evts;
 
-        if (!plugins.empty()) {
-            int64_t msg_hash;
-            __int64_t_decode_array(evt->data, 0, 8, &msg_hash, 1);
+        int64_t msg_hash;
+        __int64_t_decode_array(evt->data, 0, 8, &msg_hash, 1);
 
-            for (auto& p : plugins) {
-                vector<const zcm::LogEvent*> pevts =
-                    p->transcodeEvent((uint64_t) msg_hash, evt);
-                evts.insert(evts.end(), pevts.begin(), pevts.end());
-            }
+        for (auto& p : plugins) {
+            vector<const zcm::LogEvent*> pevts =
+                p->transcodeEvent((uint64_t) msg_hash, evt);
+            evts.insert(evts.end(), pevts.begin(), pevts.end());
         }
 
         if (evts.empty()) evts.push_back(evt);

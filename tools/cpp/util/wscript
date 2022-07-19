@@ -15,6 +15,16 @@ def build(ctx):
                   export_includes = "../",
                   use = use,
                   source = source)
+
+        ctx.shlib(name = 'zcm_tools_util_installed',
+                  target = 'zcm_tools_util',
+                  export_includes = "../",
+                  use = use,
+                  source = source)
+
+        ctx.install_files('${PREFIX}/include/zcm/tools',
+                          ['TranscoderPluginDb.hpp',
+                           'TypeDb.hpp'])
     else:
         ctx(name = 'zcm_tools_util',
-             use = use)
+            use  = use)

@@ -275,45 +275,50 @@ int main(int argc, char* argv[])
         off_t offset = 0;
         fseeko(log.getFilePtr(), 0, SEEK_SET);
 
-        for (auto& p : pluginGroups[i])
+        bool anyRemaining = false;
+        for (auto& p : pluginGroups[i]) {
             p.runThroughLog = p.plugin->setUp(index, index[p.plugin->name()], log);
-
-        fseeko(log.getFilePtr(), 0, SEEK_SET);
-
-        static int lastPrintPercent = 0;
-        while (1) {
-            offset = ftello(log.getFilePtr());
-
-            int percent = 100.0 * offset / logSize;
-            if (percent != lastPrintPercent) {
-                cout << "\r" << "Percent Complete: " << percent << flush;
-                lastPrintPercent = percent;
-            }
-
-            evt = log.readNextEvent();
-            if (evt == nullptr) break;
-
-            int64_t msg_hash;
-            __int64_t_decode_array(evt->data, 0, 8, &msg_hash, 1);
-            const TypeMetadata* md = types.getByHash(msg_hash);
-
-            for (auto& p : pluginGroups[i]) {
-                assert(p.plugin);
-
-                if (!p.runThroughLog) continue;
-
-                p.plugin->indexEvent(index, index[p.plugin->name()],
-                                     evt->channel, md ? md->name : "",
-                                     offset, evt->timestamp,
-                                     (uint64_t) msg_hash,
-                                     evt->data, evt->datalen);
-
-                numEvents++;
-            }
+            anyRemaining |= p.runThroughLog;
         }
-        if (lastPrintPercent != 100)
-            cout << "\r" << "Percent Complete: 100" << flush;
-        cout << endl;
+
+        if (anyRemaining) {
+            fseeko(log.getFilePtr(), 0, SEEK_SET);
+
+            static int lastPrintPercent = 0;
+            while (1) {
+                offset = ftello(log.getFilePtr());
+
+                int percent = 100.0 * offset / logSize;
+                if (percent != lastPrintPercent) {
+                    cout << "\r" << "Percent Complete: " << percent << flush;
+                    lastPrintPercent = percent;
+                }
+
+                evt = log.readNextEvent();
+                if (evt == nullptr) break;
+
+                int64_t msg_hash;
+                __int64_t_decode_array(evt->data, 0, 8, &msg_hash, 1);
+                const TypeMetadata* md = types.getByHash(msg_hash);
+
+                for (auto& p : pluginGroups[i]) {
+                    assert(p.plugin);
+
+                    if (!p.runThroughLog) continue;
+
+                    p.plugin->indexEvent(index, index[p.plugin->name()],
+                                         evt->channel, md ? md->name : "",
+                                         offset, evt->timestamp,
+                                         (uint64_t) msg_hash,
+                                         evt->data, evt->datalen);
+
+                    numEvents++;
+                }
+            }
+            if (lastPrintPercent != 100)
+                cout << "\r" << "Percent Complete: 100" << flush;
+            cout << endl;
+        }
 
         for (auto& p : pluginGroups[i]) {
             fseeko(log.getFilePtr(), 0, SEEK_SET);
@@ -324,13 +329,21 @@ int main(int argc, char* argv[])
     for (auto p : defaults) delete p.plugin;
     defaults.clear();
 
+    cout << "Indexed " << numEvents << " events" << endl;
+
     zcm::Json::StreamWriterBuilder builder;
     builder["indentation"] = args.readable ? "    " : "";
     std::unique_ptr<zcm::Json::StreamWriter> writer(builder.newStreamWriter());
     writer->write(index, &output);
+    if (output.fail()) {
+        cerr << "Failure occurred while writing output file" << endl;
+        return 1;
+    }
     output << endl;
     output.close();
-
-    cout << "Indexed " << numEvents << " events" << endl;
+    if (output.fail()) {
+        cerr << "Failure occurred while closing output file" << endl;
+        return 1;
+    }
     return 0;
 }
