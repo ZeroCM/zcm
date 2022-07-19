@@ -140,7 +140,6 @@ int main(int argc, char* argv[])
         log.close();
         return 1;
     }
-    output.close();
 
     vector<zcm::IndexerPlugin*> plugins;
 
@@ -329,24 +328,18 @@ int main(int argc, char* argv[])
 
     for (auto p : defaults) delete p.plugin;
     defaults.clear();
-    log.close();
 
     cout << "Indexed " << numEvents << " events" << endl;
 
     zcm::Json::StreamWriterBuilder builder;
     builder["indentation"] = args.readable ? "    " : "";
     std::unique_ptr<zcm::Json::StreamWriter> writer(builder.newStreamWriter());
-    output.open(args.output);
-    if (!output.is_open()) {
-        cerr << "Unable to open output file: " << args.output << endl;
-        return 1;
-    }
     writer->write(index, &output);
     if (output.fail()) {
         cerr << "Failure occurred while writing output file" << endl;
         return 1;
     }
-    output << endl << flush;
+    output << endl;
     output.close();
     if (output.fail()) {
         cerr << "Failure occurred while closing output file" << endl;
