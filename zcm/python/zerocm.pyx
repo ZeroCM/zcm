@@ -2,6 +2,7 @@
 
 from libc.stdint cimport int64_t, int32_t, uint32_t, uint8_t
 from posix.unistd cimport off_t
+from inspect import signature
 import time
 
 cdef extern from "zcm/python/zcm-python.h":
@@ -76,22 +77,24 @@ cdef class ZCMSubscription:
     cdef zcm_sub_t* sub
     cdef object handler
     cdef object msgtype
-    cdef bint provide_recv_utime
 
 cdef void handler_cb(const zcm_recv_buf_t* rbuf, const char* channel, void* usr) with gil:
     subs = (<ZCMSubscription>usr)
     msg = subs.msgtype.decode(rbuf.data[:rbuf.data_size])
-    if subs.provide_recv_utime == 0:
-        subs.handler(channel.decode('utf-8'), msg)
-    else:
-        subs.handler(channel.decode('utf-8'), msg, rbuf.recv_utime)
+    subs.handler(channel.decode('utf-8'), msg, recv_utime = rbuf.recv_utime)
 
 cdef void handler_cb_raw(const zcm_recv_buf_t* rbuf, const char* channel, void* usr) with gil:
     subs = (<ZCMSubscription>usr)
-    if subs.provide_recv_utime == 0:
-        subs.handler(channel.decode('utf-8'), rbuf.data[:rbuf.data_size])
-    else:
-        subs.handler(channel.decode('utf-8'), rbuf.data[:rbuf.data_size], rbuf.recv_utime)
+    subs.handler(channel.decode('utf-8'), rbuf.data[:rbuf.data_size], recv_utime = rbuf.recv_utime)
+
+cdef void handler_cb_deprecated(const zcm_recv_buf_t* rbuf, const char* channel, void* usr) with gil:
+    subs = (<ZCMSubscription>usr)
+    msg = subs.msgtype.decode(rbuf.data[:rbuf.data_size])
+    subs.handler(channel.decode('utf-8'), msg)
+
+cdef void handler_cb_raw_deprecated(const zcm_recv_buf_t* rbuf, const char* channel, void* usr) with gil:
+    subs = (<ZCMSubscription>usr)
+    subs.handler(channel.decode('utf-8'), rbuf.data[:rbuf.data_size])
 
 cdef class ZCM:
     cdef zcm_t* zcm
@@ -111,24 +114,26 @@ cdef class ZCM:
         return self.zcm != NULL
     def strerrno(self, err):
         return zcm_strerrno(err).decode('utf-8')
-    def subscribe_raw(self, str channel, handler, provide_recv_utime=False):
+    def subscribe_raw(self, str channel, handler):
         cdef ZCMSubscription subs = ZCMSubscription()
         subs.handler = handler
         subs.msgtype = None
-        subs.provide_recv_utime = provide_recv_utime
+        sig = signature(handler)
+        selected_handler_cb = handler_cb_raw_deprecated if len(sig.parameters) == 2 else handler_cb_raw
         while True:
-            subs.sub = zcm_try_subscribe(self.zcm, channel.encode('utf-8'), handler_cb_raw, <void*> subs)
+            subs.sub = zcm_try_subscribe(self.zcm, channel.encode('utf-8'), selected_handler_cb, <void*> subs)
             if subs.sub != NULL:
                 self.subscriptions.append(subs)
                 return subs
             time.sleep(0) # yield the gil
-    def subscribe(self, str channel, msgtype, handler, provide_recv_utime=False):
+    def subscribe(self, str channel, msgtype, handler):
         cdef ZCMSubscription subs = ZCMSubscription()
         subs.handler = handler
         subs.msgtype = msgtype
-        subs.provide_recv_utime = provide_recv_utime
+        sig = signature(handler)
+        selected_handler_cb = handler_cb_deprecated if len(sig.parameters) == 2 else handler_cb
         while True:
-            subs.sub = zcm_try_subscribe(self.zcm, channel.encode('utf-8'), handler_cb, <void*> subs)
+            subs.sub = zcm_try_subscribe(self.zcm, channel.encode('utf-8'), selected_handler_cb, <void*> subs)
             if subs.sub != NULL:
                 self.subscriptions.append(subs)
                 return subs

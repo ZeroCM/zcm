@@ -19,9 +19,9 @@ def handler_raw(channel, data):
     success2 = True
 
 success3 = False
-def handler_with_recv_timestamp(channel, msg, recv_timestamp):
+def handler_with_recv_timestamp(channel, msg, **kwargs):
     global success3
-    assert recv_timestamp != 0
+    assert kwargs["recv_utime"] != 0
     success3 = True
 
 # make a new zcm object and launch the handle thread
@@ -35,9 +35,9 @@ msg = example_t()
 msg.timestamp = 10
 
 # set up a subscription on channel "TEST"
-subs = zcm.subscribe    ("TEST", example_t, handler)
-subs = zcm.subscribe_raw("TEST",            handler_raw)
-subs = zcm.subscribe    ("TEST", example_t, handler_with_recv_timestamp, provide_recv_utime=True)
+subs1 = zcm.subscribe    ("TEST", example_t, handler)
+subs2 = zcm.subscribe_raw("TEST",            handler_raw)
+subs3 = zcm.subscribe    ("TEST", example_t, handler_with_recv_timestamp)
 
 # publish a message
 zcm.publish("TEST", msg)
@@ -52,7 +52,9 @@ zcm.publish("TEST", msg)
 zcm.handle()
 
 # clean up
-zcm.unsubscribe(subs)
+zcm.unsubscribe(subs1)
+zcm.unsubscribe(subs2)
+zcm.unsubscribe(subs3)
 
 # notify user of success
 print("Success" if success1 and success2 and success3 else "Failure")
