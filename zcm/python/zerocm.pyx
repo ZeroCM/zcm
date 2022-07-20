@@ -81,11 +81,11 @@ cdef class ZCMSubscription:
 cdef void handler_cb(const zcm_recv_buf_t* rbuf, const char* channel, void* usr) with gil:
     subs = (<ZCMSubscription>usr)
     msg = subs.msgtype.decode(rbuf.data[:rbuf.data_size])
-    subs.handler(channel.decode('utf-8'), msg, recv_utime = rbuf.recv_utime)
+    subs.handler(channel.decode('utf-8'), msg, rbuf.recv_utime)
 
 cdef void handler_cb_raw(const zcm_recv_buf_t* rbuf, const char* channel, void* usr) with gil:
     subs = (<ZCMSubscription>usr)
-    subs.handler(channel.decode('utf-8'), rbuf.data[:rbuf.data_size], recv_utime = rbuf.recv_utime)
+    subs.handler(channel.decode('utf-8'), rbuf.data[:rbuf.data_size], rbuf.recv_utime)
 
 cdef void handler_cb_deprecated(const zcm_recv_buf_t* rbuf, const char* channel, void* usr) with gil:
     subs = (<ZCMSubscription>usr)

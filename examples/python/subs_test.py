@@ -19,9 +19,9 @@ def handler_raw(channel, data):
     success2 = True
 
 success3 = False
-def handler_with_recv_timestamp(channel, msg, **kwargs):
+def handler_with_recv_timestamp(channel, msg, rt):
     global success3
-    assert kwargs["recv_utime"] != 0
+    assert rt != 0
     success3 = True
 
 # make a new zcm object and launch the handle thread
