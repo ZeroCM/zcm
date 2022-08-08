@@ -146,7 +146,12 @@ struct LogPlayer
     enum class FilterMode { WHITELIST, BLACKLIST, SPECIFIED, NUM_MODES };
     FilterMode filterMode;
 
-    unordered_map<string, bool> channelMap;
+    struct ChannelDetails
+    {
+        bool enabled;
+        string replayChannel;
+    };
+    unordered_map<string, ChannelDetails> channelMap;
 
     LogPlayer() { }
 
@@ -250,13 +255,13 @@ struct LogPlayer
 
             auto newChannel = [&] (string channel) {
                 if (filterMode == FilterMode::SPECIFIED)
-                    channelMap[channel] = args.jslpRoot["FILTER"]["channels"][channel].asBool();
+                    channelMap[channel].enabled = args.jslpRoot["FILTER"]["channels"][channel].asBool();
                 else
-                    channelMap[channel] = true;
+                    channelMap[channel].enabled = true;
 
                 if (args.verbose)
                     cout << channel << " : "
-                         << (channelMap[channel] ? "true" : "false") << endl;
+                         << (channelMap[channel].enabled ? "true" : "false") << endl;
             };
 
             if (args.jslpRoot["FILTER"]["channels"].isArray()) {
@@ -265,6 +270,13 @@ struct LogPlayer
             } else {
                 for (auto channel : args.jslpRoot["FILTER"]["channels"].getMemberNames())
                     newChannel(channel);
+            }
+        }
+
+        if (args.jslpRoot.isMember("RENAME")) {
+            for (auto channel : args.jslpRoot["RENAME"].getMemberNames()) {
+                channelMap[channel].replayChannel =
+                    args.jslpRoot["RENAME"][channel].asString();
             }
         }
 
@@ -320,15 +332,21 @@ struct LogPlayer
                 }
             }
 
+            zcm::LogEvent newLe = *le;
+            if (channelMap.count(le->channel) > 0 &&
+                !channelMap[le->channel].replayChannel.empty()) {
+                newLe.channel = channelMap[le->channel].replayChannel;
+            }
+
             auto publish = [&](){
                 if (args.verbose)
-                    printf("%.3f Channel %-20s size %d\n", le->timestamp / 1e6,
-                           le->channel.c_str(), le->datalen);
+                    printf("%.3f Channel %-20s size %d\n", newLe.timestamp / 1e6,
+                           newLe.channel.c_str(), newLe.datalen);
 
                 if (args.outfile == "")
-                    zcmOut->publish(le->channel, le->data, le->datalen);
+                    zcmOut->publish(newLe.channel, newLe.data, newLe.datalen);
                 else
-                    logOut->writeEvent(le);
+                    logOut->writeEvent(&newLe);
             };
 
             if (startedPub) {
@@ -348,7 +366,7 @@ struct LogPlayer
                                 err = 1;
                                 continue;
                             }
-                            if (channelMap[le->channel]) publish();
+                            if (channelMap[le->channel].enabled) publish();
                         } else {
                             assert(false && "Fatal error.");
                         }

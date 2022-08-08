@@ -23,6 +23,11 @@
     //     "channels" : { "MODEL" : false }
     // }
     //
+    // "RENAME" : {
+    //     "EXAMPLE"  : "RENAMED",
+    //     "EXAMPLE_2": "RENAMED_2"
+    // }
+    //
     // Start playback after the first message published on channel "EXAMPLE"
     // "START" : { "mode"    : "channel",
     //             "channel" : "EXAMPLE" }
