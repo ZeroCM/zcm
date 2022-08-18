@@ -42,6 +42,8 @@ struct Args
     string zcmUrlOut = "";
     bool highAccuracyMode = false;
     bool verbose = false;
+    bool exitWhenDone = false;
+    bool playOnStart = false;
 
     bool init(int argc, char *argv[])
     {
@@ -50,15 +52,19 @@ struct Args
             { "zcm-url",       required_argument, 0, 'u' },
             { "high-accuracy",       no_argument, 0, 'a' },
             { "verbose",             no_argument, 0, 'v' },
+            { "exit-when-done",      no_argument, 0, 'e' },
+            { "play-on-start",       no_argument, 0, 'p' },
             { 0, 0, 0, 0 }
         };
 
         int c;
-        while ((c = getopt_long(argc, argv, "hu:av", long_opts, 0)) >= 0) {
+        while ((c = getopt_long(argc, argv, "hu:avep", long_opts, 0)) >= 0) {
             switch (c) {
                 case 'u':        zcmUrlOut = string(optarg);       break;
                 case 'a': highAccuracyMode = true;                 break;
                 case 'v':          verbose = true;                 break;
+                case 'e':     exitWhenDone = true;                 break;
+                case 'p':      playOnStart = true;                 break;
                 case 'h': default: usage(); return false;
             };
         }
@@ -137,7 +143,7 @@ struct LogPlayer
 
     mutex zcmLk;
     condition_variable zcmCv;
-    int isPlaying = 0;
+    bool isPlaying = false;
     double speedTarget = 1.0;
     double currSpeed = 0.0;
     int ignoreMicroScrubEvts = 0;
@@ -356,6 +362,8 @@ struct LogPlayer
     {
         if (!args.init(argc, argv))
             return false;
+
+        isPlaying = args.playOnStart;
 
         {
             unique_lock<mutex> lk(zcmLk);
@@ -1129,6 +1137,7 @@ struct LogPlayer
 
             le = zcmIn->readNextEvent();
             if (!le) {
+                if (args.exitWhenDone) break;
                 unique_lock<mutex> lk(zcmLk);
                 isPlaying = false;
                 redraw();
