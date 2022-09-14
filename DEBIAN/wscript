@@ -2,8 +2,18 @@
 # encoding: utf-8
 from waflib import Utils
 
+waf_arch_dict = {
+    "aarch64": 'arm64',
+    "x86_64" : 'amd64'
+}
+
 def build(ctx):
+
+    deb_arch = waf_arch_dict[ctx.env.DEST_CPU]
+
     ctx(features='subst',
         source='control.in',
         target='control',
-        always=True)
+        always=True,
+        arch=deb_arch
+        )
