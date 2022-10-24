@@ -835,9 +835,11 @@ int main(int argc, char* argv[])
 {
     Args args;
     bool success = args.parse(argc, argv);
-    cout << endl;
-    args.factory.dump();
-    cout << endl;
+    if (!args.factory.regions.empty()) {
+        cout << endl;
+        args.factory.dump();
+        cout << endl;
+    }
     if (!success) return 1;
 
     zcm::LogFile inlog(args.inlog, "r");
