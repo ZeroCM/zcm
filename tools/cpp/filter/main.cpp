@@ -1,9 +1,10 @@
-#include <iostream>
 #include <fstream>
 #include <getopt.h>
+#include <iostream>
+#include <limits>
 #include <memory>
-#include <vector>
 #include <unordered_set>
+#include <vector>
 
 #include <zcm/zcm-cpp.hpp>
 
@@ -410,7 +411,7 @@ struct Args
             return _and ? c1 && c2 : c1 || c2;
         }
 
-        virtual void dump(size_t hangingIndent) const
+        void dump(size_t hangingIndent) const override
         {
             string idt = string(hangingIndent, ' ');
             string nidt = string(hangingIndent + 2, ' ');
