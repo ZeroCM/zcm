@@ -32,6 +32,7 @@ struct Args
       public:
         const TypeMetadata* md = nullptr;
         int fIdx = -1;
+        zcm_field_type_t fieldType;
 
         FieldAccessor(const string& msgtype, const string& field, const TypeDb* types)
         {
@@ -49,6 +50,7 @@ struct Args
 
                 if (string(f.name) == field) {
                     fIdx = i;
+                    fieldType = f.type;
                     break;
                 }
             }
@@ -59,6 +61,35 @@ struct Args
         bool good() const
         {
             return md && fIdx >= 0;
+        }
+
+        bool canBeBoolean() const
+        {
+            switch (fieldType) {
+                case ZCM_FIELD_INT8_T:
+                case ZCM_FIELD_INT16_T:
+                case ZCM_FIELD_INT32_T:
+                case ZCM_FIELD_INT64_T:
+                case ZCM_FIELD_BOOLEAN:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        bool canBeNumeric() const
+        {
+            switch (fieldType) {
+                case ZCM_FIELD_INT8_T:
+                case ZCM_FIELD_INT16_T:
+                case ZCM_FIELD_INT32_T:
+                case ZCM_FIELD_INT64_T:
+                case ZCM_FIELD_FLOAT:
+                case ZCM_FIELD_DOUBLE:
+                    return true;
+                default:
+                    return false;
+            }
         }
 
         bool get(const void* data, zcm_field_t& f) const
@@ -79,10 +110,11 @@ struct Args
         vector<FieldAccessor> accessors;
 
         bool compBool;
-        bool inverse;
+
+        bool inverted;
         bool boolIsActive(bool val) const
         {
-            return inverse ? !val : val;
+            return inverted ? !val : val;
         }
 
         double number;
@@ -219,12 +251,14 @@ struct Args
 
         virtual bool setCompound(bool _and) { return false; }
 
-        virtual bool setCompBool(bool _inverse)
+        virtual bool setCompBool(bool _inverted)
         {
             if (type == ConditionSourceType::NumSourceTypes) return false;
             if (type == ConditionSourceType::Seconds) return false;
+            assert(!accessors.empty());
+            if (!accessors.back().canBeBoolean()) return false;
             compBool = true;
-            inverse = _inverse;
+            inverted = _inverted;
             isConfigured = true;
             return true;
         }
@@ -232,7 +266,12 @@ struct Args
         virtual bool setCompNumber(double _number, bool _lessThan)
         {
             if (type == ConditionSourceType::NumSourceTypes) return false;
+            if (type == ConditionSourceType::Field) {
+                assert(!accessors.empty());
+                if (!accessors.back().canBeBoolean()) return false;
+            }
             number = _number;
+            compBool = false;
             lessThan = _lessThan;
             isConfigured = true;
             return true;
@@ -296,13 +335,12 @@ struct Args
                 case ConditionSourceType::NumSourceTypes: cout << "Unconfigured"; break;
             }
 
-            cout << idt << "Comparator: " << (compBool ? "Boolean" : "Numeric") << endl;
+            cout << idt << (compBool ? "Boolean " : "Numeric ");
 
             if (compBool) {
-                cout << idt << "Inverse: " << (inverse ? "true" : "false") << endl;
+                cout << (inverted ? "Inverted" : "Normal") << endl;
             } else {
-                cout << idt << "Number: " << number << endl;
-                cout << idt << "Less than: " << (lessThan ? "true" : "false") << endl;
+                cout << (lessThan ? "< " : ">= ") << number << endl;
             }
 
         }
@@ -349,12 +387,12 @@ struct Args
             return false;
         }
 
-        bool setCompBool(bool inverse) override
+        bool setCompBool(bool inverted) override
         {
             if (!cond1) cond1.reset(new Condition());
-            if (!cond1->isFullySpecified()) return cond1->setCompBool(inverse);
+            if (!cond1->isFullySpecified()) return cond1->setCompBool(inverted);
             if (!cond2) cond2.reset(new Condition());
-            return cond2->setCompBool(inverse);
+            return cond2->setCompBool(inverted);
         }
 
         bool setCompNumber(double number, bool lessThan) override
@@ -531,7 +569,7 @@ struct Args
             return true;
         }
 
-        bool setConditionCompBool(bool inverse)
+        bool setConditionCompBool(bool inverted)
         {
             if (regions.empty()) return false;
 
@@ -539,10 +577,10 @@ struct Args
 
             if (!specifyingEnd) {
                 if (!back.begin) back.begin.reset(new Condition());
-                if (!back.begin->setCompBool(inverse)) return false;
+                if (!back.begin->setCompBool(inverted)) return false;
             } else {
                 if (!back.end) back.end.reset(new Condition());
-                if (!back.end->setCompBool(inverse)) return false;
+                if (!back.end->setCompBool(inverted)) return false;
             }
 
             return true;
@@ -787,7 +825,7 @@ struct Args
              << endl
              << "       For example:" << endl
              << endl
-             << "       zcm-log-filter -i in.log -o out.log -b -a -s 10 -s 20 -e -s 100" << endl
+             << "       zcm-log-filter -i in.log -o out.log -b -a -s -g 10 -s -l 20 -e -s -g 100" << endl
              << endl << endl;
     }
 };
