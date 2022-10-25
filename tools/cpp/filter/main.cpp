@@ -322,10 +322,10 @@ struct Args
                 case ConditionSourceType::NumSourceTypes: cout << "Unconfigured"; break;
             }
 
-            cout << idt << (compBool ? "Boolean " : "Numeric ");
+            cout << idt << "Trigger: " << (compBool ? "Boolean " : "Numeric ");
 
             if (compBool) {
-                cout << (inverted ? "Inverted" : "Normal") << endl;
+                cout << (inverted ? "== false" : "== true") << endl;
             } else {
                 cout << (lessThan ? "< " : ">= ") << number << endl;
             }
