@@ -93,6 +93,7 @@ struct Args
             }
         }
 
+        // Note: data must be a pointer to a struct of type msgtype (from constructor)
         bool get(const void* data, zcm_field_t& f) const
         {
             if (md->info->get_field(data, fIdx, &f)) return false;
@@ -113,19 +114,21 @@ struct Args
         bool compBool;
 
         bool inverted;
+
+        double number;
+        bool lessThan;
+
+        bool isConfigured = false;
+
         bool boolIsActive(bool val) const
         {
             return inverted ? !val : val;
         }
 
-        double number;
-        bool lessThan;
         bool numberIsActive(double val) const
         {
             return lessThan ? val < number : val >= number;
         }
-
-        bool isConfigured = false;
 
         struct FlaggedBool
         {
@@ -168,25 +171,13 @@ struct Args
             if (!getField(le, f)) return { false, false };
             bool ret;
             switch (f.type) {
-                case ZCM_FIELD_INT8_T:
-                    ret = *((int8_t*)f.data);
-                    break;
-                case ZCM_FIELD_INT16_T:
-                    ret = *((int16_t*)f.data);
-                    break;
-                case ZCM_FIELD_INT32_T:
-                    ret = *((int32_t*)f.data);
-                    break;
-                case ZCM_FIELD_INT64_T:
-                    ret = *((int64_t*)f.data);
-                    break;
-                case ZCM_FIELD_BOOLEAN:
-                    ret = *((bool*)f.data);
-                    break;
-                default:
-                    return { false, false };
+                case ZCM_FIELD_INT8_T:  ret = *((int8_t*)f.data); break;
+                case ZCM_FIELD_INT16_T: ret = *((int16_t*)f.data); break;
+                case ZCM_FIELD_INT32_T: ret = *((int32_t*)f.data); break;
+                case ZCM_FIELD_INT64_T: ret = *((int64_t*)f.data); break;
+                case ZCM_FIELD_BOOLEAN: ret = *((bool*)f.data); break;
+                default: return { false, false };
             }
-
             return { true, ret };
         }
 
@@ -196,22 +187,17 @@ struct Args
 
             zcm_field_t f;
             if (!getField(le, f)) return { false, 0.0 };
+            double ret;
             switch (f.type) {
-                case ZCM_FIELD_INT8_T:
-                    return { true, (double)*((int8_t*)f.data) };
-                case ZCM_FIELD_INT16_T:
-                    return { true, (double)*((int16_t*)f.data) };
-                case ZCM_FIELD_INT32_T:
-                    return { true, (double)*((int32_t*)f.data) };
-                case ZCM_FIELD_INT64_T:
-                    return { true, (double)*((int64_t*)f.data) };
-                case ZCM_FIELD_FLOAT:
-                    return { true, (double)*((float*)f.data) };
-                case ZCM_FIELD_DOUBLE:
-                    return { true,         *((double*)f.data) };
-                default:
-                    return { false, 0.0 };
+                case ZCM_FIELD_INT8_T:  ret = (double)*((int8_t*)f.data);
+                case ZCM_FIELD_INT16_T: ret = (double)*((int16_t*)f.data);
+                case ZCM_FIELD_INT32_T: ret = (double)*((int32_t*)f.data);
+                case ZCM_FIELD_INT64_T: ret = (double)*((int64_t*)f.data);
+                case ZCM_FIELD_FLOAT:   ret = (double)*((float*)f.data);
+                case ZCM_FIELD_DOUBLE:  ret = *((double*)f.data);
+                default:                return { false, 0.0 };
             }
+            return { true, ret };
         }
 
       public:
@@ -349,6 +335,7 @@ struct Args
 
     class CompoundCondition : public Condition
     {
+        // Note that this could eventually turn into more complex compound conditions
         bool _and; // false implies this is an "or" condition
 
       public:
@@ -423,14 +410,18 @@ struct Args
                 cout << endl;
                 cond1->dump(nextHangingIndent);
             } else {
-                cout << "\033[31m" << "unspecified" << "\033[0m" << endl;
+                cout << "\033[31m"
+                     << "unspecified"
+                     << "\033[0m" << endl;
             }
             cout << nidt << "Cond2: ";
             if (cond2) {
                 cout << endl;
                 cond2->dump(nextHangingIndent);
             } else {
-                cout << "\033[31m" << "unspecified" << "\033[0m" << endl;
+                cout << "\033[31m"
+                     << "unspecified"
+                     << "\033[0m" << endl;
             }
         }
     };
@@ -441,6 +432,7 @@ struct Args
         unique_ptr<Condition> begin;
         unique_ptr<Condition> end;
 
+        mutable bool firstTimeThrough = true;
         mutable bool active = false;
 
         unordered_set<string> channels;
@@ -450,8 +442,10 @@ struct Args
             bool b = !begin || begin->isActive(le);
             bool e = !end || end->isActive(le);
 
-            if (!begin) return e;
-            if (b) active = true;
+            if (!begin && firstTimeThrough) active = true;
+            firstTimeThrough = false;
+
+            if (begin && b) active = true;
             if (end && e) active = false;
             return active;
         }
@@ -468,7 +462,9 @@ struct Args
             size_t nextHangingIndent = hangingIndent + 2;
             string nidt = string(nextHangingIndent, ' ');
 
-            cout << idt << "Channels: " << endl;
+            cout << idt << "Channels: ";
+            if (channels.empty()) cout << "All";
+            cout << endl;
             for (auto& c : channels) cout << nidt << c << endl;
             cout << idt << "Begin: ";
             if (begin) {
@@ -498,6 +494,7 @@ struct Args
 
         bool addBegin()
         {
+            if (!regions.empty() && !regions.back().begin) return false;
             regions.emplace_back();
             specifyingEnd = false;
             return true;
@@ -505,9 +502,12 @@ struct Args
 
         bool addEnd()
         {
-            if (regions.empty()) return false;
+            if (regions.empty()) regions.emplace_back();
             auto& back = regions.back();
-            if (back.end) return false;
+            if (back.end) {
+                if (!back.end->isFullySpecified()) return false;
+                regions.emplace_back();
+            }
 
             specifyingEnd = true;
             return true;
@@ -709,7 +709,7 @@ struct Args
                 }
                 case 'f': {
                     if (!types) {
-                        cerr << "Must specify types.so before any field conditions" << endl;
+                        cerr << "Must specify types.so before field conditions" << endl;
                         return false;
                     }
                     if (!factory.setConditionAsField(optarg, types.get())) {
@@ -749,7 +749,8 @@ struct Args
                     break;
                 }
 
-                case 'h': default: usage(); return false;
+                case 'h':
+                default: usage(); return false;
             };
         }
 
@@ -758,7 +759,7 @@ struct Args
             return false;
         }
 
-        if (outlog  == "") {
+        if (outlog == "") {
             cerr << "Please specify log file output" << endl;
             return false;
         }
@@ -825,6 +826,9 @@ struct Args
              << "       expressions you want it to act on." << endl
              << endl
              << "       For example:" << endl
+             << "       To filter for all events starting after any event that" << endl
+             << "       occurs between 10 and 20s into the log and ending after" << endl
+             << "       any event 100s into the log" << endl
              << endl
              << "       zcm-log-filter -i in.log -o out.log -b -a -s -g 10 -s -l 20 -e -s -g 100" << endl
              << endl << endl;
