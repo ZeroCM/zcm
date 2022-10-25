@@ -622,7 +622,7 @@ struct Args
             if (regions.empty()) return false;
             auto& back = regions.back();
             auto chans = StringUtil::split(_channels, ',');
-            for (const auto& c : chans) back.channels.emplace_back(c, c);
+            for (const auto& c : chans) back.channels.emplace_back(c, regex(c));
             return true;
         }
 
