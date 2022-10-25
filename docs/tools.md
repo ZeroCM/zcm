@@ -381,3 +381,17 @@ of `zcm-log-indexer` for specifying the `types.so` and `plugins.so` libraries.
 Compiling a shared library is as easy as:
 
     g++ -std=c++11 -fPIC -shared CustomPlugin.cpp -o plugins.so
+
+### Filter
+##### To mark for build: `$./waf configure --use-elf`
+
+Sometimes you may want to filter a zcm log down to only certain events.
+To do this, we provide a tool that allows you to define on regions of a log
+that you would like to keep.
+This tool, launched via
+
+    zcm-log-filter
+
+does this by providing a rich command line interface through which you can
+specify multiple regions with complex begin and end conditions.
+Refer to the usage docs (`zcm-log-filter -h`) for the most up-to-date usage.

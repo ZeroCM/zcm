@@ -15,6 +15,7 @@ def build(ctx):
         ctx.recurse('logger');
         ctx.recurse('bridge');
         ctx.recurse('topology-visualizer');
+        ctx.recurse('filter');
 
     if ctx.env.USING_GTK3:
         ctx.recurse('logplayer-gui');

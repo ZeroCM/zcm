@@ -9,7 +9,7 @@ RUN apt-get update && apt-get install -y sudo apt-utils
 
 COPY ./scripts/install-deps.sh ./scripts/install-deps.sh
 
-RUN bash -c './scripts/install-deps.sh -i -s'
+RUN bash -c './scripts/install-deps.sh -s'
 
 RUN update-alternatives --install /usr/bin/python python /usr/bin/python3 1 && \
     update-alternatives --install /usr/bin/pip pip /usr/bin/pip3 1
