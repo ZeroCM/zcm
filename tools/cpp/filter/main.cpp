@@ -3,7 +3,7 @@
 #include <iostream>
 #include <limits>
 #include <memory>
-#include <unordered_set>
+#include <regex>
 #include <vector>
 
 #include <zcm/zcm-cpp.hpp>
@@ -435,7 +435,7 @@ struct Args
         mutable bool firstTimeThrough = true;
         mutable bool active = false;
 
-        unordered_set<string> channels;
+        vector<pair<string, regex>> channels;
 
         bool isActive(const zcm::LogEvent* le) const
         {
@@ -448,6 +448,17 @@ struct Args
             if (begin && b) active = true;
             if (end && e) active = false;
             return active;
+        }
+
+        bool keepEvent(const string& channel) const
+        {
+            if (channels.empty()) return true;
+            for (auto& c : channels) {
+                if (regex_match(channel, c.second)) {
+                    return true;
+                }
+            }
+            return false;
         }
 
         bool isFullySpecified() const
@@ -465,7 +476,7 @@ struct Args
             cout << idt << "Channels: ";
             if (channels.empty()) cout << "All";
             cout << endl;
-            for (auto& c : channels) cout << nidt << c << endl;
+            for (auto& c : channels) cout << nidt << c.first << endl;
             cout << idt << "Begin: ";
             if (begin) {
                 cout << endl;
@@ -609,7 +620,7 @@ struct Args
             if (regions.empty()) return false;
             auto& back = regions.back();
             auto chans = StringUtil::split(_channels, ',');
-            for (const auto& c : chans) back.channels.insert(c);
+            for (const auto& c : chans) back.channels.emplace_back(c, c);
             return true;
         }
 
@@ -801,12 +812,13 @@ struct Args
              << "    -b             Interpret the next args as defining begin conditions" << endl
              << "    -e             Interpret the next args as defining end conditions" << endl
              << "    -c             Channels to keep when inside region" << endl
+             << "                   Provide as a comma separated list. Regex supported" << endl
              << endl
-             << "    -s             Condition is based on seconds since beginning of zcm log." << endl
+             << "    -s             Condition is based on seconds since beginning of zcm log" << endl
              << "    -f <flag>      A config-style description of a flag in a channel/message" << endl
              << "                   Formatted as: CHANNEL_NAME:MESSAGE_TYPE_LONG_NAME:FIELD" << endl
              << "                   Where FIELD can be nested fields using \".\" as the" << endl
-             << "                   nested field accessor." << endl
+             << "                   nested field accessor" << endl
              << "                   Condition will be evaluated as boolean unless one of" << endl
              << "                   the following args is specified" << endl
              << endl
@@ -823,7 +835,7 @@ struct Args
              << "      -r  Or" << endl
              << endl
              << "       For compound expressions, put the compound specifier before the two" << endl
-             << "       expressions you want it to act on." << endl
+             << "       expressions you want it to act on" << endl
              << endl
              << "       For example:" << endl
              << "       To filter for all events starting after any event that" << endl
@@ -883,8 +895,8 @@ int main(int argc, char* argv[])
         bool keepEvent = false;
         for (const auto& r : args.factory.regions) {
             if (r.isActive(evt)) {
-                keepEvent = r.channels.empty() ||
-                            r.channels.find(evt->channel) != r.channels.end();
+                bool rKeep = r.keepEvent(evt->channel);
+                keepEvent |= rKeep;
                 // Intentionally not breaking here so every condition can see every event
             }
         }
