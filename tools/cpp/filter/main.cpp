@@ -658,7 +658,7 @@ struct Args
             { "seconds",       no_argument, 0, 's' },
             { "field",   required_argument, 0, 'f' },
 
-            { "is-true",      required_argument, 0, 'n' },
+            { "boolean",      required_argument, 0, 'n' },
             { "less-than",    required_argument, 0, 'l' },
             { "greater-than", required_argument, 0, 'g' },
 
@@ -798,9 +798,13 @@ struct Args
              << "" << endl
              << "    Filter a log to events in regions marked by begin and end conditions" << endl
              << endl
-             << "Example:" << endl
-             << "    # Filters a log to all events between 10 and 20 seconds after log start" << endl
-             << "    zcm-log-filter -l zcm.log -o out.log -b -t 10 -e -t 20" << endl
+             << "Examples:" << endl
+             << "    # Filter a log to all events between 10 and 20 seconds after log start" << endl
+             << "    zcm-log-filter -i in.log -o out.log -b -s -g 10 -e -s -g 20" << endl
+             << endl
+             << "    # Filter a log to all events after a boolean flag goes true" << endl
+             << "    zcm-log-filter -i in.log -o out.log -t types.so "
+                                   "-b -f FLAGS:flags_t:field1 -n normal" << endl
              << endl
              << "Options:" << endl
              << endl
@@ -811,40 +815,40 @@ struct Args
              << "  -d, --debug             Run a dry run to ensure proper setup" << endl
              << endl
              << "  Conditions" << endl
-             << "    -b             Interpret the next args as defining begin conditions" << endl
-             << "    -e             Interpret the next args as defining end conditions" << endl
-             << "    -c             Channels to keep when inside region" << endl
-             << "                   Provide as a comma separated list. Regex supported" << endl
+             << "    -b, --begin                  Interpret the next args as defining begin conditions" << endl
+             << "    -e, --end                    Interpret the next args as defining end conditions" << endl
+             << "    -c, --channels               Channels to keep when inside region" << endl
+             << "                                 Provide as a comma separated list. Regex supported" << endl
              << endl
-             << "    -s             Condition is based on seconds since beginning of zcm log" << endl
-             << "    -f <flag>      A config-style description of a flag in a channel/message" << endl
-             << "                   Formatted as: CHANNEL_NAME:MESSAGE_TYPE_LONG_NAME:FIELD" << endl
-             << "                   Where FIELD can be nested fields using \".\" as the" << endl
-             << "                   nested field accessor" << endl
-             << "                   Condition will be evaluated as boolean unless one of" << endl
-             << "                   the following args is specified" << endl
+             << "    -s, --seconds                Condition is based on seconds since beginning of zcm log" << endl
+             << "    -f, --field=<field>          A config-style description of a flag in a channel/message" << endl
+             << "                                 Formatted as: CHANNEL_NAME:MESSAGE_TYPE_LONG_NAME:FIELD" << endl
+             << "                                 Where FIELD can be nested fields using \".\" as the" << endl
+             << "                                 nested field accessor" << endl
              << endl
-             << "    -n <inverted>  Evaluate condition as \"FIELD == true\"  for -b normal" << endl
-             << "                                      as \"FIELD == false\" for -b inverted" << endl
-             << "                   All other strings after -n are invalid" << endl
-             << "    -l <number>    Evaluate condition as \"FIELD < number\"" << endl
-             << "                   Currently only supports doubles" << endl
-             << "    -g <number>    Evaluate condition as \"FIELD >= number\"" << endl
-             << "                   Currently only supports doubles" << endl
+             << "    -n, --boolean=<inverted>     Evaluate condition as \"FIELD == true\"  for -n normal" << endl
+             << "                                                    as \"FIELD == false\" for -n inverted" << endl
+             << "                                 All other strings after -n are invalid" << endl
+             << "    -l, --less-than=<number>     Evaluate condition as \"FIELD < number\"" << endl
+             << "                                 Currently only supports comparing \"field\" to double" << endl
+             << "    -g, --greater-than=<number>  Evaluate condition as \"FIELD >= number\"" << endl
+             << "                                 Currently only supports comparing \"field\" to double" << endl
              << endl
              << "    Compounds:" << endl
-             << "      -a  And" << endl
-             << "      -r  Or" << endl
+             << "      -a, --and  And" << endl
+             << "      -r, --or   Or" << endl
              << endl
-             << "       For compound expressions, put the compound specifier before the two" << endl
-             << "       expressions you want it to act on" << endl
+             << "      For compound expressions, put the compound specifier before the two" << endl
+             << "      expressions you want it to act on" << endl
              << endl
-             << "       For example:" << endl
-             << "       To filter for all events starting after any event that" << endl
-             << "       occurs between 10 and 20s into the log and ending after" << endl
-             << "       any event 100s into the log" << endl
-             << endl
-             << "       zcm-log-filter -i in.log -o out.log -b -a -s -g 10 -s -l 20 -e -s -g 100" << endl
+             << "      Example:" << endl
+             << "        # To filter for all events starting after any event that" << endl
+             << "        # occurs between 10 and 20s into the log and ending after" << endl
+             << "        # any event 100s into the log. If there is no event in the" << endl
+             << "        # log between 10 and 20 seconds after the beginning of the" << endl
+             << "        # log, the region's begin condition will never trigger and" << endl
+             << "        # the output log will be empty." << endl
+             << "        zcm-log-filter -i in.log -o out.log -b -a -s -g 10 -s -l 20 -e -s -g 100" << endl
              << endl << endl;
     }
 };
