@@ -145,9 +145,11 @@ struct Args
         bool getField(const zcm::LogEvent* le, zcm_field_t& f) const
         {
             assert(!accessors.empty());
-            auto info = accessors.front().md->info;
+            const auto* info = accessors.front().md->info;
             uint8_t* buf = new uint8_t[(size_t)info->struct_size()];
             if (info->decode(le->data, 0, le->datalen, buf) != le->datalen) {
+                cerr << "Unable to decode " << accessors.front().md->name
+                     << " on " << le->channel << endl;
                 delete[] buf;
                 return false;
             }
