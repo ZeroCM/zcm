@@ -524,6 +524,8 @@ struct Args
 
         bool addBegin()
         {
+            /// RRR: (Jakob H.) Can't you just use !regions.back().isFullySpecified()
+            /// I'm pretty sure that is doing this exact check
             if (!regions.empty() &&
                 ((regions.back().begin && !regions.back().begin->isFullySpecified()) ||
                  (regions.back().end && !regions.back().end->isFullySpecified()))) {
@@ -536,6 +538,8 @@ struct Args
 
         bool addEnd()
         {
+            /// RRR: (Jakob H.) Same here. You're just trying to make sure you can't
+            /// start a new region if the previous one isn't fully specified, right?
             if (!regions.empty() &&
                 ((regions.back().begin && !regions.back().begin->isFullySpecified()) ||
                  (regions.back().end && !regions.back().end->isFullySpecified()))) {
@@ -947,7 +951,11 @@ int main(int argc, char* argv[])
 
     if (args.debug) return 0;
 
-    auto processLog = [&](function<void(const zcm::LogEvent* evt)> processEvent){
+    /// RRR: (Jakob. H) I tend to avoid using & and instead
+    /// document exactly the variables I'm capturing to avoid unintended surprises
+    /// and improve code readability (future readers don't have to hunt
+    /// through the function to see what variables are from external scope).
+    auto processLog = [&](function<void(const zcm::LogEvent* evt)> processEvent) {
         const zcm::LogEvent* evt;
         off64_t offset;
         static int lastPrintPercent = 0;
@@ -975,6 +983,8 @@ int main(int argc, char* argv[])
     static constexpr int64_t i64max = numeric_limits<int64_t>::max();
 
     cout << "Marking regions on first pass..." << endl;
+    /// RRR (Jakob H.) BTW, I'd consider renaming this variable to avoid confusion
+    /// with the factory's regions
     vector<vector<pair<int64_t, int64_t>>> regions;
     regions.resize(args.factory.regions.size());
     processLog([&](const zcm::LogEvent* evt){
@@ -1005,12 +1015,17 @@ int main(int argc, char* argv[])
             if (args.verbose) cout << "[" << r.first << ", " << r.second << "]" << endl;
         }
     }
-    cout << "Adjusted endpoints of " << numRegions
-         << " region" << (numRegions > 1 ? "s" : "") << "..." << endl;
+    cout << "Adjusted endpoints of " << numRegions << " region"
+         << (numRegions > 1 ? "s" : "") << "..." << endl;
 
     cout << "Writing events to output log..." << endl;
     size_t numInEvents = 0, numOutEvents = 0;
-    processLog([&](const zcm::LogEvent* evt){
+    // RRR: (Jakob H.) It's probably not worth it given the number of regions/subregions
+    // and the likelihood of overlaps (and you already break the first time you see
+    // an event) but you could possibly reduce the final
+    // runtime by collapsing overlapping regions together here before looping over
+    // all of them.
+    processLog([&](const zcm::LogEvent* evt) {
         bool keepEvent = false;
         for (size_t i = 0; i < regions.size(); ++i) {
             auto& fr = args.factory.regions[i];
