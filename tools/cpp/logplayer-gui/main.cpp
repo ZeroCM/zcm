@@ -1258,7 +1258,7 @@ struct LogPlayer
 
     int run()
     {
-        GtkApplication *app = gtk_application_new("org.zcm.logplayer", G_APPLICATION_FLAGS_NONE);
+        GtkApplication *app = gtk_application_new("org.zcm.logplayer", G_APPLICATION_NON_UNIQUE);
 
         thread thr(&LogPlayer::playThrFunc, this);
 
