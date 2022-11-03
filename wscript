@@ -166,7 +166,9 @@ def process_zcm_configure_options(ctx):
     env.USING_JULIA       = hasopt('use_julia') and attempt_use_julia(ctx)
     env.USING_ZMQ         = hasopt('use_zmq') and attempt_use_zmq(ctx)
     env.USING_ELF         = hasopt('use_elf') and attempt_use_elf(ctx)
-    env.USING_GTK3        = hasopt('use_gtk') and attempt_use_gtk(ctx)
+    ctx.env.USING_GTK4    = False
+    ctx.env.USING_GTK3    = False
+    env.USING_GTK         = hasopt('use_gtk') and attempt_use_gtk(ctx)
     env.USING_THIRD_PARTY = getattr(opt, 'use_third_party') and attempt_use_third_party(ctx)
 
     env.USING_TRANS_IPC    = hasopt('use_ipc')
@@ -214,7 +216,7 @@ def process_zcm_configure_options(ctx):
     print_entry("Julia",       env.USING_JULIA)
     print_entry("ZeroMQ",      env.USING_ZMQ)
     print_entry("Elf",         env.USING_ELF)
-    print_entry("GTK",         env.USING_GTK3)
+    print_entry("GTK",         env.USING_GTK)
     print_entry("Third Party", env.USING_THIRD_PARTY)
 
     Logs.pprint('BLUE', '\nTransport Configuration:')
@@ -315,7 +317,12 @@ def attempt_use_elf(ctx):
     return True
 
 def attempt_use_gtk(ctx):
-    ctx.check_cfg(package='gtk+-3.0', args='--cflags --libs', uselib_store='gtk+3')
+    try:
+        ctx.check_cfg(package='gtk+-4.0', args='--cflags --libs', uselib_store='gtk+4')
+        ctx.env.USING_GTK4 = True
+    except:
+        ctx.check_cfg(package='gtk+-3.0', args='--cflags --libs', uselib_store='gtk+3')
+        ctx.env.USING_GTK3 = True
     return True
 
 def attempt_use_third_party(ctx):
