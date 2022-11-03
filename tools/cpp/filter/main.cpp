@@ -33,7 +33,7 @@ struct Args
       public:
         const TypeMetadata* md = nullptr;
         int fIdx = -1;
-        zcm_field_type_t fieldType;
+        zcm_field_t field;
 
         FieldAccessor(const string& msgtype, const string& field, const TypeDb* types)
         {
@@ -51,7 +51,7 @@ struct Args
 
                 if (string(f.name) == field) {
                     fIdx = i;
-                    fieldType = f.type;
+                    this->field = f;
                     break;
                 }
             }
@@ -66,7 +66,7 @@ struct Args
 
         bool canBeBoolean() const
         {
-            switch (fieldType) {
+            switch (field.type) {
                 case ZCM_FIELD_INT8_T:
                 case ZCM_FIELD_INT16_T:
                 case ZCM_FIELD_INT32_T:
@@ -80,7 +80,7 @@ struct Args
 
         bool canBeNumeric() const
         {
-            switch (fieldType) {
+            switch (field.type) {
                 case ZCM_FIELD_INT8_T:
                 case ZCM_FIELD_INT16_T:
                 case ZCM_FIELD_INT32_T:
@@ -96,8 +96,7 @@ struct Args
         // Note: data must be a pointer to a struct of type msgtype (from constructor)
         bool get(const void* data, zcm_field_t& f) const
         {
-            if (md->info->get_field(data, fIdx, &f)) return false;
-            return true;
+            return md->info->get_field(data, fIdx, &f) >= 0;
         }
     };
 
@@ -230,7 +229,9 @@ struct Args
             auto fieldParts = StringUtil::split(msgfield, '.');
 
             for (size_t i = 0; i < fieldParts.size(); ++i) {
-                accessors.emplace_back(i == 0 ? msgtype : fieldParts[i - 1],
+                accessors.emplace_back(i == 0 ?
+                                       msgtype :
+                                       string(accessors.back().field.typestr),
                                        fieldParts[i], types);
                 if (!accessors.back().good()) return false;
             }
@@ -507,7 +508,11 @@ struct Args
 
         bool addBegin()
         {
-            if (!regions.empty() && !regions.back().begin) return false;
+            if (!regions.empty() &&
+                ((regions.back().begin && !regions.back().begin->isFullySpecified()) ||
+                 (regions.back().end && !regions.back().end->isFullySpecified()))) {
+                    return false;
+            }
             regions.emplace_back();
             specifyingEnd = false;
             return true;
@@ -515,6 +520,11 @@ struct Args
 
         bool addEnd()
         {
+            if (!regions.empty() &&
+                ((regions.back().begin && !regions.back().begin->isFullySpecified()) ||
+                 (regions.back().end && !regions.back().end->isFullySpecified()))) {
+                    return false;
+            }
             if (regions.empty()) regions.emplace_back();
             auto& back = regions.back();
             if (back.end) {
