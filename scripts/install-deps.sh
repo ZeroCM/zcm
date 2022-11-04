@@ -69,8 +69,14 @@ PIP_PKGS+='urllib3 '
 ## LibElf
 PKGS+='libelf-dev libelf1 '
 
-## Gtk+3
-PKGS+='libgtk-3-dev '
+GTK4=$(apt-cache search libgtk-4-dev)
+if [ -n "$GTK4" ]; then
+    ## Gtk+4
+    PKGS+='libgtk-4-dev '
+else
+    ## Gtk+3
+    PKGS+='libgtk-3-dev '
+fi
 
 ## Clang tools for code sanitizers, style checkers, etc.
 PKGS+='clang '
