@@ -318,7 +318,7 @@ def attempt_use_elf(ctx):
 
 def attempt_use_gtk(ctx):
     try:
-        ctx.check_cfg(package='gtk+-4.0', args='--cflags --libs', uselib_store='gtk+4')
+        ctx.check_cfg(package='gtk4', args='--cflags --libs', uselib_store='gtk4')
         ctx.env.USING_GTK4 = True
     except:
         ctx.check_cfg(package='gtk+-3.0', args='--cflags --libs', uselib_store='gtk+3')

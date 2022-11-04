@@ -18,5 +18,7 @@ def build(ctx):
         ctx.recurse('filter');
         ctx.recurse('csv-writer');
 
+    if ctx.env.USING_GTK4:
+        ctx.recurse('logplayer-gui-gtk4');
     if ctx.env.USING_GTK3:
-        ctx.recurse('logplayer-gui');
+        ctx.recurse('logplayer-gui-gtk3');
