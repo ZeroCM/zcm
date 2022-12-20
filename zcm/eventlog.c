@@ -1,4 +1,5 @@
 #include "zcm/eventlog.h"
+#include "zcm/util/debug.h"
 #include "zcm/util/ioutils.h"
 #include <assert.h>
 #include <string.h>
@@ -155,13 +156,13 @@ static zcm_eventlog_event_t *zcm_event_read_helper(zcm_eventlog_t *l, int rewind
 
     // Sanity check the channel length and data length
     if (le->channellen <= 0 || le->channellen >= 1000) {
-        fprintf(stderr, "Log event has invalid channel length: %d\n", le->channellen);
+        ZCM_DEBUG("Log event has invalid channel length: %d", le->channellen);
         free(le);
         le = NULL;
         goto done;
     }
     if (le->datalen < 0) {
-        fprintf(stderr, "Log event has invalid data length: %d\n", le->datalen);
+        ZCM_DEBUG("Log event has invalid data length: %d", le->datalen);
         free(le);
         le = NULL;
         goto done;
@@ -186,16 +187,15 @@ static zcm_eventlog_event_t *zcm_event_read_helper(zcm_eventlog_t *l, int rewind
         goto done;
     }
 
-    // Check that there's a valid event or the EOF after this event.
     int32_t next_magic;
     if (0 == fread32(l->f, &next_magic)) {
         if (next_magic != MAGIC) {
-            fprintf(stderr, "Invalid header after log data\n");
+            ZCM_DEBUG("Invalid header after log data");
             free(le->channel);
             free(le->data);
             free(le);
             le = NULL;
-            return NULL;
+            goto done;
         }
         fseeko (l->f, -4, SEEK_CUR);
     }
@@ -204,27 +204,42 @@ done:
     if (rewindWhenDone) {
         off_t numRead = ftello (l->f) - startOffset;
         fseeko (l->f, -(off_t)(numRead + 4), SEEK_CUR);
+    } else if (le == NULL) {
+        off_t numRead = ftello (l->f) - startOffset;
+        fseeko (l->f, -(off_t)numRead, SEEK_CUR);
     }
     return le;
 }
 
 zcm_eventlog_event_t *zcm_eventlog_read_next_event(zcm_eventlog_t *l)
 {
-    if (sync_stream(l)) return NULL;
-    return zcm_event_read_helper(l, 0);
+    zcm_eventlog_event_t* ret = NULL;
+    while (ret == NULL) {
+        if (sync_stream(l)) break;
+        ret = zcm_event_read_helper(l, 0);
+    }
+    return ret;
 }
 
 zcm_eventlog_event_t *zcm_eventlog_read_prev_event(zcm_eventlog_t *l)
 {
-    if (sync_stream_backwards(l) < 0) return NULL;
-    return zcm_event_read_helper(l, 1);
+    zcm_eventlog_event_t* ret = NULL;
+    while (ret == NULL) {
+        if (sync_stream_backwards(l) < 0) break;
+        ret = zcm_event_read_helper(l, 1);
+    }
+    return ret;
 }
 
 zcm_eventlog_event_t *zcm_eventlog_read_event_at_offset(zcm_eventlog_t *l, off_t offset)
 {
     fseeko(l->f, offset, SEEK_SET);
-    if (sync_stream(l)) return NULL;
-    return zcm_event_read_helper(l, 0);
+    zcm_eventlog_event_t* ret = NULL;
+    while (ret == NULL) {
+        if (sync_stream(l)) break;
+        ret = zcm_event_read_helper(l, 0);
+    }
+    return ret;
 }
 
 void zcm_eventlog_free_event(zcm_eventlog_event_t *le)

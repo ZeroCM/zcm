@@ -289,6 +289,8 @@ struct LogPlayer
         const zcm::LogEvent* le = zcmIn->readNextEvent();
         uint64_t nowUs = TimeUtil::utime();
 
+        if (!le) return err;
+
         uint64_t firstMsgUtime = (uint64_t) le->timestamp;
         // timestamp when first message is dispatched; will be overwritten in the loop
         uint64_t firstDispatchUtime = nowUs;
