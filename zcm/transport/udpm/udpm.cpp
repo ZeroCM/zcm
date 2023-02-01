@@ -387,6 +387,7 @@ int UDPM::recvmsg(zcm_msg_t *msg, int timeout)
 
 UDPM::~UDPM()
 {
+    if (m) pool.freeMessage(m);
     ZCM_DEBUG("closing zcm context");
 }
 
