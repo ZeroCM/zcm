@@ -1135,6 +1135,7 @@ struct LogPlayer
                 reset = true;
             }
 
+            off_t logPos = ftello(zcmIn->getFilePtr());
             le = zcmIn->readNextEvent();
             if (!le) {
                 if (args.exitWhenDone) break;
@@ -1225,7 +1226,11 @@ struct LogPlayer
 
             c = _channelMap[le->channel];
 
-            if (c.enabled) zcmOut->publish(c.pubChannel.c_str(), le->data, le->datalen);
+            if (c.enabled) {
+                if (zcmOut->publish(c.pubChannel.c_str(), le->data, le->datalen) != ZCM_EOK) {
+                    fseeko(zcmIn->getFilePtr(), logPos, SEEK_SET);
+                }
+            }
 
             {
                 unique_lock<mutex> lk(zcmLk);
