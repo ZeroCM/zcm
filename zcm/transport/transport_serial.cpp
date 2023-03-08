@@ -231,6 +231,8 @@ int Serial::convertBaud(int baud)
             return B115200;
         case 230400:
             return B230400;
+        case 460800:
+            return B460800;
         default:
             return 0;
     }
