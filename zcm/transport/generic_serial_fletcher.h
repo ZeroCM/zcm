@@ -26,6 +26,7 @@ static inline uint16_t fletcherUpdate(uint8_t b, uint16_t prevSum)
  * @param      data - pointed to array of bytes to calculate checksum for
  * @param      len  - length of byte array
  */
+// RRR (Bendes): why is this not deferring to the above? DRY principle :)
 static inline uint16_t fletcher16(const uint8_t* data, size_t len)
 {
     uint32_t c0, c1;

@@ -8,6 +8,9 @@ extern "C"
 {
 #endif
 
+// RRR (Bendes): This functionality is already provided via zcm_coretypes.h
+//               I don't believe this file should be needed
+
 /** Pull 1 uint8_t out of a uint32_t
     @param var      Value to break
     @param byteNum  Byte number to extract
