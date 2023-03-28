@@ -12,16 +12,17 @@
 #endif
 
 /**
- * @brief COBS encode \p length bytes from \p src to \p dest
- * @param dest
- * @param src
- * @param length
+ * @brief   COBS encode \p length bytes from \p src to \p dest
  *
- * @return Encoded buffer length in bytes
+ * @param   dest
+ * @param   src
+ * @param   length
  *
- * @note Does not output delimiter byte
- * @note \p dest must point to output buffer of length
- *       greater than or equal to \p src
+ * @return  Encoded buffer length in bytes
+ *
+ * @note    Does not output delimiter byte
+ * @note    \p dest must point to output buffer of length
+ *          greater than or equal to \p src
  */
 static INLINE size_t cobs_encode(uint8_t* dest, const uint8_t* src,
                                  size_t length)
@@ -49,14 +50,15 @@ static INLINE size_t cobs_encode(uint8_t* dest, const uint8_t* src,
 }
 
 /**
- * @brief COBS decode \p length bytes from \p src to \p dest
- * @param dest
- * @param src
- * @param length
+ * @brief   COBS decode \p length bytes from \p src to \p dest
  *
- * @return Number of bytes successfully decoded
+ * @param   dest
+ * @param   src
+ * @param   length
  *
- * @note Stops decoding if delimiter byte is found
+ * @return  Number of bytes successfully decoded
+ *
+ * @note    Stops decoding if delimiter byte is found
  */
 static INLINE size_t cobs_decode(uint8_t* dest, const uint8_t* src,
                                  size_t length)
@@ -85,11 +87,13 @@ static INLINE size_t cobs_decode(uint8_t* dest, const uint8_t* src,
     return (size_t)(decode - dest);
 }
 
-/** Calculate maximum COBS encoding overhead
-    @param msgSize Size of the pre-encoded message
-
-    @return Maximum number of overhead bytes
-*/
+/**
+ * @brief   Calculate maximum COBS encoding overhead
+ *
+ * @param   msgSize Size of the pre-encoded message
+ *
+ * @return  Maximum number of overhead bytes
+ */
 static INLINE size_t cobsMaxOverhead(size_t msgSize)
 {
     return (msgSize + 253) / 254;

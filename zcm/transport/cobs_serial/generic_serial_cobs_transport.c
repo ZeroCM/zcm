@@ -17,8 +17,6 @@
 
 #define ASSERT(x)
 
-// RRR (Bendes): See comments in other files about
-
 // Framing (size = 8 + chanLen + data_len)
 //   chanLen
 //   data_len  (4 bytes)
@@ -36,8 +34,8 @@ typedef struct zcm_trans_cobs_serial_t {
 
     circBuffer_t sendBuffer;
     circBuffer_t recvBuffer;
-    uint8_t recvChanName[ZCM_CHANNEL_MAXLEN + 1];
     size_t mtu;
+    uint8_t recvChanName[ZCM_CHANNEL_MAXLEN + 1];
     uint8_t* sendMsgData;
     uint8_t* recvMsgData;
 
@@ -54,14 +52,15 @@ static zcm_trans_cobs_serial_t* cast(zcm_trans_t* zt);
 size_t serial_cobs_get_mtu(zcm_trans_cobs_serial_t* zt) { return zt->mtu; }
 
 /**
- * @brief COBS encode \p length bytes from \p src to \p dest
- * @param dest
- * @param src
- * @param length
+ * @brief   COBS encode \p length bytes from \p src to \p dest
  *
- * @return Encoded buffer length in bytes
+ * @param   dest
+ * @param   src
+ * @param   length
  *
- * @note Does not encode termination character
+ * @return  Encoded buffer length in bytes
+ *
+ * @note    Does not encode termination character
  */
 static size_t cobs_encode_zcm(circBuffer_t* dest, const uint8_t* src,
                               size_t length)
@@ -95,15 +94,16 @@ static size_t cobs_encode_zcm(circBuffer_t* dest, const uint8_t* src,
 }
 
 /**
- * @brief COBS decode \p length bytes from \p src to \p dest
- * @param dest
- * @param src
- * @param length
+ * @brief   COBS decode \p length bytes from \p src to \p dest
  *
- * @return Decoded buffer length in bytes, excluding delimeter
+ * @param   dest
+ * @param   src
+ * @param   length
  *
- * @note Stops decoding if delimiter byte is found
- * @note Does not pop any values out of \p src
+ * @return  Decoded buffer length in bytes, excluding delimeter
+ *
+ * @note    Stops decoding if delimiter byte is found
+ * @note    Does not pop any values out of \p src
  */
 static size_t cobs_decode_zcm(uint8_t* dest, circBuffer_t* src, size_t length)
 {
@@ -260,32 +260,27 @@ int serial_cobs_update_tx(zcm_trans_t* _zt)
 }
 
 /********************** STATICS **********************/
-// RRR (Bendes): Match style of repo you're in
 static size_t _serial_get_mtu(zcm_trans_t* zt)
 {
     return serial_cobs_get_mtu(cast(zt));
 }
 
-// RRR (Bendes): Match style of repo you're in
 static int _serial_sendmsg(zcm_trans_t* zt, zcm_msg_t msg)
 {
     return serial_cobs_sendmsg(cast(zt), msg);
 }
 
-// RRR (Bendes): Match style of repo you're in
 static int _serial_recvmsg_enable(zcm_trans_t* zt, const char* channel,
                                   bool enable)
 {
     return serial_cobs_recvmsg_enable(cast(zt), channel, enable);
 }
 
-// RRR (Bendes): Match style of repo you're in
 static int _serial_recvmsg(zcm_trans_t* zt, zcm_msg_t* msg, int timeout)
 {
     return serial_cobs_recvmsg(cast(zt), msg, timeout);
 }
 
-// RRR (Bendes): Match style of repo you're in
 static int _serial_update(zcm_trans_t* zt)
 {
     int rxRet = serial_cobs_update_rx(zt);
@@ -298,14 +293,12 @@ static zcm_trans_methods_t methods = {
     &_serial_recvmsg, &_serial_update,  &zcm_trans_generic_serial_cobs_destroy,
 };
 
-// RRR (Bendes): Match style of repo you're in
 static zcm_trans_cobs_serial_t* cast(zcm_trans_t* zt)
 {
     assert(zt->vtbl == &methods);
     return (zcm_trans_cobs_serial_t*)zt;
 }
 
-// RRR (Bendes): Match style of repo you're in
 zcm_trans_t* zcm_trans_generic_serial_cobs_create(
     size_t (*get)(uint8_t* data, size_t nData, void* usr),
     size_t (*put)(const uint8_t* data, size_t nData, void* usr),
@@ -317,42 +310,20 @@ zcm_trans_t* zcm_trans_generic_serial_cobs_create(
     if (zt == NULL) return NULL;
     zt->mtu = MTU;
 
-    // RRR (Bendes): This is excessive. This is a ton of repeated code.
-    //               Figure out a cleaner way to dealloc on failure or just
-    //               use a goto. You can sacrifice speed here (null setting
-    //               everything before allocation and checking them each on
-    //               a failure of any). The constructor doesn't need to be
-    //               doing minimum work.
+    zt->sendMsgData = NULL;
+    zt->recvMsgData = NULL;
+    zt->recvBuffer.data = NULL;
+    zt->sendBuffer.data = NULL;
 
-    // RRR (Bendes): Not sure why so many buffers are needed
-
-    // Bytes needed to construct full message
     size_t maxPayloadSize = FRAME_BYTES + ZCM_CHANNEL_MAXLEN + zt->mtu;
     zt->recvMsgData = malloc(maxPayloadSize * sizeof(uint8_t));
-    if (zt->recvMsgData == NULL) {
-        free(zt);
-        return NULL;
-    }
-    zt->sendMsgData = malloc(maxPayloadSize * sizeof(uint8_t));
-    if (zt->sendMsgData == NULL) {
-        free(zt->recvMsgData);
-        free(zt);
-        return NULL;
-    }
+    if (zt->recvMsgData == NULL) goto fail;
 
-    if (!cb_init(&zt->sendBuffer, bufSize)) {
-        free(zt->recvMsgData);
-        free(zt->sendMsgData);
-        free(zt);
-        return NULL;
-    }
-    if (!cb_init(&zt->recvBuffer, bufSize)) {
-        cb_deinit(&zt->sendBuffer);
-        free(zt->recvMsgData);
-        free(zt->sendMsgData);
-        free(zt);
-        return NULL;
-    }
+    zt->sendMsgData = malloc(maxPayloadSize * sizeof(uint8_t));
+    if (zt->sendMsgData == NULL) goto fail;
+
+    if (!cb_init(&zt->recvBuffer, bufSize)) goto fail;
+    if (!cb_init(&zt->sendBuffer, bufSize)) goto fail;
 
     zt->trans.trans_type = ZCM_NONBLOCKING;
     zt->trans.vtbl = &methods;
@@ -365,9 +336,17 @@ zcm_trans_t* zcm_trans_generic_serial_cobs_create(
     zt->time_usr = time_usr;
 
     return (zcm_trans_t*)zt;
+
+fail:
+    if (zt->recvBuffer.data != NULL) cb_deinit(&zt->recvBuffer);
+    if (zt->sendBuffer.data != NULL) cb_deinit(&zt->sendBuffer);
+    if (zt->recvMsgData != NULL) free(zt->recvMsgData);
+    if (zt->sendMsgData != NULL) free(zt->sendMsgData);
+
+    free(zt);
+    return NULL;
 }
 
-// RRR (Bendes): Match style of repo you're in
 void zcm_trans_generic_serial_cobs_destroy(zcm_trans_t* _zt)
 {
     zcm_trans_cobs_serial_t* zt = cast(_zt);
