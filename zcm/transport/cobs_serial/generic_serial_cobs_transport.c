@@ -179,10 +179,12 @@ int serial_cobs_sendmsg(zcm_trans_cobs_serial_t* zt, zcm_msg_t msg)
     memcpy(pMsgData, msg.buf, msg.len);
     pMsgData += msg.len;
 
-    // Calculate Fletcher-16 checksum and add to msgData
+    // Calculate Fletcher-16 checksum and complementary bytes
     uint16_t checksum = fletcher16(zt->sendMsgData, payloadLen - 3);
-    pMsgData[0] = (uint8_t)(checksum & 0xFF);
-    pMsgData[1] = (uint8_t)((checksum >> 8) & 0xFF);
+    uint8_t sumLow = (uint8_t)(checksum & 0xFF);
+    uint8_t sumHigh = (uint8_t)((checksum >> 8) & 0xFF);
+    pMsgData[0] = 255 - ((sumLow + sumHigh) % 255);
+    pMsgData[1] = 255 - ((sumLow + pMsgData[0]) % 255);
 
     size_t bytesEncoded =
         cobs_encode_zcm(&zt->sendBuffer, zt->sendMsgData, payloadLen - 1);
@@ -232,14 +234,10 @@ int serial_cobs_recvmsg(zcm_trans_cobs_serial_t* zt, zcm_msg_t* msg,
     // Value rationality checks
     if (chanLen > ZCM_CHANNEL_MAXLEN || msg->len > zt->mtu) return ZCM_EINVALID;
 
-    // Calculate Fletcher-16 checksum and check against received
+    // Calculate Fletcher-16 checksum for entire payload (including checkbytes)
     uint16_t checksum = 0;
-    uint16_t receivedCS = 0;
-    checksum = fletcher16(zt->recvMsgData, bytesDecoded - 3);
-    receivedCS = zt->recvMsgData[bytesDecoded - 3] |
-                 (zt->recvMsgData[bytesDecoded - 2] << 8);
-
-    if (receivedCS != checksum) return ZCM_EINVALID;
+    checksum = fletcher16(zt->recvMsgData, bytesDecoded - 1);
+    if (checksum != 0x0000) return ZCM_EINVALID;
 
     // Copy channel name
     memset(&zt->recvChanName, '\0', ZCM_CHANNEL_MAXLEN);
