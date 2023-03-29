@@ -107,13 +107,18 @@ static size_t cobs_encode_zcm(circBuffer_t* dest, const uint8_t* src,
  */
 static size_t cobs_decode_zcm(uint8_t* dest, circBuffer_t* src, size_t length)
 {
-    bool foundTerm = false;
-    uint8_t* decode = dest;
-    size_t stuffBytes = 0;
     size_t bytesRead = 0;
     uint8_t byte = cb_front(src, bytesRead++);
+    if (!byte) {
+        cb_pop_front(src, 1);
+        return 0;
+    }
 
-    for (uint8_t code = 0xff, block = 0; bytesRead < length; --block) {
+    bool foundTerm = false;
+    size_t stuffBytes = 0;
+    uint8_t* decode = dest;
+    for (uint8_t code = 0xff, block = 0; (bytesRead - stuffBytes) < length;
+         --block) {
         if (block) {
             *decode = byte;
             decode++;
@@ -206,6 +211,10 @@ int serial_cobs_recvmsg(zcm_trans_cobs_serial_t* zt, zcm_msg_t* msg,
     size_t bytesDecoded =
         cobs_decode_zcm(zt->recvMsgData, &zt->recvBuffer, incomingSize);
     if (!bytesDecoded) return ZCM_EAGAIN;
+    if (bytesDecoded < minMessageSize) {
+        cb_pop_front(&zt->recvBuffer, bytesDecoded);
+        return ZCM_EAGAIN;
+    }
 
     cb_pop_front(&zt->recvBuffer, bytesDecoded + 1);  // +1 for terminator
 
