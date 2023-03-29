@@ -103,48 +103,51 @@ static size_t cobs_encode_zcm(circBuffer_t* dest, const uint8_t* src,
  * @return  Decoded buffer length in bytes, excluding delimeter
  *
  * @note    Stops decoding if delimiter byte is found
- * @note    Does not pop any values out of \p src
+ * @note    Pops values out of \p src if message is complete or malformed,
+ *          does not pop values if message is incomplete
  */
 static size_t cobs_decode_zcm(uint8_t* dest, circBuffer_t* src, size_t length)
 {
     size_t bytesRead = 0;
     uint8_t byte = cb_front(src, bytesRead++);
-    if (!byte) {
-        cb_pop_front(src, 1);
+    if (byte == 0x00) {
+        cb_pop_front(src, bytesRead);
         return 0;
     }
 
-    bool foundTerm = false;
     size_t stuffBytes = 0;
     uint8_t* decode = dest;
-    for (uint8_t code = 0xff, block = 0; (bytesRead - stuffBytes) < length;
-         --block) {
+    for (uint8_t code = 0xff, block = 0; bytesRead < length; --block) {
         if (block) {
-            *decode = byte;
-            decode++;
-            byte = cb_front(src, bytesRead++);
-            continue;
-        }
+            if (byte == 0x00) {  // packet malformed
+                cb_pop_front(src, bytesRead);
+                return 0;
+            }
 
-        if (code != 0xff) {
-            *decode = 0;
+            *decode = byte;
             decode++;
         }
         else {
-            stuffBytes++;
+            if (code == 0xff) { stuffBytes++; }
+            else {
+                *decode = 0;
+                decode++;
+            }
+
+            block = code = byte;
         }
 
-        block = code = byte;
         byte = cb_front(src, bytesRead++);
-
-        if (!code) {
-            foundTerm = true;
-            bytesRead--;
-            break;
-        }
     }
 
-    return foundTerm ? bytesRead - stuffBytes : 0;
+    if (byte == 0x00) {  // ended on terminator (complete)
+        stuffBytes++;
+        cb_pop_front(src, bytesRead);
+        return bytesRead - stuffBytes;
+    }
+
+    // ended on non-terminator (incomplete)
+    return 0;
 }
 
 int serial_cobs_sendmsg(zcm_trans_cobs_serial_t* zt, zcm_msg_t msg)
@@ -212,13 +215,7 @@ int serial_cobs_recvmsg(zcm_trans_cobs_serial_t* zt, zcm_msg_t* msg,
     // COBS decode
     size_t bytesDecoded =
         cobs_decode_zcm(zt->recvMsgData, &zt->recvBuffer, incomingSize);
-    if (!bytesDecoded) return ZCM_EAGAIN;
-    if (bytesDecoded < minMessageSize) {
-        cb_pop_front(&zt->recvBuffer, bytesDecoded);
-        return ZCM_EAGAIN;
-    }
-
-    cb_pop_front(&zt->recvBuffer, bytesDecoded + 1);  // +1 for terminator
+    if (bytesDecoded < minMessageSize) return ZCM_EAGAIN;
 
     // Extract channel and message sizes
     uint8_t* pMsgData = zt->recvMsgData;
