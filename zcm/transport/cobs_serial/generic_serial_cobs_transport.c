@@ -135,6 +135,7 @@ static size_t cobs_decode_zcm(uint8_t* dest, circBuffer_t* src, size_t length)
             }
 
             block = code = byte;
+            if (code == 0x00) break;
         }
 
         byte = cb_front(src, bytesRead++);
@@ -233,7 +234,7 @@ int serial_cobs_recvmsg(zcm_trans_cobs_serial_t* zt, zcm_msg_t* msg,
 
     // Calculate Fletcher-16 checksum for entire payload (including checkbytes)
     uint16_t checksum = 0;
-    checksum = fletcher16(zt->recvMsgData, bytesDecoded - 1);
+    checksum = fletcher16(zt->recvMsgData, bytesDecoded);
     if (checksum != 0x0000) return ZCM_EINVALID;
 
     // Copy channel name
