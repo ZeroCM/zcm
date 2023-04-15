@@ -22,6 +22,10 @@ def build(ctx):
                 use = 'default zcm examplezcmtypes_c_stlib',
                 source = 'pubsub.c')
 
+    ctx.program(target = 'pubsubregex',
+                use = 'default zcm',
+                source = 'pubsubregex.c')
+
     ctx.program(target = 'nblock-inproc',
                 use = 'default zcm examplezcmtypes_c_stlib',
                 source = 'nblock_inproc.c')

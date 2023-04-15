@@ -509,18 +509,20 @@ inline Subscription* ZCM::subscribe(const std::string& channel,
 }
 #endif
 
-inline void ZCM::unsubscribe(Subscription* sub)
+inline int ZCM::unsubscribe(Subscription* sub)
 {
+    int ret = ZCM_EUNKNOWN;
     std::vector<Subscription*>::iterator end = subscriptions.end(),
                                           it = subscriptions.begin();
     for (; it != end; ++it) {
         if (*it == sub) {
-            unsubscribeRaw(sub->rawSub);
+            ret = unsubscribeRaw(sub->rawSub);
             subscriptions.erase(it);
             delete sub;
             break;
         }
     }
+    return ret;
 }
 
 inline zcm_t* ZCM::getUnderlyingZCM()
@@ -533,8 +535,12 @@ inline void ZCM::subscribeRaw(void*& rawSub, const std::string& channel,
                               MsgHandler cb, void* usr)
 { rawSub = zcm_subscribe(zcm, channel.c_str(), cb, usr); }
 
-inline void ZCM::unsubscribeRaw(void*& rawSub)
-{ zcm_unsubscribe(zcm, (zcm_sub_t*) rawSub); rawSub = nullptr; }
+inline int ZCM::unsubscribeRaw(void*& rawSub)
+{
+    auto ret = zcm_unsubscribe(zcm, (zcm_sub_t*) rawSub);
+    if (ret == ZCM_EOK) rawSub = nullptr;
+    return ret;
+}
 
 
 // ***********************************
