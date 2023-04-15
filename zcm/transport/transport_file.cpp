@@ -207,4 +207,4 @@ static zcm_trans_t *create(zcm_url_t *url)
 }
 
 const TransportRegister ZCM_TRANS_CLASSNAME::reg(
-    "file", "Interact with zcm log file (e.g. 'file://vehicle.log?speed=2.0)", create);
+    "file", "Interact with zcm log file (e.g. 'file://vehicle.log?speed=2.0')", create);

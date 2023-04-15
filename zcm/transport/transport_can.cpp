@@ -273,7 +273,7 @@ static zcm_trans_t *create(zcm_url_t* url)
     return nullptr;
 }
 
-#ifdef USING_TRANS_SERIAL
+#ifdef USING_TRANS_CAN
 const TransportRegister ZCM_TRANS_CLASSNAME::reg(
     "can", "Transfer data via a socket CAN connection on a single id "
            "(e.g. 'can://can0?msgid=65536')", create);
