@@ -1,4 +1,4 @@
-#include "udpmsocket.hpp"
+#include "udpsocket.hpp"
 #include "buffers.hpp"
 
 // Platform specifics
@@ -28,7 +28,7 @@ struct Platform
         return true;
     }
 
-    static void checkRoutingTable(UDPMAddress& addr)
+    static void checkRoutingTable(UDPAddress& addr)
     {
         // UNIMPL
     }
@@ -51,7 +51,7 @@ struct Platform
         }
         return true;
     }
-    static void checkRoutingTable(UDPMAddress& addr)
+    static void checkRoutingTable(UDPAddress& addr)
     {
 #ifdef __linux__
         // TODO
@@ -60,21 +60,21 @@ struct Platform
 };
 #endif
 
-UDPMSocket::UDPMSocket()
+UDPSocket::UDPSocket()
 {
 }
 
-UDPMSocket::~UDPMSocket()
+UDPSocket::~UDPSocket()
 {
     close();
 }
 
-bool UDPMSocket::isOpen()
+bool UDPSocket::isOpen()
 {
     return fd != -1;
 }
 
-void UDPMSocket::close()
+void UDPSocket::close()
 {
     if (fd != -1) {
         Platform::closesocket(fd);
@@ -82,17 +82,17 @@ void UDPMSocket::close()
     }
 }
 
-bool UDPMSocket::init()
+bool UDPSocket::init()
 {
     fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (fd < 0) {
-        perror("allocating ZCM udpm socket");
+        perror("allocating ZCM udp socket");
         return false;
     }
     return true;
 }
 
-bool UDPMSocket::joinMulticastGroup(struct in_addr multiaddr)
+bool UDPSocket::joinMulticastGroup(struct in_addr multiaddr)
 {
     Platform::setKernelBuffers(fd);
 
@@ -105,12 +105,12 @@ bool UDPMSocket::joinMulticastGroup(struct in_addr multiaddr)
     return true;
 }
 
-bool UDPMSocket::setTTL(u8 ttl)
+bool UDPSocket::setTTL(u8 ttl)
 {
     if (ttl == 0)
-        ZCM_DEBUG("ZCM multicast TTL set to 0.  Packets will not leave localhost");
+        ZCM_DEBUG("ZCM udp TTL set to 0.  Packets will not leave localhost");
 
-    ZCM_DEBUG("ZCM: setting multicast packet TTL to %d", ttl);
+    ZCM_DEBUG("ZCM: setting udp packet TTL to %d", ttl);
     if (setsockopt(fd, IPPROTO_IP, IP_MULTICAST_TTL,
                    (char *) &ttl, sizeof (ttl)) < 0) {
         perror("setsockopt(IPPROTO_IP, IP_MULTICAST_TTL)");
@@ -119,7 +119,7 @@ bool UDPMSocket::setTTL(u8 ttl)
     return true;
 }
 
-bool UDPMSocket::bindPort(u16 port)
+bool UDPSocket::bindPort(u16 port)
 {
     struct sockaddr_in addr;
     memset(&addr, 0, sizeof (addr));
@@ -134,10 +134,10 @@ bool UDPMSocket::bindPort(u16 port)
     return true;
 }
 
-bool UDPMSocket::setReuseAddr()
+bool UDPSocket::setReuseAddr()
 {
     // allow other applications on the local machine to also bind to this
-    // multicast address and port
+    // address and port
     int opt = 1;
     ZCM_DEBUG("ZCM: setting SO_REUSEADDR");
     if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR,
@@ -148,7 +148,7 @@ bool UDPMSocket::setReuseAddr()
     return true;
 }
 
-bool UDPMSocket::setReusePort()
+bool UDPSocket::setReusePort()
 {
 #ifdef USE_REUSEPORT
     /* Mac OS and FreeBSD require the REUSEPORT option in addition
@@ -165,7 +165,7 @@ bool UDPMSocket::setReusePort()
     return true;
 }
 
-bool UDPMSocket::enablePacketTimestamp()
+bool UDPSocket::enablePacketTimestamp()
 {
     /* Enable per-packet timestamping by the kernel, if available */
 #ifdef SO_TIMESTAMP
@@ -175,7 +175,7 @@ bool UDPMSocket::enablePacketTimestamp()
     return true;
 }
 
-bool UDPMSocket::enableLoopback()
+bool UDPSocket::enableLoopback()
 {
     // NOTE: For support on SUN Operating Systems, send_lo_opt should be 'u8'
     //       We don't currently support SUN
@@ -187,7 +187,7 @@ bool UDPMSocket::enableLoopback()
     return true;
 }
 
-size_t UDPMSocket::getRecvBufSize()
+size_t UDPSocket::getRecvBufSize()
 {
     int size;
     size_t retsize = sizeof(int);
@@ -196,7 +196,7 @@ size_t UDPMSocket::getRecvBufSize()
     return size;
 }
 
-size_t UDPMSocket::getSendBufSize()
+size_t UDPSocket::getSendBufSize()
 {
     int size;
     size_t retsize = sizeof(int);
@@ -205,7 +205,7 @@ size_t UDPMSocket::getSendBufSize()
     return size;
 }
 
-bool UDPMSocket::waitUntilData(int timeout)
+bool UDPSocket::waitUntilData(int timeout)
 {
     assert(isOpen());
 
@@ -231,7 +231,7 @@ bool UDPMSocket::waitUntilData(int timeout)
     }
 }
 
-int UDPMSocket::recvPacket(Packet *pkt)
+int UDPSocket::recvPacket(Packet *pkt)
 {
     struct iovec vec;
     vec.iov_base = pkt->buf.data;
@@ -282,7 +282,7 @@ int UDPMSocket::recvPacket(Packet *pkt)
     return ret;
 }
 
-ssize_t UDPMSocket::sendBuffers(const UDPMAddress& dest, const char *a, size_t alen)
+ssize_t UDPSocket::sendBuffers(const UDPAddress& dest, const char *a, size_t alen)
 {
     struct iovec iv;
     iv.iov_base = (char*)a;
@@ -300,7 +300,7 @@ ssize_t UDPMSocket::sendBuffers(const UDPMAddress& dest, const char *a, size_t a
     return::sendmsg(fd, &mhdr, 0);
 }
 
-ssize_t UDPMSocket::sendBuffers(const UDPMAddress& dest, const char *a, size_t alen,
+ssize_t UDPSocket::sendBuffers(const UDPAddress& dest, const char *a, size_t alen,
                                 const char *b, size_t blen)
 {
     struct iovec iv[2];
@@ -321,7 +321,7 @@ ssize_t UDPMSocket::sendBuffers(const UDPMAddress& dest, const char *a, size_t a
     return::sendmsg(fd, &mhdr, 0);
 }
 
-ssize_t UDPMSocket::sendBuffers(const UDPMAddress& dest, const char *a, size_t alen,
+ssize_t UDPSocket::sendBuffers(const UDPAddress& dest, const char *a, size_t alen,
                                 const char *b, size_t blen, const char *c, size_t clen)
 {
     struct iovec iv[3];
@@ -344,9 +344,9 @@ ssize_t UDPMSocket::sendBuffers(const UDPMAddress& dest, const char *a, size_t a
     return::sendmsg(fd, &mhdr, 0);
 }
 
-bool UDPMSocket::checkConnection(const string& ip, u16 port)
+bool UDPSocket::checkConnection(const string& ip, u16 port)
 {
-    UDPMAddress addr{ip, port};
+    UDPAddress addr{ip, port};
     SOCKET testfd = socket(AF_INET, SOCK_DGRAM, 0);
     if (connect(testfd, addr.getAddrPtr(), addr.getAddrSize()) < 0) {
         perror ("connect");
@@ -357,7 +357,7 @@ bool UDPMSocket::checkConnection(const string& ip, u16 port)
     return true;
 }
 
-void UDPMSocket::checkAndWarnAboutSmallBuffer(size_t datalen, size_t kbufsize)
+void UDPSocket::checkAndWarnAboutSmallBuffer(size_t datalen, size_t kbufsize)
 {
     // TODO: This should probably be in Platform
 #ifdef __linux__
@@ -376,26 +376,30 @@ void UDPMSocket::checkAndWarnAboutSmallBuffer(size_t datalen, size_t kbufsize)
 #endif
 }
 
-UDPMSocket UDPMSocket::createSendSocket(struct in_addr multiaddr, u8 ttl)
+UDPSocket UDPSocket::createSendSocket(struct in_addr addr, u8 ttl, bool multicast)
 {
     // don't use connect() on the actual transmit socket, because linux then
     // has problems multicasting to localhost
-    UDPMSocket sock;
-    if (!sock.init())                        { sock.close(); return sock; }
-    if (!sock.setTTL(ttl))                   { sock.close(); return sock; }
-    if (!sock.enableLoopback())              { sock.close(); return sock; }
-    if (!sock.joinMulticastGroup(multiaddr)) { sock.close(); return sock; }
+    UDPSocket sock;
+    if (!sock.init())                   { sock.close(); return sock; }
+    if (!sock.setTTL(ttl))              { sock.close(); return sock; }
+    if (multicast) {
+        if (!sock.enableLoopback())         { sock.close(); return sock; }
+        if (!sock.joinMulticastGroup(addr)) { sock.close(); return sock; }
+    }
     return sock;
 }
 
-UDPMSocket UDPMSocket::createRecvSocket(struct in_addr multiaddr, u16 port)
+UDPSocket UDPSocket::createRecvSocket(struct in_addr addr, u16 port, bool multicast)
 {
-    UDPMSocket sock;
+    UDPSocket sock;
     if (!sock.init())                        { sock.close(); return sock; }
     if (!sock.setReuseAddr())                { sock.close(); return sock; }
     if (!sock.setReusePort())                { sock.close(); return sock; }
     if (!sock.enablePacketTimestamp())       { sock.close(); return sock; }
     if (!sock.bindPort(port))                { sock.close(); return sock; }
-    if (!sock.joinMulticastGroup(multiaddr)) { sock.close(); return sock; }
+    if (multicast) {
+        if (!sock.joinMulticastGroup(addr)) { sock.close(); return sock; }
+    }
     return sock;
 }

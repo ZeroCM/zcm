@@ -78,7 +78,7 @@ def add_zcm_configure_options(ctx):
 
     add_trans_option('inproc', 'Enable the In-Process transport (Requires ZeroMQ)')
     add_trans_option('ipc',    'Enable the IPC transport (Requires ZeroMQ)')
-    add_trans_option('udpm',   'Enable the UDP Multicast transport (LCM-compatible)')
+    add_trans_option('udp',    'Enable the UDP transports (unicast and multicast)')
     add_trans_option('serial', 'Enable the Serial transport')
     add_trans_option('can',    'Enable the Canbus transport')
 
@@ -166,7 +166,7 @@ def process_zcm_configure_options(ctx):
 
     env.USING_TRANS_IPC    = hasopt('use_ipc')
     env.USING_TRANS_INPROC = hasopt('use_inproc')
-    env.USING_TRANS_UDPM   = hasopt('use_udpm')
+    env.USING_TRANS_UDP    = hasopt('use_udp')
     env.USING_TRANS_SERIAL = hasopt('use_serial')
     env.USING_TRANS_CAN    = hasopt('use_can')
 
@@ -214,7 +214,7 @@ def process_zcm_configure_options(ctx):
     Logs.pprint('BLUE', '\nTransport Configuration:')
     print_entry("ipc",    env.USING_TRANS_IPC)
     print_entry("inproc", env.USING_TRANS_INPROC)
-    print_entry("udpm",   env.USING_TRANS_UDPM)
+    print_entry("udp",    env.USING_TRANS_UDP)
     print_entry("serial", env.USING_TRANS_SERIAL)
     print_entry("can",    env.USING_TRANS_CAN)
 
