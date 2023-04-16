@@ -42,6 +42,11 @@ be used to *summon* the transport:
     <td><code>  zcm_create("udpm://239.255.76.67:7667?ttl=0")           </code></td>
   </tr>
   <tr>
+    <td>        UDP Unicast                                             </td>
+    <td><code>  udp://&lt;udp-ipaddr&gt;:&lt;port&gt;?ttl=&lt;ttl&gt;   </code></td>
+    <td><code>  zcm_create("udp://127.0.0.1:9000?ttl=0")                </code></td>
+  </tr>
+  <tr>
     <td>        Serial                                                  </td>
     <td><code>  serial://&lt;path-to-device&gt;?baud=&lt;baud&gt;       </code></td>
     <td><code>  zcm_create("serial:///dev/ttyUSB0?baud=115200")         </code></td>
@@ -366,7 +371,7 @@ It's also great to browse the implementations of built-in transports:
 
   - `zcm/transport/transport_zmq_local.cpp`
   - `zcm/transport/transport_serial.cpp`
-  - `zcm/transport/udpm/udpm.cpp`
+  - `zcm/transport/udp/udp.cpp`
 
 Finally, we love contributions! Check out [Contributing](contributing.md).
 
