@@ -383,8 +383,8 @@ UDPSocket UDPSocket::createSendSocket(struct in_addr addr, u8 ttl, bool multicas
     UDPSocket sock;
     if (!sock.init())                   { sock.close(); return sock; }
     if (!sock.setTTL(ttl))              { sock.close(); return sock; }
+    if (!sock.enableLoopback())         { sock.close(); return sock; }
     if (multicast) {
-        if (!sock.enableLoopback())         { sock.close(); return sock; }
         if (!sock.joinMulticastGroup(addr)) { sock.close(); return sock; }
     }
     return sock;
