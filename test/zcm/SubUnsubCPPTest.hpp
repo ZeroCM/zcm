@@ -16,6 +16,7 @@ using namespace std;
 
 #define NUM_DATA 5
 static uint8_t data[NUM_DATA] = {'a', 'b', 'c', 'd', 'e'};
+static const size_t sleep_time = 5e5;
 
 class Handler
 {
@@ -63,9 +64,8 @@ class SubUnsubCPPTest : public CxxTest::TestSuite
     void setUp() override {}
     void tearDown() override {}
 
-    void testPubSub() {
-        size_t sleep_time = 5e5;
-
+    void testPubSub()
+    {
         Handler handler;
 
         for (string transport : {"ipc", "inproc", "udpm://239.255.76.67:7667?ttl=0"}) {
@@ -126,7 +126,10 @@ class SubUnsubCPPTest : public CxxTest::TestSuite
             ex_data.name = "example string";
             ex_data.enabled = 1;
 
+            zcm::Subscription *regex_sub1 = zcm.subscribe("EXAMPLE.*", &Handler::example_t_handle, &handler);
+            zcm::Subscription *regex_sub2 = zcm.subscribe("EXAMPLE.*", &Handler::example_t_handle, &handler);
             zcm::Subscription *ex_sub = zcm.subscribe("EXAMPLE", &Handler::example_t_handle, &handler);
+
             if(transport == "ipc") // TODO: it is clearly a bug of the ipc transport that it needs this first message to be published (it never arrives)
                 zcm.publish("EXAMPLE", &ex_data);
 
@@ -149,7 +152,9 @@ class SubUnsubCPPTest : public CxxTest::TestSuite
             zcm.stop();
 
             printf("Unsubscribing zcm %s\n", transport.c_str());
-            zcm.unsubscribe(ex_sub);
+            TS_ASSERT_EQUALS(zcm.unsubscribe(regex_sub1), ZCM_EOK);
+            TS_ASSERT_EQUALS(zcm.unsubscribe(regex_sub2), ZCM_EOK);
+            TS_ASSERT_EQUALS(zcm.unsubscribe(ex_sub), ZCM_EOK);
 
             for (size_t j = 0; j < NUM_DATA; ++j) {
                 TSM_ASSERT("We missed a message", handler.bytepacked_received & 1 << j)
@@ -158,6 +163,65 @@ class SubUnsubCPPTest : public CxxTest::TestSuite
             TSM_ASSERT_EQUALS("Received an unexpected number of messages!", handler.num_received, NUM_DATA);
 
             printf("Cleaning up zcm %s\n", transport.c_str());
+        }
+    }
+
+    void testUnsub()
+    {
+        for (string transport : {"ipc", "inproc", "udpm://239.255.76.67:7667?ttl=0"}) {
+            zcm::ZCM zcm(transport);
+            printf("Creating zcm %s\n", transport.c_str());
+            TSM_ASSERT("Failed to create ZCM", zcm.good());
+
+
+            // TEST RAW DATA TRANSMISSION /////////////////////////////////////////
+            Handler handler1;
+            handler1.num_received = 0;
+            handler1.bytepacked_received = 0;
+            zcm::Subscription *sub1 = zcm.subscribe("TEST.*", &Handler::generic_handle, &handler1);
+            TSM_ASSERT("Failed to subscribe", sub1);
+
+            Handler handler2;
+            handler2.num_received = 0;
+            handler2.bytepacked_received = 0;
+            zcm::Subscription *sub2 = zcm.subscribe("TEST.*", &Handler::generic_handle, &handler2);
+            TSM_ASSERT("Failed to subscribe", sub2);
+
+            Handler handler3;
+            handler3.num_received = 0;
+            handler3.bytepacked_received = 0;
+            zcm::Subscription *sub3 = zcm.subscribe("TEST", &Handler::generic_handle, &handler3);
+            TSM_ASSERT("Failed to subscribe", sub3);
+
+            if(transport == "ipc") // TODO: it is clearly a bug of the ipc transport that it needs this first message to be published (it never arrives)
+                zcm.publish("TEST", data, sizeof(char));
+
+            // zmq sockets are documented as taking a small but perceptible amount of time
+            // to actuall establish connection, so in order to actually receive messages
+            // through them, we must wait for them to be set up
+            usleep(sleep_time);
+
+            printf("Starting zcm receive %s\n", transport.c_str());
+            zcm.start();
+
+            for (size_t j = 0; j < NUM_DATA; ++j) {
+                zcm.publish("TEST", data+j, sizeof(char));
+            }
+
+            usleep(sleep_time);
+            printf("Stopping zcm receive %s\n", transport.c_str());
+            zcm.stop();
+
+            printf("Unsubscribing zcm %s\n", transport.c_str());
+            TS_ASSERT_EQUALS(zcm.unsubscribe(sub1), ZCM_EOK);
+            TS_ASSERT_EQUALS(zcm.unsubscribe(sub2), ZCM_EOK);
+            TS_ASSERT_EQUALS(zcm.unsubscribe(sub3), ZCM_EOK);
+
+            for (size_t j = 0; j < NUM_DATA; ++j) {
+                TSM_ASSERT("We missed a message", handler1.bytepacked_received & 1 << j)
+            }
+
+            TSM_ASSERT_EQUALS("Received an unexpected number of messages!", handler1.num_received, NUM_DATA);
         }
     }
 
