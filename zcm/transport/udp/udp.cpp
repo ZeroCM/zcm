@@ -7,6 +7,8 @@
 #include "zcm/transport_registrar.h"
 #include "zcm/transport_register.hpp"
 
+#include "util/StringUtil.hpp"
+
 #define MTU (1<<28)
 
 static i32 utimeInSeconds()
@@ -19,7 +21,8 @@ static i32 utimeInSeconds()
 /**
  * udp_params_t:
  * @addr:           unicast/multicast address
- * @port:           unicast/multicast port
+ * @sub_port:       unicast/multicast subscription port
+ * @pub_port:       unicast/multicast publish port
  * @ttl:            if 0, then packets never leave local host.
  *                  if 1, then packets stay on the local network
  *                        and never traverse a router
@@ -32,14 +35,16 @@ struct Params
 {
     string ip;
     struct in_addr addr;
-    u16            port;
+    u16            sub_port;
+    u16            pub_port;
     size_t         recv_buf_size;
     u8             ttl;
     bool           multicast;
 
-    Params(const string& ip, u16 port, size_t recv_buf_size, u8 ttl, bool multicast)
-        : ip(ip), port(port), recv_buf_size(recv_buf_size),
-          ttl(ttl), multicast(multicast)
+    Params(const string& ip, u16 sub_port, u16 pub_port,
+           size_t recv_buf_size, u8 ttl, bool multicast) :
+        ip(ip), sub_port(sub_port), pub_port(pub_port),
+        recv_buf_size(recv_buf_size), ttl(ttl), multicast(multicast)
     {
         // TODO verify that the IP and PORT are vaild
         inet_aton(ip.c_str(), (struct in_addr*) &this->addr);
@@ -71,7 +76,8 @@ struct UDP
     u32          msg_seqno = 0; // rolling counter of how many messages transmitted
 
     /***** Methods ******/
-    UDP(const string& ip, u16 port, size_t recv_buf_size, u8 ttl, bool multicast);
+    UDP(const string& ip, u16 sub_port, u16 pub_port,
+        size_t recv_buf_size, u8 ttl, bool multicast);
     bool init();
     ~UDP();
 
@@ -238,8 +244,7 @@ Message *UDP::readMessage(int timeout)
     Message *msg = NULL;
     while (!msg) {
         // // wait for either incoming UDP data, or for an abort message
-        if (!recvfd.waitUntilData(timeout))
-            break;
+        if (!recvfd.waitUntilData(timeout)) break;
 
         int sz = recvfd.recvPacket(pkt);
         if (sz < 0) {
@@ -369,8 +374,7 @@ int UDP::sendmsg(zcm_msg_t msg)
 
 int UDP::recvmsg(zcm_msg_t *msg, int timeout)
 {
-    if (m)
-        pool.freeMessage(m);
+    if (m) pool.freeMessage(m);
 
     m = readMessage(timeout);
     if (m == nullptr)
@@ -390,25 +394,26 @@ UDP::~UDP()
     ZCM_DEBUG("closing zcm context");
 }
 
-UDP::UDP(const string& ip, u16 port, size_t recv_buf_size, u8 ttl, bool multicast)
-    : params(ip, port, recv_buf_size, ttl, multicast),
-      destAddr(ip, port)
-{
-}
+UDP::UDP(const string& ip, u16 sub_port, u16 pub_port,
+         size_t recv_buf_size, u8 ttl, bool multicast)
+    : params(ip, sub_port, pub_port, recv_buf_size, ttl, multicast),
+      destAddr(ip, pub_port)
+{}
 
 bool UDP::init()
 {
     ZCM_DEBUG("Initializing ZCM UDP context...");
     if (params.multicast) {
-        ZCM_DEBUG("Multicast %s:%d", params.ip.c_str(), params.port);
+        ZCM_DEBUG("Multicast %s:%d", params.ip.c_str(), params.sub_port);
     }
-    UDPSocket::checkConnection(params.ip, params.port);
+    UDPSocket::checkConnection(params.ip, params.sub_port);
+    UDPSocket::checkConnection(params.ip, params.pub_port);
 
     sendfd = UDPSocket::createSendSocket(params.addr, params.ttl, params.multicast);
     if (!sendfd.isOpen()) return false;
     kernel_sbuf_sz = sendfd.getSendBufSize();
 
-    recvfd = UDPSocket::createRecvSocket(params.addr, params.port, params.multicast);
+    recvfd = UDPSocket::createRecvSocket(params.addr, params.sub_port, params.multicast);
     if (!recvfd.isOpen()) return false;
     kernel_rbuf_sz = recvfd.getRecvBufSize();
 
@@ -438,9 +443,9 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 {
     UDP udp;
 
-    ZCM_TRANS_CLASSNAME(const string& ip, u16 port, size_t recv_buf_size,
+    ZCM_TRANS_CLASSNAME(const string& ip, u16 sub_port, u16 pub_port, size_t recv_buf_size,
                         u8 ttl, bool isMulticast)
-        : udp(ip, port, recv_buf_size, ttl, isMulticast)
+        : udp(ip, sub_port, pub_port, recv_buf_size, ttl, isMulticast)
     {
         trans_type = ZCM_BLOCKING;
         vtbl = &methods;
@@ -492,46 +497,42 @@ static const char *optFind(zcm_url_opts_t *opts, const string& key)
     return NULL;
 }
 
-// TODO: this probably belongs more in a string util like file
-#include <sstream>
-static vector<string> split(const string& str, char delimiter)
-{
-    vector<string> v;
-    std::stringstream ss {str};
-    string tok;
-
-    while(getline(ss, tok, delimiter))
-        v.push_back(std::move(tok));
-
-    auto len = str.size();
-    if (len > 0 && str[len-1] == delimiter)
-        v.push_back("");
-
-    return v;
-}
-
 static zcm_trans_t *createUdp(zcm_url_t *url)
 {
     auto protocol = string(zcm_url_protocol(url));
     bool isMulticast = protocol == "udpm";
 
     auto *ip = zcm_url_address(url);
-    vector<string> parts = split(ip, ':');
-    if (parts.size() != 2) {
-        ZCM_DEBUG("ERROR: Url format is <ip-address>:<port-num>");
-        return nullptr;
+
+    vector<string> parts = StringUtil::split(ip, ':');
+
+    string subPort, pubPort;
+
+    if (isMulticast) {
+        if (parts.size() != 2) {
+            ZCM_DEBUG("ERROR: Url format is <ip-address>:<port-num>");
+            return nullptr;
+        }
+        subPort = pubPort = parts[1];
+    } else {
+        if (parts.size() != 3) {
+            ZCM_DEBUG("ERROR: Url format is <ip-address>:<sub-port-num>:<pub-port-num>");
+            return nullptr;
+        }
+        subPort = parts[1];
+        pubPort = parts[2];
     }
     auto& address = parts[0];
-    auto& port = parts[1];
 
     auto *opts = zcm_url_opts(url);
     auto *ttl = optFind(opts, "ttl");
     if (!ttl) {
-        ZCM_DEBUG("No ttl specified. Using default ttl=0");
-        ttl = "0";
+        ttl = isMulticast ? "0" : "1";
+        ZCM_DEBUG("No ttl specified. Using default ttl=%s", ttl);
     }
     size_t recv_buf_size = 1024;
-    auto *trans = new ZCM_TRANS_CLASSNAME(address, atoi(port.c_str()),
+    auto *trans = new ZCM_TRANS_CLASSNAME(address,
+                                          atoi(subPort.c_str()), atoi(pubPort.c_str()),
                                           recv_buf_size, atoi(ttl), isMulticast);
     if (!trans->init()) {
         delete trans;

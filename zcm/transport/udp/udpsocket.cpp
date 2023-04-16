@@ -13,8 +13,8 @@ struct Platform
         int send_size = 256 * 1024;
         int recv_size = 2048 * 1024;
 
-        setsockopt(fd, SOL_SOCKET, SO_SNDBUF, (char*)&send_size, sizeof(send_size));
-        setsockopt(fd, SOL_SOCKET, SO_RCVBUF, (char*)&recv_size, sizeof(recv_size));
+        setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &send_size, sizeof(send_size));
+        setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &recv_size, sizeof(recv_size));
     }
 
     static bool setMulticastGroup(int fd, struct in_addr multiaddr)
@@ -23,7 +23,7 @@ struct Platform
         mreq.imr_multiaddr = multiaddr;
         mreq.imr_interface.s_addr = INADDR_ANY;
         ZCM_DEBUG("ZCM: joining multicast group");
-        setsockopt(fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char*)&mreq, sizeof(mreq));
+        setsockopt(fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq));
         // ignore any errors in windows... see issue LCM #60
         return true;
     }
@@ -44,7 +44,7 @@ struct Platform
         mreq.imr_multiaddr = multiaddr;
         mreq.imr_interface.s_addr = INADDR_ANY;
         ZCM_DEBUG("ZCM: joining multicast group");
-        int ret = setsockopt(fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char*)&mreq, sizeof(mreq));
+        int ret = setsockopt(fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq));
         if (ret < 0) {
             perror("setsockopt (IPPROTO_IP, IP_ADD_MEMBERSHIP)");
             return false;
@@ -105,16 +105,22 @@ bool UDPSocket::joinMulticastGroup(struct in_addr multiaddr)
     return true;
 }
 
-bool UDPSocket::setTTL(u8 ttl)
+bool UDPSocket::setTTL(u8 ttl, bool multicast)
 {
     if (ttl == 0)
         ZCM_DEBUG("ZCM udp TTL set to 0.  Packets will not leave localhost");
 
     ZCM_DEBUG("ZCM: setting udp packet TTL to %d", ttl);
-    if (setsockopt(fd, IPPROTO_IP, IP_MULTICAST_TTL,
-                   (char *) &ttl, sizeof (ttl)) < 0) {
-        perror("setsockopt(IPPROTO_IP, IP_MULTICAST_TTL)");
-        return false;
+    if (multicast) {
+        if (setsockopt(fd, IPPROTO_IP, IP_MULTICAST_TTL, &ttl, sizeof(ttl)) < 0) {
+            perror("setsockopt(IPPROTO_IP, IP_MULTICAST_TTL)");
+            return false;
+        }
+    } else {
+        if (setsockopt(fd, IPPROTO_IP, IP_TTL, &ttl, sizeof(ttl)) < 0) {
+            perror("setsockopt(IPPROTO_IP, IP_TTL)");
+            return false;
+        }
     }
     return true;
 }
@@ -122,7 +128,7 @@ bool UDPSocket::setTTL(u8 ttl)
 bool UDPSocket::bindPort(u16 port)
 {
     struct sockaddr_in addr;
-    memset(&addr, 0, sizeof (addr));
+    memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = INADDR_ANY;
     addr.sin_port = htons(port);
@@ -131,6 +137,7 @@ bool UDPSocket::bindPort(u16 port)
         perror("bind");
         return false;
     }
+
     return true;
 }
 
@@ -140,8 +147,7 @@ bool UDPSocket::setReuseAddr()
     // address and port
     int opt = 1;
     ZCM_DEBUG("ZCM: setting SO_REUSEADDR");
-    if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR,
-                   (char*)&opt, sizeof (opt)) < 0) {
+    if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
         perror ("setsockopt (SOL_SOCKET, SO_REUSEADDR)");
         return false;
     }
@@ -156,8 +162,7 @@ bool UDPSocket::setReusePort()
      * same port, even if they are using multicast. */
     int opt = 1;
     ZCM_DEBUG("ZCM: setting SO_REUSEPORT");
-    if (setsockopt(fd, SOL_SOCKET, SO_REUSEPORT,
-                   (char*)&opt, sizeof (opt)) < 0) {
+    if (setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt)) < 0) {
         perror("setsockopt (SOL_SOCKET, SO_REUSEPORT)");
         return false;
     }
@@ -175,7 +180,7 @@ bool UDPSocket::enablePacketTimestamp()
     return true;
 }
 
-bool UDPSocket::enableLoopback()
+bool UDPSocket::enableMulticastLoopback()
 {
     // NOTE: For support on SUN Operating Systems, send_lo_opt should be 'u8'
     //       We don't currently support SUN
@@ -191,7 +196,7 @@ size_t UDPSocket::getRecvBufSize()
 {
     int size;
     size_t retsize = sizeof(int);
-    getsockopt(fd, SOL_SOCKET, SO_RCVBUF, (char*)&size, (socklen_t *)&retsize);
+    getsockopt(fd, SOL_SOCKET, SO_RCVBUF, &size, (socklen_t *)&retsize);
     ZCM_DEBUG("ZCM: receive buffer is %d bytes", size);
     return size;
 }
@@ -200,8 +205,8 @@ size_t UDPSocket::getSendBufSize()
 {
     int size;
     size_t retsize = sizeof(int);
-    getsockopt(fd, SOL_SOCKET, SO_SNDBUF, (char*)&size, (socklen_t *)&retsize);
-    ZCM_DEBUG("ZCM: receive buffer is %d bytes", size);
+    getsockopt(fd, SOL_SOCKET, SO_SNDBUF, &size, (socklen_t *)&retsize);
+    ZCM_DEBUG("ZCM: send buffer is %d bytes", size);
     return size;
 }
 
@@ -381,11 +386,11 @@ UDPSocket UDPSocket::createSendSocket(struct in_addr addr, u8 ttl, bool multicas
     // don't use connect() on the actual transmit socket, because linux then
     // has problems multicasting to localhost
     UDPSocket sock;
-    if (!sock.init())                   { sock.close(); return sock; }
-    if (!sock.setTTL(ttl))              { sock.close(); return sock; }
-    if (!sock.enableLoopback())         { sock.close(); return sock; }
+    if (!sock.init())                        { sock.close(); return sock; }
+    if (!sock.setTTL(ttl, multicast))        { sock.close(); return sock; }
     if (multicast) {
-        if (!sock.joinMulticastGroup(addr)) { sock.close(); return sock; }
+        if (!sock.enableMulticastLoopback()) { sock.close(); return sock; }
+        if (!sock.joinMulticastGroup(addr))  { sock.close(); return sock; }
     }
     return sock;
 }
@@ -394,12 +399,14 @@ UDPSocket UDPSocket::createRecvSocket(struct in_addr addr, u16 port, bool multic
 {
     UDPSocket sock;
     if (!sock.init())                        { sock.close(); return sock; }
-    if (!sock.setReuseAddr())                { sock.close(); return sock; }
-    if (!sock.setReusePort())                { sock.close(); return sock; }
+    if (multicast) {
+        if (!sock.setReuseAddr())            { sock.close(); return sock; }
+        if (!sock.setReusePort())            { sock.close(); return sock; }
+    }
     if (!sock.enablePacketTimestamp())       { sock.close(); return sock; }
     if (!sock.bindPort(port))                { sock.close(); return sock; }
     if (multicast) {
-        if (!sock.joinMulticastGroup(addr)) { sock.close(); return sock; }
+        if (!sock.joinMulticastGroup(addr))  { sock.close(); return sock; }
     }
     return sock;
 }

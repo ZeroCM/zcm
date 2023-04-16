@@ -37,12 +37,12 @@ class UDPSocket
 
     bool init();
     bool joinMulticastGroup(struct in_addr multiaddr);
-    bool setTTL(u8 ttl);
+    bool setTTL(u8 ttl, bool multicast);
     bool bindPort(u16 port);
     bool setReuseAddr();
     bool setReusePort();
     bool enablePacketTimestamp();
-    bool enableLoopback();
+    bool enableMulticastLoopback();
     bool setDestination(const string& ip, u16 port);
 
     size_t getRecvBufSize();

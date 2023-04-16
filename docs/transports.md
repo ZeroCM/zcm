@@ -38,13 +38,13 @@ be used to *summon* the transport:
   </tr>
   <tr>
     <td>        UDP Multicast                                           </td>
-    <td><code>  udpm://&lt;udpm-ipaddr&gt;:&lt;port&gt;?ttl=&lt;ttl&gt; </code></td>
+    <td><code>  udpm://&lt;ipaddr&gt;:&lt;port&gt;?ttl=&lt;ttl&gt;      </code></td>
     <td><code>  zcm_create("udpm://239.255.76.67:7667?ttl=0")           </code></td>
   </tr>
   <tr>
-    <td>        UDP Unicast                                             </td>
-    <td><code>  udp://&lt;udp-ipaddr&gt;:&lt;port&gt;?ttl=&lt;ttl&gt;   </code></td>
-    <td><code>  zcm_create("udp://127.0.0.1:9000?ttl=0")                </code></td>
+    <td>        UDP Unicast                                                            </td>
+    <td><code>  udp://&lt;ipaddr&gt;:&lt;sub_port&gt;:&lt;pub_port&gt;?ttl=&lt;ttl&gt; </code></td>
+    <td><code>  zcm_create("udp://127.0.0.1:9000:9001?ttl=0")                          </code></td>
   </tr>
   <tr>
     <td>        Serial                                                  </td>
@@ -53,8 +53,8 @@ be used to *summon* the transport:
   </tr>
   <tr>
     <td>        CAN                                                     </td>
-    <td><code>  can://&lt;interface&gt;?msgid=&lt;id&gt;             </code></td>
-    <td><code>  zcm_create("can://can0?msgid=65536")                 </code></td>
+    <td><code>  can://&lt;interface&gt;?msgid=&lt;id&gt;                </code></td>
+    <td><code>  zcm_create("can://can0?msgid=65536")                    </code></td>
   </tr>
 </table>
 
