@@ -65,7 +65,8 @@ zcm.flush()
 
 # wait a second
 print("Sleeping")
-time.sleep(5)
+time.sleep(1)
+
 # handle incoming message
 print("Stopping")
 zcm.stop()
