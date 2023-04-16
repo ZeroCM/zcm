@@ -731,7 +731,7 @@ struct EmitSource : public Emit
                      zm.membername.c_str());
             } else {
                 emitStart(indent, "numbits += ");
-                if (zm.dimensions.size() > 1) {
+                if (zm.dimensions.size() > 0) {
                     emitContinue("%s * ", makeArraySize(zm, "p", (int)zm.dimensions.size() - 1).c_str());
                 }
                 emitEnd("%u; // %s", zm.type.numbits, zm.membername.c_str());
