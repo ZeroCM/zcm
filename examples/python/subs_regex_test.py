@@ -41,6 +41,8 @@ subs1 = zcm.subscribe("TEST.*", example_t, handler)
 subs2 = zcm.subscribe("TEST.*", example_t, handler_ignore)
 subs3 = zcm.subscribe("TEST", example_t, handler_ignore)
 
+zcm.start()
+
 # publish a message
 print("Publishing")
 zcm.publish("TEST_1", msg)
@@ -59,7 +61,7 @@ zcm.publish("TEST_Z", msg)
 
 # handle incoming message
 print("Handling")
-zcm.start()
+zcm.flush()
 
 # wait a second
 print("Sleeping")

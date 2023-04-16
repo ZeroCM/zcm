@@ -413,6 +413,7 @@ void zcm_blocking_t::resume()
     unique_lock<mutex> lk1(sendStateMutex);
     unique_lock<mutex> lk2(hndlStateMutex);
     paused = false;
+    // Intentionally unlocking in this order
     lk2.unlock();
     lk1.unlock();
     sendPauseCond.notify_all();
@@ -464,6 +465,7 @@ zcm_sub_t* zcm_blocking_t::subscribe(const string& channel,
     unique_lock<mutex> lk1(subDispMutex, std::defer_lock);
     unique_lock<mutex> lk2(subRecvMutex, std::defer_lock);
     if (block) {
+        // Intentionally locking in this order
         lk1.lock();
         lk2.lock();
     } else if (!lk1.try_lock() || !lk2.try_lock()) {
@@ -505,6 +507,7 @@ int zcm_blocking_t::unsubscribe(zcm_sub_t* sub, bool block)
     unique_lock<mutex> lk1(subDispMutex, std::defer_lock);
     unique_lock<mutex> lk2(subRecvMutex, std::defer_lock);
     if (block) {
+        // Intentionally locking in this order
         lk1.lock();
         lk2.lock();
     } else if (!lk1.try_lock() || !lk2.try_lock()) {
@@ -525,12 +528,14 @@ int zcm_blocking_t::unsubscribe(zcm_sub_t* sub, bool block)
         return ZCM_EINVALID;
     }
 
-    return 0;
+    return ZCM_EOK;
 }
 
 int zcm_blocking_t::flush(bool block)
 {
     size_t n;
+
+    printf("Attempting flush\n");
 
     {
         sendQueue.disable();
@@ -540,6 +545,7 @@ int zcm_blocking_t::flush(bool block)
         if (block) lk.lock();
         else if (!lk.try_lock()) {
             sendQueue.enable();
+            printf("Failed lock1\n");
             return ZCM_EAGAIN;
         }
 
@@ -555,6 +561,7 @@ int zcm_blocking_t::flush(bool block)
 
         if (block) lk.lock();
         else if (!lk.try_lock()) {
+            printf("Failed lock2\n");
             recvQueue.enable();
             return ZCM_EAGAIN;
         }

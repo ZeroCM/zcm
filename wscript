@@ -101,7 +101,6 @@ def configure(ctx):
     ctx.load('compiler_c')
     ctx.load('compiler_cxx')
     ctx.recurse('config')
-    ctx.load('strip_on_install')
 
     ctx.env.variantsEnabledByConfigure = ['examples', 'tests']
 
@@ -335,6 +334,8 @@ def process_zcm_build_options(ctx):
     ctx.env.USING_SYM = opt.debug or opt.symbols
     if ctx.env.USING_CACHE:
         attempt_use_cache(ctx)
+    if not ctx.env.USING_SYM:
+        ctx.load('strip_on_install')
 
 def setup_environment_gnu(ctx):
     FLAGS = ['-Wno-unused-local-typedefs',
