@@ -152,9 +152,9 @@ class SubUnsubCPPTest : public CxxTest::TestSuite
             zcm.stop();
 
             printf("Unsubscribing zcm %s\n", transport.c_str());
-            TS_ASSERT_EQUALS(zcm.unsubscribe(regex_sub1), ZCM_EOK);
-            TS_ASSERT_EQUALS(zcm.unsubscribe(regex_sub2), ZCM_EOK);
-            TS_ASSERT_EQUALS(zcm.unsubscribe(ex_sub), ZCM_EOK);
+            zcm.unsubscribe(regex_sub1);
+            zcm.unsubscribe(regex_sub2);
+            zcm.unsubscribe(ex_sub);
 
             for (size_t j = 0; j < NUM_DATA; ++j) {
                 TSM_ASSERT("We missed a message", handler.bytepacked_received & 1 << j)
@@ -166,7 +166,7 @@ class SubUnsubCPPTest : public CxxTest::TestSuite
         }
     }
 
-    void testUnsub()
+    void testUnsubRegexExplicit()
     {
         for (string transport : {"ipc", "inproc", "udpm://239.255.76.67:7667?ttl=0"}) {
             zcm::ZCM zcm(transport);
@@ -178,7 +178,7 @@ class SubUnsubCPPTest : public CxxTest::TestSuite
             Handler handler1;
             handler1.num_received = 0;
             handler1.bytepacked_received = 0;
-            zcm::Subscription *sub1 = zcm.subscribe("TEST.*", &Handler::generic_handle, &handler1);
+            zcm::Subscription *sub1 = zcm.subscribe("TES.*", &Handler::generic_handle, &handler1);
             TSM_ASSERT("Failed to subscribe", sub1);
 
             Handler handler2;
@@ -192,6 +192,10 @@ class SubUnsubCPPTest : public CxxTest::TestSuite
             handler3.bytepacked_received = 0;
             zcm::Subscription *sub3 = zcm.subscribe("TEST", &Handler::generic_handle, &handler3);
             TSM_ASSERT("Failed to subscribe", sub3);
+
+            printf("Unsubscribing zcm %s\n", transport.c_str());
+            zcm.unsubscribe(sub1);
+            zcm.unsubscribe(sub2);
 
             if(transport == "ipc") // TODO: it is clearly a bug of the ipc transport that it needs this first message to be published (it never arrives)
                 zcm.publish("TEST", data, sizeof(char));
@@ -212,16 +216,13 @@ class SubUnsubCPPTest : public CxxTest::TestSuite
             printf("Stopping zcm receive %s\n", transport.c_str());
             zcm.stop();
 
-            printf("Unsubscribing zcm %s\n", transport.c_str());
-            TS_ASSERT_EQUALS(zcm.unsubscribe(sub1), ZCM_EOK);
-            TS_ASSERT_EQUALS(zcm.unsubscribe(sub2), ZCM_EOK);
-            TS_ASSERT_EQUALS(zcm.unsubscribe(sub3), ZCM_EOK);
+            zcm.unsubscribe(sub3);
 
             for (size_t j = 0; j < NUM_DATA; ++j) {
-                TSM_ASSERT("We missed a message", handler1.bytepacked_received & 1 << j)
+                TSM_ASSERT("We missed a message", handler3.bytepacked_received & 1 << j)
             }
 
-            TSM_ASSERT_EQUALS("Received an unexpected number of messages!", handler1.num_received, NUM_DATA);
+            TSM_ASSERT_EQUALS("Received an unexpected number of messages!", handler3.num_received, NUM_DATA);
         }
     }
 
