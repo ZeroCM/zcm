@@ -116,4 +116,10 @@ class ThreadsafeQueue
         std::unique_lock<std::mutex> lk(mut);
         disabled = false;
     }
+
+    bool isEnabled()
+    {
+        std::unique_lock<std::mutex> lk(mut);
+        return !disabled;
+    }
 };

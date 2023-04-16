@@ -535,8 +535,6 @@ int zcm_blocking_t::flush(bool block)
 {
     size_t n;
 
-    printf("Attempting flush\n");
-
     {
         sendQueue.disable();
 
@@ -545,7 +543,7 @@ int zcm_blocking_t::flush(bool block)
         if (block) lk.lock();
         else if (!lk.try_lock()) {
             sendQueue.enable();
-            printf("Failed lock1\n");
+            sendPauseCond.notify_all();
             return ZCM_EAGAIN;
         }
 
@@ -553,6 +551,7 @@ int zcm_blocking_t::flush(bool block)
         n = sendQueue.numMessages();
         for (size_t i = 0; i < n; ++i) sendOneMessage(false);
     }
+    sendPauseCond.notify_all();
 
     {
         recvQueue.disable();
@@ -561,8 +560,8 @@ int zcm_blocking_t::flush(bool block)
 
         if (block) lk.lock();
         else if (!lk.try_lock()) {
-            printf("Failed lock2\n");
             recvQueue.enable();
+            hndlPauseCond.notify_all();
             return ZCM_EAGAIN;
         }
 
@@ -570,6 +569,7 @@ int zcm_blocking_t::flush(bool block)
         n = recvQueue.numMessages();
         for (size_t i = 0; i < n; ++i) dispatchOneMessage(false);
     }
+    hndlPauseCond.notify_all();
 
     return ZCM_EOK;
 }
@@ -620,7 +620,8 @@ void zcm_blocking_t::sendThreadFunc()
         {
             unique_lock<mutex> lk(sendStateMutex);
             sendPauseCond.wait(lk, [&]{
-                    return !paused || sendThreadState == THREAD_STATE_HALTING;
+                    return (!paused && sendQueue.isEnabled()) ||
+                           sendThreadState == THREAD_STATE_HALTING;
             });
             if (sendThreadState == THREAD_STATE_HALTING) break;
         }
@@ -695,7 +696,8 @@ void zcm_blocking_t::hndlThreadFunc()
         {
             unique_lock<mutex> lk(hndlStateMutex);
             hndlPauseCond.wait(lk, [&]{
-                return !paused || hndlThreadState == THREAD_STATE_HALTING;
+                return (!paused && recvQueue.isEnabled()) ||
+                       hndlThreadState == THREAD_STATE_HALTING;
             });
             if (hndlThreadState == THREAD_STATE_HALTING) break;
         }
