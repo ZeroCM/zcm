@@ -97,7 +97,7 @@ class ZCM
                                                        const Msg* msg)> cb);
     #endif
 
-    inline void unsubscribe(Subscription* sub);
+    inline int unsubscribe(Subscription* sub);
 
     virtual inline zcm_t* getUnderlyingZCM();
 
@@ -111,7 +111,7 @@ class ZCM
                                      MsgHandler cb, void* usr);
 
     // Unsubscribes from a raw subscription. Effectively undoing the actions of subscribeRaw
-    virtual inline void unsubscribeRaw(void*& rawSub);
+    virtual inline int unsubscribeRaw(void*& rawSub);
 
   private:
     zcm_t* zcm;

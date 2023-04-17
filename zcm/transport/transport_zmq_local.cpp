@@ -357,12 +357,15 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
                 for (auto it = subsocks.begin(); it != subsocks.end(); ) {
                     // This channel is subscribed to explicitly
-                    if (!it->second.second) {
+                    if (it->second.second) {
                         ++it;
                         continue;
                     }
 
-                    if (isRegexSubscribed(channel)) continue;
+                    if (isRegexSubscribed(it->first)) {
+                        ++it;
+                        continue;
+                    }
 
                     auto ret = subsockDelete(it); // updates it
                     if (ret != ZCM_EOK) return ret;
@@ -378,7 +381,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
                 if (it == subsocks.end()) return ZCM_EINVALID;
                 it->second.second = false;
 
-                if (!isRegexSubscribed(channel)) {
+                if (!isRegexSubscribed(it->first)) {
                     auto ret = subsockDelete(it);
                     if (ret != ZCM_EOK) return ret;
                 }

@@ -413,6 +413,7 @@ void zcm_blocking_t::resume()
     unique_lock<mutex> lk1(sendStateMutex);
     unique_lock<mutex> lk2(hndlStateMutex);
     paused = false;
+    // Intentionally unlocking in this order
     lk2.unlock();
     lk1.unlock();
     sendPauseCond.notify_all();
@@ -464,6 +465,7 @@ zcm_sub_t* zcm_blocking_t::subscribe(const string& channel,
     unique_lock<mutex> lk1(subDispMutex, std::defer_lock);
     unique_lock<mutex> lk2(subRecvMutex, std::defer_lock);
     if (block) {
+        // Intentionally locking in this order
         lk1.lock();
         lk2.lock();
     } else if (!lk1.try_lock() || !lk2.try_lock()) {
@@ -505,6 +507,7 @@ int zcm_blocking_t::unsubscribe(zcm_sub_t* sub, bool block)
     unique_lock<mutex> lk1(subDispMutex, std::defer_lock);
     unique_lock<mutex> lk2(subRecvMutex, std::defer_lock);
     if (block) {
+        // Intentionally locking in this order
         lk1.lock();
         lk2.lock();
     } else if (!lk1.try_lock() || !lk2.try_lock()) {
@@ -525,7 +528,7 @@ int zcm_blocking_t::unsubscribe(zcm_sub_t* sub, bool block)
         return ZCM_EINVALID;
     }
 
-    return 0;
+    return ZCM_EOK;
 }
 
 int zcm_blocking_t::flush(bool block)
@@ -540,6 +543,7 @@ int zcm_blocking_t::flush(bool block)
         if (block) lk.lock();
         else if (!lk.try_lock()) {
             sendQueue.enable();
+            sendPauseCond.notify_all();
             return ZCM_EAGAIN;
         }
 
@@ -547,6 +551,7 @@ int zcm_blocking_t::flush(bool block)
         n = sendQueue.numMessages();
         for (size_t i = 0; i < n; ++i) sendOneMessage(false);
     }
+    sendPauseCond.notify_all();
 
     {
         recvQueue.disable();
@@ -556,6 +561,7 @@ int zcm_blocking_t::flush(bool block)
         if (block) lk.lock();
         else if (!lk.try_lock()) {
             recvQueue.enable();
+            hndlPauseCond.notify_all();
             return ZCM_EAGAIN;
         }
 
@@ -563,6 +569,7 @@ int zcm_blocking_t::flush(bool block)
         n = recvQueue.numMessages();
         for (size_t i = 0; i < n; ++i) dispatchOneMessage(false);
     }
+    hndlPauseCond.notify_all();
 
     return ZCM_EOK;
 }
@@ -613,7 +620,8 @@ void zcm_blocking_t::sendThreadFunc()
         {
             unique_lock<mutex> lk(sendStateMutex);
             sendPauseCond.wait(lk, [&]{
-                    return !paused || sendThreadState == THREAD_STATE_HALTING;
+                    return (!paused && sendQueue.isEnabled()) ||
+                           sendThreadState == THREAD_STATE_HALTING;
             });
             if (sendThreadState == THREAD_STATE_HALTING) break;
         }
@@ -688,7 +696,8 @@ void zcm_blocking_t::hndlThreadFunc()
         {
             unique_lock<mutex> lk(hndlStateMutex);
             hndlPauseCond.wait(lk, [&]{
-                return !paused || hndlThreadState == THREAD_STATE_HALTING;
+                return (!paused && recvQueue.isEnabled()) ||
+                       hndlThreadState == THREAD_STATE_HALTING;
             });
             if (hndlThreadState == THREAD_STATE_HALTING) break;
         }
