@@ -27,4 +27,5 @@ def build(ctx):
                            'TypeDb.hpp'])
     else:
         ctx(name = 'zcm_tools_util',
+            export_includes = '../',
             use  = use)

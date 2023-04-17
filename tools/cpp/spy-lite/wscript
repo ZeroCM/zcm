@@ -2,6 +2,11 @@
 # encoding: utf-8
 
 def build(ctx):
+
+    excl = []
+    if ctx.env.USING_ELF:
+        excl = ['util/TypeDb.cpp']
+
     ctx.program(target = 'zcm-spy-lite',
                 use = ['default', 'zcm', 'zcm_tools_util'],
-                source = ctx.path.ant_glob('*.cpp'))
+                source = ctx.path.ant_glob('**/*.cpp', excl=excl))

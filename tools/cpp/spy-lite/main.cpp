@@ -3,7 +3,6 @@
 #include "util/TypeDb.hpp"
 
 #include "Common.hpp"
-#include "MsgDisplay.hpp"
 #include "MsgInfo.hpp"
 #include "Debug.hpp"
 
@@ -494,16 +493,28 @@ struct Args
     {
         fprintf(stderr, "usage: zcm-spy-lite [options]\n"
                 "\n"
-                "    Terminal based spy utility.  Subscribes to all channels on a ZCM\n"
+                "    Terminal based spy utility. Subscribes to all channels on a ZCM\n"
                 "    transport and displays them in an interactive terminal.\n"
+#ifndef USING_ELF
+                "\n"
+                "    Note that since you compiled without libelf, zcm-spy-lite is\n"
+                "    unable to decode and show the internals of messages\n"
+#endif
+                "\n"
                 "Example:\n"
-                "    zcm-spy-lite -u udpm://239.255.76.67:7667 -p path/to/zcmtypes.so\n"
+                "    zcm-spy-lite -u udpm://239.255.76.67:7667"
+#ifdef USING_ELF
+                " -p path/to/zcmtypes.so"
+#endif
+                "\n"
                 "\n"
                 "Options:\n"
                 "\n"
                 "  -h, --help                 Shows this help text and exits\n"
                 "  -u, --zcm-url=URL          Log messages on the specified ZCM URL\n"
+#ifdef USING_ELF
                 "  -p, --type-path=PATH       Path to a shared library containing the zcmtypes\n"
+#endif
                 "  -c, --channel=CHANNEL      Channel to subscribe to. Can be specified more than once\n"
                 "  -b, --bandwidth            Calculate and show bandwidth of each channel\n"
                 "  -d, --debug                Run a dry run to ensure proper spy setup\n"
@@ -520,12 +531,16 @@ int main(int argc, char *argv[])
 
     // Get path to zcmtypes.so from args if defined; otherwise from $ZCM_SPY_LITE_PATH
     const char *spy_lite_path = args.zcmtypes_path ? args.zcmtypes_path : getenv("ZCM_SPY_LITE_PATH");
-    if (args.debug)
-        printf("zcm_spy_lite_path='%s'\n", spy_lite_path);
+    if (args.debug) printf("zcm_spy_lite_path='%s'\n", spy_lite_path);
+
     if (spy_lite_path == NULL) {
+#ifdef USING_ELF
         fprintf(stderr, "ERR: zcmtypes.so path not set! Try using -p PATH or set $ZCM_SPY_LITE_PATH  \n");
         fflush(stderr);
         return 1;
+#else
+        spy_lite_path = "";
+#endif
     }
 
     SpyInfo spy {spy_lite_path, args.showBandwidth, args.debug};

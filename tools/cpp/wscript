@@ -7,9 +7,9 @@ def build(ctx):
     ctx.recurse('log-repair');
     ctx.recurse('repeater');
     ctx.recurse('spy-peek');
+    ctx.recurse('spy-lite');
 
     if ctx.env.USING_ELF:
-        ctx.recurse('spy-lite');
         ctx.recurse('indexer');
         ctx.recurse('transcoder');
         ctx.recurse('logger');
