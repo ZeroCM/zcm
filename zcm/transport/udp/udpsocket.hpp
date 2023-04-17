@@ -1,11 +1,11 @@
 #pragma once
-#include "udpm.hpp"
+#include "udp.hpp"
 #include "buffers.hpp"
 
-class UDPMAddress
+class UDPAddress
 {
   public:
-    UDPMAddress(const string& ip, u16 port)
+    UDPAddress(const string& ip, u16 port)
     {
         this->ip = ip;
         this->port = port;
@@ -27,22 +27,22 @@ class UDPMAddress
     struct sockaddr_in addr;
 };
 
-class UDPMSocket
+class UDPSocket
 {
   public:
-    UDPMSocket();
-    ~UDPMSocket();
+    UDPSocket();
+    ~UDPSocket();
     bool isOpen();
     void close();
 
     bool init();
     bool joinMulticastGroup(struct in_addr multiaddr);
-    bool setTTL(u8 ttl);
+    bool setTTL(u8 ttl, bool multicast);
     bool bindPort(u16 port);
     bool setReuseAddr();
     bool setReusePort();
     bool enablePacketTimestamp();
-    bool enableLoopback();
+    bool enableMulticastLoopback();
     bool setDestination(const string& ip, u16 port);
 
     size_t getRecvBufSize();
@@ -52,17 +52,17 @@ class UDPMSocket
     bool waitUntilData(int timeout);
     int recvPacket(Packet *pkt);
 
-    ssize_t sendBuffers(const UDPMAddress& dest, const char *a, size_t alen);
-    ssize_t sendBuffers(const UDPMAddress& dest, const char *a, size_t alen,
+    ssize_t sendBuffers(const UDPAddress& dest, const char *a, size_t alen);
+    ssize_t sendBuffers(const UDPAddress& dest, const char *a, size_t alen,
                             const char *b, size_t blen);
-    ssize_t sendBuffers(const UDPMAddress& dest, const char *a, size_t alen,
+    ssize_t sendBuffers(const UDPAddress& dest, const char *a, size_t alen,
                         const char *b, size_t blen, const char *c, size_t clen);
 
     static bool checkConnection(const string& ip, u16 port);
     void checkAndWarnAboutSmallBuffer(size_t datalen, size_t kbufsize);
 
-    static UDPMSocket createSendSocket(struct in_addr multiaddr, u8 ttl);
-    static UDPMSocket createRecvSocket(struct in_addr multiaddr, u16 port);
+    static UDPSocket createSendSocket(struct in_addr addr, u8 ttl, bool multicast);
+    static UDPSocket createRecvSocket(struct in_addr addr, u16 port, bool multicast);
 
   private:
     SOCKET fd = -1;
@@ -70,11 +70,11 @@ class UDPMSocket
 
   private:
     // Disallow copies
-    UDPMSocket(const UDPMSocket&) = delete;
-    UDPMSocket& operator=(const UDPMSocket&) = delete;
+    UDPSocket(const UDPSocket&) = delete;
+    UDPSocket& operator=(const UDPSocket&) = delete;
 
   public:
     // Allow moves
-    UDPMSocket(UDPMSocket&& other) { std::swap(this->fd, other.fd); }
-    UDPMSocket& operator=(UDPMSocket&& other) { std::swap(this->fd, other.fd); return *this; }
+    UDPSocket(UDPSocket&& other) { std::swap(this->fd, other.fd); }
+    UDPSocket& operator=(UDPSocket&& other) { std::swap(this->fd, other.fd); return *this; }
 };
