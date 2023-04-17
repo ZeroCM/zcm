@@ -126,10 +126,7 @@ class SubUnsubCPPTest : public CxxTest::TestSuite
             ex_data.name = "example string";
             ex_data.enabled = 1;
 
-            zcm::Subscription *regex_sub1 = zcm.subscribe("EXAMPLE.*", &Handler::example_t_handle, &handler);
-            zcm::Subscription *regex_sub2 = zcm.subscribe("EXAMPLE.*", &Handler::example_t_handle, &handler);
             zcm::Subscription *ex_sub = zcm.subscribe("EXAMPLE", &Handler::example_t_handle, &handler);
-
             if(transport == "ipc") // TODO: it is clearly a bug of the ipc transport that it needs this first message to be published (it never arrives)
                 zcm.publish("EXAMPLE", &ex_data);
 
@@ -152,8 +149,6 @@ class SubUnsubCPPTest : public CxxTest::TestSuite
             zcm.stop();
 
             printf("Unsubscribing zcm %s\n", transport.c_str());
-            zcm.unsubscribe(regex_sub1);
-            zcm.unsubscribe(regex_sub2);
             zcm.unsubscribe(ex_sub);
 
             for (size_t j = 0; j < NUM_DATA; ++j) {
