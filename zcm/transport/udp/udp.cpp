@@ -403,11 +403,12 @@ UDP::UDP(const string& ip, u16 sub_port, u16 pub_port,
 bool UDP::init()
 {
     ZCM_DEBUG("Initializing ZCM UDP context...");
+    UDPSocket::checkConnection(params.ip, params.sub_port);
     if (params.multicast) {
         ZCM_DEBUG("Multicast %s:%d", params.ip.c_str(), params.sub_port);
+    } else {
+        UDPSocket::checkConnection(params.ip, params.pub_port);
     }
-    UDPSocket::checkConnection(params.ip, params.sub_port);
-    UDPSocket::checkConnection(params.ip, params.pub_port);
 
     sendfd = UDPSocket::createSendSocket(params.addr, params.ttl, params.multicast);
     if (!sendfd.isOpen()) return false;
