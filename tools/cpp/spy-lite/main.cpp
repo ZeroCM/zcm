@@ -495,6 +495,11 @@ struct Args
                 "\n"
                 "    Terminal based spy utility. Subscribes to all channels on a ZCM\n"
                 "    transport and displays them in an interactive terminal.\n"
+#ifndef USING_ELF
+                "\n"
+                "    Note that since you compiled without libelf, zcm-spy-lite is\n"
+                "    unable to decode and show the internals of messages\n"
+#endif
                 "\n"
                 "Example:\n"
                 "    zcm-spy-lite -u udpm://239.255.76.67:7667"
