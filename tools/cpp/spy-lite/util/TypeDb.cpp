@@ -14,11 +14,13 @@ bool TypeDb::loadtypes(const string& libname, void* lib)
 }
 
 TypeDb::TypeDb(const string& paths, bool debug) : debug(debug), isGood(true)
-{}
+{
+    (void)this->debug;
+}
 
 bool TypeDb::good() const
 {
-    return true;
+    return isGood;
 }
 
 const TypeMetadata* TypeDb::getByHash(int64_t hash) const

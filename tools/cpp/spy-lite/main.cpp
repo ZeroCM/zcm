@@ -531,12 +531,16 @@ int main(int argc, char *argv[])
 
     // Get path to zcmtypes.so from args if defined; otherwise from $ZCM_SPY_LITE_PATH
     const char *spy_lite_path = args.zcmtypes_path ? args.zcmtypes_path : getenv("ZCM_SPY_LITE_PATH");
-    if (args.debug)
-        printf("zcm_spy_lite_path='%s'\n", spy_lite_path);
+    if (args.debug) printf("zcm_spy_lite_path='%s'\n", spy_lite_path);
+
     if (spy_lite_path == NULL) {
+#ifdef USING_ELF
         fprintf(stderr, "ERR: zcmtypes.so path not set! Try using -p PATH or set $ZCM_SPY_LITE_PATH  \n");
         fflush(stderr);
         return 1;
+#else
+        spy_lite_path = "";
+#endif
     }
 
     SpyInfo spy {spy_lite_path, args.showBandwidth, args.debug};
