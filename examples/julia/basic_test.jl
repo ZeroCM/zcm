@@ -18,12 +18,18 @@ if (!good(zcm))
     error("Unable to initialize zcm");
 end
 
+println("Constructed")
+
 sub = subscribe(zcm, "EXAMPLE", handler, example_t)
 sub2 = subscribe(zcm, "EXAMPLE", untyped_handler)
+
+println("Subscribed")
 
 msg = example_t()
 
 start(zcm)
+
+println("Started")
 
 msg.timestamp = 0;
 publish(zcm, "EXAMPLE", msg)
@@ -44,8 +50,12 @@ publish(zcm, "EXAMPLE", msg)
 sleep(0.5)
 stop(zcm)
 
+println("Stopped")
+
 unsubscribe(zcm, sub)
 unsubscribe(zcm, sub2)
+
+println("Unsubscribed")
 
 @assert (numReceived == 6) "Didn't receive proper number of messages"
 
