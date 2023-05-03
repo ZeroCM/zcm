@@ -402,6 +402,25 @@ class Tracker
         return ret;
     }
 
+    T get(uint64_t queryUtime, std::function<uint64_t(const T&)> getUtimeFn) const
+    {
+        T ret;
+        if (buf.empty()) {
+            WARN("Calling get when buffer is empty");
+            return ret;
+        }
+
+        auto minEltIt = std::min_element(
+            buf.begin(), buf.end(),
+            [&](const MsgType* a, const MsgType* b) {
+                return ABSDIFF(getUtimeFn(*a), queryUtime)/1e6 <
+                       ABSDIFF(getUtimeFn(*b), queryUtime)/1e6;
+            });
+
+        ret = **minEltIt;
+        return ret;
+    }
+
     // hostUtime is only used and required when _msg does not have an
     // internal utime field
     // Returns utime of message
