@@ -16,6 +16,7 @@
 #include <functional>
 #include <tuple>
 #include <type_traits>
+#include <algorithm>
 
 #include <zcm/zcm-cpp.hpp>
 #include <zcm/util/Filter.hpp>
@@ -402,23 +403,19 @@ class Tracker
         return ret;
     }
 
-    T get(uint64_t queryUtime, std::function<uint64_t(void*)> getUtimeFn) const
+    bool get(T& msg, uint64_t queryUtime, std::function<uint64_t(void*)> getUtimeFn) const
     {
-        T ret;
-        if (buf.empty()) {
-            WARN("Calling get when buffer is empty");
-            return ret;
-        }
+        if (buf.empty()) return false;
 
         auto minEltIt = std::min_element(
             buf.begin(), buf.end(),
             [&](const MsgType* a, const MsgType* b) {
-                return ABSDIFF(getUtimeFn((T*)a), queryUtime)/1e6 <
-                       ABSDIFF(getUtimeFn((T*)b), queryUtime)/1e6;
+                return fabs(getUtimeFn((T*)a) - queryUtime)/1e6 <
+                       fabs(getUtimeFn((T*)b) - queryUtime)/1e6;
             });
 
-        ret = **minEltIt;
-        return ret;
+        msg = **minEltIt;
+        return true;
     }
 
     // hostUtime is only used and required when _msg does not have an
