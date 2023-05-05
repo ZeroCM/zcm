@@ -402,7 +402,7 @@ class Tracker
         return ret;
     }
 
-    T get(uint64_t queryUtime, std::function<uint64_t(const T&)> getUtimeFn) const
+    T get(uint64_t queryUtime, std::function<uint64_t(void*)> getUtimeFn) const
     {
         T ret;
         if (buf.empty()) {
@@ -413,8 +413,8 @@ class Tracker
         auto minEltIt = std::min_element(
             buf.begin(), buf.end(),
             [&](const MsgType* a, const MsgType* b) {
-                return ABSDIFF(getUtimeFn(*a), queryUtime)/1e6 <
-                       ABSDIFF(getUtimeFn(*b), queryUtime)/1e6;
+                return ABSDIFF(getUtimeFn((T*)a), queryUtime)/1e6 <
+                       ABSDIFF(getUtimeFn((T*)b), queryUtime)/1e6;
             });
 
         ret = **minEltIt;
