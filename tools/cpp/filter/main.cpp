@@ -1004,7 +1004,7 @@ int main(int argc, char* argv[])
     cout << "Writing events to output log..." << endl;
     size_t numInEvents = 0, numOutEvents = 0;
     processLog(
-        [&args, &regionActiveZones, &inlog,
+        [&args, &regionActiveZones,
          &outlog, &numInEvents, &numOutEvents](const zcm::LogEvent* evt) {
         bool keepEvent = false;
         for (size_t i = 0; i < regionActiveZones.size(); ++i) {
