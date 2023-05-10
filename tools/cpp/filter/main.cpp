@@ -191,12 +191,12 @@ struct Args
             if (!getField(le, f)) return { false, 0.0 };
             double ret;
             switch (f.type) {
-                case ZCM_FIELD_INT8_T:  ret = (double)*((int8_t*)f.data);
-                case ZCM_FIELD_INT16_T: ret = (double)*((int16_t*)f.data);
-                case ZCM_FIELD_INT32_T: ret = (double)*((int32_t*)f.data);
-                case ZCM_FIELD_INT64_T: ret = (double)*((int64_t*)f.data);
-                case ZCM_FIELD_FLOAT:   ret = (double)*((float*)f.data);
-                case ZCM_FIELD_DOUBLE:  ret = *((double*)f.data);
+                case ZCM_FIELD_INT8_T:  ret = (double)*((int8_t*)f.data); break;
+                case ZCM_FIELD_INT16_T: ret = (double)*((int16_t*)f.data); break;
+                case ZCM_FIELD_INT32_T: ret = (double)*((int32_t*)f.data); break;
+                case ZCM_FIELD_INT64_T: ret = (double)*((int64_t*)f.data); break;
+                case ZCM_FIELD_FLOAT:   ret = (double)*((float*)f.data); break;
+                case ZCM_FIELD_DOUBLE:  ret = *((double*)f.data); break;
                 default:                return { false, 0.0 };
             }
             return { true, ret };
@@ -493,9 +493,9 @@ struct Args
             cout << idt << "Channels: ";
             if (channels.empty()) cout << "All";
             cout << endl;
+            for (auto& c : channels) cout << nidt << c.first << endl;
             cout << idt << "Begin Adjustment: " << (beginAdjustment / 1e6) << "s" << endl;
             cout << idt << "End Adjustment: " << (endAdjustment / 1e6) << "s" << endl;
-            for (auto& c : channels) cout << nidt << c.first << endl;
             cout << idt << "Begin: ";
             if (begin) {
                 cout << endl;
@@ -999,7 +999,7 @@ int main(int argc, char* argv[])
         }
     }
     cout << "Adjusted endpoints of " << numRegions << " region"
-         << (numRegions > 1 ? "s" : "") << "..." << endl;
+         << (numRegions != 1 ? "s" : "") << "..." << endl;
 
     cout << "Writing events to output log..." << endl;
     size_t numInEvents = 0, numOutEvents = 0;
