@@ -403,18 +403,26 @@ class Tracker
         return ret;
     }
 
-    bool get(T& msg, uint64_t queryUtime, std::function<uint64_t(void*)> getUtimeFn) const
+    bool get(T& msg, uint64_t queryUtime, std::function<uint64_t(void*)> getUtimeFn,
+            std::function<bool(void*)> syncedFn) const
     {
-        if (buf.empty()) return false;
+        double minDelta = std::numeric_limits<double>::max();
+        const T* minElt = nullptr;
 
-        auto minEltIt = std::min_element(
-            buf.begin(), buf.end(),
-            [&](const MsgType* a, const MsgType* b) {
-                return fabs(getUtimeFn((T*)a) - queryUtime)/1e6 <
-                       fabs(getUtimeFn((T*)b) - queryUtime)/1e6;
-            });
+        for (size_t i = 0; i < buf.size(); ++i) {
+            const T* elt = buf[i];
 
-        msg = **minEltIt;
+            if (!syncedFn((void*)elt)) continue;
+
+            double delta = fabs((double)getUtimeFn((void*)elt) - (double)queryUtime)/1e6;
+            if (delta < minDelta) {
+                minDelta = delta;
+                minElt = elt;
+            }
+        }
+        if (minElt == nullptr) return false;
+
+        msg = *minElt;
         return true;
     }
 
