@@ -7,6 +7,8 @@ waf_arch_dict = {
     "x86"    : 'i386',
     "x86_64" : 'amd64',
     'mips'   : 'mips',
+    'thumb'  : 'armhf',
+    'arm'    : 'armhf',
 #    ''       : 'armel',
 #    ''       : 'armhf',
 #    ''       : 'mips64el',
