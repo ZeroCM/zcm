@@ -403,27 +403,50 @@ class Tracker
         return ret;
     }
 
-    bool get(T& msg, uint64_t queryUtime, std::function<uint64_t(void*)> getUtimeFn,
-            std::function<bool(void*)> syncedFn) const
+    bool get(T& msg, uint64_t& msgUtime, uint64_t queryUtime, std::function<uint64_t(void*)> getUtimeFn,
+            std::function<bool(void*)> syncedFn, bool interp=false,
+            bool extrapolate = false) const
     {
-        double minDelta = std::numeric_limits<double>::max();
-        const T* minElt = nullptr;
+        const T* closestElt = nullptr;
+        const T* secondClosestElt = nullptr;
+
+        double closestDelta = std::numeric_limits<double>::max();
+        double secondClosestDelta = std::numeric_limits<double>::max();
 
         for (size_t i = 0; i < buf.size(); ++i) {
             const T* elt = buf[i];
 
             if (!syncedFn((void*)elt)) continue;
 
-            double delta = fabs((double)getUtimeFn((void*)elt) - (double)queryUtime)/1e6;
-            if (delta < minDelta) {
-                minDelta = delta;
-                minElt = elt;
+            double eltDelta = fabs((double)getUtimeFn((void*)elt) - (double)queryUtime)/1e6;
+
+            if (eltDelta < closestDelta) {
+                secondClosestDelta = closestDelta;
+                secondClosestElt = closestElt;
+
+                closestDelta = eltDelta;
+                closestElt = elt;
+            } else if (eltDelta < secondClosestDelta) {
+                secondClosestDelta = eltDelta;
+                secondClosestElt = elt;
             }
         }
-        if (minElt == nullptr) return false;
 
-        msg = *minElt;
+        if (closestElt == nullptr) return false;
+
+        if (interp) {
+            if (secondClosestElt == nullptr) return false;
+
+            msg = T::interpolate(*closestElt, getUtimeFn((void*)closestElt),
+                    *secondClosestElt, getUtimeFn((void*)secondClosestElt),
+                    queryUtime,
+                    extrapolate);
+        } else {
+            msg = *closestElt;
+        }
+        msgUtime = getUtimeFn((void*)closestElt);
         return true;
+
     }
 
     // hostUtime is only used and required when _msg does not have an
