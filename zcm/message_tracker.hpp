@@ -403,9 +403,10 @@ class Tracker
         return ret;
     }
 
-    bool get(T& msg, uint64_t& msgUtime, uint64_t queryUtime, std::function<uint64_t(void*)> getUtimeFn,
-            std::function<bool(void*)> syncedFn, bool interp=false,
-            bool extrapolate = false) const
+    bool get(T& msg, uint64_t& msgUtime, uint64_t queryUtime,
+            std::function<uint64_t(void*)> getUtimeFn,
+            std::function<T(const T&, uint64_t, const T&, uint64_t, uint64_t)>
+            interpolateFn = {}) const
     {
         const T* closestElt = nullptr;
         const T* secondClosestElt = nullptr;
@@ -415,8 +416,6 @@ class Tracker
 
         for (size_t i = 0; i < buf.size(); ++i) {
             const T* elt = buf[i];
-
-            if (!syncedFn((void*)elt)) continue;
 
             double eltDelta = fabs((double)getUtimeFn((void*)elt) - (double)queryUtime)/1e6;
 
@@ -434,19 +433,17 @@ class Tracker
 
         if (closestElt == nullptr) return false;
 
-        if (interp) {
+        if (!interpolateFn) {
+            msg = *closestElt;
+        } else {
             if (secondClosestElt == nullptr) return false;
 
-            msg = T::interpolate(*closestElt, getUtimeFn((void*)closestElt),
+            msg = interpolateFn(*closestElt, getUtimeFn((void*)closestElt),
                     *secondClosestElt, getUtimeFn((void*)secondClosestElt),
-                    queryUtime,
-                    extrapolate);
-        } else {
-            msg = *closestElt;
+                    queryUtime);
         }
         msgUtime = getUtimeFn((void*)closestElt);
         return true;
-
     }
 
     // hostUtime is only used and required when _msg does not have an
