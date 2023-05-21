@@ -318,7 +318,7 @@ int main(int argc, char* argv[])
 
     writeHeaders(args, os);
 
-    int ret;
+    int ret = 0;
 
     if (!args.inlog.empty()) ret = processInputLog(args, os);
 
