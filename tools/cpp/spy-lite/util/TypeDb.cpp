@@ -2,6 +2,8 @@
 
 using namespace std;
 
+namespace zcm {
+
 bool TypeDb::findTypenames(vector<string>& result, const string& libname)
 {
     result.clear();
@@ -32,3 +34,5 @@ const TypeMetadata* TypeDb::getByName(const string& name) const
 {
     return nullptr;
 }
+
+} // zcm
