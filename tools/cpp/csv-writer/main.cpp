@@ -213,7 +213,23 @@ static void handleEvent(const Args& args,
 
     vector<pair<string, double>> numerics;
     vector<pair<string, string>> strings;
-    processEncodedType(numerics, strings, channel, data, datalen, *args.types.get());
+    auto processScalar = [&numerics, &strings](const string& name,
+                                               zcm_field_type_t type,
+                                               const void* data){
+        switch (type) {
+            case ZCM_FIELD_INT8_T: numerics.emplace_back(name, *((int8_t*)data)); break;
+            case ZCM_FIELD_INT16_T: numerics.emplace_back(name, *((int16_t*)data)); break;
+            case ZCM_FIELD_INT32_T: numerics.emplace_back(name, *((int32_t*)data)); break;
+            case ZCM_FIELD_INT64_T: numerics.emplace_back(name, *((int64_t*)data)); break;
+            case ZCM_FIELD_BYTE: numerics.emplace_back(name, *((uint8_t*)data)); break;
+            case ZCM_FIELD_FLOAT: numerics.emplace_back(name, *((float*)data)); break;
+            case ZCM_FIELD_DOUBLE: numerics.emplace_back(name, *((double*)data)); break;
+            case ZCM_FIELD_BOOLEAN: numerics.emplace_back(name, *((bool*)data)); break;
+            case ZCM_FIELD_STRING: strings.emplace_back(name, string((const char*)data)); break;
+            case ZCM_FIELD_USER_TYPE: assert(false && "Should not be possble");
+        }
+    };
+    processEncodedType(channel, data, datalen, *args.types.get(), processScalar);
 
     if (!args.fields.empty()) {
         for (size_t i = 0; i < args.fields.size(); ++i) {
