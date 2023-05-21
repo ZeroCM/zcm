@@ -3,6 +3,8 @@
 
 #include <limits>
 
+using namespace zcm;
+
 MsgInfo::MsgInfo(TypeDb& db, const char *channel) : db(db), channel(channel) {}
 
 MsgInfo::~MsgInfo()

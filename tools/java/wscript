@@ -29,13 +29,6 @@ def build(ctx):
             always=True)
 
     ctx(features='subst',
-        source='zcm-csv-writer.in',
-        target='zcm-csv-writer',
-        install_path='${BINDIR}',
-        chmod=Utils.O755,
-        always=True)
-
-    ctx(features='subst',
         source='zcm-csv-reader.in',
         target='zcm-csv-reader',
         install_path='${BINDIR}',

@@ -20,7 +20,7 @@ struct Args
     bool debug    = false;
     bool verbose  = false;
 
-    unique_ptr<TypeDb> types;
+    unique_ptr<zcm::TypeDb> types;
 
     enum ConditionSourceType
     {
@@ -32,11 +32,11 @@ struct Args
     class FieldAccessor
     {
       public:
-        const TypeMetadata* md = nullptr;
+        const zcm::TypeMetadata* md = nullptr;
         int fIdx = -1;
         zcm_field_t field;
 
-        FieldAccessor(const string& msgtype, const string& field, const TypeDb* types)
+        FieldAccessor(const string& msgtype, const string& field, const zcm::TypeDb* types)
         {
             md = types->getByName(StringUtil::dotsToUnderscores(msgtype));
             if (!md) return;
@@ -216,7 +216,7 @@ struct Args
             return true;
         }
 
-        virtual bool setField(const string& field, const TypeDb* types)
+        virtual bool setField(const string& field, const zcm::TypeDb* types)
         {
             if (type != ConditionSourceType::NumSourceTypes) return false;
             type = ConditionSourceType::Field;
@@ -363,7 +363,7 @@ struct Args
             return cond2->setSeconds();
         }
 
-        bool setField(const string& field, const TypeDb* types) override
+        bool setField(const string& field, const zcm::TypeDb* types) override
         {
             if (!cond1) cond1.reset(new Condition());
             if (!cond1->isFullySpecified()) return cond1->setField(field, types);
@@ -584,7 +584,7 @@ struct Args
             return true;
         }
 
-        bool setConditionAsField(const string& field, const TypeDb* types)
+        bool setConditionAsField(const string& field, const zcm::TypeDb* types)
         {
             if (regions.empty()) return false;
 
@@ -709,7 +709,7 @@ struct Args
                 case 'i': inlog  = string(optarg); break;
                 case 'o': outlog = string(optarg); break;
                 case 't': {
-                    types.reset(new TypeDb(string(optarg), debug));
+                    types.reset(new zcm::TypeDb(string(optarg), debug));
                     break;
                 }
                 case 'd': debug = true; break;

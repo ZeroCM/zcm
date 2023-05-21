@@ -6,7 +6,7 @@ def build(ctx):
     use = 'default '
 
     if ctx.env.USING_ELF:
-        files += 'SymtabElf.cpp TypeDb.cpp TranscoderPluginDb.cpp '
+        files += 'SymtabElf.cpp TypeDb.cpp TranscoderPluginDb.cpp Introspection.cpp '
         use += 'elf '
 
     source = ctx.path.ant_glob(files)
@@ -24,7 +24,8 @@ def build(ctx):
 
         ctx.install_files('${PREFIX}/include/zcm/tools',
                           ['TranscoderPluginDb.hpp',
-                           'TypeDb.hpp'])
+                           'TypeDb.hpp',
+                           'Introspection.hpp'])
     else:
         ctx(name = 'zcm_tools_util',
             export_includes = '../',
