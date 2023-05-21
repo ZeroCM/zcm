@@ -194,7 +194,7 @@ int writeOutput(const zcm::Json::Value& index,
                 const vector<pair<string, unordered_set<string>>>& groupsToInclude,
                 const unordered_map<string, string> colors,
                 const string& outpath,
-                const TypeDb& types)
+                const zcm::TypeDb& types)
 {
     ofstream output{ outpath };
     if (!output.good()) {
@@ -322,7 +322,7 @@ int writeOutput(const zcm::Json::Value& index,
             for (auto t : s) {
                 int64_t hashBE = stoll(t["BE"].asString());
                 int64_t hashLE = stoll(t["LE"].asString());
-                const TypeMetadata* md = types.getByHash(hashBE);
+                const zcm::TypeMetadata* md = types.getByHash(hashBE);
                 if (!md) md = types.getByHash(hashLE);
                 if (!md) {
                     cerr << "Unable to find matching type for hash pair" << endl
@@ -341,7 +341,7 @@ int writeOutput(const zcm::Json::Value& index,
             for (auto t : s) {
                 int64_t hashBE = stoll(t["BE"].asString());
                 int64_t hashLE = stoll(t["LE"].asString());
-                const TypeMetadata* md = types.getByHash(hashBE);
+                const zcm::TypeMetadata* md = types.getByHash(hashBE);
                 if (!md) md = types.getByHash(hashLE);
                 if (!md) {
                     cerr << "Unable to find matching type for hash pair" << endl
@@ -369,7 +369,7 @@ int main(int argc, char *argv[])
     Args args;
     if (!args.parse(argc, argv)) return 1;
 
-    TypeDb types(args.type_path, args.debug);
+    zcm::TypeDb types(args.type_path, args.debug);
 
     if (!types.good()) return 1;
 

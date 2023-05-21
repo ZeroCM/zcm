@@ -9,4 +9,5 @@ struct MsgDisplayState
     std::vector<size_t> recur_table;
 };
 
-void msg_display(TypeDb& db, const TypeMetadata& metadata, void *msg, const MsgDisplayState& state);
+void msg_display(zcm::TypeDb& db, const zcm::TypeMetadata& metadata,
+                 void *msg, const MsgDisplayState& state);

@@ -8,10 +8,9 @@
 
 #include <zcm/zcm-cpp.hpp>
 
+#include "util/Introspection.hpp"
 #include "util/StringUtil.hpp"
 #include "util/TypeDb.hpp"
-
-#include "introspection.hpp"
 
 using namespace std;
 
@@ -40,7 +39,7 @@ struct Args
     string channels = "";
     bool debug      = false;
 
-    unique_ptr<TypeDb> types;
+    unique_ptr<zcm::TypeDb> types;
 
     vector<Field> fields;
 
@@ -124,7 +123,7 @@ struct Args
             return false;
         }
 
-        types.reset(new TypeDb(typepath, debug));
+        types.reset(new zcm::TypeDb(typepath, debug));
         if (!types->good()) {
             cerr << "Unable to load types library: " << typepath << endl;
             return false;
@@ -229,7 +228,11 @@ static void handleEvent(const Args& args,
             case ZCM_FIELD_USER_TYPE: assert(false && "Should not be possble");
         }
     };
-    processEncodedType(channel, data, datalen, *args.types.get(), processScalar);
+    zcm::Introspection::processEncodedType(channel,
+                                           data, datalen,
+                                           ".",
+                                           *args.types.get(),
+                                           processScalar);
 
     if (!args.fields.empty()) {
         for (size_t i = 0; i < args.fields.size(); ++i) {

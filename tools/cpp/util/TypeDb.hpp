@@ -7,6 +7,8 @@
 
 #include <zcm/zcm_coretypes.h>
 
+namespace zcm {
+
 struct TypeMetadata
 {
     int64_t hash;
@@ -34,3 +36,5 @@ class TypeDb
     std::unordered_map<int64_t, TypeMetadata> hashToType;
     std::unordered_map<std::string, int64_t>  nameToHash;
 };
+
+} // zcm

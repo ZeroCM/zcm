@@ -71,6 +71,8 @@ static void debugPrintMissingMethods(uint32_t mask)
     }
 }
 
+namespace zcm {
+
 // find all zcm types by post-processing the symbols
 bool TypeDb::findTypenames(vector<string>& result, const string& libname)
 {
@@ -193,3 +195,5 @@ const TypeMetadata* TypeDb::getByName(const string& name) const
     if (const int64_t* hash = lookup(nameToHash, name)) return getByHash(*hash);
     else                                                return nullptr;
 }
+
+} // zcm

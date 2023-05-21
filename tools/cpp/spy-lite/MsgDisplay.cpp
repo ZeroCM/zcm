@@ -4,6 +4,8 @@
 #define MAX_ARRAY_DISPLAY 100
 #define MAX_ARRAY_ELT_PER_LINE 10
 
+using namespace zcm;
+
 static inline bool is_ascii(int8_t c)
 {
     return (32 <= c && c <= 126);

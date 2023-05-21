@@ -320,7 +320,7 @@ struct SpyInfo
 
     vector<string>                  names;
     unordered_map<string, MsgInfo*> minfomap;
-    TypeDb typedb;
+    zcm::TypeDb typedb;
 
     mutex mut;
 
