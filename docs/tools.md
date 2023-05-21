@@ -209,16 +209,14 @@ we can use the `zcm-spy-lite` tool, running it before the replay tool:
 ## Advanced Tools
 
 ### CsvWriter
-##### To mark for build: `$./waf configure --use-java`
+##### To mark for build: `$./waf configure --use-elf`
 
 Sometimes it is useful to convert either a zcmlog or live zcm data into csv format.
 This tool, launched via
 
     zcm-csv-writer
 
-does this for you. There is a default format that this writer will output in,
-however often times, it is more useful to write your own CsvWriterPlugin for
-custom output formatting. Examples are provided in the examples directory in zcm.
+does this for you. See command line options for how to customize the output.
 
 ### CsvReader
 ##### To mark for build: `$./waf configure --use-java`
