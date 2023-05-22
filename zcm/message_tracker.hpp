@@ -416,8 +416,11 @@ class Tracker
 
         for (size_t i = 0; i < buf.size(); ++i) {
             const T* elt = buf[i];
+            uint64_t eltUtime = getUtimeFn((void*)elt);
 
-            double eltDelta = fabs((double)getUtimeFn((void*)elt) - (double)queryUtime)/1e6;
+            if (eltUtime == std::numeric_limits<uint64_t>::max()) continue;
+
+            double eltDelta = fabs((double)eltUtime - (double)queryUtime)/1e6;
 
             if (eltDelta < closestDelta) {
                 secondClosestDelta = closestDelta;
