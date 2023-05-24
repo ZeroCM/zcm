@@ -250,7 +250,7 @@ zcm-logplayer --zcm-url ipc zcmlog-*.00
 
 <h3>CsvWriter</h3>
 
-<h5>To mark for build: <code>$./waf configure --use-java</code></h5>
+<h5>To mark for build: <code>$./waf configure --use-elf</code></h5>
 
 <p>Sometimes it is useful to convert either a zcmlog or live zcm data into csv format.
 This tool, launched via</p>
@@ -258,9 +258,7 @@ This tool, launched via</p>
 <pre><code>zcm-csv-writer
 </code></pre>
 
-<p>does this for you. There is a default format that this writer will output in,
-however often times, it is more useful to write your own CsvWriterPlugin for
-custom output formatting. Examples are provided in the examples directory in zcm.</p>
+<p>does this for you. See command line options for how to customize the output.</p>
 
 <h3>CsvReader</h3>
 
@@ -432,6 +430,22 @@ Compiling a shared library is as easy as:</p>
 
 <pre><code>g++ -std=c++11 -fPIC -shared CustomPlugin.cpp -o plugins.so
 </code></pre>
+
+<h3>Filter</h3>
+
+<h5>To mark for build: <code>$./waf configure --use-elf</code></h5>
+
+<p>Sometimes you may want to filter a zcm log down to only certain events.
+To do this, we provide a tool that allows you to define on regions of a log
+that you would like to keep.
+This tool, launched via</p>
+
+<pre><code>zcm-log-filter
+</code></pre>
+
+<p>does this by providing a rich command line interface through which you can
+specify multiple regions with complex begin and end conditions.
+Refer to the usage docs (<code>zcm-log-filter -h</code>) for the most up-to-date usage.</p>
 <script>
   (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
   (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
