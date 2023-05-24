@@ -198,8 +198,10 @@ bool processScalar(const string& name,
         case ZCM_FIELD_FLOAT:
         case ZCM_FIELD_DOUBLE:
         case ZCM_FIELD_BOOLEAN:
-        case ZCM_FIELD_STRING:
             cb(name, type, data);
+            break;
+        case ZCM_FIELD_STRING:
+            cb(name, type, *((const char**)data));
             break;
         case ZCM_FIELD_USER_TYPE: {
             auto *zcmtype = typeDb.getByName(StringUtil::dotsToUnderscores(typestr));
