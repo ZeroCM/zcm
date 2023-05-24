@@ -146,14 +146,14 @@ struct Args
     {
         cout << "usage: zcm-csv-writer [options]" << endl
              << "" << endl
-             << "    Convert zcm traffic (from log or realtime) in csv output" << endl
+             << "    Convert zcm traffic (from log or realtime) to csv output" << endl
              << endl
              << "Examples:" << endl
              << "    # Convert all fields in all messages on all channels to a" << endl
              << "    # csv output and print to screen" << endl
              << "    zcm-csv-writer -i in.log -t types.so" << endl
              << endl
-             << "    # Convert the first element of position in messages "
+             << "    # Convert the first element of position in messages " << endl
              << "    # received on channel POSE to a csv and write to a file" << endl
              << "    zcm-log-filter -i in.log -o out.csv -t types.so "
                                    "-f x:POSE:position.0" << endl
