@@ -259,6 +259,12 @@ def zcmgen(ctx, **kw):
     for s in tg.source:
         ctx.add_manual_dependency(s, zcmgen)
 
+    if 'cpp' in lang:
+        ctx(target          = uselib_name + '_cpp',
+            rule            = 'touch ${TGT}',
+            use             = ['zcm', uselib_name + '_genfiles'],
+            export_includes = inc)
+
     if not building:
         return
 
@@ -288,12 +294,6 @@ def zcmgen(ctx, **kw):
                   includes        = inc,
                   export_includes = inc,
                   source          = csrc)
-
-    if 'cpp' in lang:
-        ctx(target          = uselib_name + '_cpp',
-            rule            = 'touch ${TGT}',
-            use             = ['zcm', uselib_name + '_genfiles'],
-            export_includes = inc)
 
     if 'java' in lang:
         ctx(name     = uselib_name + '_java',
