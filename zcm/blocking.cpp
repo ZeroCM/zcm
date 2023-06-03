@@ -202,9 +202,10 @@ struct zcm_blocking
     condition_variable hndlPauseCond;
 };
 
-zcm_blocking_t::zcm_blocking(zcm_t* z, zcm_trans_t* zt_)
+zcm_blocking_t::zcm_blocking(zcm_t* z_, zcm_trans_t* zt_)
 {
-    ZCM_ASSERT(z->type == ZCM_BLOCKING);
+    ZCM_ASSERT(z_->type == ZCM_BLOCKING);
+    z = z_;
     zt = zt_;
     mtu = zcm_trans_get_mtu(zt);
 }
