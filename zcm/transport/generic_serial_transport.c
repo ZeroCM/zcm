@@ -125,8 +125,12 @@ int serial_recvmsg_enable(zcm_trans_generic_serial_t *zt, const char *channel, b
 
 int serial_recvmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t *msg, int timeout)
 {
-    uint64_t utime = zt->time(zt->time_usr);
-    size_t incomingSize = cb_size(&zt->recvBuffer);
+    uint64_t utime;
+    size_t incomingSize;
+
+  serial_recvmsg_start:
+    utime = zt->time(zt->time_usr);
+    incomingSize = cb_size(&zt->recvBuffer);
     if (incomingSize < FRAME_BYTES)
         return ZCM_EAGAIN;
 
@@ -217,7 +221,7 @@ int serial_recvmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t *msg, int timeout)
     cb_pop_front(&zt->recvBuffer, consumed);
     // Note: because this is a nonblocking transport, timeout is ignored, so we don't need
     //       to subtract the time used here
-    return serial_recvmsg(zt, msg, timeout);
+    goto serial_recvmsg_start; // Not recursing so we dont increase call stack size
 }
 
 int serial_update_rx(zcm_trans_t *_zt)
