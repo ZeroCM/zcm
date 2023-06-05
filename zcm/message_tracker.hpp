@@ -404,9 +404,10 @@ class Tracker
     }
 
     bool get(T& msg, uint64_t& msgUtime, uint64_t queryUtime,
-            std::function<uint64_t(void*)> getUtimeFn,
-            std::function<T(const T&, uint64_t, const T&, uint64_t, uint64_t)>
-            interpolateFn = {}) const
+            uint64_t (*getUtimeFn)(const void*),
+            bool (*msgValidFn)(const void*),
+            T (*interpolateFn)(const T&, uint64_t, const T&, uint64_t,
+                uint64_t, void*) = nullptr, void* usr = nullptr) const
     {
         const T* closestElt = nullptr;
         const T* secondClosestElt = nullptr;
@@ -416,9 +417,10 @@ class Tracker
 
         for (size_t i = 0; i < buf.size(); ++i) {
             const T* elt = buf[i];
-            uint64_t eltUtime = getUtimeFn((void*)elt);
 
-            if (eltUtime == std::numeric_limits<uint64_t>::max()) continue;
+            if (!msgValidFn((void*)elt)) continue;
+
+            uint64_t eltUtime = getUtimeFn((const void*)elt);
 
             double eltDelta = fabs((double)eltUtime - (double)queryUtime)/1e6;
 
@@ -443,7 +445,7 @@ class Tracker
 
             msg = interpolateFn(*closestElt, getUtimeFn((void*)closestElt),
                     *secondClosestElt, getUtimeFn((void*)secondClosestElt),
-                    queryUtime);
+                    queryUtime, usr);
         }
         msgUtime = getUtimeFn((void*)closestElt);
         return true;
