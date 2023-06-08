@@ -438,7 +438,7 @@ class Tracker
 
         if (closestElt == nullptr) return false;
 
-        if (!interpolateFn) {
+        if (!interpolateFn || buf.size() < 2) {
             msg = *closestElt;
         } else {
             if (secondClosestElt == nullptr) return false;
