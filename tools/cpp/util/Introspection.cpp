@@ -156,7 +156,7 @@ bool processArray(string name,
                 }
                 break;
             case ZCM_FIELD_STRING:
-                if (!processScalar(nextName, type, typestr, &((const char*)data)[i], separator, typeDb, cb)) {
+                if (!processScalar(nextName, type, typestr, ((const char**)data)[i], separator, typeDb, cb)) {
                     cerr << "Cannot process string array element: " << nextName << endl;
                     ret = false;
                 }
@@ -198,10 +198,8 @@ bool processScalar(const string& name,
         case ZCM_FIELD_FLOAT:
         case ZCM_FIELD_DOUBLE:
         case ZCM_FIELD_BOOLEAN:
-            cb(name, type, data);
-            break;
         case ZCM_FIELD_STRING:
-            cb(name, type, *((const char**)data));
+            cb(name, type, data);
             break;
         case ZCM_FIELD_USER_TYPE: {
             auto *zcmtype = typeDb.getByName(StringUtil::dotsToUnderscores(typestr));
