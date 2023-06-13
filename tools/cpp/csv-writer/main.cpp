@@ -194,6 +194,29 @@ static void writeHeaders(const Args& args, ostream& os)
     os << endl;
 }
 
+struct ProcessUsr
+{
+    vector<pair<string, double>>& numerics;
+    vector<pair<string, string>>& strings;
+};
+static void processScalar(const string& name, zcm_field_type_t type,
+                          const void* data, void* usr)
+{
+    ProcessUsr *v = (ProcessUsr*) usr;
+    switch (type) {
+        case ZCM_FIELD_INT8_T: v->numerics.emplace_back(name, *((int8_t*)data)); break;
+        case ZCM_FIELD_INT16_T: v->numerics.emplace_back(name, *((int16_t*)data)); break;
+        case ZCM_FIELD_INT32_T: v->numerics.emplace_back(name, *((int32_t*)data)); break;
+        case ZCM_FIELD_INT64_T: v->numerics.emplace_back(name, *((int64_t*)data)); break;
+        case ZCM_FIELD_BYTE: v->numerics.emplace_back(name, *((uint8_t*)data)); break;
+        case ZCM_FIELD_FLOAT: v->numerics.emplace_back(name, *((float*)data)); break;
+        case ZCM_FIELD_DOUBLE: v->numerics.emplace_back(name, *((double*)data)); break;
+        case ZCM_FIELD_BOOLEAN: v->numerics.emplace_back(name, *((bool*)data)); break;
+        case ZCM_FIELD_STRING: v->strings.emplace_back(name, string((const char*)data)); break;
+        case ZCM_FIELD_USER_TYPE: assert(false && "Should not be possble");
+    }
+}
+
 static void handleEvent(const Args& args,
                         int64_t timestamp, const string& channel,
                         uint8_t* data, int32_t datalen,
@@ -212,27 +235,12 @@ static void handleEvent(const Args& args,
 
     vector<pair<string, double>> numerics;
     vector<pair<string, string>> strings;
-    auto processScalar = [&numerics, &strings](const string& name,
-                                               zcm_field_type_t type,
-                                               const void* data){
-        switch (type) {
-            case ZCM_FIELD_INT8_T: numerics.emplace_back(name, *((int8_t*)data)); break;
-            case ZCM_FIELD_INT16_T: numerics.emplace_back(name, *((int16_t*)data)); break;
-            case ZCM_FIELD_INT32_T: numerics.emplace_back(name, *((int32_t*)data)); break;
-            case ZCM_FIELD_INT64_T: numerics.emplace_back(name, *((int64_t*)data)); break;
-            case ZCM_FIELD_BYTE: numerics.emplace_back(name, *((uint8_t*)data)); break;
-            case ZCM_FIELD_FLOAT: numerics.emplace_back(name, *((float*)data)); break;
-            case ZCM_FIELD_DOUBLE: numerics.emplace_back(name, *((double*)data)); break;
-            case ZCM_FIELD_BOOLEAN: numerics.emplace_back(name, *((bool*)data)); break;
-            case ZCM_FIELD_STRING: strings.emplace_back(name, string((const char*)data)); break;
-            case ZCM_FIELD_USER_TYPE: assert(false && "Should not be possble");
-        }
-    };
+    ProcessUsr usr = { numerics, strings };
     zcm::Introspection::processEncodedType(channel,
                                            data, datalen,
                                            ".",
                                            *args.types.get(),
-                                           processScalar);
+                                           processScalar, &usr);
 
     if (!args.fields.empty()) {
         for (size_t i = 0; i < args.fields.size(); ++i) {
