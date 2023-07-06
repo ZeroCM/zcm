@@ -750,7 +750,7 @@ struct LogPlayer
     {
         gboolean ret = TRUE;
         if (event->type == GDK_2BUTTON_PRESS) {
-            assert(me->args.filename == "");
+            if (me->args.filename == "") return ret;
 
             GtkWidget *dialog = gtk_file_chooser_dialog_new("Open File",
                                                             GTK_WINDOW(me->window),
@@ -818,18 +818,44 @@ struct LogPlayer
         gtk_button_set_label(GTK_BUTTON(me->btnPlay), "Pause");
     }
 
-    static void slow(GtkWidget *widget, LogPlayer *me)
+    static gboolean slow(GtkWidget *widget, GdkEventButton *event, LogPlayer *me)
     {
+        if (event->type != GDK_BUTTON_PRESS) return false;
+
         unique_lock<mutex> lk(me->zcmLk);
-        me->speedTarget /= 2;
+
+        static constexpr int RIGHT_MOUSE_BTN = 3;
+        static constexpr int LEFT_MOUSE_BTN = 1;
+        if (event->button == RIGHT_MOUSE_BTN) me->speedTarget /= 8;
+        else if (event->button == LEFT_MOUSE_BTN) me->speedTarget /= 2;
+
         me->updateSpeedTarget();
+
+        return true;
     }
 
-    static void fast(GtkWidget *widget, LogPlayer *me)
+    static gboolean resetSpeed(GtkWidget *widget, GdkEventButton *event, LogPlayer *me)
     {
         unique_lock<mutex> lk(me->zcmLk);
-        me->speedTarget *= 2;
+        me->speedTarget = 1;
         me->updateSpeedTarget();
+        return true;
+    }
+
+    static gboolean fast(GtkWidget *widget, GdkEventButton *event, LogPlayer *me)
+    {
+        if (event->type != GDK_BUTTON_PRESS) return false;
+
+        unique_lock<mutex> lk(me->zcmLk);
+
+        static constexpr int RIGHT_MOUSE_BTN = 3;
+        static constexpr int LEFT_MOUSE_BTN = 1;
+        if (event->button == RIGHT_MOUSE_BTN) me->speedTarget *= 8;
+        else if (event->button == LEFT_MOUSE_BTN) me->speedTarget *= 2;
+
+        me->updateSpeedTarget();
+
+        return true;
     }
 
     static gboolean windowDelete(GtkWidget *widget, GdkEvent *event, LogPlayer *me)
@@ -897,19 +923,22 @@ struct LogPlayer
         gtk_grid_attach(GTK_GRID(grid), me->btnStep, 2, 0, 1, 1);
 
         me->btnSlower = gtk_button_new_with_label("<<");
-        g_signal_connect(me->btnSlower, "clicked", G_CALLBACK(slow), me);
+        g_signal_connect(me->btnSlower, "button-press-event", G_CALLBACK(slow), me);
         gtk_widget_set_hexpand(me->btnSlower, TRUE);
         gtk_widget_set_halign(me->btnSlower, GTK_ALIGN_END);
         gtk_grid_attach(GTK_GRID(grid), me->btnSlower, 3, 0, 1, 1);
 
+        GtkWidget *speedTargetEvtBox = gtk_event_box_new();
+        g_signal_connect(speedTargetEvtBox, "button-press-event", G_CALLBACK(resetSpeed), me);
+        gtk_widget_set_hexpand(speedTargetEvtBox, TRUE);
+        gtk_widget_set_halign(speedTargetEvtBox, GTK_ALIGN_CENTER);
+        gtk_grid_attach(GTK_GRID(grid), speedTargetEvtBox, 4, 0, 1, 1);
         me->lblSpeedTarget = gtk_label_new("");
         me->updateSpeedTarget();
-        gtk_widget_set_hexpand(me->lblSpeedTarget, TRUE);
-        gtk_widget_set_halign(me->lblSpeedTarget, GTK_ALIGN_CENTER);
-        gtk_grid_attach(GTK_GRID(grid), me->lblSpeedTarget, 4, 0, 1, 1);
+        gtk_container_add(GTK_CONTAINER(speedTargetEvtBox), me->lblSpeedTarget);
 
         me->btnFaster = gtk_button_new_with_label(">>");
-        g_signal_connect(me->btnFaster, "clicked", G_CALLBACK(fast), me);
+        g_signal_connect(me->btnFaster, "button-press-event", G_CALLBACK(fast), me);
         gtk_widget_set_hexpand(me->btnFaster, TRUE);
         gtk_widget_set_halign(me->btnFaster, GTK_ALIGN_START);
         gtk_grid_attach(GTK_GRID(grid), me->btnFaster, 5, 0, 1, 1);
