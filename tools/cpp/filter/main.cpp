@@ -696,9 +696,9 @@ struct Args
             { "seconds",       no_argument, 0, 's' },
             { "field",   required_argument, 0, 'f' },
 
-            { "boolean",      required_argument, 0, 'n' },
-            { "less-than",    required_argument, 0, 'l' },
-            { "greater-than", required_argument, 0, 'g' },
+            { "boolean",       required_argument, 0, 'n' },
+            { "less-than",     required_argument, 0, 'l' },
+            { "greater-equal", required_argument, 0, 'g' },
 
             { 0, 0, 0, 0 }
         };
@@ -890,7 +890,7 @@ struct Args
              << "                                 All other strings after -n are invalid" << endl
              << "    -l, --less-than=<number>     Evaluate condition as \"FIELD < number\"" << endl
              << "                                 Currently only supports comparing \"field\" to double" << endl
-             << "    -g, --greater-than=<number>  Evaluate condition as \"FIELD >= number\"" << endl
+             << "    -g, --greater-equal=<number> Evaluate condition as \"FIELD >= number\"" << endl
              << "                                 Currently only supports comparing \"field\" to double" << endl
              << endl
              << "    Compounds:" << endl
