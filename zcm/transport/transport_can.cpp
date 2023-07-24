@@ -93,10 +93,13 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             return;
         }
 
-        struct can_filter rfilter[1];
+        struct can_filter rfilter[2];
 
-        rfilter[0].can_id   = msgId | CAN_EFF_FLAG;
-        rfilter[0].can_mask = (CAN_EFF_FLAG | CAN_RTR_FLAG | CAN_EFF_MASK);
+        rfilter[0].can_id   = msgId;
+        rfilter[0].can_mask = (CAN_EFF_FLAG | CAN_RTR_FLAG | CAN_SFF_MASK);
+
+        rfilter[1].can_id   = msgId | CAN_EFF_FLAG;
+        rfilter[1].can_mask = (CAN_EFF_FLAG | CAN_RTR_FLAG | CAN_EFF_MASK);
 
         if (setsockopt(soc, SOL_CAN_RAW, CAN_RAW_FILTER, &rfilter, sizeof(rfilter)) < 0) {
             ZCM_DEBUG("Failed to set filter");

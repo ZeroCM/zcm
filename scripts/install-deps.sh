@@ -61,7 +61,7 @@ if $USE_PYTHON_2; then
 else
     PKGS+='python3 python3-pip '
 fi
-PIP_PKGS+='Cython '
+PIP_PKGS+='Cython==0.29.33 '
 PIP_PKGS+='bitstruct '
 
 # Build cache dep
