@@ -26,7 +26,7 @@ cdef extern from "zcm/zcm.h":
         uint8_t* data
         uint32_t data_size
         pass
-    ctypedef void (*zcm_msg_handler_t)(const zcm_recv_buf_t* rbuf, const char* channel, void* usr)
+    ctypedef void (*zcm_msg_handler_t)(const zcm_recv_buf_t* rbuf, const char* channel, void* usr) except * nogil
 
     zcm_t* zcm_create (const char* url)
     void   zcm_destroy(zcm_t* zcm)
