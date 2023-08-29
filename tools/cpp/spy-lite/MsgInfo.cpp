@@ -22,18 +22,20 @@ size_t MsgInfo::getViewDepth()
     return disp_state.recur_table.size();
 }
 
-void MsgInfo::incViewDepth(size_t viewid)
+void MsgInfo::incViewDepth(size_t viewid, const string& return_prefix_filter)
 {
-    disp_state.recur_table.push_back(viewid);
+    disp_state.recur_table.emplace_back(viewid, return_prefix_filter);
 }
 
-void MsgInfo::decViewDepth()
+string MsgInfo::decViewDepth()
 {
     assert(disp_state.recur_table.size() != 0);
+    string ret = disp_state.recur_table.back().second;
     disp_state.recur_table.pop_back();
+    return ret;
 }
 
-void MsgInfo::display()
+void MsgInfo::display(const string& active_prefix_filter)
 {
     const char *name = NULL;
     i64 hash = 0;
@@ -45,7 +47,7 @@ void MsgInfo::display()
     printf("         Decoding %s (%s) %" PRIi64 ":\n", channel.c_str(), name, hash);
 
     if (last_msg)
-        msg_display(db, *metadata, last_msg,  disp_state);
+        msg_display(db, *metadata, last_msg,  disp_state, active_prefix_filter);
 }
 
 void MsgInfo::ensureHash(i64 h)
