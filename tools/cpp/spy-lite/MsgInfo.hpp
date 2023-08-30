@@ -19,10 +19,10 @@ public:
     u64 getNumMsgs() { return num_msgs; }
 
     size_t getViewDepth();
-    void incViewDepth(size_t viewid);
-    void decViewDepth();
+    void incViewDepth(size_t viewid, const string& return_prefix_filter);
+    string decViewDepth();
 
-    void display();
+    void display(const string& active_prefix_filter);
 
 private:
     void ensureHash(i64 hash);

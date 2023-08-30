@@ -10,6 +10,7 @@ static inline bool is_ascii(int8_t c)
 {
     return (32 <= c && c <= 126);
 }
+
 static void print_value_scalar(TypeDb& db, zcm_field_t *field, void *data, int *usertype_count)
 {
 
@@ -139,7 +140,8 @@ static inline void strnfmtappend(char *buf, size_t sz, size_t *used, const char 
 }
 
 void msg_display(TypeDb& db, const TypeMetadata& metadata_,
-                 void *msg, const MsgDisplayState& state)
+                 void *msg, const MsgDisplayState& state,
+                 const string& active_prefix_filter)
 {
     const TypeMetadata *metadata = &metadata_;
 
@@ -191,7 +193,8 @@ void msg_display(TypeDb& db, const TypeMetadata& metadata_,
     for(i = 0; i < state.recur_table.size(); i++) {
 
         // get the desired <USER> id # to recurse on
-        size_t recur_i = state.recur_table[i];
+        size_t recur_i = state.recur_table[i].first;
+        const string& prefix_filter = state.recur_table[i].second;
 
         // iterate through the fields until we find the corresponding one
         zcm_field_t field;
@@ -203,6 +206,10 @@ void msg_display(TypeDb& db, const TypeMetadata& metadata_,
         for(int j = 0; j < num_fields; j++) {
             typeinfo->get_field(msg, j, &field);
             try_byte_array_to_zcmtype(field);
+
+            string fname(field.name);
+            if (!prefix_filter.empty() && fname.rfind(prefix_filter, 0) != 0)
+                continue;
 
             inside_array = 0;
 
@@ -282,6 +289,10 @@ void msg_display(TypeDb& db, const TypeMetadata& metadata_,
     for(int i = 0; i < num_fields; i++) {
         typeinfo->get_field(msg, i, &field);
         try_byte_array_to_zcmtype(field);
+
+        string fname(field.name);
+        if (!active_prefix_filter.empty() && fname.rfind(active_prefix_filter, 0) != 0)
+            continue;
 
         printf(LINE_FMT_STR, field.name, field.typestr);
 
