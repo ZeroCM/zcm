@@ -213,7 +213,7 @@ struct Args
              << "                             Ex: zcm-bridge -A ipc -B udpm://239.255.76.67:7667?ttl=0 -b EXAMPLE" << endl
              << "      --A-watchdog=TIMEOUT   Timeout (in microseconds) since the most recently received message" << endl
              << "                             on the A transport after which bridge will assert" << endl
-             << "      --B-watchdog=TIMEOUT   Timeout (in microseconds) since the most recently received message"
+             << "      --B-watchdog=TIMEOUT   Timeout (in microseconds) since the most recently received message" << endl
              << "                             on the B transport after which bridge will assert" << endl
              << "  -D, --decimation           Decimation level for the preceeding A-channel or B-channel. " << endl
              << "                             Ex: zcm-bridge -A ipc -B udpm://239.255.76.67:7667?ttl=0 -b EXAMPLE -d 2" << endl
