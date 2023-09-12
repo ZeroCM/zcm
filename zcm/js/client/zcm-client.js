@@ -8,6 +8,10 @@ var zcm = (function(){
     {
         var socket = io({ ...socketOptions, path: "/zcm" });
 
+        socket.on("connect_error", function(err) {
+            console.error("ZCM socket io error: ", err);
+        });
+
         var subscriptions = {};
 
         // key is zcmtype name
