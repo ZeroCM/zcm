@@ -65,8 +65,9 @@ static string mapTypeName(const string& t)
 
 void setupOptionsCpp(GetOpt& gopt)
 {
-    gopt.addString(0, "cpp-hpath",    ".",      "Location for .hpp files");
-    gopt.addString(0, "cpp-include",   "",       "Generated #include lines reference this folder");
+    gopt.addString(0, "cpp-hpath", ".", "Location for .hpp files");
+    gopt.addString(0, "cpp-include", "", "Generated #include lines reference this folder");
+    gopt.addBool(0, "cpp-virtual-destructor", true, "Include a virtual destructor");
 }
 
 struct Emit : public Emitter
@@ -242,11 +243,13 @@ struct Emit : public Emitter
         }
 
         emit(1, "public:");
-        emit(2, "/**");
-        emit(2, " * Destructs a message properly if anything inherits from it");
-        emit(2, "*/");
-        emit(2, "virtual ~%s() {}", zs.structname.shortname.c_str());
-        emit(0, "");
+        if (zcm.gopt->getBool("cpp-virtual-destructor")) {
+            emit(2, "/**");
+            emit(2, " * Destructs a message properly if anything inherits from it");
+            emit(2, "*/");
+            emit(2, "virtual ~%s() {}", zs.structname.shortname.c_str());
+            emit(0, "");
+        }
         emit(2, "/**");
         emit(2, " * Encode a message into binary form.");
         emit(2, " *");
