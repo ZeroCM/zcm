@@ -93,24 +93,13 @@ bool TranscoderPluginDb::findPlugins(const string& libname)
         DEBUG("Success loading plugin %s\n", demangled.c_str());
     }
 
-    for (auto& meta : pluginMeta) {
-        zcm::TranscoderPlugin* p = (zcm::TranscoderPlugin*) meta.makeTranscoderPlugin();
-        DEBUG("Added new plugin with address %p\n", p);
-        plugins.push_back(p);
-        constPlugins.push_back(plugins.back());
-        names.push_back(meta.className);
-    }
-
-    DEBUG("Loaded %d plugins from %s\n", (int)plugins.size(), libname.c_str());
+    DEBUG("Loaded %d plugins from %s\n", (int)pluginMeta.size(), libname.c_str());
 
     return true;
 }
 
-std::vector<const zcm::TranscoderPlugin*> TranscoderPluginDb::getPlugins() const
-{ return constPlugins; }
-
-std::vector<string> TranscoderPluginDb::getPluginNames() const
-{ return names; }
+std::vector<TranscoderPluginMetadata> TranscoderPluginDb::getPluginMeta() const
+{ return pluginMeta; }
 
 TranscoderPluginDb::TranscoderPluginDb(const string& paths, bool debug) : debug(debug)
 {
@@ -123,4 +112,4 @@ TranscoderPluginDb::TranscoderPluginDb(const string& paths, bool debug) : debug(
     }
 }
 
-TranscoderPluginDb::~TranscoderPluginDb() { for (auto p : plugins) delete p; }
+TranscoderPluginDb::~TranscoderPluginDb() {}

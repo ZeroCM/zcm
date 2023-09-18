@@ -109,15 +109,14 @@ int main(int argc, char* argv[])
 
     vector<zcm::TranscoderPlugin*> plugins;
     TranscoderPluginDb pluginDb(args.plugin_path, args.debug);
-    vector<const zcm::TranscoderPlugin*> dbPlugins = pluginDb.getPlugins();
-    if (dbPlugins.empty()) {
+    auto dbPluginsMeta = pluginDb.getPluginMeta();
+    if (dbPluginsMeta.empty()) {
         cerr << "Couldn't find any plugins. Aborting." << endl;
         return 1;
     }
-    vector<string> dbPluginNames = pluginDb.getPluginNames();
-    for (size_t i = 0; i < dbPlugins.size(); ++i) {
-        plugins.push_back((zcm::TranscoderPlugin*) dbPlugins[i]);
-        if (args.debug) cout << "Loaded plugin: " << dbPluginNames[i] << endl;
+    for (auto pmeta : dbPluginsMeta) {
+        plugins.push_back(pmeta.makeTranscoderPlugin());
+        if (args.debug) cout << "Loaded plugin: " << pmeta.className << endl;
     }
 
     if (args.debug) return 0;
@@ -166,6 +165,7 @@ int main(int argc, char* argv[])
 
     inlog.close();
     outlog.close();
+    for (auto& p : plugins) delete p;
 
     cout << "Transcoded " << numInEvents << " events into " << numOutEvents << " events" << endl;
     return 0;

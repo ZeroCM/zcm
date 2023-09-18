@@ -8,7 +8,6 @@
 #include <atomic>
 #include <mutex>
 #include <condition_variable>
-#include <thread>
 #include <queue>
 #include <vector>
 #include <signal.h>
@@ -301,14 +300,21 @@ struct Logger
     queue<zcm::LogEvent*> q;
 
     TranscoderPluginDb* pluginDb = nullptr;
-    vector<zcm::TranscoderPlugin*> plugins;
+
+    vector<vector<zcm::TranscoderPlugin*>> shard_plugins;
 
     Logger() {}
 
     ~Logger()
     {
         if (pluginDb) { delete pluginDb; pluginDb = nullptr; }
-        if (log)      { log->close(); delete log; }
+        for (auto& s : shard_plugins) {
+            for (auto& p : s) {
+                delete p;
+            }
+        }
+
+        if (log) { log->close(); delete log; }
 
         while (!q.empty()) {
             delete[] q.front()->data;
@@ -325,19 +331,22 @@ struct Logger
         if (!openLogfile())
             return false;
 
+        shard_plugins.resize(args.shards.size());
+
         // Load plugins from path if specified
         assert(pluginDb == nullptr);
         if (args.plugin_path != "") {
             pluginDb = new TranscoderPluginDb(args.plugin_path, args.debug);
-            vector<const zcm::TranscoderPlugin*> dbPlugins = pluginDb->getPlugins();
-            if (dbPlugins.empty()) {
+            auto dbPluginsMeta = pluginDb->getPluginMeta();
+            if (dbPluginsMeta.empty()) {
                 cerr << "Couldn't find any plugins. Aborting." << endl;
                 return false;
             }
-            vector<string> dbPluginNames = pluginDb->getPluginNames();
-            for (size_t i = 0; i < dbPlugins.size(); ++i) {
-                plugins.push_back((zcm::TranscoderPlugin*) dbPlugins[i]);
-                if (args.debug) cout << "Loaded plugin: " << dbPluginNames[i] << endl;
+            for (auto pmeta : dbPluginsMeta) {
+                for (size_t i = 0; i < args.shards.size(); ++i) {
+                    shard_plugins[i].push_back(pmeta.makeTranscoderPlugin());
+                }
+                if (args.debug) cout << "Loaded plugin: " << pmeta.className << endl;
             }
         }
 
@@ -426,7 +435,8 @@ struct Logger
         return true;
     }
 
-    void handler(const zcm::ReceiveBuffer* rbuf, const string& channel)
+    void handler(const zcm::ReceiveBuffer* rbuf,
+                 const string& channel, size_t shardNum)
     {
         vector<zcm::LogEvent*> evts;
 
@@ -435,13 +445,13 @@ struct Logger
         le->channel   = channel;
         le->datalen   = rbuf->data_size;
 
-        if (!plugins.empty()) {
+        if (!shard_plugins[shardNum].empty()) {
             le->data = rbuf->data;
 
             int64_t msg_hash;
             __int64_t_decode_array(le->data, 0, 8, &msg_hash, 1);
 
-            for (auto& p : plugins) {
+            for (auto& p : shard_plugins[shardNum]) {
                 vector<const zcm::LogEvent*> pevts =
                     p->transcodeEvent((uint64_t) msg_hash, le);
                 for (auto* evt : pevts)
@@ -462,21 +472,12 @@ struct Logger
         {
             unique_lock<mutex> lock{lk};
             while (!evts.empty()) {
-                if (stillRoom) {
-                    zcm::LogEvent* le = evts.back();
-                    if (!le) {
-                        evts.pop_back();
-                        continue;
-                    }
-                    q.push(le);
-                    totalMemoryUsage += le->datalen + le->channel.size() + sizeof(*le);
-                    stillRoom = (args.max_target_memory == 0) ? true :
-                        (totalMemoryUsage + rbuf->data_size < args.max_target_memory);
-                    evts.pop_back();
-                } else {
-                    ZCM_DEBUG("Dropping message due to enforced memory constraints");
-                    ZCM_DEBUG("Current memory estimations are at %" PRId64 " bytes",
-                              totalMemoryUsage);
+                if (!stillRoom) {
+                    fprintf(stderr,
+                            "Dropping message due to enforced memory constraints");
+                    fprintf(stderr,
+                            "Current memory estimations are at %" PRId64 " bytes",
+                            totalMemoryUsage);
                     while (!evts.empty()) {
                         delete[] evts.back()->data;
                         delete evts.back();
@@ -484,6 +485,16 @@ struct Logger
                     }
                     break;
                 }
+
+                // `back` is okay here because all the events in `evts` are from the
+                // same `rbuf->recv_utime`
+                zcm::LogEvent* le = evts.back();
+                evts.pop_back();
+                if (!le) continue;
+                q.push(le);
+                totalMemoryUsage += le->datalen + le->channel.size() + sizeof(*le);
+                stillRoom = (args.max_target_memory == 0) ? true :
+                    (totalMemoryUsage + rbuf->data_size < args.max_target_memory);
             }
         }
         newEventCond.notify_all();
@@ -542,6 +553,7 @@ struct Logger
             return;
         }
 
+        // XXX (Bendes): asan reported unsigned integer overflow here
         if (args.fflush_interval_ms >= 0 &&
             (le->timestamp - last_fflush_time) > (u64)args.fflush_interval_ms * 1000) {
             Platform::fflush(log->getFilePtr());
@@ -583,6 +595,11 @@ struct Logger
 
 Logger logger{};
 
+static void handler(const zcm::ReceiveBuffer* rbuf, const string& channel, void* usr)
+{
+     logger.handler(rbuf, channel, (size_t)usr);
+}
+
 void sighandler(int signal)
 {
     done++;
@@ -597,7 +614,8 @@ int main(int argc, char *argv[])
     if (!logger.init(argc, argv)) return 1;
 
     vector<unique_ptr<zcm::ZCM>> zcms;
-    for (const auto& s : logger.args.shards) {
+    for (size_t i = 0; i < logger.args.shards.size(); ++i) {
+        const auto& s = logger.args.shards[i];
         ZCM_DEBUG("Constructing shard with url: %s", s.zcmurl.c_str());
         zcms.emplace_back(new zcm::ZCM(s.zcmurl));
         if (!zcms.back()->good()) {
@@ -614,7 +632,7 @@ int main(int argc, char *argv[])
 
         for (const auto& c : s.channels) {
             ZCM_DEBUG("Subscribing to : %s", c.c_str());
-            zcms.back()->subscribe(c, &Logger::handler, &logger);
+            zcms.back()->subscribe(c, &handler, (void*)i);
         }
     }
 

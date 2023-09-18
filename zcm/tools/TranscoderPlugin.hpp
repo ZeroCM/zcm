@@ -75,7 +75,7 @@ class TranscoderPlugin
     //
     //  return a vector of events you want to transcode this event into.
     //  return TYPE_NO_RECORD to not transcode this event into the output log
-    //  return TYPE_NOT_HANDLED if this transcoder should not effect this log event
+    //  return TYPE_NOT_HANDLED if this transcoder should not affect this log event
     //
     // This function will only be called from a single thread.
     //

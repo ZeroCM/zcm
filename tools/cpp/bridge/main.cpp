@@ -260,6 +260,7 @@ struct Bridge
         if (zcmA) delete zcmA;
         if (zcmB) delete zcmB;
         if (pluginDb) { delete pluginDb; pluginDb = nullptr; }
+        for (auto& p : plugins) delete p;
     }
 
     bool init(int argc, char *argv[])
@@ -295,15 +296,14 @@ struct Bridge
         // Load plugins from path if specified
         if (args.plugin_path != "") {
             pluginDb = new TranscoderPluginDb(args.plugin_path, args.debug);
-            vector<const zcm::TranscoderPlugin*> dbPlugins = pluginDb->getPlugins();
-            if (dbPlugins.empty()) {
+            auto dbPluginsMeta = pluginDb->getPluginMeta();
+            if (dbPluginsMeta.empty()) {
                 cerr << "Couldn't find any plugins. Aborting." << endl;
                 return false;
             }
-            vector<string> dbPluginNames = pluginDb->getPluginNames();
-            for (size_t i = 0; i < dbPlugins.size(); ++i) {
-                plugins.push_back((zcm::TranscoderPlugin*) dbPlugins[i]);
-                if (args.debug) cout << "Loaded plugin: " << dbPluginNames[i] << endl;
+            for (auto pmeta : dbPluginsMeta) {
+                plugins.push_back(pmeta.makeTranscoderPlugin());
+                if (args.debug) cout << "Loaded plugin: " << pmeta.className << endl;
             }
         }
 
