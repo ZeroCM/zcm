@@ -342,8 +342,15 @@ struct Logger
                 cerr << "Couldn't find any plugins. Aborting." << endl;
                 return false;
             }
+            if (shard_plugins.size() > 1) {
+                cerr << "You are using transcoder plugins with multiple shards." << endl
+                     << "Reminder that each shard will get its own clone of each" << endl
+                     << "transcoder plugin and each transcoder plugin will run " << endl
+                     << "in that shards threads. " << endl
+                     << "See comments in TranscoderPlugin.hpp for more information" << endl;
+            }
             for (auto pmeta : dbPluginsMeta) {
-                for (size_t i = 0; i < args.shards.size(); ++i) {
+                for (size_t i = 0; i < shard_plugins.size(); ++i) {
                     shard_plugins[i].push_back(pmeta.makeTranscoderPlugin());
                 }
                 if (args.debug) cout << "Loaded plugin: " << pmeta.className << endl;

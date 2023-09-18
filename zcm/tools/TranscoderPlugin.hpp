@@ -83,6 +83,11 @@ class TranscoderPlugin
     // (one per logging shard). If those instances need to communicate with each other,
     // you'll have to manage that internally, perhaps by using a static threadsafe
     // singleton storage structure.
+    // ie:
+    // static atomic_int intSingleton {0};
+    // class MyTranscoderPlugin : public zcm::TranscoderPlugin {
+    // ...
+    // }
     virtual std::vector<const LogEvent*> transcodeEvent(int64_t hash, const LogEvent* evt)
     {
         return TYPE_NO_RECORD();
