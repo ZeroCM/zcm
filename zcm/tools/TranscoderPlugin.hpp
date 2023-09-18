@@ -1,7 +1,7 @@
 #pragma once
 
-#include <string>
 #include <cstdint>
+#include <string>
 
 #include "zcm/zcm-cpp.hpp"
 
@@ -41,7 +41,7 @@ class TranscoderPlugin
 {
   public:
     static inline std::vector<const LogEvent*> TYPE_NOT_HANDLED() { return {}; }
-    static inline std::vector<const LogEvent*> TYPE_NO_RECORD() {return {nullptr};};
+    static inline std::vector<const LogEvent*> TYPE_NO_RECORD() { return { nullptr }; };
 
     // Must declare the following function for your plugin. Unable to enforce
     // declaration of static functions in inheritance, so this API trusts you
@@ -50,7 +50,6 @@ class TranscoderPlugin
 
     virtual ~TranscoderPlugin() {}
 
-    //
     // hash is the hash of the type encoded inside the event
     //
     //  if (hash == msg_t::getHash()) {
@@ -75,13 +74,24 @@ class TranscoderPlugin
     //  return { &newEvt };
     //
     //  return a vector of events you want to transcode this event into.
-    //  return TranscoderPlugin::transcodeEvent(hash,evt) to not transcode
-    //  this event into the output log
+    //  return TYPE_NO_RECORD to not transcode this event into the output log
+    //  return TYPE_NOT_HANDLED if this transcoder should not affect this log event
     //
+    // This function will only be called from a single thread.
+    //
+    // When used in zcm-logger, multiple instances of your transcoder may be instantiated
+    // (one per logging shard). If those instances need to communicate with each other,
+    // you'll have to manage that internally, perhaps by using a static threadsafe
+    // singleton storage structure.
+    // ie:
+    // static atomic_int intSingleton {0};
+    // class MyTranscoderPlugin : public zcm::TranscoderPlugin {
+    // ...
+    // }
     virtual std::vector<const LogEvent*> transcodeEvent(int64_t hash, const LogEvent* evt)
     {
         return TYPE_NO_RECORD();
     }
 };
 
-}
+} // namespace zcm
