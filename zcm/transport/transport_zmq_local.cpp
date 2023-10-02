@@ -59,12 +59,14 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
     string subnet;
     int pubhwm = 1000, subhwm = 1000;
+    uint64_t rescanPeriodUs = 250e3;
 
     unordered_map<string, pair<void*,lockfile_t*>> pubsocks;
     // socket pair contains the socket + whether it was subscribed to explicitly or not
     unordered_map<string, pair<void*, bool>> subsocks;
     typedef unordered_map<string, pair<void*, bool>>::iterator SubsocksItr;
     unordered_map<string, std::regex> regexChannels;
+    uint64_t lastScanUtime = 0;
 
     string recvmsgChannel;
     size_t recvmsgBufferSize = START_BUF_SIZE; // Start at 1MB but allow it to grow to MTU
@@ -97,6 +99,9 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         if (pubhwmStr) pubhwm = atoi(pubhwmStr->c_str());
         auto* subhwmStr = findOption("subhwm");
         if (subhwmStr) subhwm = atoi(subhwmStr->c_str());
+
+        auto* rescanPeriodUsStr = findOption("rescan_period_us");
+        if (rescanPeriodUsStr) rescanPeriodUs = atoi(rescanPeriodUsStr->c_str());
 
         subnet = zcm_url_address(url);
 
@@ -404,9 +409,13 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             // XXX Only call this if enough time has ellapse since the last
             //     time you called it
             if (!regexChannels.empty()) {
-                switch (type) {
-                    case IPC: ipcScanForNewChannels();
-                    case INPROC: inprocScanForNewChannels();
+                uint64_t now = TimeUtil::utime();
+                if (now > lastScanUtime + rescanPeriodUs) {
+                    lastScanUtime = now;
+                    switch (type) {
+                        case IPC: ipcScanForNewChannels();
+                        case INPROC: inprocScanForNewChannels();
+                    }
                 }
             }
 
@@ -547,12 +556,18 @@ static zcm_trans_t *createInproc(zcm_url_t *url)
 // Register this transport with ZCM
 #ifdef USING_TRANS_IPC
 const TransportRegister ZCM_TRANS_CLASSNAME::regIpc(
-    "ipc",    "Transfer data via Inter-process Communication (e.g. 'ipc')", createIpc);
+    "ipc", "Transfer data via Inter-process Communication "
+           "(e.g. 'ipc' or "
+           "'ipc://<subnet>?rescan_period_us=250000')",
+    createIpc);
 #endif
 
 #ifdef USING_TRANS_INPROC
 const TransportRegister ZCM_TRANS_CLASSNAME::regInproc(
-    "inproc", "Transfer data via Internal process memory (e.g. 'inproc')",  createInproc);
+    "inproc", "Transfer data via Internal process memory "
+              "(e.g. 'inproc' or "
+              "'inproc://<subnet>?rescan_period_us=250000')",
+    createInproc);
 #endif
 
 #endif
