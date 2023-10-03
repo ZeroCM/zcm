@@ -454,9 +454,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             int rc = zmq_recv(p.socket, recvmsgBuffer, recvmsgBufferSize, 0);
             msg->utime = TimeUtil::utime();
             if (rc == -1) {
-                fprintf(stderr, "zmq_recv failed with: %s", zmq_strerror(errno));
-                // TODO: implement error handling, don't just assert
-                assert(0 && "unexpected codepath");
+                ZCM_DEBUG("zmq_recv failed with: %s", zmq_strerror(errno));
+                return ZCM_EAGAIN;
             }
             assert(0 <= rc);
             assert(rc < MTU && "Received message that is bigger than a legally-published message could be");
@@ -489,7 +488,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             auto& p = pitems[i];
             if (p.revents == 0) continue;
             p.revents = 0;
-            return recvFromSocket(i);
+            int ret = recvFromSocket(i);
+            if (ret == ZCM_EOK) return ZCM_EOK;
         }
 
         pitems.clear();
