@@ -398,8 +398,65 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
     int recvmsg(zcm_msg_t *msg, int timeout)
     {
+        auto recvFromSocket = [&](size_t i){
+            auto& p = pitems[i];
+
+            // NOTE: zmq_recv can return an integer > the len parameter passed in
+            //       (in this case recvmsgBufferSize); however, all bytes past
+            //       len are truncated and not placed in the buffer. This means
+            //       that you will always lose the first message you get that is
+            //       larger than recvmsgBufferSize
+            int rc = zmq_recv(p.socket, recvmsgBuffer, recvmsgBufferSize, 0);
+            msg->utime = TimeUtil::utime();
+            if (rc == -1) {
+                ZCM_DEBUG("zmq_recv failed with: %s", zmq_strerror(errno));
+                return ZCM_EAGAIN;
+            }
+            assert(0 <= rc);
+            assert(rc < MTU && "Received message that is bigger than a legally-published message could be");
+            if (rc > (int)recvmsgBufferSize) {
+                ZCM_DEBUG("Reallocating recv buffer to handle larger messages. Size is now %d", rc);
+                recvmsgBufferSize = rc * 2;
+                delete[] recvmsgBuffer;
+                recvmsgBuffer = new uint8_t[recvmsgBufferSize];
+                return ZCM_EAGAIN;
+            }
+            recvmsgChannel = pchannels[i];
+            msg->channel = recvmsgChannel.c_str();
+            msg->len = rc;
+            msg->buf = recvmsgBuffer;
+
+            // Note: This is probably fine and there probably isn't an elegant
+            //       way to improve this, but we could technically have more than
+            //       one socket with a message ready, but because our API is set
+            //       up to only handle one message at a time, we don't read all
+            //       the messages that are ready, only the first. You could
+            //       imagine a case where one channel was at a very high freq
+            //       and getting interpreted first could shadow a low freq message
+            //       on a resource constrained system, though perhaps that's just
+            //       and indicator that you need to optimize your code or do less.
+
+            return ZCM_EOK;
+        };
+
+        auto handlePitems[&](){
+            for (size_t i = 0; i < pitems.size(); ++i) {
+                auto& p = pitems[i];
+                if (p.revents == 0) continue;
+                p.revents = 0;
+                int ret = recvFromSocket(i);
+                if (ret == ZCM_EOK) return ZCM_EOK;
+            }
+            return ZCM_EAGAIN;
+        };
+
+        if (handlePitems() == ZCM_EOK) return ZCM_EOK;
+
+        pitems.clear();
+        pchannels.clear();
+
         // Build up a list of poll items
-        if (pitems.empty()) {
+        {
             // Mutex used to protect 'subsocks' while allowing
             // recvmsgEnable() and recvmsg() to be called
             // concurrently
@@ -443,59 +500,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         }
         if (rc < 0) return ZCM_EAGAIN;
 
-        auto recvFromSocket = [&](size_t i){
-            auto& p = pitems[i];
-
-            // NOTE: zmq_recv can return an integer > the len parameter passed in
-            //       (in this case recvmsgBufferSize); however, all bytes past
-            //       len are truncated and not placed in the buffer. This means
-            //       that you will always lose the first message you get that is
-            //       larger than recvmsgBufferSize
-            int rc = zmq_recv(p.socket, recvmsgBuffer, recvmsgBufferSize, 0);
-            msg->utime = TimeUtil::utime();
-            if (rc == -1) {
-                ZCM_DEBUG("zmq_recv failed with: %s", zmq_strerror(errno));
-                return ZCM_EAGAIN;
-            }
-            assert(0 <= rc);
-            assert(rc < MTU && "Received message that is bigger than a legally-published message could be");
-            if (rc > (int)recvmsgBufferSize) {
-                ZCM_DEBUG("Reallocating recv buffer to handle larger messages. Size is now %d", rc);
-                recvmsgBufferSize = rc * 2;
-                delete[] recvmsgBuffer;
-                recvmsgBuffer = new uint8_t[recvmsgBufferSize];
-                return ZCM_EAGAIN;
-            }
-            recvmsgChannel = pchannels[i];
-            msg->channel = recvmsgChannel.c_str();
-            msg->len = rc;
-            msg->buf = recvmsgBuffer;
-
-            // Note: This is probably fine and there probably isn't an elegant
-            //       way to improve this, but we could technically have more than
-            //       one socket with a message ready, but because our API is set
-            //       up to only handle one message at a time, we don't read all
-            //       the messages that are ready, only the first. You could
-            //       imagine a case where one channel was at a very high freq
-            //       and getting interpreted first could shadow a low freq message
-            //       on a resource constrained system, though perhaps that's just
-            //       and indicator that you need to optimize your code or do less.
-
-            return ZCM_EOK;
-        };
-
-        for (size_t i = 0; i < pitems.size(); ++i) {
-            auto& p = pitems[i];
-            if (p.revents == 0) continue;
-            p.revents = 0;
-            int ret = recvFromSocket(i);
-            if (ret == ZCM_EOK) return ZCM_EOK;
-        }
-
-        pitems.clear();
-        pchannels.clear();
-
-        return ZCM_EAGAIN;
+        return handlePitems();
     }
 
     /********************** STATICS **********************/
