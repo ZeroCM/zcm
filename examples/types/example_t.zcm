@@ -13,6 +13,8 @@ struct example_t
     example_t subExamples[nExamples1][nExamples2];
     string subStrings[nExamples1][nExamples2];
 
+    float complexNestedArray[5][nExamples1][3][nExamples2][4];
+
     int8_t:2 bitfield1;
     int8_t:3 bitfield2[4];
 

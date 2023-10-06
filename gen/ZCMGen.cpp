@@ -938,3 +938,16 @@ bool ZCMMember::isConstantSizeArray() const
 
     return true;
 }
+
+/** Is the member an array of constant size? If it is not an array, it returns zero. **/
+bool ZCMMember::hasConstantSizeArray() const
+{
+    if (dimensions.size() == 0)
+        return true;
+
+    for (auto& dim : dimensions)
+        if (dim.mode == ZCM_CONST)
+            return true;
+
+    return false;
+}
