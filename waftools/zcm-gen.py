@@ -197,13 +197,14 @@ def zcmgen(ctx, **kw):
     if not getattr(ctx.env, 'ZCMGEN', []):
         raise WafError('zcmgen requires ctx.env.ZCMGEN set to the zcm-gen executable')
 
-    uselib_name   = kw.get('name',         'zcmtypes')
-    building      = kw.get('build',        True)
-    pkgPrefix     = kw.get('pkgPrefix',    '')
-    littleEndian  = kw.get('littleEndian', False)
-    javapkg       = kw.get('javapkg',      'zcmtypes')
-    juliapkg      = kw.get('juliapkg',     '')
-    juliagenpkgs  = kw.get('juliagenpkgs', False)
+    uselib_name    = kw.get('name',           'zcmtypes')
+    building       = kw.get('build',          True)
+    pkgPrefix      = kw.get('pkgPrefix',      '')
+    littleEndian   = kw.get('littleEndian',   False)
+    cppVirtualDtor = kw.get('cppVirtualDtor', True)
+    javapkg        = kw.get('javapkg',        'zcmtypes')
+    juliapkg       = kw.get('juliapkg',       '')
+    juliagenpkgs   = kw.get('juliagenpkgs',   False)
 
     lang = kw.get('lang', [])
     if isinstance(lang, str):
@@ -249,13 +250,14 @@ def zcmgen(ctx, **kw):
 
     # Add .zcm files to build so the process_zcmtypes rule picks them up
     genfiles_name = uselib_name + '_genfiles'
-    tg = ctx(name         = genfiles_name,
-             source       = kw['source'],
-             lang         = lang,
-             pkgPrefix    = pkgPrefix,
-             littleEndian = littleEndian,
-             juliapkg     = juliapkg,
-             javapkg      = javapkg)
+    tg = ctx(name           = genfiles_name,
+             source         = kw['source'],
+             lang           = lang,
+             pkgPrefix      = pkgPrefix,
+             littleEndian   = littleEndian,
+             cppVirtualDtor = cppVirtualDtor,
+             juliapkg       = juliapkg,
+             javapkg        = javapkg)
     for s in tg.source:
         ctx.add_manual_dependency(s, zcmgen)
 
@@ -379,6 +381,9 @@ class zcmgen(Task.Task):
                          (bld, bld, inc)
         if 'cpp' in gen.lang:
             cmd['cpp'] = '--cpp --cpp-hpath %s --cpp-include %s' % (bld, inc)
+            if not gen.cppVirtualDtor:
+                cmd['cpp'] += ' --cpp-virtual-destructor=false'
+
         if 'java' in gen.lang:
             cmd['java'] = '--java --jpath %s --jpkgprefix %s' % (bld + '/java', gen.javapkg)
         if 'python' in gen.lang:
