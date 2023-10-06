@@ -37,34 +37,38 @@ def configure(ctx):
 #
 # Context method used to set up proper include paths and simplify user code for zcmtype builds
 # keywords:
-#   name:         identifier for uselib linking (e.g. c/c++ builds may simply add 'name'
-#                 to their 'use' list to get proper include path and library linking)
-#                 default = 'zcmtypes' (though it is encouraged to name it something more unique
-#                                       to avoid library naming conflicts)
-#   source:       list of zcmtype source files to be interpreted
-#   build:        False if only zcmtype generation (no compiling or linking) is desired
-#                 Defaults to true.
-#   lang:         list of languages for which zcmtypes should be generated, options are:
-#                 ['c_stlib', 'c_shlib', 'cpp', 'java', 'python', 'nodejs', 'julia'].
-#                 Can also be a space separated string.
-#   pkgPrefix:    Optional package prefix that will be prepended to the packages of all zcmtypes
-#                 default = ''
-#   littleEndian: True or false based on desired endianess of output. Should almost always
-#                 be false. Don't use this option unless you really know what you're doing
-#   javapkg:      name of the java package
-#                 default = 'zcmtypes' (though it is encouraged to name it something more unique
-#                                       to avoid library naming conflicts)
-#   juliapkg:     Julia module prefix that all types will be generated into. This prefix also
-#                 prefixes the global pkgPrefix if one is set.
-#                 default = 'zcmtypes' (though it is encouraged to name it something more unique
-#                                       to avoid library naming conflicts)
-#   juliagenpkgs: If True, generate julia module files for all packages. ALL ZCMTYPES MUST BE
-#                 INCLUDED IN SOURCE FOR THIS COMMAND! Types are NOT generated themselves
-#                 unless the user specifies 'julia' in the `lang` list. This allows users
-#                 to split up type generation and apply options like `littleEndian` to only
-#                 a subset of their types. However, It is required that the `juliapkg` option
-#                 be identical on this command to the commands that generate the individual
-#                 types.
+#   name:           identifier for uselib linking (e.g. c/c++ builds may simply add 'name'
+#                   to their 'use' list to get proper include path and library linking)
+#                   default = 'zcmtypes' (though it is encouraged to name it something more unique
+#                                         to avoid library naming conflicts)
+#   source:         list of zcmtype source files to be interpreted
+#   build:          False if only zcmtype generation (no compiling or linking) is desired
+#                   Defaults to true.
+#   lang:           list of languages for which zcmtypes should be generated, options are:
+#                   ['c_stlib', 'c_shlib', 'cpp', 'java', 'python', 'nodejs', 'julia'].
+#                   Can also be a space separated string.
+#   pkgPrefix:      Optional package prefix that will be prepended to the packages of all zcmtypes
+#                   default = ''
+#   littleEndian:   True or false based on desired endianess of output. Should almost always
+#                   be false. Don't use this option unless you really know what you're doing
+#   cppVirtualDtor: True to output a virtual destructor into the cpp zcmtype bindings generated
+#                   for each type
+#   cppStdArray:    True to use std::array wherever possible in  cpp zcmtype bindings generated
+#                   for each type
+#   javapkg:        name of the java package
+#                   default = 'zcmtypes' (though it is encouraged to name it something more unique
+#                                         to avoid library naming conflicts)
+#   juliapkg:       Julia module prefix that all types will be generated into. This prefix also
+#                   prefixes the global pkgPrefix if one is set.
+#                   default = 'zcmtypes' (though it is encouraged to name it something more unique
+#                                         to avoid library naming conflicts)
+#   juliagenpkgs:   If True, generate julia module files for all packages. ALL ZCMTYPES MUST BE
+#                   INCLUDED IN SOURCE FOR THIS COMMAND! Types are NOT generated themselves
+#                   unless the user specifies 'julia' in the `lang` list. This allows users
+#                   to split up type generation and apply options like `littleEndian` to only
+#                   a subset of their types. However, It is required that the `juliapkg` option
+#                   be identical on this command to the commands that generate the individual
+#                   types.
 #
 #   TODO: add support for changing c/c++ include directory. Currently defaults so that the
 #         description below works
@@ -202,6 +206,7 @@ def zcmgen(ctx, **kw):
     pkgPrefix      = kw.get('pkgPrefix',      '')
     littleEndian   = kw.get('littleEndian',   False)
     cppVirtualDtor = kw.get('cppVirtualDtor', True)
+    cppStdArray    = kw.get('cppStdArray',    False)
     javapkg        = kw.get('javapkg',        'zcmtypes')
     juliapkg       = kw.get('juliapkg',       '')
     juliagenpkgs   = kw.get('juliagenpkgs',   False)
@@ -381,8 +386,8 @@ class zcmgen(Task.Task):
                          (bld, bld, inc)
         if 'cpp' in gen.lang:
             cmd['cpp'] = '--cpp --cpp-hpath %s --cpp-include %s' % (bld, inc)
-            if not gen.cppVirtualDtor:
-                cmd['cpp'] += ' --cpp-virtual-destructor=false'
+            cmd['cpp'] += ' --cpp-virtual-destructor=%s' % (gen.cppVirtualDtor)
+            cmd['cpp'] += ' --cpp-std-array=%s' % (gen.cppStdArray)
 
         if 'java' in gen.lang:
             cmd['java'] = '--java --jpath %s --jpkgprefix %s' % (bld + '/java', gen.javapkg)
