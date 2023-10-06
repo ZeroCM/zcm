@@ -208,7 +208,8 @@ struct Emit : public Emitter
                             }
                         }
                         emitContinue("%s", mappedTypename.c_str());
-                        for (auto& zd : zm.dimensions) {
+                        for (int i = ndim - 1; i >= 0; --i) {
+                            auto& zd = zm.dimensions[i];
                             if (zd.mode == ZCM_CONST && zcm.gopt->getBool("cpp-std-array")) {
                                 emitContinue(", %s", zd.size.c_str());
                             }
