@@ -261,6 +261,7 @@ def zcmgen(ctx, **kw):
              pkgPrefix      = pkgPrefix,
              littleEndian   = littleEndian,
              cppVirtualDtor = cppVirtualDtor,
+             cppStdArray    = cppStdArray,
              juliapkg       = juliapkg,
              javapkg        = javapkg)
     for s in tg.source:
