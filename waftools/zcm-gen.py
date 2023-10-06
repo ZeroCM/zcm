@@ -387,8 +387,9 @@ class zcmgen(Task.Task):
                          (bld, bld, inc)
         if 'cpp' in gen.lang:
             cmd['cpp'] = '--cpp --cpp-hpath %s --cpp-include %s' % (bld, inc)
-            cmd['cpp'] += ' --cpp-virtual-destructor=%s' % (gen.cppVirtualDtor)
-            cmd['cpp'] += ' --cpp-std-array=%s' % (gen.cppStdArray)
+            cmd['cpp'] += ' --cpp-virtual-destructor=%s' % ("true" if gen.cppVirtualDtor else "false")
+            cmd['cpp'] += ' --cpp-std-array=%s' % ("true" if gen.cppStdArray else "false")
+            print(cmd)
 
         if 'java' in gen.lang:
             cmd['java'] = '--java --jpath %s --jpkgprefix %s' % (bld + '/java', gen.javapkg)
