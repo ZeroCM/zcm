@@ -379,7 +379,7 @@ struct Emit : public Emitter
         const char* sn = zs.structname.shortname.c_str();
         emit(0, "int64_t %s::getHash()", sn);
         emit(0, "{");
-        emit(1,     "static int64_t hash = _computeHash(NULL);");
+        emit(1,     "static int64_t hash = (int64_t)_computeHash(NULL);");
         emit(1,     "return hash;");
         emit(0, "}");
         emit(0, "");
@@ -405,6 +405,10 @@ struct Emit : public Emitter
             if (!ZCMGen::isPrimitiveType(zm.type.fullname))
                 lastComplexMember = m;
         }
+
+        emit(0, "#if defined(__clang__)");
+        emit(0, "__attribute__((no_sanitize(\"integer\")))");
+        emit(0, "#endif");
 
         if (lastComplexMember >= 0) {
             emit(0, "uint64_t %s::_computeHash(const __zcm_hash_ptr* p)", sn);
