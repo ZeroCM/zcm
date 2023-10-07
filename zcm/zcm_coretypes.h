@@ -316,7 +316,7 @@ static inline int __int16_t_decode_array(const void *_buf, uint32_t offset, uint
     if (maxlen < total_size) return -1;
 
     for (element = 0; element < elements; ++element) {
-        p[element] = (buf[pos]<<8) + buf[pos+1];
+        p[element] = (int16_t)((buf[pos]<<8) + buf[pos+1]);
         pos+=2;
     }
 
@@ -409,10 +409,10 @@ static inline int __int32_t_decode_array(const void *_buf, uint32_t offset, uint
     if (maxlen < total_size) return -1;
 
     for (element = 0; element < elements; ++element) {
-        p[element] = (((uint32_t)buf[pos+0])<<24) +
-                     (((uint32_t)buf[pos+1])<<16) +
-                     (((uint32_t)buf[pos+2])<<8) +
-                      ((uint32_t)buf[pos+3]);
+        p[element] = (int32_t)((((uint32_t)buf[pos+0])<<24) +
+                               (((uint32_t)buf[pos+1])<<16) +
+                               (((uint32_t)buf[pos+2])<<8) +
+                                ((uint32_t)buf[pos+3]));
         pos+=4;
     }
 
@@ -524,7 +524,7 @@ static inline int __int64_t_decode_array(const void *_buf, uint32_t offset, uint
                      (((uint32_t)buf[pos+2])<<8) +
                       ((uint32_t)buf[pos+3]);
         pos+=4;
-        p[element] = (a<<32) + (b&0xffffffff);
+        p[element] = (int64_t)((a<<32) + (b&0xffffffff));
     }
 
     return total_size;
