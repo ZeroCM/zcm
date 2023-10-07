@@ -68,6 +68,7 @@ void setupOptionsCpp(GetOpt& gopt)
     gopt.addString(0, "cpp-hpath", ".", "Location for .hpp files");
     gopt.addString(0, "cpp-include", "", "Generated #include lines reference this folder");
     gopt.addBool(0, "cpp-virtual-destructor", true, "Include a virtual destructor");
+    gopt.addBool(0, "cpp-std-array", false, "Use std::array wherever possible");
 }
 
 struct Emit : public Emitter
@@ -140,9 +141,16 @@ struct Emit : public Emitter
         emit(0, "");
 
         // do we need to #include <vector> and/or <string>?
+        bool emitIncludeArray = false;
         bool emitIncludeVector = false;
         bool emitIncludeString = false;
         for (auto& zm : zs.members) {
+            if (!emitIncludeArray &&
+                zcm.gopt->getBool("cpp-std-array") &&
+                zm.dimensions.size() != 0 && zm.hasConstantSizeArray()) {
+                emit(0, "#include <array>");
+                emitIncludeArray = true;
+            }
             if (!emitIncludeVector &&
                 zm.dimensions.size() != 0 && !zm.isConstantSizeArray()) {
                 emit(0, "#include <vector>");
@@ -185,18 +193,28 @@ struct Emit : public Emitter
                 if (ndim == 0) {
                     emit(2, "%-10s %s;", mappedTypename.c_str(), zm.membername.c_str());
                 } else {
-                    if (zm.isConstantSizeArray()) {
+                    if (zm.isConstantSizeArray() && !zcm.gopt->getBool("cpp-std-array")) {
                         emitStart(2, "%-10s %s", mappedTypename.c_str(), zm.membername.c_str());
                         for (auto& zd : zm.dimensions)
                             emitContinue("[%s]", zd.size.c_str());
                         emitEnd(";");
                     } else {
                         emitStart(2, "");
-                        for (int d = 0; d < ndim; ++d)
-                            emitContinue("std::vector< ");
+                        for (auto& zd : zm.dimensions) {
+                            if (zd.mode == ZCM_CONST && zcm.gopt->getBool("cpp-std-array")) {
+                                emitContinue("std::array< ");
+                            } else {
+                                emitContinue("std::vector< ");
+                            }
+                        }
                         emitContinue("%s", mappedTypename.c_str());
-                        for (int d = 0; d < ndim; ++d)
+                        for (int i = ndim - 1; i >= 0; --i) {
+                            auto& zd = zm.dimensions[i];
+                            if (zd.mode == ZCM_CONST && zcm.gopt->getBool("cpp-std-array")) {
+                                emitContinue(", %s", zd.size.c_str());
+                            }
                             emitContinue(" >");
+                        }
                         emitEnd(" %s;", zm.membername.c_str());
                     }
                 }
@@ -677,13 +695,18 @@ struct Emit : public Emitter
 
             auto& dim = zm.dimensions[depth];
             int decodeIndent = 1 + depth;
-            if (!zm.isConstantSizeArray()) {
-                emit(1 + depth, "if(%s > 0) {", dimSizeAccessor(dim.size).c_str());
-                emitStart(2 + depth, "this->%s", mn);
+
+            if (dim.mode == ZCM_VAR ||
+                (!zm.isConstantSizeArray() && !zcm.gopt->getBool("cpp-std-array"))) {
+
+                if (dim.mode == ZCM_VAR) {
+                    emit(decodeIndent, "if (%s > 0) {", dimSizeAccessor(dim.size).c_str());
+                    ++decodeIndent;
+                }
+                emitStart(decodeIndent, "this->%s", mn);
                 for(int i = 0; i < depth; ++i)
                     emitContinue("[a%d]", i);
                 emitEnd(".resize(%s);", dimSizeAccessor(dim.size).c_str());
-                ++decodeIndent;
             }
 
             if (zm.type.numbits == 0) {
@@ -708,9 +731,8 @@ struct Emit : public Emitter
                 emit(decodeIndent, "__bitfield_advance_offset(&pos_byte, &pos_bit, thislen);");
             }
 
-            if (!zm.isConstantSizeArray()) {
-                emit(1 + depth, "}");
-            }
+            if (dim.mode == ZCM_VAR) emit(decodeIndent - 1, "}");
+
         } else if (depth == ndims) {
             if (mtn == "string") {
                 emit(1 + depth, "int32_t __elem_len;");
@@ -727,14 +749,15 @@ struct Emit : public Emitter
                 emit(1 + depth, "pos_byte += __elem_len;");
             } else {
                 emitStart(1 + depth, "thislen = this->%s", mn);
-                for(int i = 0; i < depth; ++i)
+                for (int i = 0; i < depth; ++i)
                     emitContinue("[a%d]", i);
                 emitEnd("._decodeNoHash(buf, offset + pos_byte, maxlen - pos_byte);");
                 emit(1 + depth, "if(thislen < 0) return thislen; else pos_byte += thislen;");
             }
         } else {
             auto& dim = zm.dimensions[depth];
-            if(!zm.isConstantSizeArray()) {
+            if (dim.mode == ZCM_VAR ||
+                (!zm.isConstantSizeArray() && !zcm.gopt->getBool("cpp-std-array"))) {
                 emitStart(1+depth, "this->%s", mn);
                 for(int i = 0; i < depth; ++i) {
                     emitContinue("[a%d]", i);

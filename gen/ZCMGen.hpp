@@ -85,6 +85,9 @@ struct ZCMMember
     // Are all of the dimensions of this array constant? (scalars return true)
     bool isConstantSizeArray() const;
 
+    // Are any of the dimensions of this array constant? (scalars return true)
+    bool hasConstantSizeArray() const;
+
     // Returns { conflicting tokens }
     unordered_set<string>
         getConflictingTokens(const unordered_set<string>& reservedTokens) const;
