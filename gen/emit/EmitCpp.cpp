@@ -379,7 +379,7 @@ struct Emit : public Emitter
         const char* sn = zs.structname.shortname.c_str();
         emit(0, "int64_t %s::getHash()", sn);
         emit(0, "{");
-        emit(1,     "static int64_t hash = _computeHash(NULL);");
+        emit(1,     "static int64_t hash = (int64_t)_computeHash(NULL);");
         emit(1,     "return hash;");
         emit(0, "}");
         emit(0, "");
