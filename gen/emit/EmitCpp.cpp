@@ -406,6 +406,10 @@ struct Emit : public Emitter
                 lastComplexMember = m;
         }
 
+        emit(0, "#if defined(__clang__)");
+        emit(0, "__attribute__((no_sanitize(\"integer\")))");
+        emit(0, "#endif");
+
         if (lastComplexMember >= 0) {
             emit(0, "uint64_t %s::_computeHash(const __zcm_hash_ptr* p)", sn);
             emit(0, "{");
