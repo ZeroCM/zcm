@@ -111,6 +111,7 @@ struct LogPlayer
     mutex windowLk;
     GtkWidget *window;
     GtkWidget *lblLogName;
+    GtkWidget *btnStepPrev;
     GtkWidget *btnPlay;
     GtkWidget *btnStep;
     GtkWidget *btnSlower;
@@ -153,6 +154,7 @@ struct LogPlayer
     uint64_t requestTimeUs = numeric_limits<uint64_t>::max();
     bool stepRequest = false;
     string stepPrefix;
+    bool playbackDirectionForward = true;
 
     static constexpr int GDK_LEFT_CLICK = 1;
     static constexpr int GDK_RIGHT_CLICK = 3;
@@ -375,6 +377,7 @@ struct LogPlayer
 
     void enableUI(gboolean enable)
     {
+        gtk_widget_set_sensitive(btnStepPrev, enable);
         gtk_widget_set_sensitive(btnPlay, enable);
         gtk_widget_set_sensitive(btnStep, enable);
         gtk_widget_set_sensitive(btnSlower, enable);
@@ -750,7 +753,7 @@ struct LogPlayer
     {
         gboolean ret = TRUE;
         if (event->type == GDK_2BUTTON_PRESS) {
-            if (me->args.filename == "") return ret;
+            if (me->args.filename != "") return ret;
 
             GtkWidget *dialog = gtk_file_chooser_dialog_new("Open File",
                                                             GTK_WINDOW(me->window),
@@ -791,6 +794,18 @@ struct LogPlayer
         return ret;
     }
 
+    static void stepPrev(GtkWidget *widget, LogPlayer *me)
+    {
+        {
+            unique_lock<mutex> lk(me->zcmLk);
+            me->stepRequest = true;
+            me->isPlaying = true;
+            me->playbackDirectionForward = false;
+        }
+        me->wakeup();
+        gtk_button_set_label(GTK_BUTTON(me->btnPlay), "Pause");
+    }
+
     static void playPause(GtkWidget *widget, LogPlayer *me)
     {
         bool isPlaying;
@@ -798,6 +813,7 @@ struct LogPlayer
             unique_lock<mutex> lk(me->zcmLk);
             me->isPlaying = !me->isPlaying;
             isPlaying = me->isPlaying;
+            me->playbackDirectionForward = true;
             me->wakeup();
         }
         if (isPlaying) {
@@ -813,6 +829,7 @@ struct LogPlayer
             unique_lock<mutex> lk(me->zcmLk);
             me->stepRequest = true;
             me->isPlaying = true;
+            me->playbackDirectionForward = true;
         }
         me->wakeup();
         gtk_button_set_label(GTK_BUTTON(me->btnPlay), "Pause");
@@ -910,29 +927,35 @@ struct LogPlayer
         gtk_container_add(GTK_CONTAINER(evtLogName), me->lblLogName);
 
 
+        me->btnStepPrev = gtk_button_new_with_label("< Step");
+        g_signal_connect(me->btnStepPrev, "clicked", G_CALLBACK(stepPrev), me);
+        gtk_widget_set_hexpand(me->btnStepPrev, TRUE);
+        gtk_widget_set_halign(me->btnStepPrev, GTK_ALIGN_FILL);
+        gtk_grid_attach(GTK_GRID(grid), me->btnStepPrev, 1, 0, 1, 1);
+
         me->btnPlay = gtk_button_new_with_label("Play");
         g_signal_connect(me->btnPlay, "clicked", G_CALLBACK(playPause), me);
         gtk_widget_set_hexpand(me->btnPlay, TRUE);
         gtk_widget_set_halign(me->btnPlay, GTK_ALIGN_FILL);
-        gtk_grid_attach(GTK_GRID(grid), me->btnPlay, 1, 0, 1, 1);
+        gtk_grid_attach(GTK_GRID(grid), me->btnPlay, 2, 0, 1, 1);
 
-        me->btnStep = gtk_button_new_with_label("Step");
+        me->btnStep = gtk_button_new_with_label("Step >");
         g_signal_connect(me->btnStep, "clicked", G_CALLBACK(step), me);
         gtk_widget_set_hexpand(me->btnStep, TRUE);
         gtk_widget_set_halign(me->btnStep, GTK_ALIGN_FILL);
-        gtk_grid_attach(GTK_GRID(grid), me->btnStep, 2, 0, 1, 1);
+        gtk_grid_attach(GTK_GRID(grid), me->btnStep, 3, 0, 1, 1);
 
         me->btnSlower = gtk_button_new_with_label("<<");
         g_signal_connect(me->btnSlower, "button-press-event", G_CALLBACK(slow), me);
         gtk_widget_set_hexpand(me->btnSlower, TRUE);
         gtk_widget_set_halign(me->btnSlower, GTK_ALIGN_END);
-        gtk_grid_attach(GTK_GRID(grid), me->btnSlower, 3, 0, 1, 1);
+        gtk_grid_attach(GTK_GRID(grid), me->btnSlower, 4, 0, 1, 1);
 
         GtkWidget *speedTargetEvtBox = gtk_event_box_new();
         g_signal_connect(speedTargetEvtBox, "button-press-event", G_CALLBACK(resetSpeed), me);
         gtk_widget_set_hexpand(speedTargetEvtBox, TRUE);
         gtk_widget_set_halign(speedTargetEvtBox, GTK_ALIGN_CENTER);
-        gtk_grid_attach(GTK_GRID(grid), speedTargetEvtBox, 4, 0, 1, 1);
+        gtk_grid_attach(GTK_GRID(grid), speedTargetEvtBox, 5, 0, 1, 1);
         me->lblSpeedTarget = gtk_label_new("");
         me->updateSpeedTarget();
         gtk_container_add(GTK_CONTAINER(speedTargetEvtBox), me->lblSpeedTarget);
@@ -941,7 +964,7 @@ struct LogPlayer
         g_signal_connect(me->btnFaster, "button-press-event", G_CALLBACK(fast), me);
         gtk_widget_set_hexpand(me->btnFaster, TRUE);
         gtk_widget_set_halign(me->btnFaster, GTK_ALIGN_START);
-        gtk_grid_attach(GTK_GRID(grid), me->btnFaster, 5, 0, 1, 1);
+        gtk_grid_attach(GTK_GRID(grid), me->btnFaster, 6, 0, 1, 1);
 
         me->menuScrub = gtk_menu_new();
         GtkWidget *miBookmark = gtk_menu_item_new_with_label("Bookmark");
@@ -959,7 +982,7 @@ struct LogPlayer
         g_signal_connect(me->sclMacroScrub, "button-release-event",
                          G_CALLBACK(macroScrubClicked), me);
         g_signal_connect(me->sclMacroScrub, "value-changed", G_CALLBACK(macroScrub), me);
-        gtk_grid_attach(GTK_GRID(grid), me->sclMacroScrub, 0, 1, 6, 1);
+        gtk_grid_attach(GTK_GRID(grid), me->sclMacroScrub, 0, 1, 7, 1);
 
         GtkAdjustment *adjMicroScrub = gtk_adjustment_new(0, 0, 1, 0.01, 0.05, 0);
         me->sclMicroScrub = gtk_scale_new(GTK_ORIENTATION_HORIZONTAL, adjMicroScrub);
@@ -974,7 +997,7 @@ struct LogPlayer
         g_signal_connect(me->sclMicroScrub, "key-press-event",
                          G_CALLBACK(microScrubClicked), me);
         g_signal_connect(me->sclMicroScrub, "value-changed", G_CALLBACK(microScrub), me);
-        gtk_grid_attach(GTK_GRID(grid), me->sclMicroScrub, 0, 2, 6, 1);
+        gtk_grid_attach(GTK_GRID(grid), me->sclMicroScrub, 0, 2, 7, 1);
 
         me->lblCurrTime = gtk_label_new("0 s");
         gtk_widget_set_hexpand(me->lblCurrTime, TRUE);
@@ -1030,7 +1053,7 @@ struct LogPlayer
 
         GtkWidget *scrolled_window = gtk_scrolled_window_new(NULL, NULL);
         gtk_container_add(GTK_CONTAINER(scrolled_window), me->tblData);
-        gtk_grid_attach(GTK_GRID(grid), scrolled_window, 0, 4, 6, 1);
+        gtk_grid_attach(GTK_GRID(grid), scrolled_window, 0, 4, 7, 1);
 
         me->btnToggle = gtk_button_new_with_label("Toggle Selected");
         g_signal_connect(me->btnToggle, "clicked", G_CALLBACK(toggle), me);
@@ -1041,13 +1064,13 @@ struct LogPlayer
         GtkWidget *lblPrefix = gtk_label_new("Channel Prefix:");
         gtk_widget_set_hexpand(lblPrefix, TRUE);
         gtk_widget_set_halign(lblPrefix, GTK_ALIGN_CENTER);
-        gtk_grid_attach(GTK_GRID(grid), lblPrefix, 1, 5, 1, 1);
+        gtk_grid_attach(GTK_GRID(grid), lblPrefix, 2, 5, 1, 1);
 
         me->txtPrefix = gtk_entry_new();
         gtk_widget_set_hexpand(me->txtPrefix, TRUE);
         gtk_widget_set_halign(me->txtPrefix, GTK_ALIGN_CENTER);
         g_signal_connect(me->txtPrefix, "changed", G_CALLBACK(prefixChanged), me);
-        gtk_grid_attach(GTK_GRID(grid), me->txtPrefix, 2, 5, 4, 1);
+        gtk_grid_attach(GTK_GRID(grid), me->txtPrefix, 3, 5, 4, 1);
 
         if (me->zcmIn && me->zcmIn->good()) {
             me->enableUI(true);
@@ -1165,7 +1188,8 @@ struct LogPlayer
             }
 
             off_t logPos = ftello(zcmIn->getFilePtr());
-            le = zcmIn->readNextEvent();
+            if (playbackDirectionForward) le = zcmIn->readNextEvent();
+            else le = zcmIn->readPrevEvent();
             if (!le) {
                 if (args.exitWhenDone) break;
                 unique_lock<mutex> lk(zcmLk);
@@ -1196,13 +1220,24 @@ struct LogPlayer
             // Total difference of timestamps of the current and
             // first message (after speed or play/pause changes)
             uint64_t logDiffUs = 0;
-            if ((uint64_t)le->timestamp < lastLogUtime) {
-                cerr << "Subsequent log events have utimes that are out of order" << endl
-                     << "Consider running:" << endl
-                     << "zcm-log-repair " << args.filename
-                     << " -o " << args.filename << ".repaired" << endl;
+            if (playbackDirectionForward) {
+                if ((uint64_t)le->timestamp < lastLogUtime) {
+                    cerr << "Subsequent log events have utimes that are out of order" << endl
+                         << "Consider running:" << endl
+                         << "zcm-log-repair " << args.filename
+                         << " -o " << args.filename << ".repaired" << endl;
+                } else {
+                    logDiffUs = (uint64_t) le->timestamp - lastLogUtime;
+                }
             } else {
-                logDiffUs = (uint64_t) le->timestamp - lastLogUtime;
+                if (lastLogUtime < (uint64_t)le->timestamp) {
+                    cerr << "Subsequent log events have utimes that are out of order" << endl
+                         << "Consider running:" << endl
+                         << "zcm-log-repair " << args.filename
+                         << " -o " << args.filename << ".repaired" << endl;
+                } else {
+                    logDiffUs = lastLogUtime - (uint64_t) le->timestamp;
+                }
             }
 
             // How much real time should have elapsed given the speed target
