@@ -1,0 +1,41 @@
+struct function_name_collision_t
+{
+    boolean tmp;
+
+    // Cpp
+    // boolean encode;
+    // boolean getEncodedSize;
+    // boolean decode;
+    // boolean getHash;
+    // boolean getTypeName;
+    // boolean _encodeNoHash;
+    // boolean _getEncodedSizeNoHash;
+    // boolean _decodeNoHash;
+    // boolean _computeHash;
+
+    // Java
+    // boolean ZCM_FINGERPRINT;
+    // boolean ZCM_FINGERPRINT_BASE;
+    // boolean IS_LITTLE_ENDIAN;
+    // boolean _hashRecursive;
+    // boolean encode;
+    // boolean _encodeRecursive;
+    // boolean _decodeRecursiveFactory;
+    // boolean _decodeRecursive;
+    // boolean copy;
+
+    // Node
+    // boolean IS_LITTLE_ENDIAN;
+    // boolean __hash;
+
+    // Python
+    // boolean __init__;
+    // boolean encode;
+    // boolean _encode_one;
+    // boolean decode;
+    // boolean _decode_one;
+    // boolean _hash;
+    // boolean _get_hash_recursive;
+    // boolean _packed_fingerprint;
+    // boolean _get_packed_fingerprint;
+}

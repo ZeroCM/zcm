@@ -690,5 +690,9 @@ unordered_set<string> getReservedKeywordsJava()
              "interface", "long", "native", "new", "null", "package", "private",
              "protected", "public", "return", "short", "static", "strictfp",
              "super", "switch", "synchronized", "this", "throw", "throws",
-             "transient", "true", "try", "void", "volatile", "while" };
+             "transient", "true", "try", "void", "volatile", "while",
+             /* Zcm reserved keywords */
+             "ZCM_FINGERPRINT", "ZCM_FINGERPRINT_BASE", "IS_LITTLE_ENDIAN",
+             "_hashRecursive", "encode", "_encodeRecursive",
+             "_decodeRecursiveFactory", "_decodeRecursive", "copy" };
 }
