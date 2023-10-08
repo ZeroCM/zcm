@@ -942,5 +942,9 @@ unordered_set<string> getReservedKeywordsCpp()
              "switch", "synchronized", "template", "this", "thread_local",
              "throw", "true", "try", "typedef", "typeid", "typename", "union",
              "unsigned", "using", "virtual", "void", "volatile", "wchar_t",
-             "while", "xor", "xor_eq" };
+             "while", "xor", "xor_eq",
+             /* zcm reserved keywords */
+             "encode", "getEncodedSize", "decode", "getHash", "getTypeName",
+             "_encodeNoHash", "_getEncodedSizeNoHash", "_decodeNoHash",
+             "_computeHash" };
 }

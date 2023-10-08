@@ -863,5 +863,7 @@ unordered_set<string> getReservedKeywordsNode()
              "null", "package", "private", "protected", "public", "return",
              "short", "static", "super", "switch", "synchronized", "this",
              "throw", "throws", "transient", "true", "try", "typeof", "var",
-             "void", "volatile", "while", "with", "yield" };
+             "void", "volatile", "while", "with", "yield",
+             /* Zcm reserved keywords */
+             "IS_LITTLE_ENDIAN", "__hash" };
 }

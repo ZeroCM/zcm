@@ -929,5 +929,9 @@ unordered_set<string> getReservedKeywordsPython()
              "for", "lambda", "try", "True", "def", "from", "nonlocal",
              "while", "and", "del", "global", "not", "with", "as", "elif",
              "if", "or", "yield", "assert", "else", "import", "pass", "break",
-             "except", "in", "raise" };
+             "except", "in", "raise",
+             /* Zcm reserved keywords */
+             "__init__", "encode", "_encode_one", "decode", "_decode_one",
+             "_hash", "_get_hash_recursive", "_packed_fingerprint",
+             "_get_packed_fingerprint" };
 }

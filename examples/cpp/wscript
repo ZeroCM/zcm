@@ -66,4 +66,8 @@ def build(ctx):
                 use = 'default zcm',
                 source = 'BandwidthTest.cpp')
 
+    ctx.program(target = 'function-name-collision',
+                use = 'default zcm examplezcmtypes_cpp',
+                source = 'FunctionNameCollision.cpp')
+
     ctx.recurse('transport')
