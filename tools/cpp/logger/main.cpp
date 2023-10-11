@@ -105,7 +105,7 @@ struct Args
                 cout << endl;
             }
 
-            return execv(argv[0], newArgv);
+            return execvp(argv[0], newArgv);
         };
 
         int nameInd = -1;
@@ -179,9 +179,9 @@ struct Args
         }
 
         if (nameInd != -1) {
-            launchRenamed(nameInd);
+            launchRenamed(nameInd, true);
             cerr << "Failed to relaunch with the custom process name" << endl;
-            return 1;
+            return false;
         }
 
         if (optind == argc) {
