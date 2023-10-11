@@ -64,7 +64,7 @@ struct Args
     bool parse(int argc, char *argv[])
     {
         // set some defaults
-        const char *optstring = "hu:c:z:b:fir:s:ql:m:p:d";
+        const char *optstring = "hu:c:z:b:fir:s:ql:m:p:n:d";
         struct option long_opts[] = {
             { "help",              no_argument,       0, 'h' },
             { "zcm-url",           required_argument, 0, 'u' },
@@ -79,10 +79,36 @@ struct Args
             { "flush-interval",    required_argument, 0, 'l' },
             { "max-target-memory", required_argument, 0, 'm' },
             { "plugin-path",       required_argument, 0, 'p' },
+            { "name",              required_argument, 0, 'n' },
             { "debug",             no_argument,       0, 'd' },
 
             { 0, 0, 0, 0 }
         };
+
+        auto launchRenamed = [&](int nameInd, bool verbose = false) {
+            assert(nameInd > 1);
+
+            int    newArgc   = argc - 2;
+            char** newArgv   = new char*[newArgc + 1];
+            newArgv[newArgc] = nullptr;
+
+            newArgv[0] = argv[nameInd];
+            for (int j = 1, i = 1; i < argc; ++i) {
+                if (i == nameInd || i == nameInd - 1) continue;
+                assert(j < newArgc);
+                newArgv[j] = argv[i];
+                ++j;
+            }
+
+            if (verbose) {
+                for (int j = 0; j < newArgc; ++j) cout << newArgv[j] << " ";
+                cout << endl;
+            }
+
+            return execv(argv[0], newArgv);
+        };
+
+        int nameInd = -1;
 
         int c;
         while ((c = getopt_long (argc, argv, optstring, long_opts, 0)) >= 0) {
@@ -142,11 +168,20 @@ struct Args
                 case 'p':
                     plugin_path = string(optarg);
                     break;
+                case 'n':
+                    nameInd = optind - 1;
+                    break;
                 case 'd':
                     debug = true;
                     break;
                 case 'h': default: usage(); return false;
             };
+        }
+
+        if (nameInd != -1) {
+            launchRenamed(nameInd);
+            cerr << "Failed to relaunch with the custom process name" << endl;
+            return 1;
         }
 
         if (optind == argc) {
@@ -235,6 +270,7 @@ struct Args
              << "                             program memory usage will be closer to the sum of the size" << endl
              << "                             of all queues + max-target-memory" << endl
              << "  -p, --plugin-path=path     Path to shared library containing transcoder plugins" << endl
+             << "  -n, --name                 Name this process a custom process name for htop." << endl
              << endl
              << "Rotating / splitting log files" << endl
              << "==============================" << endl
