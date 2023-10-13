@@ -1086,6 +1086,8 @@ struct LogPlayer
         }
 
         gtk_widget_show_all(me->window);
+
+        gtk_window_set_focus(GTK_WINDOW(me->window), me->btnPlay);
     }
 
     void quit()
