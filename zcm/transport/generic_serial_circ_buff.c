@@ -27,8 +27,15 @@ void cb_deinit(circBuffer_t* cb)
 
 size_t cb_size(const circBuffer_t* cb)
 {
-    if (cb->back >= cb->front) return cb->back - cb->front;
-    else                       return cb->capacity - (cb->front - cb->back);
+    // Reminder, this could be interruped by either push_back or pop_front.
+    // The return of this function should be a valid size the container had
+    // (either before or after it was interruped).
+
+    size_t f = cb->front;
+    size_t b = cb->back;
+
+    if (b >= f) return b - f;
+    else        return cb->capacity - (f - b);
 }
 
 size_t cb_room(const circBuffer_t* cb)
