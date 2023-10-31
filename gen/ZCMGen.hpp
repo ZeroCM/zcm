@@ -39,6 +39,8 @@ struct ZCMTypename
 
     bool isFixedPoint() const;
 
+    bool isPrimitive() const;
+
     //////////////////////////////////////////////////////////////////////////////
     mutable string underscore;
     mutable bool hasUnderscore = false;

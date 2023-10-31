@@ -21,6 +21,7 @@ int main(int argc, char* argv[])
                       "Add this package name as a prefix to the declared package");
     gopt.addBool(0,   "little-endian-encoding", 0,
                       "Encode and decode network traffic in little endian format");
+    gopt.addBool('m', "show-missing",           0,  "Print nested types missing from this invocation");
     gopt.addBool(0,   "version",                0,  "Show version information and exit");
 
     gopt.addSpacer("**** C options ****");
@@ -70,6 +71,24 @@ int main(int argc, char* argv[])
                 }
             }
         }
+    }
+
+    if (zcm.gopt->getBool("show-missing")) {
+        unordered_set<string> nonPrimitives;
+        for (const auto& s : zcm.structs) {
+            for (const auto& zm : s.members) {
+                if (!zm.type.isPrimitive()) {
+                    nonPrimitives.insert(zm.type.fullname);
+                }
+            }
+        }
+        for (const auto& s : zcm.structs) {
+            auto iter = nonPrimitives.find(s.structname.fullname);
+            if (iter == nonPrimitives.end()) continue;
+            nonPrimitives.erase(iter);
+        }
+        for (auto& t : nonPrimitives) printf("Missing type: %s\n", t.c_str());
+        return 0;
     }
 
     unordered_set<string> reservedTokens;
