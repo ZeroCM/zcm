@@ -88,7 +88,7 @@ int main(int argc, char* argv[])
             nonPrimitives.erase(iter);
         }
         for (auto& t : nonPrimitives) printf("Missing type: %s\n", t.c_str());
-        return 0;
+        return nonPrimitives.empty() ? 0 : 1;
     }
 
     unordered_set<string> reservedTokens;
