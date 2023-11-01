@@ -819,6 +819,11 @@ ZCMGen::getConflictingTokens(const unordered_set<string>& reservedTokens) const
     return ret;
 }
 
+bool ZCMTypename::isPrimitive() const
+{
+    return ZCMGen::isPrimitiveType(fullname);
+}
+
 int ZCMGen::handleFile(const string& path)
 {
     tokenize_t* t = tokenize_create(path.c_str());
