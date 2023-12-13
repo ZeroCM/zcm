@@ -123,7 +123,9 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             //      has occurred. Not sure what to do here since this function
             //      has no way of communicating to the caller that this function
             //      shouldn't be called anymore
-            usleep(timeout);
+            if (timeout > 0) {
+                usleep(timeout);
+            }
             return ZCM_ECONNECT;
         }
 

@@ -400,7 +400,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
     int recvmsg(zcm_msg_t* msg, int timeoutMs)
     {
-        timeoutLeft = timeoutMs > 0 ? timeoutMs * 1e3 : numeric_limits<uint64_t>::max();
+        timeoutLeft = timeoutMs >= 0 ? timeoutMs * 1e3 : numeric_limits<uint64_t>::max();
 
         if (raw) {
             size_t sz = get(rawBuf.get(), rawSize, this);
