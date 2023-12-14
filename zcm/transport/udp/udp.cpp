@@ -84,13 +84,13 @@ struct UDP
     int handle();
 
     int sendmsg(zcm_msg_t msg);
-    int recvmsg(zcm_msg_t *msg, int timeout);
+    int recvmsg(zcm_msg_t *msg, unsigned timeoutMs);
 
   private:
     // These returns non-null when a full message has been received
     Message *recvShort(Packet *pkt, u32 sz);
     Message *recvFragment(Packet *pkt, u32 sz);
-    Message *readMessage(int timeout);
+    Message *readMessage(unsigned timeoutMs);
 
     Message *m = nullptr;
 
@@ -236,7 +236,7 @@ void UDP::checkForMessageLoss()
 }
 
 // read continuously until a complete message arrives
-Message *UDP::readMessage(int timeout)
+Message *UDP::readMessage(unsigned timeoutMs)
 {
     Packet *pkt = pool.allocPacket(ZCM_MAX_UNFRAGMENTED_PACKET_SIZE);
     UDP::checkForMessageLoss();
@@ -244,7 +244,7 @@ Message *UDP::readMessage(int timeout)
     Message *msg = NULL;
     while (!msg) {
         // // wait for either incoming UDP data, or for an abort message
-        if (!recvfd.waitUntilData(timeout)) break;
+        if (!recvfd.waitUntilData(timeoutMs)) break;
 
         int sz = recvfd.recvPacket(pkt);
         if (sz < 0) {
@@ -372,11 +372,11 @@ int UDP::sendmsg(zcm_msg_t msg)
     return 0;
 }
 
-int UDP::recvmsg(zcm_msg_t *msg, int timeout)
+int UDP::recvmsg(zcm_msg_t *msg, unsigned timeoutMs)
 {
     if (m) pool.freeMessage(m);
 
-    m = readMessage(timeout);
+    m = readMessage(timeoutMs);
     if (m == nullptr)
         return ZCM_EAGAIN;
 
@@ -471,7 +471,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     static int _recvmsgEnable(zcm_trans_t *zt, const char *channel, bool enable)
     { return ZCM_EOK; }
 
-    static int _recvmsg(zcm_trans_t *zt, zcm_msg_t *msg, int timeout)
+    static int _recvmsg(zcm_trans_t *zt, zcm_msg_t *msg, unsigned timeout)
     { return cast(zt)->udp.recvmsg(msg, timeout); }
 
     static void _destroy(zcm_trans_t *zt)

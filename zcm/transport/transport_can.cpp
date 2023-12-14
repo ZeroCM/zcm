@@ -202,13 +202,13 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         return zcm_trans_recvmsg_enable(this->gst, channel, enable);
     }
 
-    int recvmsg(zcm_msg_t* msg, int timeoutMs)
+    int recvmsg(zcm_msg_t* msg, unsigned timeoutMs)
     {
-        int timeoutS = timeoutMs / 1000;
-        timeoutMs -= timeoutS * 1000;
+        unsigned timeoutS = timeoutMs / 1000;
+        unsigned timeoutUs = (timeoutMs - timeoutS * 1000) * 1000;
         struct timeval tm = {
-            timeoutS,           /* seconds */
-            timeoutMs * 1000    /* micros */
+            timeoutS,  /* seconds */
+            timeoutUs, /* micros */
         };
         if (setsockopt(soc, SOL_SOCKET, SO_RCVTIMEO, (char *)&tm, sizeof(tm)) < 0) {
             ZCM_DEBUG("Failed to settimeout");
@@ -216,17 +216,16 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         }
 
         uint64_t startUtime = TimeUtil::utime();
-        uint64_t timeoutUs = timeoutMs > 0 ? timeoutMs * 1e3 : numeric_limits<uint64_t>::max();
-        uint64_t timeoutLeft = timeoutUs;
+        uint64_t timeoutLeftUs = timeoutMs * 1000;
 
         do {
-            int ret = zcm_trans_recvmsg(this->gst, msg, timeoutLeft);
+            int ret = zcm_trans_recvmsg(this->gst, msg, 0);
             if (ret == ZCM_EOK) return ret;
             serial_update_rx(this->gst);
 
             uint64_t diff = TimeUtil::utime() - startUtime;
-            timeoutLeft = timeoutUs > diff ? timeoutUs - diff : 0;
-        } while (timeoutLeft > 0);
+            timeoutLeftUs = timeoutLeftUs > diff ? timeoutLeftUs - diff : 0;
+        } while (timeoutLeftUs > 0);
         return ZCM_EAGAIN;
     }
 
@@ -247,7 +246,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     static int _recvmsg_enable(zcm_trans_t *zt, const char *channel, bool enable)
     { return cast(zt)->recvmsgEnable(channel, enable); }
 
-    static int _recvmsg(zcm_trans_t *zt, zcm_msg_t *msg, int timeout)
+    static int _recvmsg(zcm_trans_t *zt, zcm_msg_t *msg, unsigned timeout)
     { return cast(zt)->recvmsg(msg, timeout); }
 
     static void _destroy(zcm_trans_t *zt)

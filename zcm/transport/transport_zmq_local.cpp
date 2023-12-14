@@ -434,7 +434,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         return ZCM_EAGAIN;
     }
 
-    int recvmsg(zcm_msg_t *msg, int timeout)
+    int recvmsg(zcm_msg_t *msg, unsigned timeoutMs)
     {
         if (handlePitems(msg) == ZCM_EOK) return ZCM_EOK;
 
@@ -475,8 +475,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             }
         }
 
-        timeout = (timeout >= 0) ? timeout : -1;
-        int rc = zmq_poll(pitems.data(), pitems.size(), timeout);
+        int rc = zmq_poll(pitems.data(), pitems.size(), timeoutMs);
         // TODO: implement better error handling, but can't assert because this triggers during
         //       clean up of the zmq subscriptions and context (may need to look towards having a
         //       "ZCM_ETERM" return code that we can use to cancel the recv message thread
@@ -506,7 +505,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     static int _recvmsgEnable(zcm_trans_t *zt, const char *channel, bool enable)
     { return cast(zt)->recvmsgEnable(channel, enable); }
 
-    static int _recvmsg(zcm_trans_t *zt, zcm_msg_t *msg, int timeout)
+    static int _recvmsg(zcm_trans_t *zt, zcm_msg_t *msg, unsigned timeout)
     { return cast(zt)->recvmsg(msg, timeout); }
 
     static void _destroy(zcm_trans_t *zt)

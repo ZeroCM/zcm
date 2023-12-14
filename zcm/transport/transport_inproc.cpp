@@ -87,7 +87,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
     int recvmsg_enable(const char *channel, bool enable) { return ZCM_EOK; }
 
-    int recvmsg(zcm_msg_t *msg, int timeout)
+    int recvmsg(zcm_msg_t *msg, unsigned timeout)
     {
         std::unique_lock<mutex> lk(msgLock, defer_lock);
 
@@ -136,7 +136,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     static int _recvmsg_enable(zcm_trans_t *zt, const char *channel, bool enable)
     { return cast(zt)->recvmsg_enable(channel, enable); }
 
-    static int _recvmsg(zcm_trans_t *zt, zcm_msg_t *msg, int timeout)
+    static int _recvmsg(zcm_trans_t *zt, zcm_msg_t *msg, unsigned timeout)
     { return cast(zt)->recvmsg(msg, timeout); }
 
     static int _update(zcm_trans_t *zt)

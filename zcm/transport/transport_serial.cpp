@@ -53,7 +53,7 @@ struct Serial
     void close();
 
     int write(const u8* buf, size_t sz);
-    int read(u8* buf, size_t sz, u64 timeoutMs);
+    int read(u8* buf, size_t sz, u64 timeoutUs);
     // Returns 0 on invalid input baud otherwise returns termios constant baud value
     static int convertBaud(int baud);
 
@@ -184,11 +184,9 @@ int Serial::read(u8* buf, size_t sz, u64 timeoutUs)
     FD_ZERO(&fds);
     FD_SET(fd, &fds);
 
-    u64 tOut = max((u64)SERIAL_TIMEOUT_US, timeoutUs);
-
     struct timeval timeout;
-    timeout.tv_sec = tOut / 1000000;
-    timeout.tv_usec = tOut % 1000000;
+    timeout.tv_sec = timeoutUs / 1000000;
+    timeout.tv_usec = timeoutUs - timeout.tv_sec * 1000000;
     int status = ::select(fd + 1, &fds, NULL, NULL, &timeout);
 
     if (status > 0) {
@@ -256,7 +254,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
     zcm_trans_t* gst;
 
-    uint64_t timeoutLeft;
+    uint64_t timeoutLeftUs;
 
     string* findOption(const string& s)
     {
@@ -360,9 +358,9 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     {
         ZCM_TRANS_CLASSNAME* me = cast((zcm_trans_t*) usr);
         uint64_t startUtime = TimeUtil::utime();
-        int ret = me->ser.read(data, nData, me->timeoutLeft);
+        int ret = me->ser.read(data, nData, me->timeoutLeftUs);
         uint64_t diff = TimeUtil::utime() - startUtime;
-        me->timeoutLeft = me->timeoutLeft > diff ? me->timeoutLeft - diff : 0;
+        me->timeoutLeftUs = me->timeoutLeftUs > diff ? me->timeoutLeftUs - diff : 0;
         return ret < 0 ? 0 : ret;
     }
 
@@ -398,9 +396,9 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     int recvmsgEnable(const char* channel, bool enable)
     { return raw ? ZCM_EOK : zcm_trans_recvmsg_enable(this->gst, channel, enable); }
 
-    int recvmsg(zcm_msg_t* msg, int timeoutMs)
+    int recvmsg(zcm_msg_t* msg, unsigned timeoutMs)
     {
-        timeoutLeft = timeoutMs >= 0 ? timeoutMs * 1e3 : numeric_limits<uint64_t>::max();
+        timeoutLeftUs = timeoutMs * 1e3;
 
         if (raw) {
             size_t sz = get(rawBuf.get(), rawSize, this);
@@ -419,22 +417,22 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
                 // Note: No need to lock here ONLY because the internals of
                 //       generic serial transport recvmsg only use the recv related
                 //       data members and touch no variables related to sending
-                int ret = zcm_trans_recvmsg(this->gst, msg, timeoutLeft);
+                int ret = zcm_trans_recvmsg(this->gst, msg, 0);
                 if (ret == ZCM_EOK) return ret;
 
                 uint64_t diff = TimeUtil::utime() - startUtime;
                 startUtime = TimeUtil::utime();
-                // Note: timeoutLeft is calculated here because serial_update_rx
+                // Note: timeoutLeftUs is calculated here because serial_update_rx
                 //       needs it to be set properly so that the blocking read in
                 //       `get` knows how long it has to exit
-                timeoutLeft = timeoutLeft > diff ? timeoutLeft - diff : 0;
+                timeoutLeftUs = timeoutLeftUs > diff ? timeoutLeftUs - diff : 0;
 
                 serial_update_rx(this->gst);
 
                 diff = TimeUtil::utime() - startUtime;
-                timeoutLeft = timeoutLeft > diff ? timeoutLeft - diff : 0;
+                timeoutLeftUs = timeoutLeftUs > diff ? timeoutLeftUs - diff : 0;
 
-            } while (timeoutLeft > 0);
+            } while (timeoutLeftUs > 0);
 
             return ZCM_EAGAIN;
         }
@@ -457,7 +455,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     static int _recvmsgEnable(zcm_trans_t* zt, const char* channel, bool enable)
     { return cast(zt)->recvmsgEnable(channel, enable); }
 
-    static int _recvmsg(zcm_trans_t* zt, zcm_msg_t* msg, int timeout)
+    static int _recvmsg(zcm_trans_t* zt, zcm_msg_t* msg, unsigned timeout)
     { return cast(zt)->recvmsg(msg, timeout); }
 
     static void _destroy(zcm_trans_t* zt)

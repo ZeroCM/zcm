@@ -115,7 +115,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         return ZCM_EOK;
     }
 
-    int recvmsg(zcm_msg_t *msg, int timeout)
+    int recvmsg(zcm_msg_t *msg, unsigned timeout)
     {
         assert(mode == "r");
         if (!good()) {
@@ -123,9 +123,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             //      has occurred. Not sure what to do here since this function
             //      has no way of communicating to the caller that this function
             //      shouldn't be called anymore
-            if (timeout > 0) {
-                usleep(timeout);
-            }
+            if (timeout > 0) usleep(timeout);
             return ZCM_ECONNECT;
         }
 
@@ -180,7 +178,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     static int _recvmsg_enable(zcm_trans_t *zt, const char *channel, bool enable)
     { return cast(zt)->recvmsg_enable(channel, enable); }
 
-    static int _recvmsg(zcm_trans_t *zt, zcm_msg_t *msg, int timeout)
+    static int _recvmsg(zcm_trans_t *zt, zcm_msg_t *msg, unsigned timeout)
     { return cast(zt)->recvmsg(msg, timeout); }
 
     static void _destroy(zcm_trans_t *zt)

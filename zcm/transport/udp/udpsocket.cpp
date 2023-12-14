@@ -210,7 +210,7 @@ size_t UDPSocket::getSendBufSize()
     return size;
 }
 
-bool UDPSocket::waitUntilData(int timeout)
+bool UDPSocket::waitUntilData(unsigned timeoutMs)
 {
     assert(isOpen());
 
@@ -218,9 +218,11 @@ bool UDPSocket::waitUntilData(int timeout)
     FD_ZERO(&fds);
     FD_SET(fd, &fds);
 
+    unsigned timeoutS = timeoutMs / 1000;
+    unsigned timeoutUs = (timeoutMs - timeoutS * 1000) * 1000;
     struct timeval tm = {
-        timeout / 1000,            /* seconds */
-        (timeout % 1000) * 1000    /* micros */
+        timeoutS,  /* seconds */
+        timeoutUs, /* micros */
     };
 
     int status = select(fd + 1, &fds, 0, 0, &tm);
