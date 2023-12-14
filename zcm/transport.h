@@ -75,16 +75,15 @@
  *         NOTE: This method should work concurrently and correctly with
  *         recvmsg(). On success, this method should return ZCM_EOK
  *
- *      int recvmsg(zcm_trans_t* zt, zcm_msg_t* msg, int timeout)
+ *      int recvmsg(zcm_trans_t* zt, zcm_msg_t* msg, unsigned timeout)
  *      --------------------------------------------------------------------
  *         The caller to this method initiates a message recv operation. This
  *         methods blocks until it receives a message. It should return ZCM_EOK.
  *         Messages that have been 'enable'd with recvmsg_enable() *must* be received.
  *         Extra messages can also be received; the 'enable'd channels sets a minimum set.
  *         NOTE: This method should work concurrently and correctly with
- *         recvmsg_enable(). If 'timeout >= 0' then recvmsg()
- *         should return EAGAIN if it is unable to receive a message within
- *         'timeout' milliseconds.
+ *         recvmsg_enable(). This function should return EAGAIN if it is unable to
+ *         receive a message within 'timeout' milliseconds.
  *         NOTE: We do *NOT* require a very accurate clock for this timeout feature
  *         and users should only expect accuracy within a few milliseconds. Users
  *         should *not* attempt to use this timing mechanism for real-time events.
@@ -142,7 +141,7 @@
  *         NOTE: This method does NOT have to work concurrently with recvmsg().
  *         On success, this method should return ZCM_EOK
  *
- *      int recvmsg(zcm_trans_t* zt, zcm_msg_t* msg, int timeout)
+ *      int recvmsg(zcm_trans_t* zt, zcm_msg_t* msg, unsigned timeout)
  *      --------------------------------------------------------------------
  *         The caller to this method initiates a message recv operation. This
  *         methods should *never block*. If a message has been received then
@@ -211,7 +210,7 @@ struct zcm_trans_methods_t
     size_t  (*get_mtu)(zcm_trans_t* zt);
     int     (*sendmsg)(zcm_trans_t* zt, zcm_msg_t msg);
     int     (*recvmsg_enable)(zcm_trans_t* zt, const char* channel, bool enable);
-    int     (*recvmsg)(zcm_trans_t* zt, zcm_msg_t* msg, int timeout);
+    int     (*recvmsg)(zcm_trans_t* zt, zcm_msg_t* msg, unsigned timeout);
     int     (*update)(zcm_trans_t* zt);
     void    (*destroy)(zcm_trans_t* zt);
 };
@@ -226,7 +225,7 @@ static INLINE int zcm_trans_sendmsg(zcm_trans_t* zt, zcm_msg_t msg)
 static INLINE int zcm_trans_recvmsg_enable(zcm_trans_t* zt, const char* channel, bool enable)
 { return zt->vtbl->recvmsg_enable(zt, channel, enable); }
 
-static INLINE int zcm_trans_recvmsg(zcm_trans_t* zt, zcm_msg_t* msg, int timeout)
+static INLINE int zcm_trans_recvmsg(zcm_trans_t* zt, zcm_msg_t* msg, unsigned timeout)
 { return zt->vtbl->recvmsg(zt, msg, timeout); }
 
 static INLINE int zcm_trans_update(zcm_trans_t* zt)

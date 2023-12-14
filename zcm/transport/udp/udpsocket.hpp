@@ -49,7 +49,7 @@ class UDPSocket
     size_t getSendBufSize();
 
     // Returns true when there is a packet available for receiving
-    bool waitUntilData(int timeout);
+    bool waitUntilData(unsigned timeout);
     int recvPacket(Packet *pkt);
 
     ssize_t sendBuffers(const UDPAddress& dest, const char *a, size_t alen);
