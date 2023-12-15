@@ -1,0 +1,7 @@
+struct rotation_t
+{
+    double yaw;
+    double pitch;
+    double roll;
+    int32_t flags;
+}

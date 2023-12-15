@@ -1,0 +1,8 @@
+#!/usr/bin/env python
+
+def build(ctx):
+    lang = ['c_stlib', 'c_shlib', 'cpp']
+    ctx.zcmgen(name    = 'benchzcmtypes',
+               source  = ctx.path.ant_glob('*.zcm'),
+               lang    = lang,
+               javapkg = 'bench.zcmtypes')

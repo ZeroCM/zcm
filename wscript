@@ -471,6 +471,7 @@ def build(ctx):
         ctx.recurse('gen')
         ctx.recurse('tools')
         ctx.recurse('DEBIAN')
+        ctx.recurse('bench')
         ctx.install_as('${PREFIX}/share/doc/zcm/copyright', 'LICENSE')
         if not waflib.Options.options.skip_git:
             generate_signature(ctx)
