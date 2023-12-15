@@ -115,15 +115,14 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         return ZCM_EOK;
     }
 
-    int recvmsg(zcm_msg_t *msg, unsigned timeout)
+    int recvmsg(zcm_msg_t *msg, unsigned timeoutMs)
     {
         assert(mode == "r");
+
+        u64 timeoutUs = timeoutMs * 1000;
+
         if (!good()) {
-            // TODO Build in a way for a transport to tell zcm that an "error"
-            //      has occurred. Not sure what to do here since this function
-            //      has no way of communicating to the caller that this function
-            //      shouldn't be called anymore
-            if (timeout > 0) usleep(timeout);
+            if (timeoutMs > 0) usleep(timeoutUs);
             return ZCM_ECONNECT;
         }
 
@@ -152,8 +151,10 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         u64 logDiffSpeed = logDiff / this->speed;
         u64 diff = logDiffSpeed > localDiff ? logDiffSpeed - localDiff : 0;
 
-        if (diff > 0)
-            usleep(diff);
+        if (diff > 0) {
+            usleep(std::min(diff, timeoutUs));
+            if (TimeUtil::utime() < now + diff) return ZCM_EAGAIN;
+        }
 
         lastDispatchUtime = TimeUtil::utime();
         lastMsgUtime = msg->utime;
