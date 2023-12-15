@@ -2,6 +2,11 @@
 #include <limits.h>
 #include <stdlib.h>
 
+// If we're compiling in an older C std, we might not have static_assert()
+#ifndef static_assert
+# define static_assert(cond, _) typedef int static_assert_ ## __LINE__[(cond) ? 1 : -1]
+#endif
+
 // Machine is byte-addressable
 static_assert(CHAR_BIT == 8, "");
 

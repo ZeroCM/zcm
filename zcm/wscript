@@ -36,8 +36,10 @@ def build(ctx):
               source = ctx.path.ant_glob(['*.cpp', '*.c',
                                           'util/*.c', 'util/*.cpp',
                                           'tools/*.c', 'tools/*.cpp',
-                                          'transport/**/*.c', 'transport/**/*.cpp'],
-                                          excl=srcExcludes))
+                                          'transport/*.c', 'transport/*.cpp',
+                                          'transport/udp/*.cpp',
+                                          'transport/lockfree/lf_*.c'],
+                                         excl=srcExcludes))
 
 
     embedSource = ['zcm.h', 'zcm_private.h', 'zcm.c', 'zcm-cpp.hpp', 'zcm-cpp-impl.hpp',

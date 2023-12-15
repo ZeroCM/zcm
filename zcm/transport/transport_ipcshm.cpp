@@ -9,6 +9,7 @@
 #include <cstddef>
 #include <cstdio>
 #include <cstring>
+#include <cinttypes>
 #include <cassert>
 #include <unistd.h>
 
@@ -64,13 +65,13 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
           u64 tmp;
           if (0 == strcmp(opts->name[i], "mtu")) {
             if (parse_u64(opts->value[i], &tmp)) {
-              ZCM_DEBUG("Setting mtu=%llu", tmp);
+              ZCM_DEBUG("Setting mtu=%" PRIu64, tmp);
               mtu = tmp;
             }
           }
           if (0 == strcmp(opts->name[i], "depth")) {
             if (parse_u64(opts->value[i], &tmp)) {
-              ZCM_DEBUG("Setting queue_depth=%llu", tmp);
+              ZCM_DEBUG("Setting queue_depth=%" PRIu64, tmp);
               queue_depth = tmp;
             }
           }
