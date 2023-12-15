@@ -9,7 +9,7 @@
 #define LIMIT 300
 
 #define URL_IPC "ipc"
-#define URL_IPCSHM "ipcshm://region_name?mtu=3000000&depth=4"
+#define URL_IPCSHM "ipcshm://test_many?mtu=3000000&depth=4"
 
 static size_t TESTCASES[] = {
   100,

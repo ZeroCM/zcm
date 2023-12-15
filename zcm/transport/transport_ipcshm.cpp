@@ -152,9 +152,11 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
     int recvmsg(zcm_msg_t *msg, int timeout)
     {
+        i64 timeout_nanos = (i64)timeout * 1000000;
+
         size_t len = 0;
         size_t _drops = 0;
-        bool valid = lf_bcast_sub_next(sub, recvchan, recvbuf, &len, &_drops);
+        bool valid = lf_bcast_sub_next(sub, recvchan, recvbuf, timeout_nanos, &len, &_drops);
         if (!valid) return ZCM_EAGAIN;
 
         msg->utime = TimeUtil::utime();

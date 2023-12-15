@@ -1,6 +1,9 @@
 #include "lf_bcast.h"
 #include "lf_pool.h"
 #include "lf_util.h"
+#include <linux/futex.h>
+#include <sys/syscall.h>
+#include <unistd.h>
 
 #define ESTIMATED_PUBLISHERS 16
 #define CHANNEL_MAXLEN 32
@@ -28,7 +31,48 @@ struct __attribute__((aligned(alignof(u128)))) msg
   __attribute__((aligned(256))) u8 payload[];
 };
 
+typedef struct sub_impl sub_impl_t;
+struct __attribute__((aligned(16))) sub_impl
+{
+  lf_bcast_t * bcast;
+  u64          idx;
+  char         _extra[16];
+};
+static_assert(sizeof(sub_impl_t) == sizeof(lf_bcast_sub_t), "");
+static_assert(alignof(sub_impl_t) == alignof(lf_bcast_sub_t), "");
+
 static inline lf_pool_t *get_pool(lf_bcast_t *b) { return (lf_pool_t*)((char*)b + b->pool_off); }
+
+static void wait(sub_impl_t *sub, int64_t *_timeout)
+{
+  // Wait for next message with futex_wait. Unfortunately, linux only supports
+  // 32-bit futex, so we truncate to the lower 32-bits. We will assume little-endian
+  // here. This is checked in lf_machine_assumptions.h
+
+
+  // TODO: Explain the subtlties of using lower 32-bits
+
+  int64_t start = wallclock();
+
+  int64_t timeout = *_timeout;
+  struct timespec tm = {
+    .tv_sec = timeout / (int64_t)1e9,
+    .tv_nsec = timeout % (int64_t)1e9,
+  };
+
+  uint32_t   val  = (uint64_t)sub->idx;
+  uint32_t * addr = (uint32_t*)&sub->bcast->tail_idx;
+  syscall(SYS_futex, addr, FUTEX_WAIT, val, tm, NULL, 0);
+
+  int64_t dt = wallclock() - start;
+  *_timeout = timeout > dt ? timeout - dt : 0;
+}
+
+static void wake(lf_bcast_t *bcast)
+{
+  uint32_t * addr = (uint32_t*)&bcast->tail_idx;
+  syscall(SYS_futex, addr, FUTEX_WAKE, INT32_MAX, 0, NULL, 0);
+}
 
 lf_bcast_t * lf_bcast_new(size_t depth, size_t max_msg_sz)
 {
@@ -113,19 +157,14 @@ bool lf_bcast_pub(lf_bcast_t *b, const char *channel, size_t channel_len, void *
 
     // Success, try to update the tail. If we fail, it's okay.
     LF_U64_CAS(&b->tail_idx, tail_idx, tail_idx+1);
+
+    // Wake up all readers
+    wake(b);
+
+    // All done
     return true;
   }
 }
-
-typedef struct sub_impl sub_impl_t;
-struct __attribute__((aligned(16))) sub_impl
-{
-  lf_bcast_t * bcast;
-  u64          idx;
-  char         _extra[16];
-};
-static_assert(sizeof(sub_impl_t) == sizeof(lf_bcast_sub_t), "");
-static_assert(alignof(sub_impl_t) == alignof(lf_bcast_sub_t), "");
 
 void lf_bcast_sub_begin(lf_bcast_sub_t *_sub, lf_bcast_t *b)
 {
@@ -134,14 +173,18 @@ void lf_bcast_sub_begin(lf_bcast_sub_t *_sub, lf_bcast_t *b)
   sub->idx = b->tail_idx;
 }
 
-bool lf_bcast_sub_next(lf_bcast_sub_t *_sub, char *channel_buf, void * buf, size_t * _out_len, size_t *_out_drops)
+bool lf_bcast_sub_next(lf_bcast_sub_t *_sub, char *channel_buf, void * buf, int64_t timeout,
+                       size_t * _out_len, size_t *_out_drops)
 {
   sub_impl_t *sub   = (sub_impl_t*)_sub;
   lf_bcast_t *b     = sub->bcast;
   size_t      drops = 0;
 
   while (1) {
-    if (sub->idx == b->tail_idx) return false;
+    if (sub->idx == b->tail_idx) {
+      if (timeout > 0) wait(sub, &timeout);
+      return false;
+    }
 
     lf_ref_t * ref_ptr = &b->slots[sub->idx & b->depth_mask];
     lf_ref_t   ref     = *ref_ptr;

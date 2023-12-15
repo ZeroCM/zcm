@@ -34,3 +34,7 @@ def build(ctx):
     ctx.program(target='test_many',
                 use = 'default zcm benchzcmtypes',
                 source='test_many.c')
+
+    ctx.program(target='test_sleep',
+                use = 'default zcm benchzcmtypes',
+                source='test_sleep.c')

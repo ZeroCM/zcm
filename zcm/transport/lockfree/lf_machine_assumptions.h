@@ -19,3 +19,8 @@ static_assert(sizeof(void*) == 8, "");
 // Long and Long Long are the same and 64-bits
 static_assert(sizeof(long) == sizeof(long long), "");
 static_assert(sizeof(long) == 8, "");
+
+// Machine is little-endian
+#if !defined(__BYTE_ORDER) || __BYTE_ORDER != __LITTLE_ENDIAN
+# error "Machine is not little-endian"
+#endif

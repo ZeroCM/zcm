@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
+#include <time.h>
 
 #define CACHE_LINE_SZ 128
 
@@ -18,6 +19,13 @@ typedef int16_t           i16;
 typedef int32_t           i32;
 typedef int64_t           i64;
 typedef __int128          i128;
+
+static inline i64 wallclock(void)
+{
+  struct timespec ts[1] = {{}};
+  clock_gettime(CLOCK_REALTIME, ts);
+  return (i64)ts->tv_sec * 1000000000ul + (i64)ts->tv_nsec;
+}
 
 typedef struct lf_ref lf_ref_t;
 struct lf_ref

@@ -68,12 +68,6 @@ static void pin_cpu_core(int core_id)
   pthread_setaffinity_np(current_thread, sizeof(cpu_set_t), &cpuset);
 }
 
-static void waitfor(i64 tm)
-{
-  i64 start = wallclock();
-  while (wallclock() - start < tm) {}
-}
-
 static void *publish_thread_direct(void *usr)
 {
   pin_cpu_core(2);
@@ -84,7 +78,7 @@ static void *publish_thread_direct(void *usr)
   usleep((i64)1e6); // wait for subscribe side to init (if needed)
 
   while (st->running) {
-    waitfor((i64)5e6); // 5 millis
+    usleep((i64)5e3); // 5 millis
 
     DATA->send_time = wallclock();
     DATA->msg_size = st->msg_size;
@@ -124,7 +118,7 @@ static void *handle_thread_direct(void *usr)
   zcm_msg_t msg[1];
   while (st->res->num_messages < st->limit) {
     i64 start = wallclock();
-    int ret = zcm_trans_recvmsg(trans, msg, 0);
+    int ret = zcm_trans_recvmsg(trans, msg, 10);
     if (ret != ZCM_EOK) continue;
     i64 dt = wallclock() - start;
 
