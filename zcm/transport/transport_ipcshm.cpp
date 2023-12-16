@@ -18,6 +18,15 @@
 #define DEFAULT_MTU 1024 /* FIXME */
 #define DEFAULT_DEPTH 16
 
+typedef struct Msg Msg;
+struct __attribute__((aligned(alignof(u128)))) Msg
+{
+  u64  size;
+  char channel[ZCM_CHANNEL_MAXLEN+1];
+
+  __attribute__((aligned(256))) u8 payload[];
+};
+
 static inline bool parse_u64(const char *s, uint64_t *_num)
 {
   uint64_t num = 0;
@@ -106,7 +115,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
           return;
         }
 
-        lf_bcast_sub_begin(sub, bcast);
+        lf_bcast_sub_init(sub, bcast);
 
         recvbuf = malloc(mtu);
 
@@ -140,8 +149,15 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
       size_t channel_len = strlen(msg.channel);
       assert(channel_len <= ZCM_CHANNEL_MAXLEN);
 
-      bool success = lf_bcast_pub(bcast, msg.channel, channel_len, msg.buf, msg.len);
-      assert(success); // FIXME
+      Msg *m = (Msg*)lf_bcast_buf_acquire(bcast);
+      assert(m); // FIXME
+
+      m->size = msg.len;
+      assert(channel_len < sizeof(m->channel));
+      memcpy(m->channel, msg.channel, channel_len+1);
+      memcpy(m->payload, msg.buf, msg.len);
+
+      lf_bcast_pub(bcast, m);
       return ZCM_EOK;
     }
 
@@ -154,11 +170,30 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     {
         i64 timeout_nanos = (i64)timeout * 1000000;
 
-        size_t len = 0;
-        size_t _drops = 0;
-        bool valid = lf_bcast_sub_next(sub, recvchan, recvbuf, timeout_nanos, &len, &_drops);
-        if (!valid) return ZCM_EAGAIN;
+        // Try to get the next message in the queue
+        const void *buf = lf_bcast_sub_consume_begin(sub, timeout_nanos);
+        if (!buf) return ZCM_EAGAIN;
 
+        // Copy it very defensively: the memory is shared and may be invalidated
+        // at any time while we copy
+        const Msg *m = (const Msg*)buf;
+        size_t len = m->size;
+
+        // FIXME validate 'len'
+
+        memcpy(recvchan, m->channel, sizeof(recvchan));
+        memcpy(recvbuf, m->payload, len);
+
+        bool ref_valid = lf_bcast_sub_consume_end(sub);
+        bool channel_valid = !!strchr(recvchan, 0);
+
+        bool valid = ref_valid & channel_valid;
+        if (!valid) {
+          // Message was invalidated.. treat as drop
+          return ZCM_EAGAIN;
+        }
+
+        // All good, prepare return struct
         msg->utime = TimeUtil::utime();
         msg->channel = recvchan;
         msg->len = len;

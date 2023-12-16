@@ -36,12 +36,28 @@ struct __attribute__((aligned(16))) sub_impl
 {
   lf_bcast_t * bcast;
   u64          idx;
+  u64          drops;
+  lf_ref_t *   active_ref_ptr;
+  lf_ref_t     active_ref;
   char         _extra[16];
 };
 static_assert(sizeof(sub_impl_t) == sizeof(lf_bcast_sub_t), "");
 static_assert(alignof(sub_impl_t) == alignof(lf_bcast_sub_t), "");
 
 static inline lf_pool_t *get_pool(lf_bcast_t *b) { return (lf_pool_t*)((char*)b + b->pool_off); }
+
+static uint32_t *wait_addr(lf_bcast_t *b)
+{
+#if defined(__BYTE_ORDER)
+# if __BYTE_ORDER == __LITTLE_ENDIAN
+  return (uint32_t*)&b->tail_idx;
+# else
+  return ((uint32_t*)&b->tail_idx) + 1;
+# endif
+#else
+# error "__BYTE_ORDER is not defined"
+#endif
+}
 
 static void wait(sub_impl_t *sub, int64_t *_timeout)
 {
@@ -109,16 +125,10 @@ static void try_drop_head(lf_bcast_t *b, u64 head_idx)
   lf_pool_release(get_pool(b), msg);
 }
 
-bool lf_bcast_pub(lf_bcast_t *b, const char *channel, size_t channel_len, void *buf, size_t len)
+void lf_bcast_pub(lf_bcast_t *b, void *buf)
 {
-  msg_t *msg = (msg_t*)lf_pool_acquire(get_pool(b));
-  if (!msg) return false; // out of elements
-  u64 msg_off = (char*)msg - (char*)b;
-
-  msg->size = len;
-  assert(channel_len < sizeof(msg->channel));
-  memcpy(msg->channel, channel, channel_len+1);
-  memcpy(msg->payload, buf, len);
+  u64 buf_off = (char*)buf - (char*)b;
+  // FIXME: ASSERT TO CHECK THE BUF IS FROM THE POOL
 
   while (1) {
     u64        head_idx = b->head_idx;
@@ -148,42 +158,44 @@ bool lf_bcast_pub(lf_bcast_t *b, const char *channel, size_t channel_len, void *
       continue;
     }
 
-    // Otherwise, try to append the tail
-    lf_ref_t tail_next = LF_REF_MAKE(tail_idx, msg_off);
+    // So far so good, try to append the tail
+    lf_ref_t tail_next = LF_REF_MAKE(tail_idx, buf_off);
     if (!LF_REF_CAS(tail_ptr, tail_cur, tail_next)) {
       LF_PAUSE();
       continue;
     }
 
-    // Success, try to update the tail. If we fail, it's okay.
+    // Success, try to update the tail idx. If we fail, it's okay.
+    // We've already committed the append. Another pub might race here and that's okay.
     LF_U64_CAS(&b->tail_idx, tail_idx, tail_idx+1);
 
-    // Wake up all readers
+    // Wake up all consumers
     wake(b);
 
     // All done
-    return true;
+    return;
   }
 }
 
-void lf_bcast_sub_begin(lf_bcast_sub_t *_sub, lf_bcast_t *b)
+void lf_bcast_sub_init(lf_bcast_sub_t *_sub, lf_bcast_t *b)
 {
   sub_impl_t *sub = (sub_impl_t*)_sub;
+  memset(sub, 0, sizeof(sub_impl_t));
   sub->bcast = b;
   sub->idx = b->tail_idx;
 }
 
-bool lf_bcast_sub_next(lf_bcast_sub_t *_sub, char *channel_buf, void * buf, int64_t timeout,
-                       size_t * _out_len, size_t *_out_drops)
+const void *lf_bcast_sub_consume_begin(lf_bcast_sub_t *_sub, int64_t timeout)
 {
-  sub_impl_t *sub   = (sub_impl_t*)_sub;
-  lf_bcast_t *b     = sub->bcast;
-  size_t      drops = 0;
+  sub_impl_t *sub = (sub_impl_t*)_sub;
+  lf_bcast_t *b   = sub->bcast;
 
   while (1) {
-    if (sub->idx == b->tail_idx) {
+    u64 tail_idx = b->tail_idx;
+    LF_BARRIER_ACQUIRE();
+    if (sub->idx == tail_idx) {
       if (timeout > 0) wait(sub, &timeout);
-      return false;
+      continue;
     }
 
     lf_ref_t * ref_ptr = &b->slots[sub->idx & b->depth_mask];
@@ -193,35 +205,71 @@ bool lf_bcast_sub_next(lf_bcast_sub_t *_sub, char *channel_buf, void * buf, int6
 
     if (ref.tag != sub->idx) { // We've fallen behind and the message we wanted was dropped?
       sub->idx++;
-      drops++;
-      LF_PAUSE();
-      continue;
-    }
-    u64 msg_off = ref.val;
-    msg_t *msg = (msg_t*)((char*)b + msg_off);
-    size_t msg_sz = msg->size;
-    if (msg_sz > b->max_msg_sz) { // Size doesn't make sense.. inconsistent
-      LF_PAUSE();
-      continue;
-    }
-    memcpy(channel_buf, msg->channel, sizeof(msg->channel));
-    memcpy(buf, msg->payload, msg_sz);
-
-    LF_BARRIER_ACQUIRE();
-
-    lf_ref_t ref2 = *ref_ptr;
-    if (!LF_REF_EQUAL(ref, ref2)) { // Data changed while reading? Drop it.
-      sub->idx++;
-      drops++;
+      sub->drops++;
       LF_PAUSE();
       continue;
     }
 
-    sub->idx++;
-    *_out_len = msg_sz;
-    *_out_drops  = drops;
-    return true;
+    u64 buf_off = ref.val;
+    void *buf = (char*)b + buf_off;
+
+    // save the ref and ref_ptr so we can check validity again later
+    sub->active_ref_ptr = ref_ptr;
+    sub->active_ref = ref;
+
+    return buf;
   }
+}
+
+bool lf_bcast_sub_consume_end(lf_bcast_sub_t *_sub)
+{
+   sub_impl_t *sub   = (sub_impl_t*)_sub;
+
+   LF_BARRIER_ACQUIRE();
+
+   lf_ref_t ref = *sub->active_ref_ptr;
+   bool valid = LF_REF_EQUAL(ref, sub->active_ref); // Did data change while reading?
+   if (!valid) {
+     sub->drops++;
+   }
+
+   sub->idx++;
+   return valid;
+}
+
+    /* size_t msg_sz = msg->size; */
+    /* if (msg_sz > b->max_msg_sz) { // Size doesn't make sense.. inconsistent */
+    /*   LF_PAUSE(); */
+    /*   continue; */
+    /* } */
+    /* memcpy(channel_buf, msg->channel, sizeof(msg->channel)); */
+    /* memcpy(buf, msg->payload, msg_sz); */
+
+    /* LF_BARRIER_ACQUIRE(); */
+
+    /* lf_ref_t ref2 = *ref_ptr; */
+    /* if (!LF_REF_EQUAL(ref, ref2)) { // Data changed while reading? Drop it. */
+    /*   sub->idx++; */
+    /*   drops++; */
+    /*   LF_PAUSE(); */
+    /*   continue; */
+    /* } */
+
+/*     sub->idx++; */
+/*     *_out_len = msg_sz; */
+/*     *_out_drops  = drops; */
+/*     return true; */
+/*   } */
+/* } */
+
+void * lf_bcast_buf_acquire(lf_bcast_t *b)
+{
+  return lf_pool_acquire(get_pool(b));
+}
+
+void lf_bcast_buf_release(lf_bcast_t *b, void *ptr)
+{
+  lf_pool_release(get_pool(b), ptr);
 }
 
 void lf_bcast_footprint(size_t depth, size_t max_msg_sz, size_t *_size, size_t *_align)
