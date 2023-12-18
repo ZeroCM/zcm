@@ -190,8 +190,12 @@ const void *lf_bcast_sub_consume_begin(lf_bcast_sub_t *_sub, int64_t timeout)
     u64 tail_idx = b->tail_idx;
     LF_BARRIER_ACQUIRE();
     if (sub->idx == tail_idx) {
-      if (timeout > 0) wait(sub, &timeout);
-      continue;
+      if (timeout > 0) { /* wait for a wakeup? */
+	wait(sub, &timeout);
+	continue;
+      } else { /* No timeout.. return right away */
+	return NULL;
+      }
     }
 
     lf_ref_t * ref_ptr = &b->slots[sub->idx & b->depth_mask];

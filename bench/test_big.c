@@ -84,7 +84,7 @@ static void *publish_thread_direct(void *usr)
   usleep((i64)1e6); // wait for subscribe side to init (if needed)
 
   while (st->running) {
-    waitfor((i64)5e6); // 5 millis
+    waitfor((i64)10e6); // 10 millis
 
     DATA->send_time = wallclock();
     DATA->msg_size = st->msg_size;

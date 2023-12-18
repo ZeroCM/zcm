@@ -26,6 +26,7 @@ struct __attribute__((aligned(256))) Msg
 
   __attribute__((aligned(256))) u8 payload[];
 };
+static_assert(sizeof(Msg) == 256, "");
 
 static inline bool parse_u64(const char *s, uint64_t *_num)
 {
@@ -89,7 +90,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         const char *region_name = zcm_url_address(url);
 
         size_t region_size, region_align;
-        lf_bcast_footprint(queue_depth, msg_maxsz, msg_align, &region_size, &region_align);
+        lf_bcast_footprint(queue_depth, sizeof(Msg) + msg_maxsz, msg_align, &region_size, &region_align);
 
         region_size = LF_ALIGN_UP(region_size, 16384); // FIXME Page size constant
 
@@ -104,9 +105,9 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         }
 
         if (created) {
-          bcast = lf_bcast_mem_init(mem, queue_depth, msg_maxsz, msg_align);
+          bcast = lf_bcast_mem_init(mem, queue_depth, sizeof(Msg) + msg_maxsz, msg_align);
         } else {
-          bcast = lf_bcast_mem_join(mem, queue_depth, msg_maxsz, msg_align);
+          bcast = lf_bcast_mem_join(mem, queue_depth, sizeof(Msg) + msg_maxsz, msg_align);
         }
 
         if (!bcast) {
@@ -117,7 +118,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
         lf_bcast_sub_init(sub, bcast);
 
-	int ret = posix_memalign((void**)&recv, msg_align, msg_maxsz);
+	int ret = posix_memalign((void**)&recv, msg_align, sizeof(Msg) + msg_maxsz);
 	if (ret != 0) {
 	  ZCM_DEBUG("Failed allocate recvbuf");
 	  lf_bcast_mem_leave(bcast);
@@ -164,11 +165,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
       m->size = msg.len;
       assert(channel_len < sizeof(m->channel));
       memcpy(m->channel, msg.channel, channel_len+1);
-
-      i64 start = wallclock();
       memcpy(m->payload, msg.buf, msg.len);
-      i64 dt = wallclock() - start;
-      printf("sendmsg memcpy tm: %ld\n", dt);
       
       lf_bcast_pub(bcast, m);
       return ZCM_EOK;
@@ -195,11 +192,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         // FIXME validate 'len'
 
         memcpy(recv->channel, m->channel, sizeof(recv->channel));
-
-	i64 start = wallclock();
         memcpy(recv->payload, m->payload, len);
-	i64 dt = wallclock() - start;
-	printf("recvmsg memcpy tm: %ld\n", dt);
 
         bool ref_valid = lf_bcast_sub_consume_end(sub);
         bool channel_valid = !!strchr(recv->channel, 0);
