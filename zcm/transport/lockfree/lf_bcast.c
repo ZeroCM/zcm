@@ -15,21 +15,12 @@ struct __attribute__((aligned(CACHE_LINE_SZ))) lf_bcast
   u64      head_idx;
   u64      tail_idx;
   size_t   pool_off;
-  char     _pad_2[CACHE_LINE_SZ - 5*sizeof(u64) - sizeof(size_t)];
+  char     _pad_2[CACHE_LINE_SZ - 4*sizeof(u64) - sizeof(size_t)];
 
   lf_ref_t slots[];
 };
 static_assert(sizeof(lf_bcast_t) == CACHE_LINE_SZ, "");
 static_assert(alignof(lf_bcast_t) == CACHE_LINE_SZ, "");
-
-typedef struct msg msg_t;
-struct __attribute__((aligned(alignof(u128)))) msg
-{
-  u64  size;
-  char channel[CHANNEL_MAXLEN+1];
-
-  __attribute__((aligned(256))) u8 payload[];
-};
 
 typedef struct sub_impl sub_impl_t;
 struct __attribute__((aligned(16))) sub_impl
@@ -120,9 +111,9 @@ static void try_drop_head(lf_bcast_t *b, u64 head_idx)
   if (!LF_U64_CAS(&b->head_idx, head_idx, head_idx+1)) return;
 
   // FIXME: THIS IS WHERE WE MIGHT LOSE SHARED RESOURCES
-  u64 msg_off = head_cur.val;
-  msg_t *msg = (msg_t*)((char*)b + msg_off);
-  lf_pool_release(get_pool(b), msg);
+  u64 buf_off = head_cur.val;
+  void *buf = (char*)b + buf_off;
+  lf_pool_release(get_pool(b), buf);
 }
 
 void lf_bcast_pub(lf_bcast_t *b, void *buf)
@@ -237,31 +228,6 @@ bool lf_bcast_sub_consume_end(lf_bcast_sub_t *_sub)
    return valid;
 }
 
-    /* size_t msg_sz = msg->size; */
-    /* if (msg_sz > b->max_msg_sz) { // Size doesn't make sense.. inconsistent */
-    /*   LF_PAUSE(); */
-    /*   continue; */
-    /* } */
-    /* memcpy(channel_buf, msg->channel, sizeof(msg->channel)); */
-    /* memcpy(buf, msg->payload, msg_sz); */
-
-    /* LF_BARRIER_ACQUIRE(); */
-
-    /* lf_ref_t ref2 = *ref_ptr; */
-    /* if (!LF_REF_EQUAL(ref, ref2)) { // Data changed while reading? Drop it. */
-    /*   sub->idx++; */
-    /*   drops++; */
-    /*   LF_PAUSE(); */
-    /*   continue; */
-    /* } */
-
-/*     sub->idx++; */
-/*     *_out_len = msg_sz; */
-/*     *_out_drops  = drops; */
-/*     return true; */
-/*   } */
-/* } */
-
 void * lf_bcast_buf_acquire(lf_bcast_t *b)
 {
   return lf_pool_acquire(get_pool(b));
@@ -274,7 +240,7 @@ void lf_bcast_buf_release(lf_bcast_t *b, void *ptr)
 
 void lf_bcast_footprint(size_t depth, size_t max_msg_sz, size_t *_size, size_t *_align)
 {
-  size_t elt_sz    = LF_ALIGN_UP(sizeof(msg_t) + max_msg_sz, alignof(u128));
+  size_t elt_sz    = LF_ALIGN_UP(max_msg_sz, alignof(u128));
   size_t pool_elts = depth + ESTIMATED_PUBLISHERS;
 
   size_t pool_size, pool_align;
@@ -294,7 +260,7 @@ lf_bcast_t * lf_bcast_mem_init(void *mem, size_t depth, size_t max_msg_sz)
   if (!LF_IS_POW2(depth)) return NULL;
   if (max_msg_sz == 0) return NULL;
 
-  size_t elt_sz    = LF_ALIGN_UP(sizeof(msg_t) + max_msg_sz, alignof(u128));
+  size_t elt_sz    = LF_ALIGN_UP(max_msg_sz, alignof(u128));
   size_t pool_elts = depth + ESTIMATED_PUBLISHERS;
 
   size_t pool_size, pool_align;
@@ -326,7 +292,7 @@ lf_bcast_t * lf_bcast_mem_join(void *mem, size_t depth, size_t max_msg_sz)
   if (depth-1 != bcast->depth_mask) return NULL;
   if (max_msg_sz != bcast->max_msg_sz) return NULL;
 
-  size_t elt_sz    = LF_ALIGN_UP(sizeof(msg_t) + max_msg_sz, alignof(u128));
+  size_t elt_sz    = LF_ALIGN_UP(max_msg_sz, alignof(u128));
   size_t pool_elts = depth + ESTIMATED_PUBLISHERS;
 
   void * pool_mem = (char*)mem + bcast->pool_off;
