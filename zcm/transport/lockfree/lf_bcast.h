@@ -15,7 +15,7 @@ struct __attribute__((aligned(16))) lf_bcast_sub { char _opaque[64]; };
 
 /*************************************************************************************************/
 /* New/delete API */
-lf_bcast_t * lf_bcast_new(size_t depth, size_t max_msg_sz);
+lf_bcast_t * lf_bcast_new(size_t depth, size_t elt_sz, size_t elt_align);
 void         lf_bcast_delete(lf_bcast_t *bcast);
 
 /*************************************************************************************************/
@@ -72,13 +72,13 @@ bool lf_bcast_sub_consume_end(lf_bcast_sub_t *sub);
 /* Advanced API */
 
 /* Computes the footprint of the memory region (size and alignment) based on the parameters */
-void lf_bcast_footprint(size_t depth, size_t max_msg_sz, size_t *size, size_t *align);
+bool lf_bcast_footprint(size_t depth, size_t elt_sz, size_t elt_align, size_t *size, size_t *align);
 
 /* Initialize a new memory region into a new bcast queue */
-lf_bcast_t * lf_bcast_mem_init(void *mem, size_t depth, size_t max_msg_sz);
+lf_bcast_t * lf_bcast_mem_init(void *mem, size_t depth, size_t elt_sz, size_t elt_align);
 
 /* Join an existing, previously initialized bcast region */
-lf_bcast_t * lf_bcast_mem_join(void *mem, size_t depth, size_t max_msg_sz);
+lf_bcast_t * lf_bcast_mem_join(void *mem, size_t depth, size_t elt_sz, size_t elt_align);
 
 /* Leave the bcast region without destorying it */
 void lf_bcast_mem_leave(lf_bcast_t *lf_bcast);

@@ -8,19 +8,22 @@
 #define ESTIMATED_PUBLISHERS 16
 #define CHANNEL_MAXLEN 32
 
-struct __attribute__((aligned(CACHE_LINE_SZ))) lf_bcast
+#define LF_BCAST_ALIGN 4096
+
+struct __attribute__((aligned(LF_BCAST_ALIGN))) lf_bcast
 {
   u64      depth_mask;
-  u64      max_msg_sz;
+  u64      elt_sz;
   u64      head_idx;
   u64      tail_idx;
   size_t   pool_off;
-  char     _pad_2[CACHE_LINE_SZ - 4*sizeof(u64) - sizeof(size_t)];
+  char     _pad[LF_BCAST_ALIGN - 4*sizeof(u64) - sizeof(size_t)];
 
   lf_ref_t slots[];
 };
-static_assert(sizeof(lf_bcast_t) == CACHE_LINE_SZ, "");
-static_assert(alignof(lf_bcast_t) == CACHE_LINE_SZ, "");
+static_assert(sizeof(lf_bcast_t) == LF_BCAST_ALIGN, "");
+static_assert(alignof(lf_bcast_t) == LF_BCAST_ALIGN, "");
+static_assert(offsetof(lf_bcast_t, slots) == LF_BCAST_ALIGN, "");
 
 typedef struct sub_impl sub_impl_t;
 struct __attribute__((aligned(16))) sub_impl
@@ -81,16 +84,18 @@ static void wake(lf_bcast_t *bcast)
   syscall(SYS_futex, addr, FUTEX_WAKE, INT32_MAX, 0, NULL, 0);
 }
 
-lf_bcast_t * lf_bcast_new(size_t depth, size_t max_msg_sz)
+lf_bcast_t * lf_bcast_new(size_t depth, size_t elt_sz, size_t elt_align)
 {
   size_t mem_sz, mem_align;
-  lf_bcast_footprint(depth, max_msg_sz, &mem_sz, &mem_align);
+  if (!lf_bcast_footprint(depth, elt_sz, elt_align, &mem_sz, &mem_align)) {
+    return NULL;
+  }
 
   void *mem = NULL;
   int ret = posix_memalign(&mem, mem_align, mem_sz);
   if (ret != 0) return NULL;
 
-  lf_bcast_t *bcast = lf_bcast_mem_init(mem, depth, max_msg_sz);
+  lf_bcast_t *bcast = lf_bcast_mem_init(mem, depth, elt_sz, elt_align);
   if (!bcast) {
     free(mem);
     return NULL;
@@ -238,13 +243,16 @@ void lf_bcast_buf_release(lf_bcast_t *b, void *ptr)
   lf_pool_release(get_pool(b), ptr);
 }
 
-void lf_bcast_footprint(size_t depth, size_t max_msg_sz, size_t *_size, size_t *_align)
+bool lf_bcast_footprint(size_t depth, size_t elt_sz, size_t elt_align, size_t *_size, size_t *_align)
 {
-  size_t elt_sz    = LF_ALIGN_UP(max_msg_sz, alignof(u128));
+  if (!LF_IS_POW2(depth)) return false;
+
   size_t pool_elts = depth + ESTIMATED_PUBLISHERS;
 
   size_t pool_size, pool_align;
-  lf_pool_footprint(pool_elts, elt_sz, &pool_size, &pool_align);
+  if (!lf_pool_footprint(pool_elts, elt_sz, elt_align, &pool_size, &pool_align)) {
+    return false;
+  }
 
   size_t size = sizeof(lf_bcast_t);
   size += depth * sizeof(lf_ref_t);
@@ -253,18 +261,20 @@ void lf_bcast_footprint(size_t depth, size_t max_msg_sz, size_t *_size, size_t *
 
   if (_size)  *_size  = size;
   if (_align) *_align = alignof(lf_bcast_t);
+  return true;
 }
 
-lf_bcast_t * lf_bcast_mem_init(void *mem, size_t depth, size_t max_msg_sz)
+lf_bcast_t * lf_bcast_mem_init(void *mem, size_t depth, size_t elt_sz, size_t elt_align)
 {
-  if (!LF_IS_POW2(depth)) return NULL;
-  if (max_msg_sz == 0) return NULL;
+  /* Sanity check the parameters */
+  if (!lf_bcast_footprint(depth, elt_sz, elt_align, NULL, NULL)) {
+    return NULL;
+  }
 
-  size_t elt_sz    = LF_ALIGN_UP(max_msg_sz, alignof(u128));
   size_t pool_elts = depth + ESTIMATED_PUBLISHERS;
 
   size_t pool_size, pool_align;
-  lf_pool_footprint(pool_elts, elt_sz, &pool_size, &pool_align);
+  lf_pool_footprint(pool_elts, elt_sz, elt_align, &pool_size, &pool_align);
 
   size_t size     = sizeof(lf_bcast_t) + depth * sizeof(lf_ref_t);
   size_t pool_off = LF_ALIGN_UP(size, pool_align);
@@ -272,31 +282,35 @@ lf_bcast_t * lf_bcast_mem_init(void *mem, size_t depth, size_t max_msg_sz)
 
   lf_bcast_t *b = (lf_bcast_t*)mem;
   b->depth_mask = depth-1;
-  b->max_msg_sz = max_msg_sz;
+  b->elt_sz = elt_sz;
   b->head_idx = 1; /* Start from 1 because we use 0 to mean "unused" */
   b->tail_idx = 1; /* Start from 1 because we use 0 to mean "unused" */
   b->pool_off = pool_off;
 
   memset(b->slots, 0, depth * sizeof(lf_ref_t));
 
-  lf_pool_t *pool = lf_pool_mem_init(pool_mem, pool_elts, elt_sz);
+  lf_pool_t *pool = lf_pool_mem_init(pool_mem, pool_elts, elt_sz, elt_align);
   if (!pool) return NULL;
   assert(pool == pool_mem);
 
   return b;
 }
 
-lf_bcast_t * lf_bcast_mem_join(void *mem, size_t depth, size_t max_msg_sz)
+lf_bcast_t * lf_bcast_mem_join(void *mem, size_t depth, size_t elt_sz, size_t elt_align)
 {
+  /* Sanity check the parameters */
+  if (!lf_bcast_footprint(depth, elt_sz, elt_align, NULL, NULL)) {
+    return NULL;
+  }
+
   lf_bcast_t *bcast = (lf_bcast_t *)mem;
   if (depth-1 != bcast->depth_mask) return NULL;
-  if (max_msg_sz != bcast->max_msg_sz) return NULL;
+  if (elt_sz != bcast->elt_sz) return NULL;
 
-  size_t elt_sz    = LF_ALIGN_UP(max_msg_sz, alignof(u128));
   size_t pool_elts = depth + ESTIMATED_PUBLISHERS;
 
   void * pool_mem = (char*)mem + bcast->pool_off;
-  lf_pool_t * pool = lf_pool_mem_join(pool_mem, pool_elts, elt_sz);
+  lf_pool_t * pool = lf_pool_mem_join(pool_mem, pool_elts, elt_sz, elt_align);
   if (!pool) return NULL;
   assert(pool == pool_mem);
 

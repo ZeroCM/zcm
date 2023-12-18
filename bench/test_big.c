@@ -10,7 +10,7 @@
 #define VERBOSE 1
 
 #define URL_IPC "ipc"
-#define URL_IPCSHM "ipcshm://test_direct?mtu=10100000&depth=4"
+#define URL_IPCSHM "ipcshm://test_big?mtu=110000000&depth=4"
 
 typedef struct test_result test_result_t;
 struct test_result
@@ -37,7 +37,7 @@ struct data
 {
   i64 send_time;
   size_t msg_size;
-  __attribute__((aligned(alignof(u64)))) char BLOB[2*(1<<20)];
+  __attribute__((aligned(alignof(u64)))) char BLOB[100*(1<<20)];
 };
 static data_t *DATA = NULL;
 
@@ -192,7 +192,7 @@ int main(int argc, char *argv[])
 
   blob_init();
 
-  size_t msg_size = 10*(1<<20);
+  size_t msg_size = 100*(1<<20);
   test_result_t res = run_test_direct(URL_IPCSHM, msg_size, limit);
   double dt = (double)res.total_delay / res.num_messages;
 

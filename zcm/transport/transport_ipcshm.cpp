@@ -15,11 +15,11 @@
 
 // Define this the class name you want
 #define ZCM_TRANS_NAME TransportIpcShm
-#define DEFAULT_MTU 1024 /* FIXME */
+#define DEFAULT_MSG_MAXSZ 1024
 #define DEFAULT_DEPTH 16
 
 typedef struct Msg Msg;
-struct __attribute__((aligned(alignof(u128)))) Msg
+struct __attribute__((aligned(256))) Msg
 {
   u64  size;
   char channel[ZCM_CHANNEL_MAXLEN+1];
@@ -49,10 +49,10 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     lf_bcast_t *bcast = nullptr;
     lf_bcast_sub_t sub[1] = {{}};
 
-    char recvchan[ZCM_CHANNEL_MAXLEN+1];
-    void * recvbuf = nullptr;
+    Msg *recv = nullptr;
 
-    size_t mtu = DEFAULT_MTU;
+    size_t msg_maxsz = DEFAULT_MSG_MAXSZ;
+    size_t msg_align = alignof(Msg);
     size_t queue_depth = DEFAULT_DEPTH;
 
     void *mem = nullptr;
@@ -75,7 +75,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
           if (0 == strcmp(opts->name[i], "mtu")) {
             if (parse_u64(opts->value[i], &tmp)) {
               ZCM_DEBUG("Setting mtu=%" PRIu64, tmp);
-              mtu = tmp;
+              msg_maxsz = LF_ALIGN_UP(tmp, msg_align);
             }
           }
           if (0 == strcmp(opts->name[i], "depth")) {
@@ -89,7 +89,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         const char *region_name = zcm_url_address(url);
 
         size_t region_size, region_align;
-        lf_bcast_footprint(queue_depth, mtu, &region_size, &region_align);
+        lf_bcast_footprint(queue_depth, msg_maxsz, msg_align, &region_size, &region_align);
 
         region_size = LF_ALIGN_UP(region_size, 16384); // FIXME Page size constant
 
@@ -104,9 +104,9 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         }
 
         if (created) {
-          bcast = lf_bcast_mem_init(mem, queue_depth, mtu);
+          bcast = lf_bcast_mem_init(mem, queue_depth, msg_maxsz, msg_align);
         } else {
-          bcast = lf_bcast_mem_join(mem, queue_depth, mtu);
+          bcast = lf_bcast_mem_join(mem, queue_depth, msg_maxsz, msg_align);
         }
 
         if (!bcast) {
@@ -117,14 +117,21 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
         lf_bcast_sub_init(sub, bcast);
 
-        recvbuf = malloc(mtu);
-
+	int ret = posix_memalign((void**)&recv, msg_align, msg_maxsz);
+	if (ret != 0) {
+	  ZCM_DEBUG("Failed allocate recvbuf");
+	  lf_bcast_mem_leave(bcast);
+          lf_shm_close(mem, shm_size);
+	  bcast = NULL;
+          return;
+	}
+	
         ZCM_DEBUG("Created ipcshm transport");
     }
 
     ~ZCM_TRANS_CLASSNAME()
     {
-      if (recvbuf) free(recvbuf);
+      if (recv) free(recv);
       if (bcast) lf_bcast_mem_leave(bcast);
       if (mem) lf_shm_close(mem, shm_size);
     }
@@ -137,12 +144,14 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     /********************** METHODS **********************/
     size_t get_mtu()
     {
-        return mtu;
+      return msg_maxsz;
     }
 
     int sendmsg(zcm_msg_t msg)
     {
-      if (msg.len > mtu) { // FIMXE: DOESN'T ACCOUNT FOR HEADER SPACE!!!
+      if (msg.len > msg_maxsz) { // FIMXE: DOESN'T ACCOUNT FOR HEADER SPACE!!!
+	ZCM_DEBUG("Message length: %zu", msg.len);
+	ZCM_DEBUG("MTU Limit: %zu", msg_maxsz);
         return ZCM_EINVALID;
       }
 
@@ -155,8 +164,12 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
       m->size = msg.len;
       assert(channel_len < sizeof(m->channel));
       memcpy(m->channel, msg.channel, channel_len+1);
-      memcpy(m->payload, msg.buf, msg.len);
 
+      i64 start = wallclock();
+      memcpy(m->payload, msg.buf, msg.len);
+      i64 dt = wallclock() - start;
+      printf("sendmsg memcpy tm: %ld\n", dt);
+      
       lf_bcast_pub(bcast, m);
       return ZCM_EOK;
     }
@@ -181,11 +194,15 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
         // FIXME validate 'len'
 
-        memcpy(recvchan, m->channel, sizeof(recvchan));
-        memcpy(recvbuf, m->payload, len);
+        memcpy(recv->channel, m->channel, sizeof(recv->channel));
+
+	i64 start = wallclock();
+        memcpy(recv->payload, m->payload, len);
+	i64 dt = wallclock() - start;
+	printf("recvmsg memcpy tm: %ld\n", dt);
 
         bool ref_valid = lf_bcast_sub_consume_end(sub);
-        bool channel_valid = !!strchr(recvchan, 0);
+        bool channel_valid = !!strchr(recv->channel, 0);
 
         bool valid = ref_valid & channel_valid;
         if (!valid) {
@@ -195,9 +212,9 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
         // All good, prepare return struct
         msg->utime = TimeUtil::utime();
-        msg->channel = recvchan;
+        msg->channel = recv->channel;
         msg->len = len;
-        msg->buf = (uint8_t*)recvbuf;
+        msg->buf = (uint8_t*)recv->payload;
         return ZCM_EOK;
     }
 
