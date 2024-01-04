@@ -144,7 +144,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             if (nbytes < 0) {
                 uint64_t diff = TimeUtil::utime() - readStartUtime;
                 if (me->timeoutLeftUs <= diff) return 0;
-                TimeUtil::usleep(me->timeoutLeftUs - diff);
+                usleep(me->timeoutLeftUs - diff);
             }
             return 0;
         }
@@ -224,7 +224,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             if (ret == ZCM_EOK) return ret;
 
             unsigned timeoutS = timeoutLeftUs / 1000000;
-            unsigned timeoutUs = timeoutLeftUs - timeoutS * 1000000
+            unsigned timeoutUs = timeoutLeftUs - timeoutS * 1000000;
             struct timeval tm = {
                 timeoutS,  /* seconds */
                 timeoutUs, /* micros */
