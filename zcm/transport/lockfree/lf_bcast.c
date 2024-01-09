@@ -6,20 +6,18 @@
 #include <unistd.h>
 
 #define ESTIMATED_PUBLISHERS 16
-#define CHANNEL_MAXLEN 32
-
 #define LF_BCAST_ALIGN 4096
 
 struct __attribute__((aligned(LF_BCAST_ALIGN))) lf_bcast
 {
-  u64      depth_mask;
-  u64      elt_sz;
-  u64      head_idx;
-  u64      tail_idx;
-  size_t   pool_off;
+  u64      depth_mask;   // Precomputed: "depth-1", used as a mask for slot indicies since depth is a power-of-two
+  u64      elt_sz;       // Size of the elements used in the queue
+  u64      head_idx;     // Index of the head of the queue: slot index is "head_idx % depth"
+  u64      tail_idx;     // Index of the tail of the queue: slot index is "tail_idx % depth"
+  size_t   pool_off;     // Memory offset to the element pool
   char     _pad[LF_BCAST_ALIGN - 4*sizeof(u64) - sizeof(size_t)];
 
-  lf_ref_t slots[];
+  lf_ref_t slots[];      // Queue slots: ref is the tuple (tag=queue_idx, val=element_off)
 };
 static_assert(sizeof(lf_bcast_t) == LF_BCAST_ALIGN, "");
 static_assert(alignof(lf_bcast_t) == LF_BCAST_ALIGN, "");
@@ -31,8 +29,7 @@ struct __attribute__((aligned(16))) sub_impl
   lf_bcast_t * bcast;
   u64          idx;
   u64          drops;
-  lf_ref_t *   active_ref_ptr;
-  lf_ref_t     active_ref;
+  bool         active;
   char         _extra[16];
 };
 static_assert(sizeof(sub_impl_t) == sizeof(lf_bcast_sub_t), "");
@@ -40,7 +37,8 @@ static_assert(alignof(sub_impl_t) == alignof(lf_bcast_sub_t), "");
 
 static inline lf_pool_t *get_pool(lf_bcast_t *b) { return (lf_pool_t*)((char*)b + b->pool_off); }
 
-static uint32_t *wait_addr(lf_bcast_t *b)
+// Determine the futex wait addresss (depending on endianness)
+static inline uint32_t *wait_addr(lf_bcast_t *b)
 {
 #if defined(__BYTE_ORDER)
 # if __BYTE_ORDER == __LITTLE_ENDIAN
@@ -53,14 +51,33 @@ static uint32_t *wait_addr(lf_bcast_t *b)
 #endif
 }
 
+// Wait for the next message until "*_timeout" nanos. Updates "*_timeout" with the remaining time.
 static void wait(sub_impl_t *sub, int64_t *_timeout)
 {
   // Wait for next message with futex_wait. Unfortunately, linux only supports
-  // 32-bit futex, so we truncate to the lower 32-bits. We will assume little-endian
-  // here. This is checked in lf_machine_assumptions.h
-
-
-  // TODO: Explain the subtlties of using lower 32-bits
+  // 32-bit futex, so we truncate to the lower 32-bits.
+  //
+  // The state that the futex waits on is the queue tail index. This index is 64-bit so that
+  // the index will never wrap around for the lifetime of the program.
+  //
+  // Justification of 64-bit indicies:
+  //   If an element is enqueued once every 100 ns, the index will overrun after
+  //   (100 * (1<<64))/1e9/60/60/24/365 = 58494 years
+  //
+  // However, since futex doesn't support 64-bit we truncate to the lower 32-bits.
+  // This means that will will collide on the index every:
+  //   (100 * (1<<32))/1e9/60 = 7 sec (assuming sustained 100ns enqueues)
+  //
+  // The risk of this is significantly smaller than this result might suggest and the
+  // impact is minimal.
+  //
+  // For the collision to occur, one waiter would have to be suspended for >7 sec (realistically
+  // likely >1 minute). And then, it has to catch the falling knife on the exact number.
+  // Futex wait uses equality comparison in the kernel. All this to say that the risk is
+  // quite small.
+  //
+  // If the collision does ocurr, it means that the receiver misses a wakeup. But, it will
+  // get woken up again as soon as the next message is sent.
 
   int64_t start = wallclock();
 
@@ -70,17 +87,18 @@ static void wait(sub_impl_t *sub, int64_t *_timeout)
     .tv_nsec = timeout % (int64_t)1e9,
   };
 
-  uint32_t   val  = (uint64_t)sub->idx;
-  uint32_t * addr = (uint32_t*)&sub->bcast->tail_idx;
+  uint32_t   val  = (uint32_t)sub->idx;
+  uint32_t * addr = wait_addr(sub->bcast);
   syscall(SYS_futex, addr, FUTEX_WAIT, val, tm, NULL, 0);
 
   int64_t dt = wallclock() - start;
-  *_timeout = timeout > dt ? timeout - dt : 0;
+  *_timeout = dt < timeout ? timeout - dt : 0;
 }
 
+// Wake up all waiters
 static void wake(lf_bcast_t *bcast)
 {
-  uint32_t * addr = (uint32_t*)&bcast->tail_idx;
+  uint32_t * addr = wait_addr(sub->bcast);
   syscall(SYS_futex, addr, FUTEX_WAKE, INT32_MAX, 0, NULL, 0);
 }
 
@@ -111,11 +129,18 @@ void lf_bcast_delete(lf_bcast_t *bcast)
 
 static void try_drop_head(lf_bcast_t *b, u64 head_idx)
 {
-  // TODO AUDIT
+  // Advance head: here we take ownership of the old queue element
+  // and we're responsible for releasing it back to the shared pool.
+  // If we fail at dropping it, we just assume some other core must have
+  // beat us and we'll return
   lf_ref_t head_cur = b->slots[head_idx & b->depth_mask];
   if (!LF_U64_CAS(&b->head_idx, head_idx, head_idx+1)) return;
 
-  // FIXME: THIS IS WHERE WE MIGHT LOSE SHARED RESOURCES
+  // NOTE: IF WE CRASH HERE, WE'LL LEAK A POOL ELEMENT. SOLVING THIS CORRECTLY
+  // REQUIRES A GARBAGE COLLECTION PASS BECAUSE WE CANNOT POSSIBLY CONTROL WHEN
+  // PROCESSES WILL CRASH OR WILL BE 'kill -9'
+
+  // Release the element back to the shm pool.
   u64 buf_off = head_cur.val;
   void *buf = (char*)b + buf_off;
   lf_pool_release(get_pool(b), buf);
@@ -123,17 +148,19 @@ static void try_drop_head(lf_bcast_t *b, u64 head_idx)
 
 void lf_bcast_pub(lf_bcast_t *b, void *buf)
 {
+  // Compute the buffer offset with sanity checks
+  assert((char*)buf > (char*)b && "invalid buffer");
   u64 buf_off = (char*)buf - (char*)b;
-  // FIXME: ASSERT TO CHECK THE BUF IS FROM THE POOL
 
   while (1) {
+    // Start of the trial: load all the shared state to the local stack
     u64        head_idx = b->head_idx;
     u64        tail_idx = b->tail_idx;
     lf_ref_t * tail_ptr = &b->slots[tail_idx & b->depth_mask];
     lf_ref_t   tail_cur = *tail_ptr;
     LF_BARRIER_ACQUIRE();
 
-    // Stale tail pointer? Try to advance it..
+    // Stale tail pointer? Try to advance it and try again..
     if (tail_cur.tag == tail_idx) {
       LF_U64_CAS(&b->tail_idx, tail_idx, tail_idx+1);
       LF_PAUSE();
@@ -146,7 +173,7 @@ void lf_bcast_pub(lf_bcast_t *b, void *buf)
       continue;
     }
 
-    // Slot currently used.. full.. roll off the head
+    // Slot currently used. Queue is full. Roll off the head and try again..
     if (head_idx <= tail_cur.tag) {
       assert(head_idx == tail_cur.tag);
       try_drop_head(b, head_idx);
@@ -154,15 +181,20 @@ void lf_bcast_pub(lf_bcast_t *b, void *buf)
       continue;
     }
 
+    // All the queue consistency checks and corrections passed. Try to append the tail.
     // So far so good, try to append the tail
     lf_ref_t tail_next = LF_REF_MAKE(tail_idx, buf_off);
     if (!LF_REF_CAS(tail_ptr, tail_cur, tail_next)) {
       LF_PAUSE();
-      continue;
+      continue; // Some other core beat us.. try again..
     }
 
-    // Success, try to update the tail idx. If we fail, it's okay.
-    // We've already committed the append. Another pub might race here and that's okay.
+    // At this point, the enqueue is successfull (committed). We still have to bump the
+    // tail_idx forward and wake any waiter so all consumers can receive it.
+    // NOTE: This CAS can fail if another publish races us. The reason we have others fix up the
+    // tail index is that we could crash right here and leave the queue in an inconsistent
+    // state. But, if they can do a fixup then the queue is fully crash-proof :-)
+    // Thus, we try to do the update and don't check the result: it might fail and that's fine.
     LF_U64_CAS(&b->tail_idx, tail_idx, tail_idx+1);
 
     // Wake up all consumers
@@ -186,21 +218,22 @@ const void *lf_bcast_sub_consume_begin(lf_bcast_sub_t *_sub, int64_t timeout)
   sub_impl_t *sub = (sub_impl_t*)_sub;
   lf_bcast_t *b   = sub->bcast;
 
+  assert(!sub->active);
+
   while (1) {
     u64 tail_idx = b->tail_idx;
     LF_BARRIER_ACQUIRE();
     if (sub->idx == tail_idx) {
       if (timeout > 0) { /* wait for a wakeup? */
-	wait(sub, &timeout);
-	continue;
+        wait(sub, &timeout);
+        continue;
       } else { /* No timeout.. return right away */
-	return NULL;
+        return NULL;
       }
     }
 
     lf_ref_t * ref_ptr = &b->slots[sub->idx & b->depth_mask];
     lf_ref_t   ref     = *ref_ptr;
-
     LF_BARRIER_ACQUIRE();
 
     if (ref.tag != sub->idx) { // We've fallen behind and the message we wanted was dropped?
@@ -210,30 +243,31 @@ const void *lf_bcast_sub_consume_begin(lf_bcast_sub_t *_sub, int64_t timeout)
       continue;
     }
 
-    u64 buf_off = ref.val;
-    void *buf = (char*)b + buf_off;
+    // Recover the buffer pointer
+    u64    buf_off = ref.val;
+    void * buf     = (char*)b + buf_off;
 
-    // save the ref and ref_ptr so we can check validity again later
-    sub->active_ref_ptr = ref_ptr;
-    sub->active_ref = ref;
-
+    sub->active = true;
     return buf;
   }
 }
 
 bool lf_bcast_sub_consume_end(lf_bcast_sub_t *_sub)
 {
-   sub_impl_t *sub   = (sub_impl_t*)_sub;
+   sub_impl_t *sub = (sub_impl_t*)_sub;
+   assert(!sub->active);
 
-   LF_BARRIER_ACQUIRE();
-
-   lf_ref_t ref = *sub->active_ref_ptr;
-   bool valid = LF_REF_EQUAL(ref, sub->active_ref); // Did data change while reading?
+   // We need to check if the buffer we returned in lf_bcast_sub_consume_begin() could have
+   // changed while the user was consuming it. The roll-off procedure is just an increment
+   // of the head_idx, so we can verify by simply checking that 'idx >= head_idx'
+   u64 head_idx = sub->bcast->head_idx;
+   bool vaild = sub->idx >= head_idx;
    if (!valid) {
      sub->drops++;
    }
 
    sub->idx++;
+   sub->active = false;
    return valid;
 }
 
