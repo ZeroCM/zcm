@@ -255,7 +255,7 @@ const void *lf_bcast_sub_consume_begin(lf_bcast_sub_t *_sub, int64_t timeout)
 bool lf_bcast_sub_consume_end(lf_bcast_sub_t *_sub)
 {
    sub_impl_t *sub = (sub_impl_t*)_sub;
-   assert(!sub->active);
+   assert(sub->active);
 
    // We need to check if the buffer we returned in lf_bcast_sub_consume_begin() could have
    // changed while the user was consuming it. The roll-off procedure is just an increment
