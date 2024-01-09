@@ -166,12 +166,11 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         ZCM_DEBUG("MTU Limit: %zu", msg_payload_sz);
         return ZCM_EINVALID;
       }
-      if (channel_len >= sizeof(m->channel)) {
-        return ZCM_EINVALID;
-      }
 
       size_t channel_len = strlen(msg.channel);
-      assert(channel_len <= ZCM_CHANNEL_MAXLEN);
+      if (channel_len >= sizeof(Msg::channel)) {
+        return ZCM_EINVALID;
+      }
 
       Msg *m = (Msg*)lf_bcast_buf_acquire(bcast);
       assert(m); // FIXME
@@ -194,8 +193,12 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         i64 timeout_nanos = (i64)timeout_millis * 1000000;
 
         // Try to get the next message in the queue
-        const Msg *msg = (const Msg*)lf_bcast_sub_consume_begin(sub, timeout_nanos);
-        if (!msg) return ZCM_EAGAIN;
+        const Msg *m = (const Msg*)lf_bcast_sub_consume_begin(sub, timeout_nanos);
+        if (!m) return ZCM_EAGAIN;
+
+        //////////////////////////////////////////////////////////////////////////////////////////
+        // BEGIN VOLATILE REGION
+        //////////////////////////////////////////////////////////////////////////////////////////
 
         // Copy it very defensively: the memory is shared and may be invalidated
         // at any time while we copy
@@ -215,8 +218,12 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         // Finish consuming and verify it remained valid while we consumed it
         bool ref_valid = lf_bcast_sub_consume_end(sub);
 
+        //////////////////////////////////////////////////////////////////////////////////////////
+        // END VOLATILE REGION
+        //////////////////////////////////////////////////////////////////////////////////////////
+
         // We copied the channel without verifying it was null-terminated. We do that now.
-        bool channel_valid = !!strchr(recv->channel, 0);
+        bool channel_valid = !!memchr(recv->channel, 0);
 
         // If message was invalidated.. treat as drop
         bool valid = ref_valid & channel_valid;
