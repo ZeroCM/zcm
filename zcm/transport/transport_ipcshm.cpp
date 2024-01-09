@@ -13,10 +13,9 @@
 #include <cassert>
 #include <unistd.h>
 
-// Define this the class name you want
 #define ZCM_TRANS_NAME TransportIpcShm
-#define DEFAULT_MSG_MAXSZ 1024
-#define DEFAULT_DEPTH 16
+#define DEFAULT_MSG_PAYLOAD_SZ 4096
+#define DEFAULT_DEPTH 128
 
 typedef struct Msg Msg;
 struct __attribute__((aligned(256))) Msg
@@ -26,6 +25,7 @@ struct __attribute__((aligned(256))) Msg
 
   __attribute__((aligned(256))) u8 payload[];
 };
+static_assert(alignof(Msg) == 256, "");
 static_assert(sizeof(Msg) == 256, "");
 
 static inline bool parse_u64(const char *s, uint64_t *_num)
@@ -45,6 +45,8 @@ static inline bool parse_u64(const char *s, uint64_t *_num)
   return true;
 }
 
+
+
 struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 {
     lf_bcast_t *bcast = nullptr;
@@ -52,7 +54,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
     Msg *recv = nullptr;
 
-    size_t msg_maxsz = DEFAULT_MSG_MAXSZ;
+    size_t msg_payload_sz = DEFAULT_MSG_PAYLOAD_SZ;
     size_t msg_align = alignof(Msg);
     size_t queue_depth = DEFAULT_DEPTH;
 
@@ -61,9 +63,11 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
     ZCM_TRANS_CLASSNAME(zcm_url_t *url)
     {
+        // Base class properties we're required to set
         trans_type = ZCM_BLOCKING;
         vtbl = &methods;
 
+        // Process any url options
         ZCM_DEBUG("Init ipcshm:");
         ZCM_DEBUG("  address='%s'", zcm_url_address(url));
         zcm_url_opts_t *opts = zcm_url_opts(url);
@@ -76,7 +80,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
           if (0 == strcmp(opts->name[i], "mtu")) {
             if (parse_u64(opts->value[i], &tmp)) {
               ZCM_DEBUG("Setting mtu=%" PRIu64, tmp);
-              msg_maxsz = LF_ALIGN_UP(tmp, msg_align);
+              msg_payload_sz = LF_ALIGN_UP(tmp, msg_align);
             }
           }
           if (0 == strcmp(opts->name[i], "depth")) {
@@ -87,12 +91,17 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
           }
         }
 
+        // Create or join the shm region
         const char *region_name = zcm_url_address(url);
+        size_t msg_maxsz = sizeof(Msg) + msg_payload_sz;
+        msg_maxsz = LF_ALIGN_UP(msg_maxsz, msg_align);
 
         size_t region_size, region_align;
-        lf_bcast_footprint(queue_depth, sizeof(Msg) + msg_maxsz, msg_align, &region_size, &region_align);
+        lf_bcast_footprint(queue_depth, msg_maxsz, msg_align, &region_size, &region_align);
 
-        region_size = LF_ALIGN_UP(region_size, 16384); // FIXME Page size constant
+        size_t page_size = getpagesize();
+        assert(LF_IS_POW2(page_size)); // Sanity or paranoia..
+        region_size = LF_ALIGN_UP(region_size, page_size);
 
         bool created = lf_shm_create(region_name, region_size);
         ZCM_DEBUG("Shm region created: %d", (int)created);
@@ -105,9 +114,9 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         }
 
         if (created) {
-          bcast = lf_bcast_mem_init(mem, queue_depth, sizeof(Msg) + msg_maxsz, msg_align);
+          bcast = lf_bcast_mem_init(mem, queue_depth, msg_maxsz, msg_align);
         } else {
-          bcast = lf_bcast_mem_join(mem, queue_depth, sizeof(Msg) + msg_maxsz, msg_align);
+          bcast = lf_bcast_mem_join(mem, queue_depth, msg_maxsz, msg_align);
         }
 
         if (!bcast) {
@@ -116,17 +125,19 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
           return;
         }
 
+        // Init the subscriber tracking struct
         lf_bcast_sub_init(sub, bcast);
 
-	int ret = posix_memalign((void**)&recv, msg_align, sizeof(Msg) + msg_maxsz);
-	if (ret != 0) {
-	  ZCM_DEBUG("Failed allocate recvbuf");
-	  lf_bcast_mem_leave(bcast);
+        // Allocate a message element for copying received data into
+        int ret = posix_memalign((void**)&recv, msg_align, msg_maxsz);
+        if (ret != 0) {
+          ZCM_DEBUG("Failed allocate recvbuf");
+          lf_bcast_mem_leave(bcast);
           lf_shm_close(mem, shm_size);
-	  bcast = NULL;
+          bcast = NULL;
           return;
-	}
-	
+        }
+
         ZCM_DEBUG("Created ipcshm transport");
     }
 
@@ -145,14 +156,17 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     /********************** METHODS **********************/
     size_t get_mtu()
     {
-      return msg_maxsz;
+      return msg_payload_sz;
     }
 
     int sendmsg(zcm_msg_t msg)
     {
-      if (msg.len > msg_maxsz) { // FIMXE: DOESN'T ACCOUNT FOR HEADER SPACE!!!
-	ZCM_DEBUG("Message length: %zu", msg.len);
-	ZCM_DEBUG("MTU Limit: %zu", msg_maxsz);
+      if (msg.len > msg_payload_sz) {
+        ZCM_DEBUG("Message length: %zu", msg.len);
+        ZCM_DEBUG("MTU Limit: %zu", msg_payload_sz);
+        return ZCM_EINVALID;
+      }
+      if (channel_len >= sizeof(m->channel)) {
         return ZCM_EINVALID;
       }
 
@@ -163,10 +177,9 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
       assert(m); // FIXME
 
       m->size = msg.len;
-      assert(channel_len < sizeof(m->channel));
-      memcpy(m->channel, msg.channel, channel_len+1);
-      memcpy(m->payload, msg.buf, msg.len);
-      
+      memcpy(m->channel, msg.channel, channel_len+1); // Checked above
+      memcpy(m->payload, msg.buf, msg.len); // Checked above
+
       lf_bcast_pub(bcast, m);
       return ZCM_EOK;
     }
@@ -176,34 +189,40 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         return ZCM_EOK;
     }
 
-    int recvmsg(zcm_msg_t *msg, int timeout)
+    int recvmsg(zcm_msg_t *msg, int timeout_millis)
     {
-        i64 timeout_nanos = (i64)timeout * 1000000;
+        i64 timeout_nanos = (i64)timeout_millis * 1000000;
 
         // Try to get the next message in the queue
-        const void *buf = lf_bcast_sub_consume_begin(sub, timeout_nanos);
-        if (!buf) return ZCM_EAGAIN;
+        const Msg *msg = (const Msg*)lf_bcast_sub_consume_begin(sub, timeout_nanos);
+        if (!msg) return ZCM_EAGAIN;
 
         // Copy it very defensively: the memory is shared and may be invalidated
         // at any time while we copy
-        const Msg *m = (const Msg*)buf;
-        size_t len = m->size;
 
-        // FIXME validate 'len'
+        // Sanity check the payload size. This is NOT redundant. It's very important.
+        // Data is in a volatile region so it could have a transient state where the size could trigger a buffer overrun!
+        size_t size = msg->size;
+        if (size > msg_payload_sz) { // Weird size.. drop it
+          lf_bcast_sub_consume_end(sub);
+          return;
+        }
 
+        // Copy everything
         memcpy(recv->channel, m->channel, sizeof(recv->channel));
         memcpy(recv->payload, m->payload, len);
 
+        // Finish consuming and verify it remained valid while we consumed it
         bool ref_valid = lf_bcast_sub_consume_end(sub);
+
+        // We copied the channel without verifying it was null-terminated. We do that now.
         bool channel_valid = !!strchr(recv->channel, 0);
 
+        // If message was invalidated.. treat as drop
         bool valid = ref_valid & channel_valid;
-        if (!valid) {
-          // Message was invalidated.. treat as drop
-          return ZCM_EAGAIN;
-        }
+        if (!valid) return ZCM_EAGAIN;
 
-        // All good, prepare return struct
+        // All good, prepare the result struct
         msg->utime = TimeUtil::utime();
         msg->channel = recv->channel;
         msg->len = len;
