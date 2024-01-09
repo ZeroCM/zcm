@@ -205,7 +205,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
         // Sanity check the payload size. This is NOT redundant. It's very important.
         // Data is in a volatile region so it could have a transient state where the size could trigger a buffer overrun!
-        size_t size = msg->size;
+        size_t size = m->size;
         if (size > msg_payload_sz) { // Weird size.. drop it
           lf_bcast_sub_consume_end(sub);
           return;
@@ -230,10 +230,10 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         if (!valid) return ZCM_EAGAIN;
 
         // All good, prepare the result struct
-        msg->utime = TimeUtil::utime();
-        msg->channel = recv->channel;
-        msg->len = len;
-        msg->buf = (uint8_t*)recv->payload;
+        m->utime = TimeUtil::utime();
+        m->channel = recv->channel;
+        m->len = len;
+        m->buf = (uint8_t*)recv->payload;
         return ZCM_EOK;
     }
 
