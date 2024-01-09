@@ -208,7 +208,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         size_t size = m->size;
         if (size > msg_payload_sz) { // Weird size.. drop it
           lf_bcast_sub_consume_end(sub);
-          return;
+          return ZCM_EAGAIN;
         }
 
         // Copy everything
