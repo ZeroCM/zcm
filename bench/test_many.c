@@ -6,10 +6,11 @@
 #include "zcmtypes/blob_t.h"
 
 #define VERBOSE 0
-#define LIMIT 300
+#define LIMIT 100
 
 #define URL_IPC "ipc"
-#define URL_IPCSHM "ipcshm://test_many?mtu=3000000&depth=4"
+#define URL_IPCSHM "ipcshm://test_many?mtu=10000000&depth=4"
+#define MAX_SZ (10*(1<<20))
 
 static size_t TESTCASES[] = {
   100,
@@ -17,7 +18,7 @@ static size_t TESTCASES[] = {
   10000,
   100000,
   1000000,
-  2000000,
+  10000000,
 };
 
 typedef struct test_result test_result_t;
@@ -44,7 +45,7 @@ struct data
 {
   i64 send_time;
   size_t msg_size;
-  __attribute__((aligned(alignof(u64)))) char BLOB[2*(1<<20)];
+  __attribute__((aligned(alignof(u64)))) char BLOB[MAX_SZ];
 };
 static data_t DATA[1];
 
@@ -67,7 +68,7 @@ static void *publish_thread(void *usr)
   usleep((i64)1e6); // wait for subscribe side to init (if needed)
 
   while (st->running) {
-    usleep((i64)10e3); // 10 millis
+    usleep((i64)1e3); // 1 millis
 
     blob_t msg[1];
     msg->send_time = wallclock();
@@ -144,7 +145,7 @@ static void *publish_thread_direct(void *usr)
   usleep((i64)1e6); // wait for subscribe side to init (if needed)
 
   while (st->running) {
-    usleep((i64)10e3); // 10 millis
+    usleep((i64)1e3); // 10 millis
 
     DATA->send_time = wallclock();
     DATA->msg_size = st->msg_size;
@@ -249,7 +250,7 @@ int main(int argc, char *argv[])
     test_result_t res_ipcshm = run_test(URL_IPCSHM, msg_size);
     test_result_t res_ipc_direct = run_test_direct(URL_IPC, msg_size);
     test_result_t res_ipcshm_direct = run_test_direct(URL_IPCSHM, msg_size);
-
+    
     double dt_ipc = (double)res_ipc.total_delay / res_ipc.num_messages / 1000.0;
     double dt_ipcshm = (double)res_ipcshm.total_delay / res_ipcshm.num_messages / 1000.0;
     double dt_ipc_direct = (double)res_ipc_direct.total_delay / res_ipc_direct.num_messages / 1000.0;

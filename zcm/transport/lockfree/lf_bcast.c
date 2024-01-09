@@ -51,6 +51,17 @@ static inline uint32_t *wait_addr(lf_bcast_t *b)
 #endif
 }
 
+// Futex wrappers
+static inline long futex_wait(uint32_t *addr, uint32_t val, struct timespec timeout)
+{
+  return syscall(SYS_futex, addr, FUTEX_WAIT, val, &timeout, NULL, 0);
+}
+static inline long futex_wake(uint32_t *addr, uint32_t n_wake)
+{
+  return syscall(SYS_futex, addr, FUTEX_WAKE, n_wake, NULL, NULL, 0);
+}
+
+
 // Wait for the next message until "*_timeout" nanos. Updates "*_timeout" with the remaining time.
 static void wait(sub_impl_t *sub, int64_t *_timeout)
 {
@@ -89,8 +100,8 @@ static void wait(sub_impl_t *sub, int64_t *_timeout)
 
   uint32_t   val  = (uint32_t)sub->idx;
   uint32_t * addr = wait_addr(sub->bcast);
-  syscall(SYS_futex, addr, FUTEX_WAIT, val, tm, NULL, 0);
-
+  futex_wait(addr, val, tm);
+  
   int64_t dt = wallclock() - start;
   *_timeout = dt < timeout ? timeout - dt : 0;
 }
@@ -98,8 +109,7 @@ static void wait(sub_impl_t *sub, int64_t *_timeout)
 // Wake up all waiters
 static void wake(lf_bcast_t *bcast)
 {
-  uint32_t * addr = wait_addr(bcast);
-  syscall(SYS_futex, addr, FUTEX_WAKE, INT32_MAX, 0, NULL, 0);
+  futex_wake(wait_addr(bcast), INT32_MAX);
 }
 
 lf_bcast_t * lf_bcast_new(size_t depth, size_t elt_sz, size_t elt_align)
