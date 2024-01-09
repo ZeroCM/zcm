@@ -232,7 +232,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         // All good, prepare the result struct
         msg->utime = TimeUtil::utime();
         msg->channel = recv->channel;
-        msg->len = len;
+        msg->len = size;
         msg->buf = (uint8_t*)recv->payload;
         return ZCM_EOK;
     }
