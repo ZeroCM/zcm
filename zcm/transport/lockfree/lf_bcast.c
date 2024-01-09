@@ -98,7 +98,7 @@ static void wait(sub_impl_t *sub, int64_t *_timeout)
 // Wake up all waiters
 static void wake(lf_bcast_t *bcast)
 {
-  uint32_t * addr = wait_addr(sub->bcast);
+  uint32_t * addr = wait_addr(bcast);
   syscall(SYS_futex, addr, FUTEX_WAKE, INT32_MAX, 0, NULL, 0);
 }
 
