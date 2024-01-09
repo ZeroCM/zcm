@@ -30,7 +30,7 @@ struct __attribute__((aligned(16))) sub_impl
   u64          idx;
   u64          drops;
   bool         active;
-  char         _extra[16];
+  char         _extra[7];
 };
 static_assert(sizeof(sub_impl_t) == sizeof(lf_bcast_sub_t), "");
 static_assert(alignof(sub_impl_t) == alignof(lf_bcast_sub_t), "");
@@ -261,7 +261,7 @@ bool lf_bcast_sub_consume_end(lf_bcast_sub_t *_sub)
    // changed while the user was consuming it. The roll-off procedure is just an increment
    // of the head_idx, so we can verify by simply checking that 'idx >= head_idx'
    u64 head_idx = sub->bcast->head_idx;
-   bool vaild = sub->idx >= head_idx;
+   bool valid = sub->idx >= head_idx;
    if (!valid) {
      sub->drops++;
    }

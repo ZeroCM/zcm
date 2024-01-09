@@ -11,7 +11,7 @@ extern "C" {
 
 typedef struct lf_bcast      lf_bcast_t;
 typedef struct lf_bcast_sub  lf_bcast_sub_t;
-struct __attribute__((aligned(16))) lf_bcast_sub { char _opaque[64]; };
+struct __attribute__((aligned(16))) lf_bcast_sub { char _opaque[32]; };
 
 /*************************************************************************************************/
 /* New/delete API */
