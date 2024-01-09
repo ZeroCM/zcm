@@ -213,7 +213,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
         // Copy everything
         memcpy(recv->channel, m->channel, sizeof(recv->channel));
-        memcpy(recv->payload, m->payload, len);
+        memcpy(recv->payload, m->payload, size);
 
         // Finish consuming and verify it remained valid while we consumed it
         bool ref_valid = lf_bcast_sub_consume_end(sub);
@@ -223,17 +223,17 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         //////////////////////////////////////////////////////////////////////////////////////////
 
         // We copied the channel without verifying it was null-terminated. We do that now.
-        bool channel_valid = !!memchr(recv->channel, 0);
+        bool channel_valid = !!memchr(recv->channel, 0, sizeof(recv->channel));
 
         // If message was invalidated.. treat as drop
         bool valid = ref_valid & channel_valid;
         if (!valid) return ZCM_EAGAIN;
 
         // All good, prepare the result struct
-        m->utime = TimeUtil::utime();
-        m->channel = recv->channel;
-        m->len = len;
-        m->buf = (uint8_t*)recv->payload;
+        msg->utime = TimeUtil::utime();
+        msg->channel = recv->channel;
+        msg->len = len;
+        msg->buf = (uint8_t*)recv->payload;
         return ZCM_EOK;
     }
 
