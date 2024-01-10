@@ -43,6 +43,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
     zcm_trans_t* gst = nullptr;
 
+    uint64_t timeoutLeftUs = 0;
+
     string* findOption(const string& s)
     {
         auto it = options.find(s);
@@ -133,9 +135,20 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     {
         ZCM_TRANS_CLASSNAME* me = cast((zcm_trans_t*) usr);
 
+        uint64_t readStartUtime = TimeUtil::utime();
+
         struct can_frame frame;
         int nbytes = read(me->soc, &frame, sizeof(struct can_frame));
-        if (nbytes != sizeof(struct can_frame)) return 0;
+        if (nbytes != sizeof(struct can_frame)) {
+            // Sleeping if read returned an error in case read didn't
+            // expire all the remaining timeout
+            if (nbytes < 0) {
+                uint64_t diff = TimeUtil::utime() - readStartUtime;
+                if (me->timeoutLeftUs <= diff) return 0;
+                usleep(me->timeoutLeftUs - diff);
+            }
+            return 0;
+        }
 
         // XXX This isn't okay. We're just throwing out data if it
         //     doesn't fit in data on this one call to get
@@ -204,23 +217,24 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
     int recvmsg(zcm_msg_t* msg, unsigned timeoutMs)
     {
-        unsigned timeoutS = timeoutMs / 1000;
-        unsigned timeoutUs = (timeoutMs - timeoutS * 1000) * 1000;
-        struct timeval tm = {
-            timeoutS,  /* seconds */
-            timeoutUs, /* micros */
-        };
-        if (setsockopt(soc, SOL_SOCKET, SO_RCVTIMEO, (char *)&tm, sizeof(tm)) < 0) {
-            ZCM_DEBUG("Failed to settimeout");
-            return ZCM_EUNKNOWN;
-        }
-
         uint64_t startUtime = TimeUtil::utime();
-        uint64_t timeoutLeftUs = timeoutMs * 1000;
+        timeoutLeftUs = timeoutMs * 1000;
 
         do {
             int ret = zcm_trans_recvmsg(this->gst, msg, 0);
             if (ret == ZCM_EOK) return ret;
+
+            unsigned timeoutS = timeoutLeftUs / 1000000;
+            unsigned timeoutUs = timeoutLeftUs - timeoutS * 1000000;
+            struct timeval tm = {
+                timeoutS,  /* seconds */
+                timeoutUs, /* micros */
+            };
+            if (setsockopt(soc, SOL_SOCKET, SO_RCVTIMEO, (char *)&tm, sizeof(tm)) < 0) {
+                ZCM_DEBUG("Failed to settimeout");
+                return ZCM_EUNKNOWN;
+            }
+
             serial_update_rx(this->gst);
 
             uint64_t diff = TimeUtil::utime() - startUtime;
