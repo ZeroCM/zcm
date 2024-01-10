@@ -140,7 +140,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         struct can_frame frame;
         int nbytes = read(me->soc, &frame, sizeof(struct can_frame));
         if (nbytes != sizeof(struct can_frame)) {
-            // Just sleeping on an error in case we didn't for some reason
+            // Sleeping if read returned an error in case read didn't
+            // expire all the remaining timeout
             if (nbytes < 0) {
                 uint64_t diff = TimeUtil::utime() - readStartUtime;
                 if (me->timeoutLeftUs <= diff) return 0;
