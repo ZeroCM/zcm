@@ -1,44 +1,5 @@
 #! /usr/bin/env python
 # encoding: utf-8
-import os
-from waflib.Errors import WafError
-
-def internal_specific_configure(ctx):
-    ctx.find_program('zcm-gen', var='ZCMGEN', mandatory=True)
-    ctx.env.ZCMGEN = ctx.env.ZCMGEN[0]
-
-def configure(ctx):
-    ctx.check_cfg(package='zcm', args='--cflags --libs', uselib_store='zcm')
-    ctx.load('zcm-gen')
-
-    # Using check_cfg to track down the jar so we can 'use' it when compiling java
-    # unfortunately, check_cfg doesn't assign uselib variables like we'd like
-    ctx.check_cfg(package='zcm', variables='classpath', uselib_store='zcm')
-    ctx.env.CLASSPATH_zcmjar = ctx.env.zcm_classpath
-    if not ctx.env.CLASSPATH_zcmjar:
-        raise ConfigurationError('Failed to find zcm.jar')
-    else:
-        ctx.msg('Checking for zcm.jar', ctx.env.CLASSPATH_zcmjar);
-
 
 def build(ctx):
-    internal_specific_configure(ctx)
-    configure(ctx)
-
-    ctx.recurse('zcmtypes')
-
-    ctx.program(target='test_direct',
-                use = 'default zcm benchzcmtypes',
-                source='test_direct.c')
-
-    ctx.program(target='test_many',
-                use = 'default zcm benchzcmtypes',
-                source='test_many.c')
-
-    ctx.program(target='test_sleep',
-                use = 'default zcm benchzcmtypes',
-                source='test_sleep.c')
-
-    ctx.program(target='test_big',
-                use = 'default zcm benchzcmtypes',
-                source='test_big.c')
+    ctx.recurse('ipcshm')
