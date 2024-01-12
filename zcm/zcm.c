@@ -38,16 +38,22 @@ int zcm_retcode_name_to_enum(const char* zcm_retcode_name)
 zcm_t* zcm_create(const char* url)
 {
     zcm_t* z = NULL;
-    ZCM_ASSERT(zcm_try_create(&z, url) == ZCM_EOK);
+    char *errmsg = NULL;
+    int ret = zcm_try_create(&z, url, &errmsg);
+    if (ret != ZCM_EOK) {
+      fprintf(stderr, "zcm_try_create() failed: %s\n", errmsg);
+      free(errmsg);
+      ZCM_ASSERT(false);
+    }
     ZCM_ASSERT(z);
     return z;
 }
 
-int zcm_try_create(zcm_t** z, const char* url)
+int zcm_try_create(zcm_t** z, const char* url, char **opt_errmsg)
 {
     *z = malloc(sizeof(zcm_t));
     if (!*z) return ZCM_EMEMORY;
-    int ret = zcm_init(*z, url);
+    int ret = zcm_init(*z, url, opt_errmsg);
     if (ret != ZCM_EOK) {
         free(*z);
         *z = NULL;
@@ -85,7 +91,7 @@ void zcm_destroy(zcm_t* zcm)
 }
 
 #ifndef ZCM_EMBEDDED
-int zcm_init(zcm_t* zcm, const char* url)
+int zcm_init(zcm_t* zcm, const char* url, char **opt_errmsg)
 {
     /* If we have no url, try to use the env var */
     if (!url || url[0] == '\0') {
@@ -105,7 +111,7 @@ int zcm_init(zcm_t* zcm, const char* url)
     int ret = ZCM_ECONNECT;
     zcm_trans_create_func* creator = zcm_transport_find(protocol);
     if (creator) {
-        zcm_trans_t* trans = creator(u);
+      zcm_trans_t* trans = creator(u, opt_errmsg);
         if (trans) {
             ret = zcm_init_from_trans(zcm, trans);
         } else {

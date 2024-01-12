@@ -86,7 +86,7 @@ int zcm_retcode_name_to_enum(const char* zcm_retcode_name);
 /* Standard create/destroy functions. These will malloc() and free() the zcm_t object. */
 #ifndef ZCM_EMBEDDED
 zcm_t* zcm_create(const char* url);
-int    zcm_try_create(zcm_t** z, const char* url);
+int    zcm_try_create(zcm_t** z, const char* url, char **opt_errmsg);
 #endif
 zcm_t* zcm_create_from_trans(zcm_trans_t* zt);
 int    zcm_try_create_from_trans(zcm_t** z, zcm_trans_t* zt);
@@ -94,8 +94,9 @@ void   zcm_destroy(zcm_t* zcm);
 
 #ifndef ZCM_EMBEDDED
 /* Initialize a zcm object allocated by caller
-   Returns ZCM_EOK on success, error code on failure */
-int zcm_init(zcm_t* zcm, const char* url);
+   Returns ZCM_EOK on success, error code on failure
+   Optionally sets the out-param opt_errmsg with an error message (called is responsible for free())*/
+int zcm_init(zcm_t* zcm, const char* url, char **opt_errmsg);
 #endif
 
 /* Initialize a zcm instance allocated by caller using a transport provided by caller

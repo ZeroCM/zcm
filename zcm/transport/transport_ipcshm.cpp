@@ -12,6 +12,7 @@
 #include <cinttypes>
 #include <cassert>
 #include <unistd.h>
+#include <stdarg.h>
 
 #define ZCM_TRANS_NAME TransportIpcShm
 #define DEFAULT_MSG_PAYLOAD_SZ 4096
@@ -45,6 +46,21 @@ static inline bool parse_u64(const char *s, uint64_t *_num)
   return true;
 }
 
+static inline char *sprintf_alloc(const char *fmt, ...)
+{
+  va_list va1, va2;
+  va_start(va1, fmt);
+  va_copy(va2, va1);
+
+  size_t n = vsnprintf(NULL, 0, fmt, va1);
+  char  *buf = (char*)malloc(n+1);
+  vsprintf(buf, fmt, va2);
+
+  va_end(va2);
+  va_end(va1);
+  return buf;
+}
+
 struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 {
     lf_bcast_t *bcast = nullptr;
@@ -59,7 +75,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     void *mem = nullptr;
     size_t shm_size = 0;
 
-    ZCM_TRANS_CLASSNAME(zcm_url_t *url)
+    ZCM_TRANS_CLASSNAME(zcm_url_t *url, char **errmsg)
     {
         // Base class properties we're required to set
         trans_type = ZCM_BLOCKING;
@@ -106,8 +122,10 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
         mem = lf_shm_open(region_name, &shm_size);
         if (shm_size != region_size) {
-          ZCM_DEBUG("SHM Region size mismatch: expected %zu, got %zu", region_size, shm_size);
+          char *err = sprintf_alloc("IPCSHM Region size mismatch for '%s': expected %zu, got %zu\nNOTE: IPCSHM does not auto-resize because other process might be actively using it.\n      If you have recently changed the URL parameters and you're certain the\n      old segment is unused, then you can simply remove it with 'rm /dev/shm/%s'", region_name, region_size, shm_size, region_name);
+          ZCM_DEBUG("%s", err);
           lf_shm_close(mem, shm_size);
+          *errmsg = err;
           return;
         }
 
@@ -274,12 +292,18 @@ zcm_trans_methods_t ZCM_TRANS_CLASSNAME::methods = {
     &ZCM_TRANS_CLASSNAME::_destroy,
 };
 
-static zcm_trans_t *create(zcm_url_t *url)
+static zcm_trans_t *create(zcm_url_t *url, char **opt_errmsg)
 {
-    auto *trans = new ZCM_TRANS_CLASSNAME(url);
+
+    if (opt_errmsg) *opt_errmsg = NULL; // Feature unused in this transport
+
+    char *errmsg = NULL;
+    auto *trans = new ZCM_TRANS_CLASSNAME(url, &errmsg);
+    if (opt_errmsg) *opt_errmsg = errmsg;
+    else free(errmsg);
+
     if (trans->good())
         return trans;
-
     delete trans;
     return nullptr;
 }

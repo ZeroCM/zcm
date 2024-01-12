@@ -154,15 +154,16 @@ static void *handle_thread_direct(void *usr)
 static test_result_t run_test_direct(const char *url, size_t msg_size, size_t limit)
 {
   zcm_url_t* u = zcm_url_create(url);
-  if (!u) FAIL("Failed to create url");
+  if (!u) FAIL("Failed to parse url: %s", url);
 
   const char* protocol = zcm_url_protocol(u);
 
   zcm_trans_create_func* creator = zcm_transport_find(protocol);
   if (!creator) FAIL("Failed to find transport type by url");
 
-  zcm_trans_t* trans = creator(u);
-  if (!trans) FAIL("Failed to create transport");
+  char *errmsg;
+  zcm_trans_t* trans = creator(u, &errmsg);
+  if (!trans) FAIL("Failed to create transport: %s", errmsg);
 
   state_t st[1] = {};
   st->trans = trans;

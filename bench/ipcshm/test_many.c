@@ -206,8 +206,9 @@ static test_result_t run_test_direct(const char *url, size_t msg_size)
   zcm_trans_create_func* creator = zcm_transport_find(protocol);
   if (!creator) FAIL("Failed to find transport type by url");
 
-  zcm_trans_t* trans = creator(u);
-  if (!trans) FAIL("Failed to create transport");
+  char *errmsg;
+  zcm_trans_t* trans = creator(u, &errmsg);
+  if (!trans) FAIL("Failed to create transport: %s", errmsg);
 
   state_t st[1] = {};
   st->trans = trans;
@@ -250,7 +251,7 @@ int main(int argc, char *argv[])
     test_result_t res_ipcshm = run_test(URL_IPCSHM, msg_size);
     test_result_t res_ipc_direct = run_test_direct(URL_IPC, msg_size);
     test_result_t res_ipcshm_direct = run_test_direct(URL_IPCSHM, msg_size);
-    
+
     double dt_ipc = (double)res_ipc.total_delay / res_ipc.num_messages / 1000.0;
     double dt_ipcshm = (double)res_ipcshm.total_delay / res_ipcshm.num_messages / 1000.0;
     double dt_ipc_direct = (double)res_ipc_direct.total_delay / res_ipc_direct.num_messages / 1000.0;

@@ -158,11 +158,18 @@ zcm_trans_methods_t ZCM_TRANS_CLASSNAME::methods = {
     &ZCM_TRANS_CLASSNAME::_destroy,
 };
 
-static zcm_trans_t *create_blocking(zcm_url_t *url)
-{ return new ZCM_TRANS_CLASSNAME(url, true); }
+static zcm_trans_t *create_blocking(zcm_url_t *url, char **opt_errmsg
+)
+{
+  if (opt_errmsg) *opt_errmsg = NULL; // Feature unused in this transport
+  return new ZCM_TRANS_CLASSNAME(url, true);
+}
 
-static zcm_trans_t *create_nonblocking(zcm_url_t *url)
-{ return new ZCM_TRANS_CLASSNAME(url, false); }
+static zcm_trans_t *create_nonblocking(zcm_url_t *url, char **opt_errmsg)
+{
+  if (opt_errmsg) *opt_errmsg = NULL; // Feature unused in this transport
+  return new ZCM_TRANS_CLASSNAME(url, false);
+}
 
 const TransportRegister ZCM_TRANS_CLASSNAME::regBlocking(
     "block-inproc",

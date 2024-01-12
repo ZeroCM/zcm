@@ -524,13 +524,15 @@ zcm_trans_methods_t ZCM_TRANS_CLASSNAME::methods = {
     &ZCM_TRANS_CLASSNAME::_destroy,
 };
 
-static zcm_trans_t *createIpc(zcm_url_t *url)
+static zcm_trans_t *createIpc(zcm_url_t *url, char **opt_errmsg)
 {
+    if (opt_errmsg) *opt_errmsg = NULL; // Feature unused in this transport
     return new ZCM_TRANS_CLASSNAME(IPC, url);
 }
 
-static zcm_trans_t *createInproc(zcm_url_t *url)
+static zcm_trans_t *createInproc(zcm_url_t *url, char **opt_errmsg)
 {
+    if (opt_errmsg) *opt_errmsg = NULL; // Feature unused in this transport
     return new ZCM_TRANS_CLASSNAME(INPROC, url);
 }
 
