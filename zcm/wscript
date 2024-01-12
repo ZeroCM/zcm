@@ -22,6 +22,8 @@ def build(ctx):
         srcExcludes += ['transport/transport_serial.cpp']
     if not ctx.env.USING_TRANS_CAN:
         srcExcludes += ['transport/transport_can.cpp']
+    if not ctx.env.USING_TRANS_IPCSHM:
+        srcExcludes += ['transport/transport_ipcshm.cpp', 'transport/lockfree/lf_*.c']
     if not ctx.env.USING_THIRD_PARTY:
         srcExcludes.append('transport/third-party')
 
