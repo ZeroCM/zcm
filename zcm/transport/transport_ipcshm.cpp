@@ -45,8 +45,6 @@ static inline bool parse_u64(const char *s, uint64_t *_num)
   return true;
 }
 
-
-
 struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 {
     lf_bcast_t *bcast = nullptr;
@@ -173,7 +171,10 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
       }
 
       Msg *m = (Msg*)lf_bcast_buf_acquire(bcast);
-      assert(m); // FIXME
+      if (!m) {
+        fprintf(stderr, "IPCSHM Queue and Pool are both empty: this shouldn't happen if sized correctly");
+        abort(); // FIXME?
+      }
 
       m->size = msg.len;
       memcpy(m->channel, msg.channel, channel_len+1); // Checked above

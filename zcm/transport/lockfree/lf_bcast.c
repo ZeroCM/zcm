@@ -5,7 +5,6 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 
-#define ESTIMATED_PUBLISHERS 16
 #define LF_BCAST_ALIGN 4096
 
 struct __attribute__((aligned(LF_BCAST_ALIGN))) lf_bcast
@@ -101,7 +100,7 @@ static void wait(sub_impl_t *sub, int64_t *_timeout)
   uint32_t   val  = (uint32_t)sub->idx;
   uint32_t * addr = wait_addr(sub->bcast);
   futex_wait(addr, val, tm);
-  
+
   int64_t dt = wallclock() - start;
   *_timeout = dt < timeout ? timeout - dt : 0;
 }
@@ -137,22 +136,26 @@ void lf_bcast_delete(lf_bcast_t *bcast)
   free(bcast);
 }
 
-static void try_drop_head(lf_bcast_t *b, u64 head_idx)
+// Dequeue the head element and return a pointer to the element (if successful)
+static void *dequeue_head(lf_bcast_t *b, u64 head_idx)
 {
-  // Advance head: here we take ownership of the old queue element
-  // and we're responsible for releasing it back to the shared pool.
-  // If we fail at dropping it, we just assume some other core must have
-  // beat us and we'll return
+  // Advance head. As a side-effect, this thread takes ownership of the old queue buffer
+  // and is responsible for releasing it to the pool or re-enqueuing it.
+  // If we fail at advacing the head, we just assume some other core must have
+  // beat us and we'll return. Caller can retry if they want an element.
   lf_ref_t head_cur = b->slots[head_idx & b->depth_mask];
-  if (!LF_U64_CAS(&b->head_idx, head_idx, head_idx+1)) return;
+  if (!LF_U64_CAS(&b->head_idx, head_idx, head_idx+1)) return NULL;
 
-  // NOTE: IF WE CRASH HERE, WE'LL LEAK A POOL ELEMENT. SOLVING THIS CORRECTLY
-  // REQUIRES A GARBAGE COLLECTION PASS BECAUSE WE CANNOT POSSIBLY CONTROL WHEN
-  // PROCESSES WILL CRASH OR WILL BE 'kill -9'
-
-  // Release the element back to the shm pool.
+  // Unpack the pool element and return it
   u64 buf_off = head_cur.val;
   void *buf = (char*)b + buf_off;
+  return buf;
+}
+
+static void try_drop_head(lf_bcast_t *b, u64 head_idx)
+{
+  void *buf = dequeue_head(b, head_idx);
+  if (!buf) return;
   lf_pool_release(get_pool(b), buf);
 }
 
@@ -283,7 +286,24 @@ bool lf_bcast_sub_consume_end(lf_bcast_sub_t *_sub)
 
 void * lf_bcast_buf_acquire(lf_bcast_t *b)
 {
-  return lf_pool_acquire(get_pool(b));
+  void *elt;
+
+  // Try aquiring from pool or queue until both seem empty.
+  while (1) {
+    // Try to get a buffer from the pool
+    elt = lf_pool_acquire(get_pool(b));
+    if (elt) return elt;
+
+    // Pool empty.. chck if the queue has any elements..
+    size_t head_idx = b->head_idx;
+    size_t tail_idx = b->tail_idx;
+    LF_BARRIER_ACQUIRE();
+    if (head_idx == tail_idx) return NULL; // Both queue and pool are empty..
+
+    // Try to get a buffer from the queue head
+    elt = dequeue_head(b, head_idx);
+    if (elt) return elt;
+  }
 }
 
 void lf_bcast_buf_release(lf_bcast_t *b, void *ptr)
@@ -295,10 +315,8 @@ bool lf_bcast_footprint(size_t depth, size_t elt_sz, size_t elt_align, size_t *_
 {
   if (!LF_IS_POW2(depth)) return false;
 
-  size_t pool_elts = depth + ESTIMATED_PUBLISHERS;
-
   size_t pool_size, pool_align;
-  if (!lf_pool_footprint(pool_elts, elt_sz, elt_align, &pool_size, &pool_align)) {
+  if (!lf_pool_footprint(depth, elt_sz, elt_align, &pool_size, &pool_align)) {
     return false;
   }
 
@@ -319,10 +337,8 @@ lf_bcast_t * lf_bcast_mem_init(void *mem, size_t depth, size_t elt_sz, size_t el
     return NULL;
   }
 
-  size_t pool_elts = depth + ESTIMATED_PUBLISHERS;
-
   size_t pool_size, pool_align;
-  lf_pool_footprint(pool_elts, elt_sz, elt_align, &pool_size, &pool_align);
+  lf_pool_footprint(depth, elt_sz, elt_align, &pool_size, &pool_align);
 
   size_t size     = sizeof(lf_bcast_t) + depth * sizeof(lf_ref_t);
   size_t pool_off = LF_ALIGN_UP(size, pool_align);
@@ -337,7 +353,7 @@ lf_bcast_t * lf_bcast_mem_init(void *mem, size_t depth, size_t elt_sz, size_t el
 
   memset(b->slots, 0, depth * sizeof(lf_ref_t));
 
-  lf_pool_t *pool = lf_pool_mem_init(pool_mem, pool_elts, elt_sz, elt_align);
+  lf_pool_t *pool = lf_pool_mem_init(pool_mem, depth, elt_sz, elt_align);
   if (!pool) return NULL;
   assert(pool == pool_mem);
 
@@ -355,10 +371,8 @@ lf_bcast_t * lf_bcast_mem_join(void *mem, size_t depth, size_t elt_sz, size_t el
   if (depth-1 != bcast->depth_mask) return NULL;
   if (elt_sz != bcast->elt_sz) return NULL;
 
-  size_t pool_elts = depth + ESTIMATED_PUBLISHERS;
-
   void * pool_mem = (char*)mem + bcast->pool_off;
-  lf_pool_t * pool = lf_pool_mem_join(pool_mem, pool_elts, elt_sz, elt_align);
+  lf_pool_t * pool = lf_pool_mem_join(pool_mem, depth, elt_sz, elt_align);
   if (!pool) return NULL;
   assert(pool == pool_mem);
 
