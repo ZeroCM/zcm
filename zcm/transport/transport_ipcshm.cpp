@@ -1,5 +1,9 @@
 // RRR (Bendes): Any reason not to just call this shmem? Ipc prefix seems redundant
+// RRR (xorvoid): Because there are many ways to use shared-memory that aren't ipc, but I suppose "transport" implies that haha. I'll change it if you strongly prefer "shm"?
+
 // RRR (Bendes): This file mixes 4 and 2 space indents. Please make all 4
+// RRR (xorvoid): My damn editor settings... I always use 2 so it botched it. This project doesn't have an autoformatter I guess?
+// RRR (xorvoid): FIXED
 #include "zcm/transport.h"
 #include "zcm/transport_registrar.h"
 #include "zcm/transport_register.hpp"
@@ -24,44 +28,44 @@
 typedef struct Msg Msg;
 struct __attribute__((aligned(256))) Msg
 {
-  u64  size;
-  char channel[ZCM_CHANNEL_MAXLEN+1];
+    u64  size;
+    char channel[ZCM_CHANNEL_MAXLEN+1];
 
-  __attribute__((aligned(256))) u8 payload[];
+    __attribute__((aligned(256))) u8 payload[];
 };
 static_assert(alignof(Msg) == 256, "");
 static_assert(sizeof(Msg) == 256, "");
 
 static inline bool parse_u64(const char *s, uint64_t *_num)
 {
-  uint64_t num = 0;
-  while (1) {
-    char c = *s++;
-    if (!c) break;
-    if (!('0' <= c && c <= '9')) return false; // not a decimal digit
+    uint64_t num = 0;
+    while (1) {
+        char c = *s++;
+        if (!c) break;
+        if (!('0' <= c && c <= '9')) return false; // not a decimal digit
 
-    uint64_t next_num = 10*num + (uint64_t)(c-'0');
-    if (next_num < num) return false; // overflow!
-    num = next_num;
-  }
+        uint64_t next_num = 10*num + (uint64_t)(c-'0');
+        if (next_num < num) return false; // overflow!
+        num = next_num;
+    }
 
-  *_num = num;
-  return true;
+    *_num = num;
+    return true;
 }
 
 static inline char *sprintf_alloc(const char *fmt, ...)
 {
-  va_list va1, va2;
-  va_start(va1, fmt);
-  va_copy(va2, va1);
+    va_list va1, va2;
+    va_start(va1, fmt);
+    va_copy(va2, va1);
 
-  size_t n = vsnprintf(NULL, 0, fmt, va1);
-  char  *buf = (char*)malloc(n+1);
-  vsprintf(buf, fmt, va2);
+    size_t n = vsnprintf(NULL, 0, fmt, va1);
+    char  *buf = (char*)malloc(n+1);
+    vsprintf(buf, fmt, va2);
 
-  va_end(va2);
-  va_end(va1);
-  return buf;
+    va_end(va2);
+    va_end(va1);
+    return buf;
 }
 
 struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
@@ -92,25 +96,26 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         // Process any url options
         zcm_url_opts_t *opts = zcm_url_opts(url);
         for (size_t i = 0; i < opts->numopts; i++) {
-          ZCM_DEBUG("  %s='%s'", opts->name[i], opts->value[i]);
+            ZCM_DEBUG("  %s='%s'", opts->name[i], opts->value[i]);
         }
 
         for (size_t i = 0; i < opts->numopts; i++) {
-          u64 tmp;
-          if (0 == strcmp(opts->name[i], "mtu")) {
-            if (parse_u64(opts->value[i], &tmp)) {
-              ZCM_DEBUG("Setting mtu=%" PRIu64, tmp);
-              // RRR (Bendes): Is this necessary if you're doing the
-              //               align up to the msg_maxsz below?
-              msg_payload_sz = LF_ALIGN_UP(tmp, msg_align);
+            u64 tmp;
+            if (0 == strcmp(opts->name[i], "mtu")) {
+                if (parse_u64(opts->value[i], &tmp)) {
+                    ZCM_DEBUG("Setting mtu=%" PRIu64, tmp);
+                    // RRR (Bendes): Is this necessary if you're doing the
+                    //               align up to the msg_maxsz below?
+                    // RRR (xorvoid): Good catch! Fixed.
+                    msg_payload_sz = tmp;
+                }
             }
-          }
-          if (0 == strcmp(opts->name[i], "depth")) {
-            if (parse_u64(opts->value[i], &tmp)) {
-              ZCM_DEBUG("Setting queue_depth=%" PRIu64, tmp);
-              queue_depth = tmp;
+            if (0 == strcmp(opts->name[i], "depth")) {
+                if (parse_u64(opts->value[i], &tmp)) {
+                    ZCM_DEBUG("Setting queue_depth=%" PRIu64, tmp);
+                    queue_depth = tmp;
+                }
             }
-          }
         }
 
         // Create or join the shm region
@@ -129,31 +134,31 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
         mem = lf_shm_open(region_name, &shm_size);
         if (shm_size != region_size) {
-          char *err = sprintf_alloc("IPCSHM Region size mismatch for '%s': "
-                                    "expected %zu, got %zu\n"
-                                    "NOTE: IPCSHM does not auto-resize because "
-                                    "other process might be actively using it.\n      "
-                                    "If you have recently changed the URL parameters "
-                                    "and you're certain the\n      old segment "
-                                    "is unused, then you can simply remove it "
-                                    "with 'rm /dev/shm/%s'",
-                                    region_name, region_size, shm_size, region_name);
-          ZCM_DEBUG("%s", err);
-          lf_shm_close(mem, shm_size);
-          *errmsg = err;
-          return;
+            char *err = sprintf_alloc("IPCSHM Region size mismatch for '%s': "
+                                      "expected %zu, got %zu\n"
+                                      "NOTE: IPCSHM does not auto-resize because "
+                                      "other process might be actively using it.\n      "
+                                      "If you have recently changed the URL parameters "
+                                      "and you're certain the\n      old segment "
+                                      "is unused, then you can simply remove it "
+                                      "with 'rm /dev/shm/%s'",
+                                      region_name, region_size, shm_size, region_name);
+            ZCM_DEBUG("%s", err);
+            lf_shm_close(mem, shm_size);
+            *errmsg = err;
+            return;
         }
 
         if (created) {
-          bcast = lf_bcast_mem_init(mem, queue_depth, msg_maxsz, msg_align);
+            bcast = lf_bcast_mem_init(mem, queue_depth, msg_maxsz, msg_align);
         } else {
-          bcast = lf_bcast_mem_join(mem, queue_depth, msg_maxsz, msg_align);
+            bcast = lf_bcast_mem_join(mem, queue_depth, msg_maxsz, msg_align);
         }
 
         if (!bcast) {
-          ZCM_DEBUG("Failed to init or join shm region");
-          lf_shm_close(mem, shm_size);
-          return;
+            ZCM_DEBUG("Failed to init or join shm region");
+            lf_shm_close(mem, shm_size);
+            return;
         }
 
         // Init the subscriber tracking struct
@@ -162,11 +167,11 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         // Allocate a message element for copying received data into
         int ret = posix_memalign((void**)&recv, msg_align, msg_maxsz);
         if (ret != 0) {
-          ZCM_DEBUG("Failed allocate recvbuf");
-          lf_bcast_mem_leave(bcast);
-          lf_shm_close(mem, shm_size);
-          bcast = NULL;
-          return;
+            ZCM_DEBUG("Failed allocate recvbuf");
+            lf_bcast_mem_leave(bcast);
+            lf_shm_close(mem, shm_size);
+            bcast = NULL;
+            return;
         }
 
         ZCM_DEBUG("Created ipcshm transport");
@@ -174,48 +179,48 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
     ~ZCM_TRANS_CLASSNAME()
     {
-      if (recv) free(recv);
-      if (bcast) lf_bcast_mem_leave(bcast);
-      if (mem) lf_shm_close(mem, shm_size);
+        if (recv) free(recv);
+        if (bcast) lf_bcast_mem_leave(bcast);
+        if (mem) lf_shm_close(mem, shm_size);
     }
 
     bool good()
     {
-      return !!bcast;
+        return !!bcast;
     }
 
     /********************** METHODS **********************/
     size_t get_mtu()
     {
-      return msg_payload_sz;
+        return msg_payload_sz;
     }
 
     int sendmsg(zcm_msg_t msg)
     {
-      if (msg.len > msg_payload_sz) {
-        ZCM_DEBUG("Message length: %zu", msg.len);
-        ZCM_DEBUG("MTU Limit: %zu", msg_payload_sz);
-        return ZCM_EINVALID;
-      }
+        if (msg.len > msg_payload_sz) {
+            ZCM_DEBUG("Message length: %zu", msg.len);
+            ZCM_DEBUG("MTU Limit: %zu", msg_payload_sz);
+            return ZCM_EINVALID;
+        }
 
-      size_t channel_len = strlen(msg.channel);
-      if (channel_len >= sizeof(Msg::channel)) {
-        return ZCM_EINVALID;
-      }
+        size_t channel_len = strlen(msg.channel);
+        if (channel_len >= sizeof(Msg::channel)) {
+            return ZCM_EINVALID;
+        }
 
-      Msg *m = (Msg*)lf_bcast_buf_acquire(bcast);
-      if (!m) {
-        fprintf(stderr, "IPCSHM Queue and Pool are both empty: "
-                        "this shouldn't happen if sized correctly");
-        abort(); // FIXME?
-      }
+        Msg *m = (Msg*)lf_bcast_buf_acquire(bcast);
+        if (!m) {
+            fprintf(stderr, "IPCSHM Queue and Pool are both empty: "
+                    "this shouldn't happen if sized correctly");
+            abort(); // FIXME?
+        }
 
-      m->size = msg.len;
-      memcpy(m->channel, msg.channel, channel_len+1); // Checked above
-      memcpy(m->payload, msg.buf, msg.len); // Checked above
+        m->size = msg.len;
+        memcpy(m->channel, msg.channel, channel_len+1); // Checked above
+        memcpy(m->payload, msg.buf, msg.len); // Checked above
 
-      lf_bcast_pub(bcast, m);
-      return ZCM_EOK;
+        lf_bcast_pub(bcast, m);
+        return ZCM_EOK;
     }
 
     int recvmsg_enable(const char *channel, bool enable)
@@ -243,8 +248,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         // the size could trigger a buffer overrun!
         size_t size = m->size;
         if (size > msg_payload_sz) { // Weird size.. drop it
-          lf_bcast_sub_consume_end(sub);
-          return ZCM_EAGAIN;
+            lf_bcast_sub_consume_end(sub);
+            return ZCM_EAGAIN;
         }
 
         // Copy everything
@@ -302,12 +307,12 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 };
 
 zcm_trans_methods_t ZCM_TRANS_CLASSNAME::methods = {
-    &ZCM_TRANS_CLASSNAME::_get_mtu,
-    &ZCM_TRANS_CLASSNAME::_sendmsg,
-    &ZCM_TRANS_CLASSNAME::_recvmsg_enable,
-    &ZCM_TRANS_CLASSNAME::_recvmsg,
-    NULL, // update
-    &ZCM_TRANS_CLASSNAME::_destroy,
+                                                    &ZCM_TRANS_CLASSNAME::_get_mtu,
+                                                    &ZCM_TRANS_CLASSNAME::_sendmsg,
+                                                    &ZCM_TRANS_CLASSNAME::_recvmsg_enable,
+                                                    &ZCM_TRANS_CLASSNAME::_recvmsg,
+                                                    NULL, // update
+                                                    &ZCM_TRANS_CLASSNAME::_destroy,
 };
 
 static zcm_trans_t *create(zcm_url_t *url, char **opt_errmsg)
