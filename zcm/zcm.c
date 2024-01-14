@@ -41,6 +41,9 @@ zcm_t* zcm_create(const char* url)
     char *errmsg = NULL;
     int ret = zcm_try_create(&z, url, &errmsg);
     if (ret != ZCM_EOK) {
+        // RRR (Bendes): this repo uses 4 space indents
+        // RRR (Bendes): You can't print in zcm. printf isn't supported everywhere
+        //               Use ZCM_DEBUG
       fprintf(stderr, "zcm_try_create() failed: %s\n", errmsg);
       free(errmsg);
       ZCM_ASSERT(false);

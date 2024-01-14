@@ -1,3 +1,5 @@
+// RRR (Bendes): Any reason not to just call this shmem? Ipc prefix seems redundant
+// RRR (Bendes): This file mixes 4 and 2 space indents. Please make all 4
 #include "zcm/transport.h"
 #include "zcm/transport_registrar.h"
 #include "zcm/transport_register.hpp"
@@ -6,6 +8,7 @@
 #include "zcm/transport/lockfree/lf_util.h"
 #include "zcm/util/debug.h"
 #include "util/TimeUtil.hpp"
+
 #include <cstddef>
 #include <cstdio>
 #include <cstring>
@@ -81,9 +84,12 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         trans_type = ZCM_BLOCKING;
         vtbl = &methods;
 
-        // Process any url options
         ZCM_DEBUG("Init ipcshm:");
-        ZCM_DEBUG("  address='%s'", zcm_url_address(url));
+
+        const char *region_name = zcm_url_address(url);
+        ZCM_DEBUG("  address='%s'", region_name);
+
+        // Process any url options
         zcm_url_opts_t *opts = zcm_url_opts(url);
         for (size_t i = 0; i < opts->numopts; i++) {
           ZCM_DEBUG("  %s='%s'", opts->name[i], opts->value[i]);
@@ -94,6 +100,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
           if (0 == strcmp(opts->name[i], "mtu")) {
             if (parse_u64(opts->value[i], &tmp)) {
               ZCM_DEBUG("Setting mtu=%" PRIu64, tmp);
+              // RRR (Bendes): Is this necessary if you're doing the
+              //               align up to the msg_maxsz below?
               msg_payload_sz = LF_ALIGN_UP(tmp, msg_align);
             }
           }
@@ -106,7 +114,6 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         }
 
         // Create or join the shm region
-        const char *region_name = zcm_url_address(url);
         size_t msg_maxsz = sizeof(Msg) + msg_payload_sz;
         msg_maxsz = LF_ALIGN_UP(msg_maxsz, msg_align);
 
@@ -122,7 +129,15 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
         mem = lf_shm_open(region_name, &shm_size);
         if (shm_size != region_size) {
-          char *err = sprintf_alloc("IPCSHM Region size mismatch for '%s': expected %zu, got %zu\nNOTE: IPCSHM does not auto-resize because other process might be actively using it.\n      If you have recently changed the URL parameters and you're certain the\n      old segment is unused, then you can simply remove it with 'rm /dev/shm/%s'", region_name, region_size, shm_size, region_name);
+          char *err = sprintf_alloc("IPCSHM Region size mismatch for '%s': "
+                                    "expected %zu, got %zu\n"
+                                    "NOTE: IPCSHM does not auto-resize because "
+                                    "other process might be actively using it.\n      "
+                                    "If you have recently changed the URL parameters "
+                                    "and you're certain the\n      old segment "
+                                    "is unused, then you can simply remove it "
+                                    "with 'rm /dev/shm/%s'",
+                                    region_name, region_size, shm_size, region_name);
           ZCM_DEBUG("%s", err);
           lf_shm_close(mem, shm_size);
           *errmsg = err;
@@ -190,7 +205,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
       Msg *m = (Msg*)lf_bcast_buf_acquire(bcast);
       if (!m) {
-        fprintf(stderr, "IPCSHM Queue and Pool are both empty: this shouldn't happen if sized correctly");
+        fprintf(stderr, "IPCSHM Queue and Pool are both empty: "
+                        "this shouldn't happen if sized correctly");
         abort(); // FIXME?
       }
 
@@ -215,15 +231,16 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         const Msg *m = (const Msg*)lf_bcast_sub_consume_begin(sub, timeout_nanos);
         if (!m) return ZCM_EAGAIN;
 
-        //////////////////////////////////////////////////////////////////////////////////////////
+        /////////////////////////////////////////////////////////////////////////
         // BEGIN VOLATILE REGION
-        //////////////////////////////////////////////////////////////////////////////////////////
+        /////////////////////////////////////////////////////////////////////////
 
         // Copy it very defensively: the memory is shared and may be invalidated
         // at any time while we copy
 
         // Sanity check the payload size. This is NOT redundant. It's very important.
-        // Data is in a volatile region so it could have a transient state where the size could trigger a buffer overrun!
+        // Data is in a volatile region so it could have a transient state where
+        // the size could trigger a buffer overrun!
         size_t size = m->size;
         if (size > msg_payload_sz) { // Weird size.. drop it
           lf_bcast_sub_consume_end(sub);
@@ -237,15 +254,16 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         // Finish consuming and verify it remained valid while we consumed it
         bool ref_valid = lf_bcast_sub_consume_end(sub);
 
-        //////////////////////////////////////////////////////////////////////////////////////////
+        /////////////////////////////////////////////////////////////////////////
         // END VOLATILE REGION
-        //////////////////////////////////////////////////////////////////////////////////////////
+        /////////////////////////////////////////////////////////////////////////
 
-        // We copied the channel without verifying it was null-terminated. We do that now.
+        // We copied the channel without verifying it was null-terminated.
+        // We do that now.
         bool channel_valid = !!memchr(recv->channel, 0, sizeof(recv->channel));
 
         // If message was invalidated.. treat as drop
-        bool valid = ref_valid & channel_valid;
+        bool valid = ref_valid && channel_valid;
         if (!valid) return ZCM_EAGAIN;
 
         // All good, prepare the result struct
@@ -294,9 +312,6 @@ zcm_trans_methods_t ZCM_TRANS_CLASSNAME::methods = {
 
 static zcm_trans_t *create(zcm_url_t *url, char **opt_errmsg)
 {
-
-    if (opt_errmsg) *opt_errmsg = NULL; // Feature unused in this transport
-
     char *errmsg = NULL;
     auto *trans = new ZCM_TRANS_CLASSNAME(url, &errmsg);
     if (opt_errmsg) *opt_errmsg = errmsg;
