@@ -1,9 +1,3 @@
-// RRR (Bendes): Any reason not to just call this shmem? Ipc prefix seems redundant
-// RRR (xorvoid): Because there are many ways to use shared-memory that aren't ipc, but I suppose "transport" implies that haha. I'll change it if you strongly prefer "shm"?
-
-// RRR (Bendes): This file mixes 4 and 2 space indents. Please make all 4
-// RRR (xorvoid): My damn editor settings... I always use 2 so it botched it. This project doesn't have an autoformatter I guess?
-// RRR (xorvoid): FIXED
 #include "zcm/transport.h"
 #include "zcm/transport_registrar.h"
 #include "zcm/transport_register.hpp"
@@ -104,9 +98,6 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             if (0 == strcmp(opts->name[i], "mtu")) {
                 if (parse_u64(opts->value[i], &tmp)) {
                     ZCM_DEBUG("Setting mtu=%" PRIu64, tmp);
-                    // RRR (Bendes): Is this necessary if you're doing the
-                    //               align up to the msg_maxsz below?
-                    // RRR (xorvoid): Good catch! Fixed.
                     msg_payload_sz = tmp;
                 }
             }
