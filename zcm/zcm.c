@@ -42,8 +42,12 @@ zcm_t* zcm_create(const char* url)
     int ret = zcm_try_create(&z, url, &errmsg);
     if (ret != ZCM_EOK) {
         // RRR (Bendes): this repo uses 4 space indents
+        // RRR (xorvoid): fixed this file: hunting for any others I missed. This is your chance to mock my Emacs usage haha
         // RRR (Bendes): You can't print in zcm. printf isn't supported everywhere
         //               Use ZCM_DEBUG
+        // RRR (xorvoid): Is it okay to use #ifndef ZCM_EMBEDDED ?? I consider this an important user diagnostic (more detailed explanation in slack)
+        //                Actually.. on further consideration: this entire block is ZCM_EMBEDDED becuase we manually create transports in embedded-land
+        //                I thought "no printf" only applied because of embedded? Am I misremembering or did policy change?
         fprintf(stderr, "zcm_try_create() failed: %s\n", errmsg);
         free(errmsg);
         ZCM_ASSERT(false);
