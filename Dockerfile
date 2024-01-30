@@ -16,6 +16,7 @@ RUN update-alternatives --install /usr/bin/python python /usr/bin/python3 1 && \
 
 COPY DEBIAN/ ./DEBIAN
 COPY LICENSE ./LICENSE
+COPY bench/ ./bench
 COPY config/ ./config
 COPY docs/ ./docs
 COPY examples/ ./examples
