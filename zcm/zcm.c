@@ -38,8 +38,7 @@ int zcm_retcode_name_to_enum(const char* zcm_retcode_name)
 zcm_t* zcm_create(const char* url)
 {
     zcm_t* z = NULL;
-    char *errmsg = NULL;
-    int ret = zcm_try_create(&z, url, &errmsg);
+    int ret = zcm_try_create(&z, url, NULL);
     ZCM_ASSERT(ret == ZCM_EOK);
     ZCM_ASSERT(z);
     return z;
