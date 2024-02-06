@@ -28,7 +28,7 @@ static zcm_trans_t *makeTransport()
     auto *u = zcm_url_create(url);
     auto *creator = zcm_transport_find(zcm_url_protocol(u));
     TSM_ASSERT("Failed to create transport", creator);
-    zcm_trans_t* ret = creator(u);
+    zcm_trans_t* ret = creator(u, NULL);
     zcm_url_destroy(u);
     return ret;
 }

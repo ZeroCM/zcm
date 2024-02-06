@@ -1,0 +1,6 @@
+struct blob_t
+{
+    int64_t send_time;
+    int64_t n;
+    int8_t data[n];
+}

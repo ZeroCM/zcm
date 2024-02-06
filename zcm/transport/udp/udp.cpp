@@ -498,8 +498,10 @@ static const char *optFind(zcm_url_opts_t *opts, const string& key)
     return NULL;
 }
 
-static zcm_trans_t *createUdp(zcm_url_t *url)
+static zcm_trans_t *createUdp(zcm_url_t *url, char **opt_errmsg)
 {
+    if (opt_errmsg) *opt_errmsg = NULL; // Feature unused in this transport
+
     auto protocol = string(zcm_url_protocol(url));
     bool isMulticast = protocol == "udpm";
 

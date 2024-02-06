@@ -197,8 +197,10 @@ zcm_trans_methods_t ZCM_TRANS_CLASSNAME::methods = {
     &ZCM_TRANS_CLASSNAME::_destroy,
 };
 
-static zcm_trans_t *create(zcm_url_t *url)
+static zcm_trans_t *create(zcm_url_t *url, char **opt_errmsg)
 {
+    if (opt_errmsg) *opt_errmsg = NULL; // Feature unused in this transport
+
     auto *trans = new ZCM_TRANS_CLASSNAME(url);
     if (trans->good())
         return trans;

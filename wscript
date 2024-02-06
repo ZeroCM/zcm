@@ -81,6 +81,7 @@ def add_zcm_configure_options(ctx):
     add_trans_option('udp',    'Enable the UDP transports (unicast and multicast)')
     add_trans_option('serial', 'Enable the Serial transport')
     add_trans_option('can',    'Enable the Canbus transport')
+    add_trans_option('ipcshm', 'Enable the IPC Shared-Memory transport')
 
 def add_zcm_build_options(ctx):
     gr = ctx.add_option_group('ZCM Build Options')
@@ -168,6 +169,7 @@ def process_zcm_configure_options(ctx):
     env.USING_TRANS_UDP    = hasopt('use_udp')
     env.USING_TRANS_SERIAL = hasopt('use_serial')
     env.USING_TRANS_CAN    = hasopt('use_can')
+    env.USING_TRANS_IPCSHM = hasopt('use_ipcshm')
 
     env.HASH_TYPENAME      = getattr(opt, 'hash_typename')
     env.HASH_MEMBER_NAMES  = getattr(opt, 'hash_member_names')
@@ -216,6 +218,7 @@ def process_zcm_configure_options(ctx):
     print_entry("udp",    env.USING_TRANS_UDP)
     print_entry("serial", env.USING_TRANS_SERIAL)
     print_entry("can",    env.USING_TRANS_CAN)
+    print_entry("ipcshm", env.USING_TRANS_IPCSHM)
 
     Logs.pprint('BLUE', '\nType Configuration:')
     print_entry("hash-typename",     env.HASH_TYPENAME == 'true')
@@ -386,9 +389,10 @@ def setup_environment(ctx):
     WARNING_FLAGS = ['-Wall', '-Werror', '-Wno-unused-function']
     SYM_FLAGS = ['-g']
     OPT_FLAGS = ['-O3']
-    ctx.env.CFLAGS_default    = ['-std=gnu99', '-fPIC', '-pthread'] + WARNING_FLAGS
-    ctx.env.CXXFLAGS_default  = ['-std=c++11', '-fPIC', '-pthread'] + WARNING_FLAGS
+    ctx.env.CFLAGS_default    = ['-std=gnu99', '-fPIC', '-pthread', '-march=native'] + WARNING_FLAGS
+    ctx.env.CXXFLAGS_default  = ['-std=c++11', '-fPIC', '-pthread', '-march=native'] + WARNING_FLAGS
     ctx.env.INCLUDES_default  = [ctx.path.abspath()]
+    ctx.env.LIB_default       = ['rt']
     ctx.env.LINKFLAGS_default = ['-pthread']
 
     ctx.env.DEFINES_default   = ['_LARGEFILE_SOURCE', '_FILE_OFFSET_BITS=64']
@@ -470,6 +474,7 @@ def build(ctx):
         ctx.recurse('gen')
         ctx.recurse('tools')
         ctx.recurse('DEBIAN')
+        #ctx.recurse('bench')
         ctx.install_as('${PREFIX}/share/doc/zcm/copyright', 'LICENSE')
         if not waflib.Options.options.skip_git:
             generate_signature(ctx)
