@@ -175,7 +175,7 @@ class ApiRetcodesTest : public CxxTest::TestSuite
     void testPublishMsgdrop(void)
     {
         zcm_t zcm;
-        zcm_init(&zcm, "test-pub-blockforever");
+        zcm_init(&zcm, "test-pub-blockforever", NULL);
         zcm_start(&zcm);
 
         // NOTE: We assume that 100000 publish calls are enought to overflow the send buffer
