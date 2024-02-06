@@ -39,14 +39,14 @@ void init_generic(zcm_trans_t *zt, zcm_trans_methods_t *methods)
     zt->vtbl = methods;
 }
 
-static zcm_trans_t *transport_fail_create(zcm_url_t *url)
+static zcm_trans_t *transport_fail_create(zcm_url_t *url, char **opt_errmsg)
 {
     return NULL;
 }
 
 static zcm_trans_methods_t generic_methods;
 static zcm_trans_t generic_trans;
-static zcm_trans_t *transport_generic_create(zcm_url_t *url)
+static zcm_trans_t *transport_generic_create(zcm_url_t *url, char **opt_errmsg)
 {
     init_generic(&generic_trans, &generic_methods);
     return &generic_trans;
@@ -63,7 +63,7 @@ static int pub_blockforever_sendmsg(zcm_trans_t *zt, zcm_msg_t msg)
     usleep(100000);
     return ZCM_EOK;
 }
-static zcm_trans_t *transport_pub_blockforever_create(zcm_url_t *url)
+static zcm_trans_t *transport_pub_blockforever_create(zcm_url_t *url, char **opt_errmsg)
 {
     init_generic(&pub_blockforever_trans, &pub_blockforever_methods);
     pub_blockforever_methods.sendmsg = pub_blockforever_sendmsg;
@@ -84,7 +84,7 @@ static int sub_recvmsg_enable(zcm_trans_t *zt, const char *channel, bool enable)
 
     return ZCM_EOK;
 }
-static zcm_trans_t *transport_sub_create(zcm_url_t *url)
+static zcm_trans_t *transport_sub_create(zcm_url_t *url, char **opt_errmsg)
 {
     init_generic(&sub_trans, &sub_methods);
     sub_methods.recvmsg_enable = sub_recvmsg_enable;
