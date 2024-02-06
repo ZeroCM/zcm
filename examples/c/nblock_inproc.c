@@ -37,7 +37,7 @@ int main(int argc, char *argv[])
     }
 
     zcm_t zcm;
-    if (zcm_init(&zcm, "nonblock-inproc") != 0) return 1;
+    if (zcm_init(&zcm, "nonblock-inproc", NULL) != 0) return 1;
 
     example_t_subscription_t* exSub = example_t_subscribe(&zcm, "EXAMPLE", &my_handler, NULL);
 

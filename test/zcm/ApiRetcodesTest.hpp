@@ -124,7 +124,7 @@ class ApiRetcodesTest : public CxxTest::TestSuite
         zcm_t zcm;
 
         memset(&zcm, 0, sizeof(zcm));
-        TS_ASSERT_EQUALS(ZCM_ECONNECT, zcm_init(&zcm, "test-fail"));
+        TS_ASSERT_EQUALS(ZCM_ECONNECT, zcm_init(&zcm, "test-fail", NULL));
 
         memset(&zcm, 0, sizeof(zcm));
 
@@ -135,7 +135,7 @@ class ApiRetcodesTest : public CxxTest::TestSuite
     void testPublish(void)
     {
         zcm_t zcm;
-        zcm_init(&zcm, "test-generic");
+        zcm_init(&zcm, "test-generic", NULL);
         zcm_start(&zcm);
 
         // Test channel size limit checking
@@ -199,7 +199,7 @@ class ApiRetcodesTest : public CxxTest::TestSuite
     {
         zcm_t zcm;
         zcm_sub_t *sub;
-        zcm_init(&zcm, "test-sub");
+        zcm_init(&zcm, "test-sub", NULL);
 
         /* can't subscribe */
         TS_ASSERT_EQUALS(nullptr, zcm_subscribe(&zcm, "CANNOT_SUB", NULL, NULL));
