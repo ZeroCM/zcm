@@ -115,7 +115,7 @@ class ApiRetcodesTest : public CxxTest::TestSuite
     void testFailConstruct(void)
     {
         zcm_t* zcm_ptr;
-        TS_ASSERT_EQUALS(ZCM_ECONNECT, zcm_try_create(&zcm_ptr, "test-fail"));
+        TS_ASSERT_EQUALS(ZCM_ECONNECT, zcm_try_create(&zcm_ptr, "test-fail", NULL));
         TS_ASSERT_EQUALS(nullptr, zcm_ptr);
 
         zcm_try_create_from_trans(&zcm_ptr, NULL);
