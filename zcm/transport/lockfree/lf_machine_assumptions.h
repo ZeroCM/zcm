@@ -7,7 +7,7 @@
 #ifndef static_assert
 # define _sa_ident_impl(a, b) a ## b
 # define _sa_ident(a, b) _sa_ident_impl(a, b)
-# define static_assert(cond, _) typedef int _sa_ident(static_assert_, __LINE__)[(cond) ? 1 : -1]
+# define static_assert(cond, _) typedef int _sa_ident(static_assert_, __COUNTER__)[(cond) ? 1 : -1]
 #endif
 
 // Machine is byte-addressable
