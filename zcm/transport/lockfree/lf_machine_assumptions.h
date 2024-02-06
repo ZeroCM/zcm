@@ -5,7 +5,11 @@
 
 // If we're compiling in an older C std, we might not have static_assert()
 #ifndef static_assert
-# define static_assert(cond, _) typedef int static_assert_ ## __LINE__[(cond) ? 1 : -1]
+# define concat_ident_impl(a, b) a ## b
+# define concat_ident(a, b) concat_ident_impl(a, b)
+# define static_assert(cond, _) typedef int concat_ident(static_assert_, __LINE__)[(cond) ? 1 : -1]
+# undef concat_ident
+# undef concat_ident_impl
 #endif
 
 // Machine is byte-addressable
