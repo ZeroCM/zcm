@@ -24,6 +24,8 @@
 #include <linux/can.h>
 #include <linux/can/raw.h>
 
+#define MASK_29B ((1 << 29) - 1)
+
 // Define this the class name you want
 #define ZCM_TRANS_CLASSNAME TransportCan
 #define MTU (1<<14)
@@ -69,7 +71,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             return;
         } else {
             char *endptr;
-            msgId = strtoul(msgIdStr->c_str(), &endptr, 10);
+            msgId = (strtoul(msgIdStr->c_str(), &endptr, 10) & MASK_29B);
             if (*endptr != '\0') {
                 ZCM_DEBUG("Msg Id unspecified");
                 return;
