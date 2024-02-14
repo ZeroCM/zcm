@@ -59,7 +59,7 @@ be used to *summon* the transport:
   <tr>
     <td>        Inter-process via Shared Memory (IPCSHM)                </td>
     <td><code>  ipcshm://&lt;shm-region-name&gt;?mtu=&lt;mtu&gt;&amp;depth=&lt;depth&gt; </code></td>
-    <td><code>  zcm_create("ipcshm"), zcm_create("ipcshm://myregion")   </code></td>
+    <td><code>  zcm_create("ipcshm"), zcm_create("ipcshm://myregion?mtu=100000&depth=128")   </code></td>
   </tr>
 </table>
 
