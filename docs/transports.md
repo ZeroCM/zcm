@@ -56,6 +56,11 @@ be used to *summon* the transport:
     <td><code>  can://&lt;interface&gt;?msgid=&lt;id&gt;                </code></td>
     <td><code>  zcm_create("can://can0?msgid=65536")                    </code></td>
   </tr>
+  <tr>
+    <td>        Inter-process via Shared Memory (IPCSHM)                </td>
+    <td><code>  ipcshm://&lt;shm-region-name&gt;?mtu=&lt;mtu&gt;&amp;depth=&lt;depth&gt; </code></td>
+    <td><code>  zcm_create("ipcshm"), zcm_create("ipcshm://myregion?mtu=100000&depth=128")   </code></td>
+  </tr>
 </table>
 
 When no url is provided (i.e. `zcm_create(NULL)`), the `ZCM_DEFAULT_URL` environment variable is

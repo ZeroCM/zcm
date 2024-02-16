@@ -85,6 +85,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         ZCM_DEBUG("Init ipcshm:");
 
         const char *region_name = zcm_url_address(url);
+        if (!region_name[0]) region_name = "default";
+
         ZCM_DEBUG("  address='%s'", region_name);
 
         // Process any url options
@@ -120,10 +122,14 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         assert(LF_IS_POW2(page_size)); // Sanity or paranoia..
         region_size = LF_ALIGN_UP(region_size, page_size);
 
-        bool created = lf_shm_create(region_name, region_size);
-        ZCM_DEBUG("Shm region created: %d", (int)created);
+        char region_path[PATH_MAX+1];
+        snprintf(region_path, sizeof(region_path), "/dev/shm/zcm/ipcshm/%s", region_name);
+        region_path[PATH_MAX] = 0;
 
-        mem = lf_shm_open(region_name, &shm_size);
+        bool created = lf_shm_create(region_path, region_size);
+        ZCM_DEBUG("Shm region created: %s", created ? "true" : "false");
+
+        mem = lf_shm_open(region_path, &shm_size);
         if (shm_size != region_size) {
             char *err = sprintf_alloc("IPCSHM Region size mismatch for '%s': "
                                       "expected %zu, got %zu\n"
@@ -132,8 +138,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
                                       "If you have recently changed the URL parameters "
                                       "and you're certain the\n      old segment "
                                       "is unused, then you can simply remove it "
-                                      "with 'rm /dev/shm/%s'",
-                                      region_name, region_size, shm_size, region_name);
+                                      "with 'rm %s'",
+                                      region_name, region_size, shm_size, region_path);
             ZCM_DEBUG("%s", err);
             lf_shm_close(mem, shm_size);
             *errmsg = err;
