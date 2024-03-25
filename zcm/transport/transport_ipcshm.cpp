@@ -95,6 +95,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             ZCM_DEBUG("  %s='%s'", opts->name[i], opts->value[i]);
         }
 
+        int shm_open_flags = LF_SHM_FLAG_MLOCK; // mlock by default unless explicitly disabled
         for (size_t i = 0; i < opts->numopts; i++) {
             u64 tmp;
             if (0 == strcmp(opts->name[i], "mtu")) {
@@ -107,6 +108,14 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
                 if (parse_u64(opts->value[i], &tmp)) {
                     ZCM_DEBUG("Setting queue_depth=%" PRIu64, tmp);
                     queue_depth = tmp;
+                }
+            }
+            if (0 == strcmp(opts->name[i], "mlock")) {
+                if (parse_u64(opts->value[i], &tmp)) {
+                    if (tmp == 0) {
+                        ZCM_DEBUG("Disabling mlock");
+                        shm_open_flags &= ~LF_SHM_FLAG_MLOCK;
+                    }
                 }
             }
         }
@@ -129,7 +138,24 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         bool created = lf_shm_create(region_path, region_size);
         ZCM_DEBUG("Shm region created: %s", created ? "true" : "false");
 
-        mem = lf_shm_open(region_path, &shm_size);
+        int errcode = 0;
+        mem = lf_shm_open(region_path, shm_open_flags, &shm_size, &errcode);
+        if (!mem) {
+            char *err;
+            if (errcode == LF_SHM_ERR_MLOCK) {
+                err = sprintf_alloc("IPCSHM Region mlock failed\n"
+                                    "NOTE: This usually happens because ulimit is misconfigured and the kernel "
+                                    "is limiting the amount of memory that can be locked resident.\n"
+                                    "Try running 'ulimit -l' to review and adjust your settings");
+
+            } else {
+                // generic failure
+                err = sprintf_alloc("IPCSHM Region open failed with %s (%d)", lf_shm_errstr(errcode), errcode);
+            }
+            ZCM_DEBUG("%s", err);
+            *errmsg = err;
+            return;
+        }
         if (shm_size != region_size) {
             char *err = sprintf_alloc("IPCSHM Region size mismatch for '%s': "
                                       "expected %zu, got %zu\n"
