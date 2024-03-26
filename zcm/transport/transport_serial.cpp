@@ -469,6 +469,7 @@ zcm_trans_methods_t ZCM_TRANS_CLASSNAME::methods = {
     &ZCM_TRANS_CLASSNAME::_sendmsg,
     &ZCM_TRANS_CLASSNAME::_recvmsgEnable,
     &ZCM_TRANS_CLASSNAME::_recvmsg,
+    NULL, // drops
     NULL, // update
     &ZCM_TRANS_CLASSNAME::_destroy,
 };

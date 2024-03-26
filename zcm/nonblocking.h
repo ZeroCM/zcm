@@ -22,6 +22,8 @@ zcm_sub_t* zcm_nonblocking_subscribe(zcm_nonblocking_t* zcm, const char* channel
 
 int zcm_nonblocking_unsubscribe(zcm_nonblocking_t* zcm, zcm_sub_t* sub);
 
+int zcm_nonblocking_query_drops(zcm_nonblocking_t *zcm, uint64_t *out_drops);
+
 /* Returns 1 if a message was dispatched, and 0 otherwise */
 int zcm_nonblocking_handle_nonblock(zcm_nonblocking_t* zcm);
 

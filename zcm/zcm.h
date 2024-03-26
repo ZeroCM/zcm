@@ -39,6 +39,7 @@ enum zcm_type {
     X(ZCM_EINTR   ,         -4, "Operation was unexpectedly interrupted") \
     X(ZCM_EUNKNOWN,         -5, "Unknown error"                         ) \
     X(ZCM_EMEMORY,          -6, "Out of memory"                         ) \
+    X(ZCM_EUNIMPL,          -7, "Function is not implemented"           ) \
     X(ZCM_NUM_RETURN_CODES,  7, "Invalid return code"                   )
 
 /* Return codes */
@@ -157,7 +158,10 @@ int zcm_write_topology(zcm_t* zcm, const char* name);
    error code otherwise */
 int zcm_handle_nonblock(zcm_t* zcm);
 
-
+/* Query the drop counter on the underlying transport
+   NOTE: This may be unimplemented, in which case it will return ZCM_EIMPL and
+   the out-param will be disregarded. */
+int zcm_query_drops(zcm_t *zcm, uint64_t *out_drops);
 
 /****************************************************************************/
 /*    NOT FOR GENERAL USE. USED FOR LANGUAGE-SPECIFIC BINDINGS WITH VERY    */

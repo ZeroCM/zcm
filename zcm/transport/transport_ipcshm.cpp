@@ -302,6 +302,13 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         return ZCM_EOK;
     }
 
+    int query_drops(uint64_t *out_drops)
+    {
+        uint64_t drops = lf_bcast_sub_drops(sub);
+        if (out_drops) *out_drops = drops;
+        return ZCM_EOK;
+    }
+
     /********************** STATICS **********************/
     static zcm_trans_methods_t methods;
     static ZCM_TRANS_CLASSNAME *cast(zcm_trans_t *zt)
@@ -322,6 +329,9 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     static int _recvmsg(zcm_trans_t *zt, zcm_msg_t *msg, unsigned timeout)
     { return cast(zt)->recvmsg(msg, timeout); }
 
+    static int _query_drops(zcm_trans_t *zt, uint64_t *out_drops)
+    { return cast(zt)->query_drops(out_drops); }
+
     static void _destroy(zcm_trans_t *zt)
     { delete cast(zt); }
 
@@ -330,12 +340,13 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 };
 
 zcm_trans_methods_t ZCM_TRANS_CLASSNAME::methods = {
-                                                    &ZCM_TRANS_CLASSNAME::_get_mtu,
-                                                    &ZCM_TRANS_CLASSNAME::_sendmsg,
-                                                    &ZCM_TRANS_CLASSNAME::_recvmsg_enable,
-                                                    &ZCM_TRANS_CLASSNAME::_recvmsg,
-                                                    NULL, // update
-                                                    &ZCM_TRANS_CLASSNAME::_destroy,
+    &ZCM_TRANS_CLASSNAME::_get_mtu,
+    &ZCM_TRANS_CLASSNAME::_sendmsg,
+    &ZCM_TRANS_CLASSNAME::_recvmsg_enable,
+    &ZCM_TRANS_CLASSNAME::_recvmsg,
+    &ZCM_TRANS_CLASSNAME::_query_drops,
+    NULL, // update
+    &ZCM_TRANS_CLASSNAME::_destroy,
 };
 
 static zcm_trans_t *create(zcm_url_t *url, char **opt_errmsg)

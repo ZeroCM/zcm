@@ -263,6 +263,7 @@ static zcm_trans_methods_t methods = {
     &_serial_sendmsg,
     &_serial_recvmsg_enable,
     &_serial_recvmsg,
+    NULL, // drops
     &_serial_update,
     &zcm_trans_generic_serial_destroy,
 };

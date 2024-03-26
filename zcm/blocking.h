@@ -31,6 +31,7 @@ void zcm_blocking_resume(zcm_blocking_t* zcm);
 int  zcm_blocking_handle(zcm_blocking_t* zcm);
 int  zcm_blocking_handle_nonblock(zcm_blocking_t* zcm);
 void zcm_blocking_set_queue_size(zcm_blocking_t* zcm, uint32_t numMsgs);
+int  zcm_blocking_query_drops(zcm_blocking_t *zcm, uint64_t *out_drops);
 
 int zcm_blocking_write_topology(zcm_blocking_t* zcm, const char* name);
 

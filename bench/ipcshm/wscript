@@ -42,3 +42,7 @@ def build(ctx):
     ctx.program(target='test_big',
                 use = 'default zcm benchzcmtypes',
                 source='test_big.c')
+
+    ctx.program(target='test_dropping',
+                use = 'default zcm benchzcmtypes',
+                source='test_dropping.c')
