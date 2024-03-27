@@ -23,7 +23,7 @@ if not zcm.good():
 msg = example_t()
 msg.timestamp = 10
 
-ret = zcm.handleNonblock()
+ret = zcm.handle(0)
 if ret != zerocm.ZCM_EAGAIN:
     print("Failed to return successfully when no message is ready")
     sys.exit(1)
@@ -44,7 +44,7 @@ zcm.publish("TEST", msg)
 time.sleep(0.5)
 
 # handle incoming message
-ret = zcm.handleNonblock()
+ret = zcm.handle(0)
 if ret != zerocm.ZCM_EOK:
     print("Failed to return successfully when a message is ready")
     sys.exit(1)
