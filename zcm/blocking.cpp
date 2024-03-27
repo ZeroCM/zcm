@@ -170,7 +170,7 @@ void zcm_blocking_t::stop()
     if (runState != RunState::RUNNING && runState != RunState::PAUSED) return;
     runState = RunState::STOP;
     pauseCond.notify_all();
-    recvThread.join();
+    if (recvThread.joinable()) recvThread.join();
 }
 
 void zcm_blocking_t::pause()
