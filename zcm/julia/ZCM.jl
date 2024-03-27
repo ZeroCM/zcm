@@ -295,6 +295,10 @@ function write_topology(zcm::Zcm, name::AbstractString)
           zcm, convert(String, name))
 end
 
+function get_num_dropped_messages(zcm::Zcm)
+    ccall(("zcm_get_num_dropped_messages", "libzcm"), Cint, (Ptr{Native.Zcm}), zcm)
+end
+
 function read_bits(T::Type, buf::IOBuffer, numbits::Int, offset_bit::Int, signExtend::Bool)
     ret = T(0)
     bits_left = numbits
