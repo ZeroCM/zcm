@@ -33,13 +33,16 @@ COPY zcm/ ./zcm
 ENV PATH ${PATH}:/root/.local/bin:$ZCM_HOME/deps/julia/bin
 ENV NVM_DIR /root/.nvm
 
-RUN bash -c 'export JAVA_HOME=$(readlink -f /usr/bin/javac | sed "s:/bin/javac::") && \
-             [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" && \
-             . $ZCM_HOME/deps/cxxtest/.env && \
-             ./waf distclean configure --use-all --use-dev && \
-             ./waf build && \
-             ./waf install && \
-             ./waf build_examples'
+RUN <<EOF
+#!/bin/bash
+export JAVA_HOME=$(readlink -f /usr/bin/javac | sed "s:/bin/javac::")
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+. $ZCM_HOME/deps/cxxtest/.env
+./waf distclean configure --use-all --use-dev
+./waf build
+./waf install
+./waf build_examples
+EOF
 
 CMD bash -c 'export JAVA_HOME=$(readlink -f /usr/bin/javac | sed "s:/bin/javac::") && \
              [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" && \
