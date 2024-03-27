@@ -55,6 +55,8 @@ var ZCM_EAGAIN           = libzcm.zcm_retcode_name_to_enum("ZCM_EAGAIN");
 var ZCM_ECONNECT         = libzcm.zcm_retcode_name_to_enum("ZCM_ECONNECT");
 var ZCM_EINTR            = libzcm.zcm_retcode_name_to_enum("ZCM_EINTR");
 var ZCM_EUNKNOWN         = libzcm.zcm_retcode_name_to_enum("ZCM_EUNKNOWN");
+var ZCM_EMEMORY          = libzcm.zcm_retcode_name_to_enum("ZCM_EMEMORY");
+var ZCM_EUNIMPL          = libzcm.zcm_retcode_name_to_enum("ZCM_EUNIMPL");
 var ZCM_NUM_RETURN_CODES = libzcm.zcm_retcode_name_to_enum("ZCM_NUM_RETURN_CODES");
 
 exports.ZCM_EOK              = ZCM_EOK;
@@ -63,6 +65,8 @@ exports.ZCM_EAGAIN           = ZCM_EAGAIN;
 exports.ZCM_ECONNECT         = ZCM_ECONNECT;
 exports.ZCM_EINTR            = ZCM_EINTR;
 exports.ZCM_EUNKNOWN         = ZCM_EUNKNOWN;
+exports.ZCM_EMEMORY          = ZCM_EMEMORY;
+exports.ZCM_EUNIMPL          = ZCM_EUNIMPL;
 exports.ZCM_NUM_RETURN_CODES = ZCM_NUM_RETURN_CODES;
 
 /**

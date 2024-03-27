@@ -40,7 +40,7 @@ enum zcm_type {
     X(ZCM_EUNKNOWN,         -5, "Unknown error"                         ) \
     X(ZCM_EMEMORY,          -6, "Out of memory"                         ) \
     X(ZCM_EUNIMPL,          -7, "Function is not implemented"           ) \
-    X(ZCM_NUM_RETURN_CODES,  7, "Invalid return code"                   )
+    X(ZCM_NUM_RETURN_CODES,  8, "Invalid return code"                   )
 
 /* Return codes */
 enum zcm_return_codes {

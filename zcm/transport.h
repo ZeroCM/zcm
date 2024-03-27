@@ -92,7 +92,7 @@
  *      --------------------------------------------------------------------
  *         This method provides the caller access to an internal transport drop counter
  *         Implementing this is not required. If unimplemented, it should return ZCM_EUNIMPL.
- *         If implemented, the out-parameter *out_drops shouold be populated and the
+ *         If implemented, the out-parameter *out_drops should be populated and the
  *         call should return ZCM_EOK.
  *
  *      int update(zcm_trans_t* zt);
@@ -162,7 +162,7 @@
  *      --------------------------------------------------------------------
  *         This method provides the caller access to an internal transport drop counter
  *         Implementing this is not required. If unimplemented, it should return ZCM_EUNIMPL.
- *         If implemented, the out-parameter *out_drops shouold be populated and the
+ *         If implemented, the out-parameter *out_drops should be populated and the
  *         call should return ZCM_EOK.
  *
  *      int update(zcm_trans_t* zt)

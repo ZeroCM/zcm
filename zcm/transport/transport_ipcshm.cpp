@@ -304,8 +304,9 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
     int query_drops(uint64_t *out_drops)
     {
+        if (!out_drops) return ZCM_EINVALID;
         uint64_t drops = lf_bcast_sub_drops(sub);
-        if (out_drops) *out_drops = drops;
+        *out_drops = drops;
         return ZCM_EOK;
     }
 

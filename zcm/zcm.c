@@ -343,8 +343,9 @@ int zcm_query_drops(zcm_t *zcm, uint64_t *out_drops)
     switch (zcm->type) {
         case ZCM_BLOCKING:    return zcm_blocking_query_drops(zcm->impl, out_drops);
         case ZCM_NONBLOCKING: return zcm_nonblocking_query_drops(zcm->impl, out_drops);
-        default: assert(0 && "unreachable");
     }
+    ZCM_ASSERT(0 && "unreachable");
+    return ZCM_EUNKNOWN;
 }
 
 /****************************************************************************/
