@@ -46,24 +46,68 @@ void lf_shm_remove(const char *path)
     unlink(path);
 }
 
-void * lf_shm_open(const char *path, size_t * _opt_size)
+void * lf_shm_open(const char *path, int flags, size_t * _opt_size, int *_opt_err)
 {
     int shm_fd = open(path, O_RDWR|O_CLOEXEC);
-    if (shm_fd < 0) return NULL;
+    if (shm_fd < 0) {
+        if (_opt_err) *_opt_err = LF_SHM_ERR_OPEN;
+        return NULL;
+    }
 
     struct stat st[1];
-    if (0 != fstat(shm_fd, st)) return NULL;
+    if (0 != fstat(shm_fd, st)) {
+        close(shm_fd);
+        if (_opt_err) *_opt_err = LF_SHM_ERR_STAT;
+        return NULL;
+    }
     size_t size = st->st_size;
 
-    void *mem = mmap(NULL, size, PROT_READ|PROT_WRITE, MAP_SHARED, shm_fd, 0);
-    if (mem == MAP_FAILED) return NULL;
+    char *mem = (char*)mmap(NULL, size, PROT_READ|PROT_WRITE, MAP_SHARED, shm_fd, 0);
+    if (mem == MAP_FAILED) {
+        close(shm_fd);
+        if (_opt_err) *_opt_err = LF_SHM_ERR_MMAP;
+        return NULL;
+    }
+
+    // prefault the entire region
+    size_t pagesize = getpagesize();
+    for (char *ptr = mem; ptr < mem+size; ptr += pagesize) {
+        volatile char byte = *(volatile char *)ptr;
+        (void)byte;
+    }
+
+    // mlock it if required
+    if (flags & LF_SHM_FLAG_MLOCK) {
+        int ret = mlock(mem, size);
+        if (ret != 0) {
+            printf("MLCOK FAILED: %d (%s)\n", errno, strerror(errno));
+            munmap(mem, size);
+            close(shm_fd);
+            if (_opt_err) *_opt_err = LF_SHM_ERR_MLOCK;
+            return NULL;
+        }
+    }
 
     close(shm_fd);
     if (_opt_size) *_opt_size = size;
+    if (_opt_err) *_opt_err = LF_SHM_SUCCESS;
     return mem;
 }
 
 void lf_shm_close(void *shm, size_t size)
 {
     munmap(shm, size);
+}
+
+const char *lf_shm_errstr(int err)
+{
+    switch (err) {
+        case LF_SHM_SUCCESS: return "LF_SHM_SUCCESS";
+        case LF_SHM_ERR_OPEN: return "LF_SHM_ERR_OPEN";
+        case LF_SHM_ERR_STAT: return "LF_SHM_ERR_STAT";
+        case LF_SHM_ERR_MMAP: return "LF_SHM_ERR_MMAP";
+        case LF_SHM_ERR_SIZE: return "LF_SHM_ERR_SIZE";
+        case LF_SHM_ERR_MLOCK: return "LF_SHM_ERR_MLOCK";
+        default: return "LF_SHM_ERR_UNKNOWN";
+    }
 }
