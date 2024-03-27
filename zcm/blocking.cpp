@@ -120,7 +120,7 @@ struct zcm_blocking
     int flush(bool block);
 
     int setQueueSize(uint32_t numMsgs, bool block);
-
+    int queryDrops(uint64_t *out_drops);
     int writeTopology(string name);
 
   private:
@@ -612,6 +612,11 @@ int zcm_blocking_t::setQueueSize(uint32_t numMsgs, bool block)
     return ZCM_EOK;
 }
 
+int zcm_blocking_t::queryDrops(uint64_t *out_drops)
+{
+    return zcm_trans_query_drops(zt, out_drops);
+}
+
 void zcm_blocking_t::sendThreadFunc()
 {
     // Name the send thread
@@ -928,6 +933,11 @@ int zcm_blocking_handle_nonblock(zcm_blocking_t* zcm)
 void zcm_blocking_set_queue_size(zcm_blocking_t* zcm, uint32_t sz)
 {
     zcm->setQueueSize(sz, true);
+}
+
+int  zcm_blocking_query_drops(zcm_blocking_t *zcm, uint64_t *out_drops)
+{
+    return zcm->queryDrops(out_drops);
 }
 
 int zcm_blocking_write_topology(zcm_blocking_t* zcm, const char* name)

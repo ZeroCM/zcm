@@ -1,6 +1,7 @@
 #pragma once
 #include <stdbool.h>
 #include <stdlib.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -49,7 +50,7 @@ void  lf_bcast_sub_init(lf_bcast_sub_t *sub, lf_bcast_t *b);
 /* Return the number of drops the sub has experienced. If the consumer is too slow, elements it's
    interested will be reclaimed and rewritten. When the consumer tries to read them, it will discover
    they are missing and count them as a drop. */
-size_t lf_bcast_sub_drops(lf_bcast_t *sub);
+uint64_t lf_bcast_sub_drops(lf_bcast_sub_t *sub);
 
 /* Begin consuming the next buffer in the queue. If no buffer is available, wait up to 'timeout' nanos.
    If available, return a pointer to the buffer.

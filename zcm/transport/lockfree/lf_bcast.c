@@ -226,6 +226,12 @@ void lf_bcast_sub_init(lf_bcast_sub_t *_sub, lf_bcast_t *b)
   sub->idx = b->tail_idx;
 }
 
+uint64_t lf_bcast_sub_drops(lf_bcast_sub_t *_sub)
+{
+  sub_impl_t *sub = (sub_impl_t*)_sub;
+  return sub->drops;
+}
+
 const void *lf_bcast_sub_consume_begin(lf_bcast_sub_t *_sub, int64_t timeout)
 {
   sub_impl_t *sub = (sub_impl_t*)_sub;

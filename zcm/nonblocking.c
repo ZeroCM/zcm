@@ -157,6 +157,11 @@ int zcm_nonblocking_unsubscribe(zcm_nonblocking_t* zcm, zcm_sub_t* sub)
     return rc;
 }
 
+int zcm_nonblocking_query_drops(zcm_nonblocking_t *zcm, uint64_t *out_drops)
+{
+    return zcm_trans_query_drops(zcm->zt, out_drops);
+}
+
 static void dispatch_message(zcm_nonblocking_t* zcm, zcm_msg_t* msg)
 {
     zcm_recv_buf_t rbuf;

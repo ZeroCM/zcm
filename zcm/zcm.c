@@ -338,9 +338,15 @@ int zcm_handle_nonblock(zcm_t* zcm)
     return ret;
 }
 
-
-
-
+int zcm_query_drops(zcm_t *zcm, uint64_t *out_drops)
+{
+    switch (zcm->type) {
+        case ZCM_BLOCKING:    return zcm_blocking_query_drops(zcm->impl, out_drops);
+        case ZCM_NONBLOCKING: return zcm_nonblocking_query_drops(zcm->impl, out_drops);
+    }
+    ZCM_ASSERT(0 && "unreachable");
+    return ZCM_EUNKNOWN;
+}
 
 /****************************************************************************/
 /*    NOT FOR GENERAL USE. USED FOR LANGUAGE-SPECIFIC BINDINGS WITH VERY    */
