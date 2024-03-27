@@ -58,7 +58,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     Type type;
 
     string subnet;
-    int pubhwm = 1000, subhwm = 1000;
+    int pubhwm = 100, subhwm = 100;
     uint64_t rescanPeriodUs = 250e3;
 
     unordered_map<string, pair<void*,lockfile_t*>> pubsocks;
@@ -488,6 +488,22 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         return handlePitems(msg);
     }
 
+    int setQueueSize(unsigned numMsgs)
+    {
+        subhwm = numMsgs;
+
+        bool succ = true;
+
+        for (auto& elt : subsocks) {
+            auto& sock = elt.second.first;
+            int rc;
+            rc = zmq_setsockopt(sock, ZMQ_RCVHWM, &subhwm, sizeof(subhwm));
+            if (rc == -1) succ = false;
+        }
+
+        return succ ? ZCM_EOK : ZCM_EUNKNOWN;
+    }
+
     /********************** STATICS **********************/
     static zcm_trans_methods_t methods;
     static ZCM_TRANS_CLASSNAME *cast(zcm_trans_t *zt)
@@ -508,6 +524,9 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     static int _recvmsg(zcm_trans_t *zt, zcm_msg_t *msg, unsigned timeout)
     { return cast(zt)->recvmsg(msg, timeout); }
 
+    static int _setQueueSize(zcm_trans_t *zt, unsigned numMsgs)
+    { return cast(zt)->setQueueSize(numMsgs); }
+
     static void _destroy(zcm_trans_t *zt)
     { delete cast(zt); }
 
@@ -521,6 +540,7 @@ zcm_trans_methods_t ZCM_TRANS_CLASSNAME::methods = {
     &ZCM_TRANS_CLASSNAME::_recvmsgEnable,
     &ZCM_TRANS_CLASSNAME::_recvmsg,
     NULL, // drops
+    &ZCM_TRANS_CLASSNAME::_setQueueSize,
     NULL, // update
     &ZCM_TRANS_CLASSNAME::_destroy,
 };

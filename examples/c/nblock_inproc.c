@@ -62,7 +62,7 @@ int main(int argc, char *argv[])
         my_data.timestamp = i;
         example_t_publish(&zcm, "EXAMPLE", &my_data);
         usleep(100000);
-        zcm_handle_nonblock(&zcm);
+        zcm_handle(&zcm, 0);
     }
 
     free(my_data.ranges);

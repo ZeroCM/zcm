@@ -81,8 +81,6 @@ struct UDP
     bool init();
     ~UDP();
 
-    int handle();
-
     int sendmsg(zcm_msg_t msg);
     int recvmsg(zcm_msg_t *msg, unsigned timeoutMs);
 
@@ -487,6 +485,7 @@ zcm_trans_methods_t ZCM_TRANS_CLASSNAME::methods = {
     &ZCM_TRANS_CLASSNAME::_recvmsgEnable,
     &ZCM_TRANS_CLASSNAME::_recvmsg,
     NULL, // drops
+    NULL, // set_queue_size
     NULL, // update
     &ZCM_TRANS_CLASSNAME::_destroy,
 };
