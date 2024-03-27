@@ -86,6 +86,8 @@ int zcm_retcode_name_to_enum(const char* zcm_retcode_name);
 /* Standard create/destroy functions. These will malloc() and free() the zcm_t object. */
 #ifndef ZCM_EMBEDDED
 zcm_t* zcm_create(const char* url);
+// If opt_errmsg pointer is provided, it will be set to new memory that you
+// must deallocate
 int    zcm_try_create(zcm_t** z, const char* url, char **opt_errmsg);
 #endif
 zcm_t* zcm_create_from_trans(zcm_trans_t* zt);

@@ -76,7 +76,7 @@ void * lf_shm_open(const char *path, int flags, size_t * _opt_size, int *_opt_er
         (void)byte;
     }
 
-    // mlock it?
+    // mlock it if required
     if (flags & LF_SHM_FLAG_MLOCK) {
         int ret = mlock(mem, size);
         if (ret != 0) {
