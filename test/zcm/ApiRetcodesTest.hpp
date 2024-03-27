@@ -172,29 +172,6 @@ class ApiRetcodesTest : public CxxTest::TestSuite
         zcm_cleanup(&zcm);
     }
 
-    void testPublishMsgdrop(void)
-    {
-        zcm_t zcm;
-        zcm_init(&zcm, "test-pub-blockforever", NULL);
-        zcm_start(&zcm);
-
-        // NOTE: We assume that 100000 publish calls are enought to overflow the send buffer
-        const int MAX_PUBS = 100000;
-        for (int i = 0; i < MAX_PUBS; i++) {
-            uint8_t data = 'a';
-            int ret = zcm_publish(&zcm, "CHANNEL", &data, 1);
-            if (ret == ZCM_EAGAIN) {
-                goto done;
-            }
-        }
-
-        TS_FAIL("Failed to get an error return code from zcm_publish()");
-
-     done:
-        zcm_stop(&zcm);
-        zcm_cleanup(&zcm);
-    }
-
     void testSub(void)
     {
         zcm_t zcm;

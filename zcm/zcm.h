@@ -11,8 +11,8 @@ extern "C" {
  *   m: Minor
  *   u: Micro
  */
-#define ZCM_MAJOR_VERSION 1
-#define ZCM_MINOR_VERSION 2
+#define ZCM_MAJOR_VERSION 2
+#define ZCM_MINOR_VERSION 0
 #define ZCM_MICRO_VERSION 0
 
 #include <stdint.h>
@@ -32,16 +32,16 @@ enum zcm_type
     ZCM_NONBLOCKING
 };
 
-#define ZCM_RETURN_CODES                                       \
-    X(ZCM_EOK, 0, "Okay, no errors")                           \
-    X(ZCM_EINVALID, -1, "Invalid arguments")                   \
-    X(ZCM_EAGAIN, -2, "Resource unavailable, try again")       \
-    X(ZCM_ECONNECT, -3, "Transport connection failed")         \
-    X(ZCM_EINTR, -4, "Operation was unexpectedly interrupted") \
-    X(ZCM_EUNKNOWN, -5, "Unknown error")                       \
-    X(ZCM_EMEMORY, -6, "Out of memory")                        \
-    X(ZCM_EUNIMPL, -7, "Function is not implemented")          \
-    X(ZCM_NUM_RETURN_CODES, 8, "Invalid return code")
+#define ZCM_RETURN_CODES \
+    X(ZCM_EOK,               0, "Okay, no errors"                       ) \
+    X(ZCM_EINVALID,         -1, "Invalid arguments"                     ) \
+    X(ZCM_EAGAIN  ,         -2, "Resource unavailable, try again"       ) \
+    X(ZCM_ECONNECT,         -3, "Transport connection failed"           ) \
+    X(ZCM_EINTR   ,         -4, "Operation was unexpectedly interrupted") \
+    X(ZCM_EUNKNOWN,         -5, "Unknown error"                         ) \
+    X(ZCM_EMEMORY,          -6, "Out of memory"                         ) \
+    X(ZCM_EUNSUPPORTED,     -7, "Unsupported functionality"             ) \
+    X(ZCM_NUM_RETURN_CODES,  8, "Invalid return code"                   )
 
 /* Return codes */
 enum zcm_return_codes
@@ -124,48 +124,46 @@ zcm_sub_t* zcm_subscribe(zcm_t* zcm, const char* channel, zcm_msg_handler_t cb,
    Returns ZCM_EOK on success, error code on failure */
 int zcm_unsubscribe(zcm_t* zcm, zcm_sub_t* sub);
 
-/* Publish a zcm message buffer. Note: the message may not be completely
-   sent after this call has returned. To block until the messages are transmitted,
-   call the zcm_flush() method.
-   Returns ZCM_EOK on success, error code on failure */
+/* Publish a zcm message buffer.
+ * Returns ZCM_EOK on success, error code on failure */
 int zcm_publish(zcm_t* zcm, const char* channel, const uint8_t* data, uint32_t len);
 
-/* Block until all published messages have been sent even if the underlying
-   transport is nonblocking. Additionally, dispatches all messages that have
-   already been received sequentially in this thread. */
-void zcm_flush(zcm_t* zcm);
+/* Dispatches a single incoming message if available.
+ * Returns ZCM_EOK if a message was dispatched, error code on failure.
+ * timeout is in units of milliseconds */
+int zcm_handle(zcm_t* zcm, unsigned timeout);
+
+/* Dispatches messages continuously until it has no more to dispatch.
+ * This may run forever, if your handlers are too slow and you receive
+ * more messages in the time it takes all subscription handlers to run.
+ * If you want to guarantee a return, do something like:
+ * while(handle() == ZCM_EOK && ++i < n) */
+int zcm_flush(zcm_t* zcm);
+
+/* Request that the underlying transport queue at least this many messages.
+ * Messages will accumulate unless:
+ *  - zcm_handle() is called repeatedly
+ *  - zcm_run() was called
+ *  - zcm_start() was called once or since the most recent zcm_stop() */
+int zcm_set_queue_size(zcm_t* zcm, unsigned num_messages);
 
 #ifndef ZCM_EMBEDDED
 /* Blocking Mode Only: Functions for controlling the message dispatch loop */
 void zcm_run(zcm_t* zcm);
 void zcm_start(zcm_t* zcm);
+// This function may be called if zcm_run() is currently running in another thread
 void zcm_stop(zcm_t* zcm);
-void zcm_pause(zcm_t* zcm); /* pauses message dispatch and publishing, not transport */
+void zcm_pause(zcm_t* zcm); /* pauses all interaction with transport */
 void zcm_resume(zcm_t* zcm);
-int  zcm_handle(zcm_t* zcm); /* returns ZCM_EOK normally, error code on failure. */
-/* Determines how many messages can be stored from the transport without being dispatched
-   As well as the number of messages that may be stored from the user without being
-   transmitted by the transport. Normal operation does not require the user to modify
-   this, but if the user is using zcm_pause() and forcing dispatches/transmission through
-   calls to zcm_flush(), it will be important to set an appropriate queue size based on
-   traffic and flush frequency. Note that if either queue reaches maximum capacity,
-   messages will not be read from / sent to the transport, which could cause significant
-   issues depending on the transport. */
-void zcm_set_queue_size(zcm_t* zcm, uint32_t numMsgs);
 
 /* Write topology file to filename. Returns ZCM_EOK normally, error code on failure */
 int zcm_write_topology(zcm_t* zcm, const char* name);
 #endif
 
-/* Non-Blocking Mode Only: Functions checking and dispatching messages
-   Returns ZCM_EOK if a message was dispatched, ZCM_EAGAIN if no messages,
-   error code otherwise */
-int zcm_handle_nonblock(zcm_t* zcm);
-
 /* Query the drop counter on the underlying transport
-   NOTE: This may be unimplemented, in which case it will return ZCM_EIMPL and
-   the out-param will be disregarded. */
-int zcm_query_drops(zcm_t* zcm, uint64_t* out_drops);
+   NOTE: This may be unimplemented, in which case it will return ZCM_EUNSUPPORTED
+   and out_drops will be disregarded. */
+int zcm_query_drops(zcm_t *zcm, uint64_t *out_drops);
 
 /****************************************************************************/
 /*    NOT FOR GENERAL USE. USED FOR LANGUAGE-SPECIFIC BINDINGS WITH VERY    */
@@ -180,15 +178,6 @@ zcm_sub_t* zcm_try_subscribe(zcm_t* zcm, const char* channel, zcm_msg_handler_t 
    Returns ZCM_EOK on success, error code on failure
    Can fail to subscribe if zcm is already running */
 int zcm_try_unsubscribe(zcm_t* zcm, zcm_sub_t* sub);
-/* Nonblocking version of flush (ZCM_EAGAIN if fail, ZCM_EOK if success) as defined
-   above. If you want to guarantee that this function returns ZCM_EOK at some point,
-   you should zcm_pause() first. */
-int zcm_try_flush(zcm_t* zcm);
-#ifndef ZCM_EMBEDDED
-int zcm_try_stop(zcm_t* zcm); /* returns ZCM_EOK on success, error code on failure */
-int zcm_try_set_queue_size(zcm_t*   zcm,
-                           uint32_t numMsgs); /* returns ZCM_EOK or ZCM_EAGAIN */
-#endif
 /****************************************************************************/
 
 #ifdef __cplusplus

@@ -63,6 +63,8 @@
  *         this method can return ZCM_EINVALID. On receipt of valid params,
  *         this method should block until the message has been successfully
  *         sent and should return ZCM_EOK.
+ *         NOTE: This method should work concurrently and correctly with
+ *         recvmsg() and recvmsg_enable()
  *
  *      int recvmsg_enable(zcm_trans_t* zt, const char* channel, bool enable)
  *      --------------------------------------------------------------------
@@ -91,9 +93,20 @@
  *      int query_drops(zcm_trans_t* zt, uint64_t *out_drops);
  *      --------------------------------------------------------------------
  *         This method provides the caller access to an internal transport drop counter
- *         Implementing this is not required. If unimplemented, it should return ZCM_EUNIMPL.
+ *         Implementing this is not required. If unimplemented, it should
+ *         return ZCM_EUNSUPPORTED.
  *         If implemented, the out-parameter *out_drops should be populated and the
  *         call should return ZCM_EOK.
+ *
+ *      int set_queue_size(zcm_trans_t* zt, unsigned num_messages)
+ *      --------------------------------------------------------------------
+ *         This method instructs the transport that the user would like the
+ *         transport to buffer at least this many messages in between
+ *         successive calls to recvmsg(). This should be treated as a hint and
+ *         is not guaranteed by the transport. If the transport is able to set
+ *         its buffers to that size, it should return EOK, otherwise if it
+ *         wasn't able to set its buffers to that size, but may be able to in
+ *         the future, return EAGAIN, otherwise return ZCM_EINVALID.
  *
  *      int update(zcm_trans_t* zt);
  *      --------------------------------------------------------------------
@@ -136,6 +149,8 @@
  *         this method should *never block*. If the transport cannot accept the
  *         message due to unavailability, ZCM_EAGAIN should be returned.
  *         On success ZCM_EOK should be returned.
+ *         NOTE: This method should work concurrently and correctly with
+ *         recvmsg() and recvmsg_enable()
  *
  *      int recvmsg_enable(zcm_trans_t* zt, const char* channel, bool enable)
  *      --------------------------------------------------------------------
@@ -161,20 +176,34 @@
  *      int query_drops(zcm_trans_t* zt, uint64_t *out_drops);
  *      --------------------------------------------------------------------
  *         This method provides the caller access to an internal transport drop counter
- *         Implementing this is not required. If unimplemented, it should return ZCM_EUNIMPL.
+ *         Implementing this is not required. If unimplemented, it should
+ *         return ZCM_EUNSUPPORTED.
  *         If implemented, the out-parameter *out_drops should be populated and the
  *         call should return ZCM_EOK.
  *
+ *      int set_queue_size(zcm_trans_t* zt, unsigned num_messages)
+ *      --------------------------------------------------------------------
+ *         This method instructs the transport that the user would like the
+ *         transport to buffer at least this many messages in between
+ *         successive calls to recvmsg(). This should be treated as a hint and
+ *         is not guaranteed by the transport. If the transport is able to set
+ *         its buffers to that size, it should return EOK, otherwise if it
+ *         wasn't able to set its buffers to that size, but may be able to in
+ *         the future, return EAGAIN, otherwise it should return an error.
+ *
  *      int update(zcm_trans_t* zt)
  *      --------------------------------------------------------------------
- *         This method is called from the zcm_handle_nonblock() function.
- *         This method provides a periodicly-running routine that can perform
+ *         This method is called from the zcm_handle() function.
+ *         This method provides a periodically-running routine that can perform
  *         updates to the underlying hardware or other general mantainence to
  *         this transport. This method should *never block*. Again, this
- *         method is called from zcm_handle_nonblock() and thus runs at the same
- *         frequency as zcm_handle_nonblock(). Failure to call zcm_handle_nonblock()
+ *         method is called from zcm_handle() and thus runs at the same
+ *         frequency as zcm_handle(). Failure to call zcm_handle()
  *         while using an nonblock transport may cause the transport to work
  *         incorrectly on both message send and recv.
+ *         Returns ZCM_EOK if transport has no data awaiting transfer,
+ *         ZCM_EAGAIN if data is awaiting transfer, and any other error where
+ *         appropriate
  *
  *      void destroy(zcm_trans_t* zt)
  *      --------------------------------------------------------------------
@@ -226,6 +255,7 @@ struct zcm_trans_methods_t
     int     (*recvmsg_enable)(zcm_trans_t* zt, const char* channel, bool enable);
     int     (*recvmsg)(zcm_trans_t* zt, zcm_msg_t* msg, unsigned timeout);
     int     (*query_drops)(zcm_trans_t *zt, uint64_t *out_drops);
+    int     (*set_queue_size)(zcm_trans_t* zt, unsigned num_messages);
     int     (*update)(zcm_trans_t* zt);
     void    (*destroy)(zcm_trans_t* zt);
 };
@@ -245,9 +275,16 @@ static ZCM_TRANSPORT_INLINE int zcm_trans_recvmsg(zcm_trans_t* zt, zcm_msg_t* ms
 
 static ZCM_TRANSPORT_INLINE int zcm_trans_query_drops(zcm_trans_t* zt, uint64_t *out_drops)
 {
-    /* Possibly unimplemented, return ZCM_EUNIMPL */
-    if (!zt->vtbl->query_drops) return ZCM_EUNIMPL;
+    /* Possibly unimplemented, return ZCM_EUNSUPPORTED */
+    if (!zt->vtbl->query_drops) return ZCM_EUNSUPPORTED;
     return zt->vtbl->query_drops(zt, out_drops);
+}
+
+static ZCM_TRANSPORT_INLINE int zcm_trans_set_queue_size(zcm_trans_t* zt, unsigned num_messages)
+{
+    /* Possibly unimplemented, return ZCM_EUNSUPPORTED */
+    if (!zt->vtbl->set_queue_size) return ZCM_EUNSUPPORTED;
+    return zt->vtbl->set_queue_size(zt, num_messages);
 }
 
 static ZCM_TRANSPORT_INLINE int zcm_trans_update(zcm_trans_t* zt)

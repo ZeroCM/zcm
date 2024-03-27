@@ -1,6 +1,6 @@
 {
   "name": "zerocm",
-  "version": "1.2.0",
+  "version": "2.0.0",
   "description": "Native Node.js bindings for Zero Communications and Marshalling (ZCM) library",
   "main": "index.js",
   "author": "The ZCM Team",

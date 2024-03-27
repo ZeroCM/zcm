@@ -19,6 +19,7 @@ struct zcm_nonblocking
     bool      subInUse[ZCM_NONBLOCK_SUBS_MAX];
     bool      subIsRegex[ZCM_NONBLOCK_SUBS_MAX];
     size_t    subInUseEnd;
+    size_t    mtu;
 };
 
 static bool isRegexChannel(const char* c, size_t clen)
@@ -67,6 +68,9 @@ int zcm_nonblocking_try_create(zcm_nonblocking_t** zcm, zcm_t* z, zcm_trans_t* z
         (*zcm)->subInUse[i] = false;
 
     (*zcm)->subInUseEnd = 0;
+
+    (*zcm)->mtu = zcm_trans_get_mtu(zt);
+
     return ZCM_EOK;
 }
 
@@ -82,12 +86,16 @@ void zcm_nonblocking_destroy(zcm_nonblocking_t* zcm)
 int zcm_nonblocking_publish(zcm_nonblocking_t* z, const char* channel,
                             const uint8_t* data, uint32_t len)
 {
-    zcm_msg_t msg;
+    /* Check the validity of the request */
+    if (len > z->mtu) return ZCM_EINVALID;
 
-    msg.channel = channel;
-    msg.len = len;
-    /* Casting away constness okay because msg isn't used past end of function */
-    msg.buf = (uint8_t*) data;
+    zcm_msg_t msg = {
+        .utime = 0,
+        .channel = channel,
+        .len = len,
+        /* Casting away constness okay because msg isn't used past end of function */
+        .buf = (uint8_t*) data,
+    };
     return zcm_trans_sendmsg(z->zt, msg);
 }
 
@@ -198,12 +206,12 @@ static void dispatch_message(zcm_nonblocking_t* zcm, zcm_msg_t* msg)
     }
 }
 
-int zcm_nonblocking_handle_nonblock(zcm_nonblocking_t* zcm)
+int zcm_nonblocking_handle(zcm_nonblocking_t* zcm)
 {
     int ret;
     zcm_msg_t msg;
 
-    /* Perform any required traansport-level updates */
+    /* Perform any required transport-level updates */
     zcm_trans_update(zcm->zt);
 
     /* Try to receive a messages from the transport and dispatch them */
@@ -214,15 +222,33 @@ int zcm_nonblocking_handle_nonblock(zcm_nonblocking_t* zcm)
     return ZCM_EOK;
 }
 
-void zcm_nonblocking_flush(zcm_nonblocking_t* zcm)
+int zcm_nonblocking_flush(zcm_nonblocking_t* zcm)
 {
-    /* Call twice because we need to make sure publish and subscribe are both handled */
-    zcm_trans_update(zcm->zt);
-    zcm_trans_update(zcm->zt);
+    bool dispatchedMessage;
+    bool additionalUpdateRequired;
+    do {
+        int ret;
 
-    zcm_msg_t msg;
-    while (zcm_trans_recvmsg(zcm->zt, &msg, 0) == ZCM_EOK)
-        dispatch_message(zcm, &msg);
+        ret = zcm_trans_update(zcm->zt);
+        if (ret != ZCM_EOK && ret != ZCM_EAGAIN) return ret;
+        additionalUpdateRequired = ret == ZCM_EAGAIN;
+
+        zcm_msg_t msg;
+        do {
+            ret = zcm_trans_recvmsg(zcm->zt, &msg, 0);
+            if (ret != ZCM_EOK && ret != ZCM_EAGAIN) return ret;
+            dispatchedMessage = ret == ZCM_EOK;
+            if (dispatchedMessage) dispatch_message(zcm, &msg);
+        } while (dispatchedMessage);
+
+    } while (dispatchedMessage || additionalUpdateRequired);
+
+    return ZCM_EOK;
+}
+
+int zcm_nonblocking_set_queue_size(zcm_nonblocking_t* zcm, unsigned num_messages)
+{
+    return zcm_trans_set_queue_size(zcm->zt, num_messages);
 }
 
 #ifndef ZCM_EMBEDDED
