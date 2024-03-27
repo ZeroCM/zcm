@@ -50,7 +50,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     bool good() { return true; }
 
     /********************** METHODS **********************/
-    size_t get_mtu() { return MTU; }
+    size_t getMtu() { return MTU; }
 
     int sendmsg(zcm_msg_t msg)
     {
@@ -87,13 +87,13 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
     int recvmsg_enable(const char *channel, bool enable) { return ZCM_EOK; }
 
-    int recvmsg(zcm_msg_t *msg, unsigned timeout)
+    int recvmsg(zcm_msg_t *msg, unsigned timeoutMs)
     {
         std::unique_lock<mutex> lk(msgLock, defer_lock);
 
         if (trans_type == ZCM_BLOCKING) {
             lk.lock();
-            bool available = msgCond.wait_for(lk, chrono::milliseconds(timeout),
+            bool available = msgCond.wait_for(lk, chrono::milliseconds(timeoutMs),
                                               [&](){ return !msgs.empty(); });
             if (!available) return ZCM_EAGAIN;
         } else {
@@ -127,13 +127,13 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         return (ZCM_TRANS_CLASSNAME*)zt;
     }
 
-    static size_t _get_mtu(zcm_trans_t *zt)
-    { return cast(zt)->get_mtu(); }
+    static size_t _getMtu(zcm_trans_t *zt)
+    { return cast(zt)->getMtu(); }
 
     static int _sendmsg(zcm_trans_t *zt, zcm_msg_t msg)
     { return cast(zt)->sendmsg(msg); }
 
-    static int _recvmsg_enable(zcm_trans_t *zt, const char *channel, bool enable)
+    static int _recvmsgEnable(zcm_trans_t *zt, const char *channel, bool enable)
     { return cast(zt)->recvmsg_enable(channel, enable); }
 
     static int _recvmsg(zcm_trans_t *zt, zcm_msg_t *msg, unsigned timeout)
@@ -150,11 +150,12 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 };
 
 zcm_trans_methods_t ZCM_TRANS_CLASSNAME::methods = {
-    &ZCM_TRANS_CLASSNAME::_get_mtu,
+    &ZCM_TRANS_CLASSNAME::_getMtu,
     &ZCM_TRANS_CLASSNAME::_sendmsg,
-    &ZCM_TRANS_CLASSNAME::_recvmsg_enable,
+    &ZCM_TRANS_CLASSNAME::_recvmsgEnable,
     &ZCM_TRANS_CLASSNAME::_recvmsg,
     NULL, // drops
+    NULL, // set_queue_size
     &ZCM_TRANS_CLASSNAME::_update,
     &ZCM_TRANS_CLASSNAME::_destroy,
 };

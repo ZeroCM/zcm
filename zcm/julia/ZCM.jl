@@ -19,7 +19,6 @@ export Zcm,
        start,
        stop,
        handle,
-       handle_nonblock,
        set_queue_size,
        write_topology,
        read_bits,
@@ -261,14 +260,7 @@ function resume(zcm::Zcm)
 end
 
 function flush(zcm::Zcm)
-    while (true)
-        ret = ccall(("zcm_try_flush", "libzcm"), Cint, (Ptr{Native.Zcm},), zcm)
-        if (ret == Cint(0))
-            break
-        else
-            yield()
-        end
-    end
+    ccall(("zcm_flush", "libzcm"), Cint, (Ptr{Native.Zcm},), zcm)
 end
 
 function start(zcm::Zcm)
@@ -277,22 +269,11 @@ function start(zcm::Zcm)
 end
 
 function stop(zcm::Zcm)
-    while (true)
-        ret = ccall(("zcm_try_stop", "libzcm"), Cint, (Ptr{Native.Zcm},), zcm)
-        if (ret == Cint(0))
-            break
-        else
-            yield()
-        end
-    end
+    ccall(("zcm_stop", "libzcm"), Nothing, (Ptr{Native.Zcm},), zcm)
 end
 
-function handle(zcm::Zcm)
-    ccall(("zcm_handle", "libzcm"), Cint, (Ptr{Native.Zcm},), zcm)
-end
-
-function handle_nonblock(zcm::Zcm)
-    ccall(("zcm_handle_nonblock", "libzcm"), Cint, (Ptr{Native.Zcm},), zcm)
+function handle(zcm::Zcm, timeout:Unsigned)
+    ccall(("zcm_handle", "libzcm"), Cint, (Ptr{Native.Zcm},Cuint,), zcm, timeout)
 end
 
 function set_queue_size(zcm::Zcm, num::Integer)

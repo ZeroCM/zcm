@@ -1,6 +1,6 @@
 {
   "name": "zerocm",
-  "version": "1.1.5",
+  "version": "2.0.0",
   "description": "Bindings to Zero Communications and Marshalling",
   "dependencies": {
     "big-integer": "^1.6.25",
