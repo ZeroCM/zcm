@@ -42,7 +42,7 @@ class ZCM
     virtual inline void pause();
     virtual inline void resume();
     virtual inline int  setQueueSize(unsigned sz);
-    virtual inline int  queryDrops(uint64_t& outDrops);
+    virtual inline int  getNumDroppedMessages();
     virtual inline int  writeTopology(const std::string& name);
     #endif
     virtual inline int  handle(unsigned timeout);

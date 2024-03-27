@@ -40,15 +40,16 @@ cdef extern from "zcm/zcm.h":
 
     int  zcm_publish(zcm_t* zcm, const char* channel, const uint8_t* data, uint32_t dlen)
 
-    void zcm_run           (zcm_t* zcm)
-    void zcm_start         (zcm_t* zcm)
-    void zcm_stop          (zcm_t* zcm)
-    void zcm_pause             (zcm_t* zcm)
-    void zcm_resume            (zcm_t* zcm)
-    int  zcm_handle        (zcm_t* zcm, unsigned timeout)
-    int  zcm_flush         (zcm_t* zcm)
-    int  zcm_set_queue_size(zcm_t* zcm, unsigned num_messages)
-    int  zcm_write_topology(zcm_t* zcm, const char* name)
+    void zcm_run                     (zcm_t* zcm)
+    void zcm_start                   (zcm_t* zcm)
+    void zcm_stop                    (zcm_t* zcm)
+    void zcm_pause                   (zcm_t* zcm)
+    void zcm_resume                  (zcm_t* zcm)
+    int  zcm_handle                  (zcm_t* zcm, unsigned timeout)
+    int  zcm_flush                   (zcm_t* zcm)
+    int  zcm_set_queue_size          (zcm_t* zcm, unsigned num_messages)
+    int  zcm_get_num_dropped_messages(zcm_t* zcm)
+    int  zcm_write_topology          (zcm_t* zcm, const char* name)
 
     ctypedef struct zcm_eventlog_t:
         pass
@@ -169,6 +170,8 @@ cdef class ZCM:
         return zcm_set_queue_size(self.zcm, numMsgs)
     def writeTopology(self, str name):
         return zcm_write_topology(self.zcm, name.encode('utf-8'))
+    def getNumDroppedMessages(self):
+        return zcm_get_num_dropped_messages(self.zcm)
 
 cdef class LogEvent:
     cdef int64_t eventnum

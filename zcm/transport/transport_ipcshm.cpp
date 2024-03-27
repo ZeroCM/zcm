@@ -302,12 +302,10 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         return ZCM_EOK;
     }
 
-    int queryDrops(uint64_t *outDrops)
+    int getNumDroppedMessages()
     {
-        if (!outDrops) return ZCM_EINVALID;
         uint64_t drops = lf_bcast_sub_drops(sub);
-        *outDrops = drops;
-        return ZCM_EOK;
+        return drops & INT_MAX;
     }
 
     /********************** STATICS **********************/
@@ -330,8 +328,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     static int _recvmsg(zcm_trans_t *zt, zcm_msg_t *msg, unsigned timeout)
     { return cast(zt)->recvmsg(msg, timeout); }
 
-    static int _queryDrops(zcm_trans_t *zt, uint64_t *outDrops)
-    { return cast(zt)->queryDrops(outDrops); }
+    static int _getNumDroppedMessages(zcm_trans_t *zt)
+    { return cast(zt)->getNumDroppedMessages(); }
 
     static void _destroy(zcm_trans_t *zt)
     { delete cast(zt); }
@@ -345,7 +343,7 @@ zcm_trans_methods_t ZCM_TRANS_CLASSNAME::methods = {
     &ZCM_TRANS_CLASSNAME::_sendmsg,
     &ZCM_TRANS_CLASSNAME::_recvmsgEnable,
     &ZCM_TRANS_CLASSNAME::_recvmsg,
-    &ZCM_TRANS_CLASSNAME::_queryDrops,
+    &ZCM_TRANS_CLASSNAME::_getNumDroppedMessages,
     NULL, // set_queue_size
     NULL, // update
     &ZCM_TRANS_CLASSNAME::_destroy,

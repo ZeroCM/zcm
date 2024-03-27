@@ -160,10 +160,11 @@ void zcm_resume(zcm_t* zcm);
 int zcm_write_topology(zcm_t* zcm, const char* name);
 #endif
 
-/* Query the drop counter on the underlying transport
+/* Query the receive drop counter on the underlying transport
+ * Returns number of dropped messages on success zcm error code on failure
    NOTE: This may be unimplemented, in which case it will return ZCM_EUNSUPPORTED
    and out_drops will be disregarded. */
-int zcm_query_drops(zcm_t *zcm, uint64_t *out_drops);
+int zcm_get_num_dropped_messages(zcm_t *zcm);
 
 /****************************************************************************/
 /*    NOT FOR GENERAL USE. USED FOR LANGUAGE-SPECIFIC BINDINGS WITH VERY    */

@@ -90,7 +90,7 @@
  *         and users should only expect accuracy within a few milliseconds. Users
  *         should *not* attempt to use this timing mechanism for real-time events.
  *
- *      int query_drops(zcm_trans_t* zt, uint64_t *out_drops);
+ *      int get_num_dropped_messages(zcm_trans_t* zt);
  *      --------------------------------------------------------------------
  *         This method provides the caller access to an internal transport drop counter
  *         Implementing this is not required. If unimplemented, it should
@@ -173,7 +173,7 @@
  *         NOTE: This method does NOT have to work concurrently with recvmsg_enable()
  *         NOTE: The 'timeout' field is ignored
  *
- *      int query_drops(zcm_trans_t* zt, uint64_t *out_drops);
+ *      int get_num_dropped_messages(zcm_trans_t* zt);
  *      --------------------------------------------------------------------
  *         This method provides the caller access to an internal transport drop counter
  *         Implementing this is not required. If unimplemented, it should
@@ -254,7 +254,7 @@ struct zcm_trans_methods_t
     int     (*sendmsg)(zcm_trans_t* zt, zcm_msg_t msg);
     int     (*recvmsg_enable)(zcm_trans_t* zt, const char* channel, bool enable);
     int     (*recvmsg)(zcm_trans_t* zt, zcm_msg_t* msg, unsigned timeout);
-    int     (*query_drops)(zcm_trans_t *zt, uint64_t *out_drops);
+    int     (*get_num_dropped_messages)(zcm_trans_t *zt);
     int     (*set_queue_size)(zcm_trans_t* zt, unsigned num_messages);
     int     (*update)(zcm_trans_t* zt);
     void    (*destroy)(zcm_trans_t* zt);
@@ -273,11 +273,11 @@ static ZCM_TRANSPORT_INLINE int zcm_trans_recvmsg_enable(zcm_trans_t* zt, const 
 static ZCM_TRANSPORT_INLINE int zcm_trans_recvmsg(zcm_trans_t* zt, zcm_msg_t* msg, unsigned timeout)
 { return zt->vtbl->recvmsg(zt, msg, timeout); }
 
-static ZCM_TRANSPORT_INLINE int zcm_trans_query_drops(zcm_trans_t* zt, uint64_t *out_drops)
+static ZCM_TRANSPORT_INLINE int zcm_trans_get_num_dropped_messages(zcm_trans_t* zt)
 {
     /* Possibly unimplemented, return ZCM_EUNSUPPORTED */
-    if (!zt->vtbl->query_drops) return ZCM_EUNSUPPORTED;
-    return zt->vtbl->query_drops(zt, out_drops);
+    if (!zt->vtbl->get_num_dropped_messages) return ZCM_EUNSUPPORTED;
+    return zt->vtbl->get_num_dropped_messages(zt);
 }
 
 static ZCM_TRANSPORT_INLINE int zcm_trans_set_queue_size(zcm_trans_t* zt, unsigned num_messages)

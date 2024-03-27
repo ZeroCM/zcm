@@ -30,7 +30,7 @@ void zcm_blocking_pause(zcm_blocking_t* zcm);
 void zcm_blocking_resume(zcm_blocking_t* zcm);
 int  zcm_blocking_handle(zcm_blocking_t* zcm, unsigned timeout);
 int  zcm_blocking_set_queue_size(zcm_blocking_t* zcm, unsigned num_messages);
-int  zcm_blocking_query_drops(zcm_blocking_t *zcm, uint64_t *out_drops);
+int  zcm_blocking_get_num_dropped_messages(zcm_blocking_t *zcm);
 
 int zcm_blocking_write_topology(zcm_blocking_t* zcm, const char* name);
 

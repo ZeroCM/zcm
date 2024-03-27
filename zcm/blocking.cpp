@@ -78,7 +78,7 @@ struct zcm_blocking
     zcm_sub_t* subscribe(const string& channel, zcm_msg_handler_t cb, void* usr, bool block);
     int unsubscribe(zcm_sub_t* sub, bool block);
 
-    int queryDrops(uint64_t *outDrops);
+    int getNumDroppedMessages();
     int writeTopology(string name);
 
   private:
@@ -316,9 +316,9 @@ int zcm_blocking_t::flush()
     return ret;
 }
 
-int zcm_blocking_t::queryDrops(uint64_t *outDrops)
+int zcm_blocking_t::getNumDroppedMessages()
 {
-    return zcm_trans_query_drops(zt, outDrops);
+    return zcm_trans_get_num_dropped_messages(zt);
 }
 
 void zcm_blocking_t::recvThreadFunc()
@@ -511,9 +511,9 @@ int zcm_blocking_set_queue_size(zcm_blocking_t* zcm, unsigned num_messages)
     return zcm->setQueueSize(num_messages);
 }
 
-int  zcm_blocking_query_drops(zcm_blocking_t *zcm, uint64_t *out_drops)
+int  zcm_blocking_get_num_dropped_messages(zcm_blocking_t *zcm)
 {
-    return zcm->queryDrops(out_drops);
+    return zcm->getNumDroppedMessages();
 }
 
 int zcm_blocking_write_topology(zcm_blocking_t* zcm, const char* name)
