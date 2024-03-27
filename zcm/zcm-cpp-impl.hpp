@@ -145,9 +145,9 @@ inline int ZCM::setQueueSize(uint32_t sz)
     return zcm_set_queue_size(zcm, sz);
 }
 
-inline int ZCM::queryDrops(uint64_t& outDrops)
+inline int ZCM::getNumDroppedMessages()
 {
-    return zcm_query_drops(zcm, &outDrops);
+    return zcm_get_num_dropped_messages(zcm);
 }
 
 #ifndef ZCM_EMBEDDED

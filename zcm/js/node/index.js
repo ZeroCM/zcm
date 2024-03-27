@@ -34,19 +34,20 @@ var subscriptionRef = ref.refType(subscription);
 
 // Define our Foreign Function Interface to the zcm library
 var libzcm = new ffi.Library('libzcm', {
-    'zcm_retcode_name_to_enum': ['int',     ['string']],
-    'zcm_create':               ['pointer', ['string']],
-    'zcm_destroy':              ['void',    ['pointer']],
-    'zcm_publish':              ['int',     ['pointer', 'string', 'pointer', 'int']],
-    'zcm_try_subscribe':        ['pointer', ['pointer', 'string', 'pointer', 'pointer']],
-    'zcm_try_unsubscribe':      ['int',     ['pointer', 'pointer']],
-    'zcm_start':                ['void',    ['pointer']],
-    'zcm_stop':                 ['void',    ['pointer']],
-    'zcm_flush':                ['int',     ['pointer']],
-    'zcm_pause':                ['void',    ['pointer']],
-    'zcm_resume':               ['void',    ['pointer']],
-    'zcm_set_queue_size':       ['int',     ['pointer', 'int']],
-    'zcm_write_topology':       ['int',     ['pointer', 'string']],
+    'zcm_retcode_name_to_enum':     ['int',     ['string']],
+    'zcm_create':                   ['pointer', ['string']],
+    'zcm_destroy':                  ['void',    ['pointer']],
+    'zcm_publish':                  ['int',     ['pointer', 'string', 'pointer', 'int']],
+    'zcm_try_subscribe':            ['pointer', ['pointer', 'string', 'pointer', 'pointer']],
+    'zcm_try_unsubscribe':          ['int',     ['pointer', 'pointer']],
+    'zcm_start':                    ['void',    ['pointer']],
+    'zcm_stop':                     ['void',    ['pointer']],
+    'zcm_flush':                    ['int',     ['pointer']],
+    'zcm_pause':                    ['void',    ['pointer']],
+    'zcm_resume':                   ['void',    ['pointer']],
+    'zcm_set_queue_size':           ['int',     ['pointer', 'int']],
+    'zcm_write_topology':           ['int',     ['pointer', 'string']],
+    'zcm_get_num_dropped_messages': ['int',     ['pointer']],
 });
 
 var ZCM_EOK              = libzcm.zcm_retcode_name_to_enum("ZCM_EOK");
@@ -291,6 +292,14 @@ function zcm(zcmtypes, zcmurl)
     zcm.prototype.writeTopology = function(name)
     {
         libzcm.zcm_write_topology(parent.z, name);
+    }
+
+    /**
+     * Gets the number of dropped incoming messages
+     */
+    zcm.prototype.getNumDroppedMessages = function(sz)
+    {
+        return libzcm.zcm_get_num_dropped_messages(parent.z);
     }
 
     zcm.prototype.destroy = function()

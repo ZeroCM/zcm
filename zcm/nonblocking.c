@@ -165,9 +165,9 @@ int zcm_nonblocking_unsubscribe(zcm_nonblocking_t* zcm, zcm_sub_t* sub)
     return rc;
 }
 
-int zcm_nonblocking_query_drops(zcm_nonblocking_t *zcm, uint64_t *out_drops)
+int zcm_nonblocking_get_num_dropped_messages(zcm_nonblocking_t *zcm)
 {
-    return zcm_trans_query_drops(zcm->zt, out_drops);
+    return zcm_trans_get_num_dropped_messages(zcm->zt);
 }
 
 static void dispatch_message(zcm_nonblocking_t* zcm, zcm_msg_t* msg)

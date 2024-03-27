@@ -343,11 +343,11 @@ int zcm_write_topology(zcm_t* zcm, const char* name)
 }
 #endif
 
-int zcm_query_drops(zcm_t *zcm, uint64_t *out_drops)
+int zcm_get_num_dropped_messages(zcm_t *zcm)
 {
     switch (zcm->type) {
-        case ZCM_BLOCKING:    return zcm_blocking_query_drops(zcm->impl, out_drops);
-        case ZCM_NONBLOCKING: return zcm_nonblocking_query_drops(zcm->impl, out_drops);
+        case ZCM_BLOCKING:    return zcm_blocking_get_num_dropped_messages(zcm->impl);
+        case ZCM_NONBLOCKING: return zcm_nonblocking_get_num_dropped_messages(zcm->impl);
     }
     ZCM_ASSERT(0 && "unreachable");
     return ZCM_EUNKNOWN;

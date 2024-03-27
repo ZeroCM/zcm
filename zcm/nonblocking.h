@@ -27,7 +27,7 @@ int zcm_nonblocking_handle(zcm_nonblocking_t* zcm);
 
 int zcm_nonblocking_flush(zcm_nonblocking_t* zcm);
 
-int zcm_nonblocking_query_drops(zcm_nonblocking_t *zcm, uint64_t *out_drops);
+int zcm_nonblocking_get_num_dropped_messages(zcm_nonblocking_t *zcm);
 
 int zcm_nonblocking_set_queue_size(zcm_nonblocking_t* zcm, unsigned num_messages);
 
