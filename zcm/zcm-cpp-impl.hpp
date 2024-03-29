@@ -130,19 +130,25 @@ inline void ZCM::resume()
 }
 #endif
 
-#ifndef ZCM_EMBEDDED
-inline int ZCM::handle()
+inline int ZCM::handle(unsigned timeout)
 {
-    return zcm_handle(zcm);
+    return zcm_handle(zcm, timeout);
 }
-#endif
 
-#ifndef ZCM_EMBEDDED
-inline void ZCM::setQueueSize(uint32_t sz)
+inline int ZCM::flush()
 {
-    zcm_set_queue_size(zcm, sz);
+    return zcm_flush(zcm);
 }
-#endif
+
+inline int ZCM::setQueueSize(uint32_t sz)
+{
+    return zcm_set_queue_size(zcm, sz);
+}
+
+inline int ZCM::getNumDroppedMessages()
+{
+    return zcm_get_num_dropped_messages(zcm);
+}
 
 #ifndef ZCM_EMBEDDED
 inline int ZCM::writeTopology(const std::string& name)
@@ -150,16 +156,6 @@ inline int ZCM::writeTopology(const std::string& name)
     return zcm_write_topology(zcm, name.c_str());
 }
 #endif
-
-inline int ZCM::handleNonblock()
-{
-    return zcm_handle_nonblock(zcm);
-}
-
-inline void ZCM::flush()
-{
-    zcm_flush(zcm);
-}
 
 inline int ZCM::publish(const std::string& channel, const uint8_t* data, uint32_t len)
 {
