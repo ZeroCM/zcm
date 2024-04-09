@@ -25,6 +25,7 @@
 #include <linux/can/raw.h>
 
 #define MASK_29B ((1 << 29) - 1)
+#define MASK_11B ((1 << 11) - 1)
 
 // Define this the class name you want
 #define ZCM_TRANS_CLASSNAME TransportCan
@@ -36,12 +37,14 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 {
     unordered_map<string, string> options;
     uint32_t msgId;
+    uint32_t txId;
     string address;
 
     int soc = -1;
     bool socSettingsGood = false;
     struct sockaddr_can addr;
 	struct ifreq ifr;
+    bool extendedTx;
 
     zcm_trans_t* gst = nullptr;
 
@@ -77,6 +80,16 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
                 return;
             }
         }
+
+        extendedTx = true;
+        auto* extTx = findOption("tx_extended_addr");
+        if (extTx) extendedTx = string("tx_extended_addr") == extTx->c_str();
+        if (extendedTx && msgId & MASK_11B) {
+            ZCM_DEBUG("Msg Id too long for standard can addresses. "
+                      "Use 'tx_extended_addr=true'");
+            return;
+        }
+        txId = extendedTx ? msgId | CAN_EFF_FLAG : msgId;
 
         address = zcm_url_address(url);
 
@@ -164,7 +177,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         ZCM_TRANS_CLASSNAME* me = cast((zcm_trans_t*) usr);
 
         struct can_frame frame;
-        frame.can_id = me->msgId | CAN_EFF_FLAG;
+        frame.can_id = me->txId;
 
         size_t ret = min(nData, (size_t) CAN_MAX_DLEN);
         frame.can_dlc = ret;
@@ -297,5 +310,5 @@ static zcm_trans_t *create(zcm_url_t* url, char **opt_errmsg)
 #ifdef USING_TRANS_CAN
 const TransportRegister ZCM_TRANS_CLASSNAME::reg(
     "can", "Transfer data via a socket CAN connection on a single id "
-           "(e.g. 'can://can0?msgid=65536')", create);
+           "(e.g. 'can://can0?msgid=65536&tx_extended_addr=true')", create);
 #endif
