@@ -90,6 +90,11 @@ def add_zcm_build_options(ctx):
                    help='Leave the debugging symbols in the resulting object files')
     gr.add_option('-d', '--debug', dest='debug', default=False, action='store_true',
                    help='Compile all C/C++ code in debug mode: no optimizations and full symbols')
+    gr.add_option('--march', default='native',
+                  help='The machine architecture for which zcm should be compiled. The default (and '
+                  'most appropriate option in general) is "native". Please see the help text for '
+                  'gcc to see the valid values for this option. Set to the empty string to not pass '
+                  'the argument at all to the compiler (which results in it using the default)')
     ctx.add_option('-g', '--skip-signatures', dest='skip_git', default=False, action='store_true',
                    help='Skip building the git signature')
 
@@ -342,6 +347,7 @@ def process_zcm_build_options(ctx):
     opt = waflib.Options.options
     ctx.env.USING_OPT = not opt.debug
     ctx.env.USING_SYM = opt.debug or opt.symbols
+    ctx.env.MARCH = opt.march
     if ctx.env.USING_CACHE:
         attempt_use_cache(ctx)
     if not ctx.env.USING_SYM:
@@ -389,8 +395,12 @@ def setup_environment(ctx):
     WARNING_FLAGS = ['-Wall', '-Werror', '-Wno-unused-function']
     SYM_FLAGS = ['-g']
     OPT_FLAGS = ['-O3']
-    ctx.env.CFLAGS_default    = ['-std=gnu99', '-fPIC', '-pthread', '-march=native'] + WARNING_FLAGS
-    ctx.env.CXXFLAGS_default  = ['-std=c++11', '-fPIC', '-pthread', '-march=native'] + WARNING_FLAGS
+    ctx.env.CFLAGS_default    = ['-std=gnu99', '-fPIC', '-pthread'] + WARNING_FLAGS
+    ctx.env.CXXFLAGS_default  = ['-std=c++11', '-fPIC', '-pthread'] + WARNING_FLAGS
+    if ctx.env.MARCH:
+        ctx.env.CFLAGS_default.append('-march=%s' % ctx.env.MARCH)
+        ctx.env.CXXFLAGS_default.append('-march=%s' % ctx.env.MARCH)
+
     ctx.env.INCLUDES_default  = [ctx.path.abspath()]
     ctx.env.LIB_default       = ['rt']
     ctx.env.LINKFLAGS_default = ['-pthread']
