@@ -340,17 +340,21 @@ int zcm_handle_nonblock(zcm_t* zcm)
 
 int zcm_query_drops(zcm_t *zcm, uint64_t *out_drops)
 {
+    int ret = ZCM_EUNKNOWN;
 #ifndef ZCM_EMBEDDED
     switch (zcm->type) {
-        case ZCM_BLOCKING:    return zcm_blocking_query_drops(zcm->impl, out_drops);
-        case ZCM_NONBLOCKING: return zcm_nonblocking_query_drops(zcm->impl, out_drops);
+        case ZCM_BLOCKING:
+            ret = zcm_blocking_query_drops(zcm->impl, out_drops);
+            break;
+        case ZCM_NONBLOCKING:
+            ret = zcm_nonblocking_query_drops(zcm->impl, out_drops);
+            break;
     }
 #else
     ZCM_ASSERT(zcm->type == ZCM_NONBLOCKING);
-    return zcm_nonblocking_handle_nonblock(zcm->impl);
+    ret = zcm_nonblocking_handle_nonblock(zcm->impl);
 #endif
-    ZCM_ASSERT(0 && "unreachable");
-    return ZCM_EUNKNOWN;
+    return ret;
 }
 
 /****************************************************************************/
