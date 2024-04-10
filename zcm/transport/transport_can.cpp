@@ -81,15 +81,46 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             }
         }
 
-        extendedTx = true;
-        auto* extTx = findOption("tx_extended_addr");
-        if (extTx) extendedTx = string("tx_extended_addr") == extTx->c_str();
-        if (extendedTx && msgId & MASK_11B) {
+        auto* txAddrMode = findOption("tx_addr_mode");
+        if (!txAddrMode) {
+            extendedTx = true;
+        } else if (string("extended") == txAddrMode->c_str()) {
+            extendedTx = true;
+        } else if (string("standard") == txAddrMode->c_str()) {
+            extendedTx = false;
+        } else {
+            ZCM_DEBUG("Invalid rx_addr_mode. Use 'extended' or 'standard'");
+            return;
+        }
+        if (!extendedTx && ((msgId & MASK_11B) != msgId)) {
             ZCM_DEBUG("Msg Id too long for standard can addresses. "
                       "Use 'tx_extended_addr=true'");
             return;
         }
         txId = extendedTx ? msgId | CAN_EFF_FLAG : msgId;
+
+        struct can_filter rfilter[2];
+        size_t numRxFilters = 0;
+
+        auto* rxAddrMode = findOption("rx_addr_mode");
+        if (!rxAddrMode || string("both") == rxAddrMode->c_str()) {
+            rfilter[0].can_id   = msgId;
+            rfilter[0].can_mask = (CAN_EFF_FLAG | CAN_RTR_FLAG | CAN_SFF_MASK);
+            rfilter[1].can_id   = msgId | CAN_EFF_FLAG;
+            rfilter[1].can_mask = (CAN_EFF_FLAG | CAN_RTR_FLAG | CAN_EFF_MASK);
+            numRxFilters = 2;
+        } else if (string("standard") == rxAddrMode->c_str()) {
+            rfilter[0].can_id   = msgId;
+            rfilter[0].can_mask = (CAN_EFF_FLAG | CAN_RTR_FLAG | CAN_SFF_MASK);
+            numRxFilters = 1;
+        } else if (string("extended") == rxAddrMode->c_str()) {
+            rfilter[0].can_id   = msgId | CAN_EFF_FLAG;
+            rfilter[0].can_mask = (CAN_EFF_FLAG | CAN_RTR_FLAG | CAN_EFF_MASK);
+            numRxFilters = 1;
+        } else {
+            ZCM_DEBUG("Invalid rx_addr_mode. Use 'extended', 'standard', or 'both'");
+            return;
+        }
 
         address = zcm_url_address(url);
 
@@ -110,15 +141,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             return;
         }
 
-        struct can_filter rfilter[2];
-
-        rfilter[0].can_id   = msgId;
-        rfilter[0].can_mask = (CAN_EFF_FLAG | CAN_RTR_FLAG | CAN_SFF_MASK);
-
-        rfilter[1].can_id   = msgId | CAN_EFF_FLAG;
-        rfilter[1].can_mask = (CAN_EFF_FLAG | CAN_RTR_FLAG | CAN_EFF_MASK);
-
-        if (setsockopt(soc, SOL_CAN_RAW, CAN_RAW_FILTER, &rfilter, sizeof(rfilter)) < 0) {
+        if (setsockopt(soc, SOL_CAN_RAW, CAN_RAW_FILTER, &rfilter,
+                       numRxFilters * sizeof(struct can_filter)) < 0) {
             ZCM_DEBUG("Failed to set filter");
             return;
         }
