@@ -44,7 +44,6 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     bool socSettingsGood = false;
     struct sockaddr_can addr;
 	struct ifreq ifr;
-    bool extendedTx;
 
     zcm_trans_t* gst = nullptr;
 
@@ -82,6 +81,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         }
 
         auto* txAddrMode = findOption("tx_addr_mode");
+        bool extendedTx;
         if (!txAddrMode) {
             extendedTx = true;
         } else if (string("extended") == txAddrMode->c_str()) {
