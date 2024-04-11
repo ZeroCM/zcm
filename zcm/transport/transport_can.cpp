@@ -82,9 +82,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
         auto* txAddrMode = findOption("tx_addr_mode");
         bool extendedTx;
-        if (!txAddrMode) {
-            extendedTx = true;
-        } else if (string("extended") == txAddrMode->c_str()) {
+        if (!txAddrMode || string("extended") == txAddrMode->c_str()) {
             extendedTx = true;
         } else if (string("standard") == txAddrMode->c_str()) {
             extendedTx = false;
@@ -95,6 +93,10 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         if (!extendedTx && ((msgId & MASK_11B) != msgId)) {
             ZCM_DEBUG("Msg Id too long for standard can addresses. "
                       "Use 'tx_extended_addr=true'");
+            return;
+        }
+        if (extendedTx && ((msgId & MASK_29B) != msgId)) {
+            ZCM_DEBUG("Msg Id too long for extended can addresses.");
             return;
         }
         txId = extendedTx ? msgId | CAN_EFF_FLAG : msgId;
@@ -334,5 +336,5 @@ static zcm_trans_t *create(zcm_url_t* url, char **opt_errmsg)
 #ifdef USING_TRANS_CAN
 const TransportRegister ZCM_TRANS_CLASSNAME::reg(
     "can", "Transfer data via a socket CAN connection on a single id "
-           "(e.g. 'can://can0?msgid=65536&tx_extended_addr=true')", create);
+           "(e.g. 'can://can0?msgid=65536&rx_extended_addr=standard&tx_extended_addr=true')", create);
 #endif
