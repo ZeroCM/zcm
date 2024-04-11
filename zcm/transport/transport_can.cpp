@@ -25,6 +25,7 @@
 #include <linux/can/raw.h>
 
 #define MASK_29B ((1 << 29) - 1)
+#define MASK_11B ((1 << 11) - 1)
 
 // Define this the class name you want
 #define ZCM_TRANS_CLASSNAME TransportCan
@@ -36,6 +37,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 {
     unordered_map<string, string> options;
     uint32_t msgId;
+    uint32_t txId;
     string address;
 
     int soc = -1;
@@ -78,6 +80,48 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             }
         }
 
+        auto* txAddrMode = findOption("tx_addr_mode");
+        bool extendedTx;
+        if (!txAddrMode) {
+            extendedTx = true;
+        } else if (string("extended") == txAddrMode->c_str()) {
+            extendedTx = true;
+        } else if (string("standard") == txAddrMode->c_str()) {
+            extendedTx = false;
+        } else {
+            ZCM_DEBUG("Invalid rx_addr_mode. Use 'extended' or 'standard'");
+            return;
+        }
+        if (!extendedTx && ((msgId & MASK_11B) != msgId)) {
+            ZCM_DEBUG("Msg Id too long for standard can addresses. "
+                      "Use 'tx_extended_addr=true'");
+            return;
+        }
+        txId = extendedTx ? msgId | CAN_EFF_FLAG : msgId;
+
+        struct can_filter rfilter[2];
+        size_t numRxFilters = 0;
+
+        auto* rxAddrMode = findOption("rx_addr_mode");
+        if (!rxAddrMode || string("both") == rxAddrMode->c_str()) {
+            rfilter[0].can_id   = msgId;
+            rfilter[0].can_mask = (CAN_EFF_FLAG | CAN_RTR_FLAG | CAN_SFF_MASK);
+            rfilter[1].can_id   = msgId | CAN_EFF_FLAG;
+            rfilter[1].can_mask = (CAN_EFF_FLAG | CAN_RTR_FLAG | CAN_EFF_MASK);
+            numRxFilters = 2;
+        } else if (string("standard") == rxAddrMode->c_str()) {
+            rfilter[0].can_id   = msgId;
+            rfilter[0].can_mask = (CAN_EFF_FLAG | CAN_RTR_FLAG | CAN_SFF_MASK);
+            numRxFilters = 1;
+        } else if (string("extended") == rxAddrMode->c_str()) {
+            rfilter[0].can_id   = msgId | CAN_EFF_FLAG;
+            rfilter[0].can_mask = (CAN_EFF_FLAG | CAN_RTR_FLAG | CAN_EFF_MASK);
+            numRxFilters = 1;
+        } else {
+            ZCM_DEBUG("Invalid rx_addr_mode. Use 'extended', 'standard', or 'both'");
+            return;
+        }
+
         address = zcm_url_address(url);
 
         if ((soc = socket(PF_CAN, SOCK_RAW, CAN_RAW)) < 0) {
@@ -97,15 +141,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             return;
         }
 
-        struct can_filter rfilter[2];
-
-        rfilter[0].can_id   = msgId;
-        rfilter[0].can_mask = (CAN_EFF_FLAG | CAN_RTR_FLAG | CAN_SFF_MASK);
-
-        rfilter[1].can_id   = msgId | CAN_EFF_FLAG;
-        rfilter[1].can_mask = (CAN_EFF_FLAG | CAN_RTR_FLAG | CAN_EFF_MASK);
-
-        if (setsockopt(soc, SOL_CAN_RAW, CAN_RAW_FILTER, &rfilter, sizeof(rfilter)) < 0) {
+        if (setsockopt(soc, SOL_CAN_RAW, CAN_RAW_FILTER, &rfilter,
+                       numRxFilters * sizeof(struct can_filter)) < 0) {
             ZCM_DEBUG("Failed to set filter");
             return;
         }
@@ -164,7 +201,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         ZCM_TRANS_CLASSNAME* me = cast((zcm_trans_t*) usr);
 
         struct can_frame frame;
-        frame.can_id = me->msgId | CAN_EFF_FLAG;
+        frame.can_id = me->txId;
 
         size_t ret = min(nData, (size_t) CAN_MAX_DLEN);
         frame.can_dlc = ret;
@@ -297,5 +334,5 @@ static zcm_trans_t *create(zcm_url_t* url, char **opt_errmsg)
 #ifdef USING_TRANS_CAN
 const TransportRegister ZCM_TRANS_CLASSNAME::reg(
     "can", "Transfer data via a socket CAN connection on a single id "
-           "(e.g. 'can://can0?msgid=65536')", create);
+           "(e.g. 'can://can0?msgid=65536&tx_extended_addr=true')", create);
 #endif
