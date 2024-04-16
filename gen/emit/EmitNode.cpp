@@ -93,6 +93,14 @@ struct EmitModule : public Emitter
         emit(0, "var bigint = require('big-integer');");
         emit(0, "");
         emit(0, "var UINT64_MAX = bigint('ffffffffffffffff', 16);");
+        emit(0, "");
+        emit(0, "function bitfieldEncodedSize(numbits)");
+        emit(0, "{");
+        emit(0, "    var size = Math.trunc(numbits / 8);");
+        emit(0, "    if (numbits - size * 8 != 0) ++size;");
+        emit(0, "    return size;");
+        emit(0, "}");
+        emit(0, "");
         emit(0, "function rotateLeftOne(val)");
         emit(0, "{");
         emit(0, "    return val.shiftLeft(1).and(UINT64_MAX).add("
@@ -464,26 +472,55 @@ struct EmitModule : public Emitter
         }
         emit(1, "var size = 0;");
         for (auto& zm : zs.members) {
+            if (zm.type.numbits != 0) {
+                emit(1, "var numbits;");
+                break;
+            }
+        }
+        bool inBitMode = false;
+        for (auto& zm : zs.members) {
+            if (inBitMode && zm.type.numbits == 0) {
+                inBitMode = false;
+                emit(1, "size += bitfieldEncodedSize(numbits);");
+                emit(0, "");
+            } else if (!inBitMode && zm.type.numbits != 0) {
+                inBitMode = true;
+                emit(0, "");
+                emit(1, "numbits = 0;");
+            }
+
+
             auto& mtn = zm.type.nameUnderscore();
             auto& mn = zm.membername;
             int ndim = (int)zm.dimensions.size();
 
             if (ZCMGen::isPrimitiveType(mtn) && mtn != "string") {
-                emitStart(1, "size += ");
-                for (int i = 0; i < ndim-1; ++i) {
-                    auto& dim = zm.dimensions[i];
-                    emitContinue("%s%s * ",
-                                 (dim.mode != ZCM_CONST) ? "msg." : "",
-                                 dim.size.c_str());
-                }
-                if (ndim > 0) {
-                    auto& dim = zm.dimensions[ndim - 1];
-                    emitEnd("%s%s * %d; \t//%s",
-                            (dim.mode != ZCM_CONST) ? "msg." : "",
-                            dim.size.c_str(),
-                            ZCMGen::getPrimitiveTypeSize(mtn), mn.c_str());
+                if (!inBitMode) {
+                    emitStart(1, "size += ");
+                    for (int i = 0; i < ndim-1; ++i) {
+                        auto& dim = zm.dimensions[i];
+                        emitContinue("%s%s * ",
+                                     (dim.mode != ZCM_CONST) ? "msg." : "",
+                                     dim.size.c_str());
+                    }
+                    if (ndim > 0) {
+                        auto& dim = zm.dimensions[ndim - 1];
+                        emitEnd("%s%s * %d; \t//%s",
+                                (dim.mode != ZCM_CONST) ? "msg." : "",
+                                dim.size.c_str(),
+                                ZCMGen::getPrimitiveTypeSize(mtn), mn.c_str());
+                    } else {
+                        emitEnd("%d; \t//%s", ZCMGen::getPrimitiveTypeSize(mtn), mn.c_str());
+                    }
                 } else {
-                    emitEnd("%d; \t//%s", ZCMGen::getPrimitiveTypeSize(mtn), mn.c_str());
+                    emitStart(1, "numbits += ");
+                    for (int i = 0; i < ndim; ++i) {
+                        auto& dim = zm.dimensions[i];
+                        emitContinue("%s%s * ",
+                                     (dim.mode != ZCM_CONST) ? "msg." : "",
+                                     dim.size.c_str());
+                    }
+                    emitEnd("%u; // %s", zm.type.numbits, zm.membername.c_str());
                 }
             } else {
                 for (int i = 0; i < ndim; ++i) {
@@ -506,6 +543,10 @@ struct EmitModule : public Emitter
                 for (int i = ndim - 1; i >= 0; --i)
                     emit(1 + i, "}");
             }
+        }
+        if (inBitMode) {
+            emit(1, "size += bitfieldEncodedSize(numbits);");
+            emit(0, "");
         }
         emit(1, "return size;");
         emit(0, "};");
