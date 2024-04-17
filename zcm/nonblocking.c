@@ -175,7 +175,7 @@ static void dispatch_message(zcm_nonblocking_t* zcm, zcm_msg_t* msg)
 
         if (zcm->subIsRegex[i]) {
             /* This only works because isSupportedRegex() is called on subscribe */
-            if (strlen(msg->channel) > 2 &&
+            if (strlen(zcm->subs[i].channel) >= 2 &&
                 strncmp(zcm->subs[i].channel, msg->channel,
                         strlen(zcm->subs[i].channel) - 2) == 0) {
                 shouldDispatch = true;
