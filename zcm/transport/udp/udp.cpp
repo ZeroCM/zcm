@@ -68,8 +68,7 @@ struct UDP
 
     /* other variables */
     u32          udp_rx = 0;            // packets received and processed
-    u32          udp_discarded_bad = 0; // packets discarded because they were bad
-                                    // somehow
+    u32          udp_discarded_bad = 0; // packets discarded because they were bad somehow
     double       udp_low_watermark = 1.0; // least buffer available
     i32          udp_last_report_secs = 0;
 

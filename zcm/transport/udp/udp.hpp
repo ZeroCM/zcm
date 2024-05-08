@@ -103,4 +103,4 @@ typedef int64_t  i64;
 #define MAX_FRAG_BUF_TOTAL_SIZE (1 << 24)// 16 megabytes
 #define MAX_NUM_FRAG_BUFS 1000
 
-#define SELF_TEST_CHANNEL "LCM_SELF_TEST"
+#define SELF_TEST_CHANNEL "ZCM_SELF_TEST"
