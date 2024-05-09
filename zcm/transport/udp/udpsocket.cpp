@@ -293,7 +293,7 @@ ssize_t UDPSocket::sendBuffers(const UDPAddress& dest, const char *a, size_t ale
 {
     struct iovec iv;
     iv.iov_base = (char*)a;
-    iv.iov_len = alen;;
+    iv.iov_len = alen;
 
     struct msghdr mhdr;
     mhdr.msg_name = dest.getAddrPtr();
@@ -312,9 +312,9 @@ ssize_t UDPSocket::sendBuffers(const UDPAddress& dest, const char *a, size_t ale
 {
     struct iovec iv[2];
     iv[0].iov_base = (char*)a;
-    iv[0].iov_len = alen;;
+    iv[0].iov_len = alen;
     iv[1].iov_base = (char*)b;
-    iv[1].iov_len = blen;;
+    iv[1].iov_len = blen;
 
     struct msghdr mhdr;
     mhdr.msg_name = dest.getAddrPtr();
@@ -333,11 +333,11 @@ ssize_t UDPSocket::sendBuffers(const UDPAddress& dest, const char *a, size_t ale
 {
     struct iovec iv[3];
     iv[0].iov_base = (char*)a;
-    iv[0].iov_len = alen;;
+    iv[0].iov_len = alen;
     iv[1].iov_base = (char*)b;
-    iv[1].iov_len = blen;;
+    iv[1].iov_len = blen;
     iv[2].iov_base = (char*)c;
-    iv[2].iov_len = clen;;
+    iv[2].iov_len = clen;
 
     struct msghdr mhdr;
     mhdr.msg_name = dest.getAddrPtr();

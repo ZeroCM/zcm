@@ -68,8 +68,7 @@ struct UDP
 
     /* other variables */
     u32          udp_rx = 0;            // packets received and processed
-    u32          udp_discarded_bad = 0; // packets discarded because they were bad
-                                    // somehow
+    u32          udp_discarded_bad = 0; // packets discarded because they were bad somehow
     double       udp_low_watermark = 1.0; // least buffer available
     i32          udp_last_report_secs = 0;
 
@@ -299,8 +298,8 @@ int UDP::sendmsg(zcm_msg_t msg)
                               (char*)msg.buf, msg.len);
 
         int packet_size = sizeof(hdr) + payload_size;
-        ZCM_DEBUG("transmitting %zu byte [%s] payload (%d byte pkt)",
-                  msg.len, msg.channel, packet_size);
+        ZCM_DEBUG("transmitting %zu byte [%s] payload (%d byte pkt) status: %zd",
+                  msg.len, msg.channel, packet_size, status);
         msg_seqno++;
 
         return (status == packet_size) ? 0 : status;
