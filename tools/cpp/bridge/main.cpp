@@ -183,12 +183,16 @@ struct Args
                         Bprefix = optarg;
                     } else if (string(long_opts[option_index].name) == "A-watchdog") {
                         Awatchdog = atol(optarg);
+                        assert(Awatchdog && "A-watchdog specified as 0, likely input parsing error");
                     } else if (string(long_opts[option_index].name) == "B-watchdog") {
                         Bwatchdog = atol(optarg);
+                        assert(Bwatchdog && "B-watchdog specified as 0, likely input parsing error");
                     } else if (string(long_opts[option_index].name) == "A-startup-watchdog") {
                         Astartup = atol(optarg);
+                        assert(Astartup && "A-startup-watchdog specified as 0, likely input parsing error");
                     } else if (string(long_opts[option_index].name) == "B-startup-watchdog") {
                         Bstartup = atol(optarg);
+                        assert(Bstartup && "B-startup-watchdog specified as 0, likely input parsing error");
                     }
                     break;
                 case 'h': default: usage(); return false;
