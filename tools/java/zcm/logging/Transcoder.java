@@ -69,7 +69,7 @@ public class Transcoder
                                Long.toHexString(fingerprint));
                 return;
             }
-            Object o = cls.getConstructor(DataInput.class).newInstance(dins);
+            Object o = cls.getConstructor(ZCMDataInputStream.class).newInstance(dins);
 
             ArrayList<Log.Event> events = null;
             events = this.plugin.transcodeMessage(channel, o, utime, ev);

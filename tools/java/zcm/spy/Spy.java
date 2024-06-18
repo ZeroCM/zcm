@@ -308,7 +308,7 @@ public class Spy
 
                 cd.nreceived++;
 
-                o = cd.cls.getConstructor(DataInput.class).newInstance(dins);
+                o = cd.cls.getConstructor(ZCMDataInputStream.class).newInstance(dins);
                 cd.last = o;
 
                 if (cd.viewer != null)
