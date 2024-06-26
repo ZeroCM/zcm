@@ -111,7 +111,7 @@ struct EmitHeader : public Emit
 
         emit(0, "#include <stdint.h>");
         emit(0, "#include <stdlib.h>");
-        emit(0, "#include <zcm/zcm_coretypes.h>");
+        emit(0, "#include \"zcm/zcm_coretypes.h\"");
 
         if(!zcm.gopt->getBool("c-no-pubsub")) {
             emit(0, "#include <zcm/zcm.h>");
