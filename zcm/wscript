@@ -102,7 +102,9 @@ def build(ctx):
                       ['json/json.h', 'json/json-forwards.h'])
 
     ctx.install_files('${PREFIX}/include/zcm/transport',
-                      ['transport/generic_serial_transport.h'])
+                      ['transport/generic_serial_transport.h',
+                       'transport/generic_serial_circ_buff.h',
+                       'transport/generic_serial_fletcher.h'])
 
     ctx.install_files('${PREFIX}/share/embedded', ['zcm-embed.tar.gz'])
 
