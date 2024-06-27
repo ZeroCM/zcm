@@ -111,7 +111,11 @@ struct EmitHeader : public Emit
 
         emit(0, "#include <stdint.h>");
         emit(0, "#include <stdlib.h>");
-        emit(0, "#include <zcm/zcm_coretypes.h>");
+        if (zcm.gopt->getBool("c-coretypes-from-local")) {
+            emit(0, "#include \"zcm/zcm_coretypes.h\"");
+        } else {
+            emit(0, "#include <zcm/zcm_coretypes.h>");
+        }
 
         if(!zcm.gopt->getBool("c-no-pubsub")) {
             emit(0, "#include <zcm/zcm.h>");
@@ -1085,11 +1089,12 @@ static int emitStructSource(const ZCMGen& zcm, const ZCMStruct& zs, const string
 
 void setupOptionsC(GetOpt& gopt)
 {
-    gopt.addString(0, "c-cpath",    ".",      "Location for .c files");
-    gopt.addString(0, "c-hpath",    ".",      "Location for .h files");
-    gopt.addString(0, "c-include",   "",       "Generated #include lines reference this folder");
-    gopt.addBool(0, "c-no-pubsub",   0,     "Do not generate _publish and _subscribe functions");
-    gopt.addBool(0, "c-typeinfo",   0,      "Generate typeinfo functions for each type");
+    gopt.addString(0, "c-cpath",            ".", "Location for .c files");
+    gopt.addString(0, "c-hpath",            ".", "Location for .h files");
+    gopt.addString(0, "c-include",           "", "Generated #include lines reference this folder");
+    gopt.addBool(0, "c-no-pubsub",            0, "Do not generate _publish and _subscribe functions");
+    gopt.addBool(0, "c-typeinfo",             0, "Generate typeinfo functions for each type");
+    gopt.addBool(0, "c-coretypes-from-local", 0, "use \"\" instead of <> when including coretypes");
 }
 
 int emitC(const ZCMGen& zcm)
