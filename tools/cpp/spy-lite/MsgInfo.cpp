@@ -149,5 +149,9 @@ float MsgInfo::getBandwidthBps()
     size_t sz = queue.getSize();
     for (; i < sz; ++i) total += queue[i].second;
 
-    return (double)total / (double)i;
+    if (sz == 1) return total;
+
+    double dt = (queue.last().first - queue.first().first) * 1e-6;
+
+    return (double)total / dt;
 }
