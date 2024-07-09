@@ -194,9 +194,9 @@ extern "C" {
 
 /* Only define inline for C99 builds or better */
 #if (__STDC_VERSION__ >= 199901L) || (__cplusplus)
-# define INLINE inline
+#define ZCM_TRANSPORT_INLINE inline
 #else
-# define INLINE
+#define ZCM_TRANSPORT_INLINE
 #endif
 
 typedef struct zcm_msg_t zcm_msg_t;
@@ -231,30 +231,32 @@ struct zcm_trans_methods_t
 };
 
 /* Helper functions to make the VTbl dispatch cleaner */
-static INLINE size_t zcm_trans_get_mtu(zcm_trans_t* zt)
+static ZCM_TRANSPORT_INLINE size_t zcm_trans_get_mtu(zcm_trans_t* zt)
 { return zt->vtbl->get_mtu(zt); }
 
-static INLINE int zcm_trans_sendmsg(zcm_trans_t* zt, zcm_msg_t msg)
+static ZCM_TRANSPORT_INLINE int zcm_trans_sendmsg(zcm_trans_t* zt, zcm_msg_t msg)
 { return zt->vtbl->sendmsg(zt, msg); }
 
-static INLINE int zcm_trans_recvmsg_enable(zcm_trans_t* zt, const char* channel, bool enable)
+static ZCM_TRANSPORT_INLINE int zcm_trans_recvmsg_enable(zcm_trans_t* zt, const char* channel, bool enable)
 { return zt->vtbl->recvmsg_enable(zt, channel, enable); }
 
-static INLINE int zcm_trans_recvmsg(zcm_trans_t* zt, zcm_msg_t* msg, unsigned timeout)
+static ZCM_TRANSPORT_INLINE int zcm_trans_recvmsg(zcm_trans_t* zt, zcm_msg_t* msg, unsigned timeout)
 { return zt->vtbl->recvmsg(zt, msg, timeout); }
 
-static INLINE int zcm_trans_query_drops(zcm_trans_t* zt, uint64_t *out_drops)
+static ZCM_TRANSPORT_INLINE int zcm_trans_query_drops(zcm_trans_t* zt, uint64_t *out_drops)
 {
     /* Possibly unimplemented, return ZCM_EUNIMPL */
     if (!zt->vtbl->query_drops) return ZCM_EUNIMPL;
     return zt->vtbl->query_drops(zt, out_drops);
 }
 
-static INLINE int zcm_trans_update(zcm_trans_t* zt)
+static ZCM_TRANSPORT_INLINE int zcm_trans_update(zcm_trans_t* zt)
 { return zt->vtbl->update(zt); }
 
-static INLINE void zcm_trans_destroy(zcm_trans_t* zt)
+static ZCM_TRANSPORT_INLINE void zcm_trans_destroy(zcm_trans_t* zt)
 { return zt->vtbl->destroy(zt); }
+
+#undef ZCM_TRANSPORT_INLINE
 
 #ifdef __cplusplus
 }
