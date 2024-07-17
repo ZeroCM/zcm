@@ -39,6 +39,7 @@ def build(ctx):
                                           'util/*.c', 'util/*.cpp',
                                           'tools/*.c', 'tools/*.cpp',
                                           'transport/*.c', 'transport/*.cpp',
+                                          'transport/cobs_serial/*.c',
                                           'transport/udp/*.cpp',
                                           'transport/lockfree/lf_*.c'],
                                          excl=srcExcludes))

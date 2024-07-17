@@ -281,7 +281,7 @@ static int _serial_recvmsg_enable(zcm_trans_t* zt, const char* channel,
     return serial_cobs_recvmsg_enable(cast(zt), channel, enable);
 }
 
-static int _serial_recvmsg(zcm_trans_t* zt, zcm_msg_t* msg, int timeout)
+static int _serial_recvmsg(zcm_trans_t* zt, zcm_msg_t* msg, unsigned timeout)
 {
     return serial_cobs_recvmsg(cast(zt), msg, timeout);
 }
@@ -294,8 +294,13 @@ static int _serial_update(zcm_trans_t* zt)
 }
 
 static zcm_trans_methods_t methods = {
-    &_serial_get_mtu, &_serial_sendmsg, &_serial_recvmsg_enable,
-    &_serial_recvmsg, &_serial_update,  &zcm_trans_generic_serial_cobs_destroy,
+    &_serial_get_mtu,
+    &_serial_sendmsg,
+    &_serial_recvmsg_enable,
+    &_serial_recvmsg,
+    NULL,  // drops
+    &_serial_update,
+    &zcm_trans_generic_serial_cobs_destroy,
 };
 
 static zcm_trans_cobs_serial_t* cast(zcm_trans_t* zt)
