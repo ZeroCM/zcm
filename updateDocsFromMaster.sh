@@ -60,7 +60,7 @@ getHeader()
       </section>
       <a href='https://github.com/ZeroCM/zcm' class='btn'>View on GitHub</a>
       <a href='https://github.com/ZeroCM/zcm/actions/workflows/build.yml' class='btn'>Monitor Builds</a>
-      <a href='https://gitter.im/ZeroCM/zcm' class='btn'>Chat with the team</a>
+      <a href='https://discord.gg/T6jYM3eMjw' class='btn'>Chat with the team</a>
       <a href='https://groups.google.com/forum/#!forum/zcm-users' class='btn'>Ask a Question</a>
       <a href='https://github.com/ZeroCM/zcm/zipball/master' class='btn'>Download .zip</a>
       <a href='https://github.com/ZeroCM/zcm/tarball/master' class='btn'>Download .tar.gz</a>

@@ -18,7 +18,7 @@
       </section>
       <a href='https://github.com/ZeroCM/zcm' class='btn'>View on GitHub</a>
       <a href='https://github.com/ZeroCM/zcm/actions/workflows/build.yml' class='btn'>Monitor Builds</a>
-      <a href='https://gitter.im/ZeroCM/zcm' class='btn'>Chat with the team</a>
+      <a href='https://discord.gg/T6jYM3eMjw' class='btn'>Chat with the team</a>
       <a href='https://groups.google.com/forum/#!forum/zcm-users' class='btn'>Ask a Question</a>
       <a href='https://github.com/ZeroCM/zcm/zipball/master' class='btn'>Download .zip</a>
       <a href='https://github.com/ZeroCM/zcm/tarball/master' class='btn'>Download .tar.gz</a>
@@ -83,6 +83,11 @@ be used to <em>summon</em> the transport:</p>
     <td>        CAN                                                     </td>
     <td><code>  can://&lt;interface&gt;?msgid=&lt;id&gt;                </code></td>
     <td><code>  zcm_create("can://can0?msgid=65536")                    </code></td>
+  </tr>
+  <tr>
+    <td>        Inter-process via Shared Memory (IPCSHM)                </td>
+    <td><code>  ipcshm://&lt;shm-region-name&gt;?mtu=&lt;mtu&gt;&amp;depth=&lt;depth&gt&amp;mlock=&lt;1 or 0&gt; </code></td>
+    <td><code>  zcm_create("ipcshm"), zcm_create("ipcshm://myregion?mtu=100000&depth=128&mlock=1")   </code></td>
   </tr>
 </table>
 
