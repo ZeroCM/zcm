@@ -66,7 +66,7 @@ On other systems you may need to use your specific package manager to obtain the
 packages. It should be noted that JNI sometimes needs `$JAVA_HOME` to be manually set.
 If you're still having issues building, check out our [FAQs](FAQs.md) for more info.
 If you still can't find the answer to your question, feel free to
-[reach out](https://gitter.im/ZeroCM/zcm)!
+[reach out](https://discord.gg/T6jYM3eMjw)!
 
 At this point you should be able to start exploring ZCM. Check out the [Tutorial](tutorial.md).
 

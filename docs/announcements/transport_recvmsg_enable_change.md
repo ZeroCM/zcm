@@ -20,7 +20,7 @@ This means there are effectively 2 more conditions that the transport itself nee
 - An explicit subscription channel is disabled, but messages on that channel still match a previously enabled regex. In this case, messages should still be received on that channel; however, the transport can now know that there are no remaining explicit subscriptions to it.
 - "Overlapping" regex subscriptions where more than 1 regex matches a single channel. Even if one of those regex is disabled, messages that match any enabled regex should still be received.
 
-As always, feel free to reach out on our [forums](https://groups.google.com/forum/#!forum/zcm-users) or on [gitter](https://gitter.im/ZeroCM/zcm) with any questions!
+As always, feel free to reach out on our [forums](https://groups.google.com/forum/#!forum/zcm-users) or on [Discord](https://discord.gg/T6jYM3eMjw) with any questions!
 ~The ZCM Team
 
 <hr>

@@ -18,7 +18,7 @@ contributions!
 
 There are a few ways to join the community and stay informed on the latest ZCM news:
 
- - [Gitter Chatroom](https://gitter.im/ZeroCM/zcm)
+ - [Discord Chatroom](https://discord.gg/T6jYM3eMjw)
  - [Github Project Page](https://github.com/ZeroCM/zcm)
  - [Mailing List](https://groups.google.com/forum/#!forum/zcm-users)
  - [Continuous Integration](https://github.com/ZeroCM/zcm/actions/workflows/build.yml)
@@ -26,7 +26,7 @@ There are a few ways to join the community and stay informed on the latest ZCM n
 ## Pull Requests
 
 We currently manage pull requests through GitHub, but it's often a good idea to
-ping the mailing list or Gitter for feedback. Most of the core developers are very busy
+ping the mailing list or Discord for feedback. Most of the core developers are very busy
 career engineers whom may miss your contribution without a reminder or two.
 
 <hr>

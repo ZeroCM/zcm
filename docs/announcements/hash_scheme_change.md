@@ -66,7 +66,7 @@ However, we believe that it will benefit you to switch to the new default scheme
 
 A utility to run through zcm logs and update old hashes to the new hashes has been made, but it is still in it's early stages. If you are interested in switching to the new hash scheme but need to migrate old logs, let us know and we can make that utility a higher development priority.
 
-As always, feel free to reach out on our [forums](https://groups.google.com/forum/#!forum/zcm-users) or on [gitter](https://gitter.im/ZeroCM/zcm) with any questions!
+As always, feel free to reach out on our [forums](https://groups.google.com/forum/#!forum/zcm-users) or on [Discord](https://discord.gg/T6jYM3eMjw) with any questions!
 ~The ZCM Team
 
 <hr>
