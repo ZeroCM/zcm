@@ -913,6 +913,7 @@ struct EmitSource : public Emit
         emit(0,"%s* %s_copy(const %s* p)", tn_, tn_, tn_);
         emit(0,"{");
         emit(1,    "%s* q = (%s*) malloc(sizeof(%s));", tn_, tn_, tn_);
+        emit(1,    "if (!q) return NULL;");
         emit(1,    "__%s_clone_array(p, q, 1);", tn_);
         emit(1,    "return q;");
         emit(0,"}");
@@ -997,6 +998,7 @@ struct EmitSource : public Emit
         //       table...
         emit(0, "    %s_subscription_t* n = (%s_subscription_t*)", tn_, tn_);
         emit(0, "                       malloc(sizeof(%s_subscription_t));", tn_);
+        emit(0, "    if (!n) return NULL;");
         emit(0, "    n->user_handler = f;");
         emit(0, "    n->userdata = userdata;");
         emit(0, "    n->z_sub = zcm_subscribe (zcm, channel,");
