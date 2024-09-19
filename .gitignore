@@ -8,3 +8,8 @@ build/
 .lock*
 .waf*
 deps/
+
+# Ignore bazel build dirs
+bazel-*
+MODULE.*
+
