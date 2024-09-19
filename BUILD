@@ -18,16 +18,12 @@ cc_library(
         "zcm/transport/udp/udpsocket.cpp",
         "zcm/transport_registrar.c",
         "zcm/url.cpp",
-        "zcm/util/debug.cpp",
-        "zcm/util/lockfile.cpp",
-        "zcm/util/topology.cpp",
         "zcm/zcm.c",
     ],
     hdrs = glob([
         "zcm/**/*.h",
         "zcm/**/*.hpp",
         "zcm/**/*.h",
-        "util/**/*.hpp",
     ]),
     defines = [
         "USING_PYTHON",
@@ -39,11 +35,31 @@ cc_library(
         "USING_TRANS_UDP",
     ],
     includes = [
-        "util",
         "zcm",
     ],
     linkopts = ["-lzmq"],
     visibility = ["//visibility:public"],
+    deps = [":zcm-util"],
+)
+
+cc_library(
+    name = "zcm-util",
+    srcs = [
+        "zcm/util/debug.cpp",
+        "zcm/util/lockfile.cpp",
+        "zcm/util/topology.cpp",
+    ],
+    hdrs = glob([
+        "util/**/*.h",
+        "util/**/*.hpp",
+        "zcm/**/*.h",
+        "zcm/**/*.hpp",
+    ]),
+    includes = [
+        "./",
+        "zcm",
+    ],
+    linkopts = ["-lzmq"],
 )
 
 cc_library(
