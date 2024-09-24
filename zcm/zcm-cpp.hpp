@@ -70,7 +70,8 @@ class ZCM
                                    void (Handler::*cb)(const ReceiveBuffer* rbuf,
                                                        const std::string& channel,
                                                        const Msg* msg),
-                                   Handler* handler);
+                                   Handler* handler,
+                                   Msg* ref = nullptr);
 
     template <class Handler>
     inline Subscription* subscribe(const std::string& channel,
@@ -83,7 +84,8 @@ class ZCM
                                    void (*cb)(const ReceiveBuffer* rbuf,
                                               const std::string& channel,
                                               const Msg* msg, void* usr),
-                                   void* usr);
+                                   void* usr,
+                                   Msg* ref = nullptr);
 
     #if __cplusplus > 199711L
     inline Subscription* subscribe(const std::string& channel,
@@ -94,7 +96,8 @@ class ZCM
     inline Subscription* subscribe(const std::string& channel,
                                    std::function<void (const ReceiveBuffer* rbuf,
                                                        const std::string& channel,
-                                                       const Msg* msg)> cb);
+                                                       const Msg* msg)> cb,
+                                   Msg* ref = nullptr);
     #endif
 
     inline int unsubscribe(Subscription* sub);

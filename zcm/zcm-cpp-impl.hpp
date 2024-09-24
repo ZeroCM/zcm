@@ -217,14 +217,15 @@ class TypedSubscription : public virtual Subscription
   protected:
     void (*typedCallback)(const ReceiveBuffer* rbuf, const std::string& channel, const Msg* msg,
                           void* usr);
-    Msg msgMem; // Memory to decode this message into
+    Msg* msgMem; // Memory to decode this message into
+    bool memIsNew = false;
 
   public:
-    virtual ~TypedSubscription() {}
+    virtual ~TypedSubscription() { if (memIsNew) delete msgMem; }
 
     inline int readMsg(const ReceiveBuffer* rbuf, const std::string& channel)
     {
-        int status = msgMem.decode(rbuf->data, 0, rbuf->data_size);
+        int status = msgMem->decode(rbuf->data, 0, rbuf->data_size);
         if (status < 0) {
             #ifndef ZCM_EMBEDDED
             fprintf (stderr, "Error %d decoding %s on channel \"%s\"\n",
@@ -238,7 +239,7 @@ class TypedSubscription : public virtual Subscription
     inline void typedDispatch(const ReceiveBuffer* rbuf, const std::string& channel)
     {
         if (readMsg(rbuf, channel) != 0) return;
-        (*typedCallback)(rbuf, channel, &msgMem, usr);
+        (*typedCallback)(rbuf, channel, msgMem, usr);
     }
 };
 
@@ -260,14 +261,15 @@ class TypedFunctionalSubscription : public virtual Subscription
     std::function<void (const ReceiveBuffer* rbuf,
                         const std::string& channel,
                         const Msg* msg)> cb;
-    Msg msgMem; // Memory to decode this message into
+    Msg* msgMem; // Memory to decode this message into
+    bool memIsNew = false;
 
   public:
-    virtual ~TypedFunctionalSubscription() {}
+    virtual ~TypedFunctionalSubscription() { if (memIsNew) delete msgMem; }
 
     inline int readMsg(const ReceiveBuffer* rbuf, const std::string& channel)
     {
-        int status = msgMem.decode(rbuf->data, 0, rbuf->data_size);
+        int status = msgMem->decode(rbuf->data, 0, rbuf->data_size);
         if (status < 0) {
             #ifndef ZCM_EMBEDDED
             fprintf (stderr, "Error %d decoding %s on channel \"%s\"\n",
@@ -281,7 +283,7 @@ class TypedFunctionalSubscription : public virtual Subscription
     inline void typedDispatch(const ReceiveBuffer* rbuf, const std::string& channel)
     {
         if (readMsg(rbuf, channel) != 0) return;
-        cb(rbuf, channel, &msgMem);
+        cb(rbuf, channel, msgMem);
     }
 };
 
@@ -360,7 +362,7 @@ class TypedHandlerSubscription : public TypedSubscription<Msg>, HandlerSubscript
         // Unfortunately, we need to add "this" here to handle template inheritance:
         // https://isocpp.org/wiki/faq/templates#nondependent-name-lookup-members
         if (this->readMsg(rbuf, channel) != 0) return;
-        (this->handler->*typedHandlerCallback)(rbuf, channel, &this->msgMem);
+        (this->handler->*typedHandlerCallback)(rbuf, channel, this->msgMem);
     }
 };
 
@@ -377,7 +379,8 @@ inline Subscription* ZCM::subscribe(const std::string& channel,
                                     void (Handler::*cb)(const ReceiveBuffer* rbuf,
                                                         const std::string& channel,
                                                         const Msg* msg),
-                                    Handler* handler)
+                                    Handler* handler,
+                                    Msg* ref)
 {
     if (!zcm) {
         #ifndef ZCM_EMBEDDED
@@ -394,6 +397,12 @@ inline Subscription* ZCM::subscribe(const std::string& channel,
     }
     sub->handler = handler;
     sub->typedHandlerCallback = cb;
+    if (ref) {
+        sub->msgMem = ref;
+    } else {
+        sub->msgMem = new Msg;
+        sub->memIsNew = true;
+    }
     subscribeRaw(sub->rawSub, channel, &TypedHandlerSubscriptionDispatch<Msg, Handler>, sub);
 
     subscriptions.push_back(sub);
@@ -432,7 +441,8 @@ inline Subscription* ZCM::subscribe(const std::string& channel,
                                     void (*cb)(const ReceiveBuffer* rbuf,
                                                const std::string& channel,
                                                const Msg* msg, void* usr),
-                                    void* usr)
+                                    void* usr,
+                                    Msg* ref)
 {
     if (!zcm) {
         #ifndef ZCM_EMBEDDED
@@ -449,6 +459,12 @@ inline Subscription* ZCM::subscribe(const std::string& channel,
     }
     sub->usr = usr;
     sub->typedCallback = cb;
+    if (ref) {
+        sub->msgMem = ref;
+    } else {
+        sub->msgMem = new Msg;
+        sub->memIsNew = true;
+    }
     subscribeRaw(sub->rawSub, channel, &TypedSubscriptionDispatch<Msg>, sub);
 
     subscriptions.push_back(sub);
@@ -460,7 +476,8 @@ template <class Msg>
 inline Subscription* ZCM::subscribe(const std::string& channel,
                                     std::function<void (const ReceiveBuffer* rbuf,
                                                         const std::string& channel,
-                                                        const Msg* msg)> cb)
+                                                        const Msg* msg)> cb,
+                                    Msg* ref)
 {
     if (!zcm) {
         #ifndef ZCM_EMBEDDED
@@ -477,6 +494,12 @@ inline Subscription* ZCM::subscribe(const std::string& channel,
     }
     sub->usr = nullptr;
     sub->cb = cb;
+    if (ref) {
+        sub->msgMem = ref;
+    } else {
+        sub->msgMem = new Msg;
+        sub->memIsNew = true;
+    }
     subscribeRaw(sub->rawSub, channel, &TypedFunctionalSubscriptionDispatch<Msg>, sub);
 
     subscriptions.push_back(sub);
