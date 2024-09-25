@@ -42,6 +42,12 @@ cc_library(
     deps = [":zcm-util"],
 )
 
+cc_shared_library(
+    name = "zcm-shared",
+    visibility = ["//visibility:public"],
+    deps = [":zcm"],
+)
+
 cc_library(
     name = "zcm-util",
     srcs = [
