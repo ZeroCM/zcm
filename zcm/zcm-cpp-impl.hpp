@@ -217,11 +217,32 @@ class TypedSubscription : public virtual Subscription
   protected:
     void (*typedCallback)(const ReceiveBuffer* rbuf, const std::string& channel, const Msg* msg,
                           void* usr);
-    Msg* msgMem; // Memory to decode this message into
+    Msg* msgMem = nullptr; // Memory to decode this message into
     bool memIsNew = false;
 
+    void cleanup()
+    {
+        if (memIsNew) delete msgMem;
+        else memIsNew = false;
+        msgMem = nullptr;
+    }
+
   public:
-    virtual ~TypedSubscription() { if (memIsNew) delete msgMem; }
+    virtual ~TypedSubscription() { cleanup(); }
+
+    // if you provide memory here, that memory is yours to clean up.
+    // You cannot clean it up until this subscription has been destroyed
+    // or this function has been called again with nullptr
+    void useMsgRef(Msg* mem)
+    {
+        cleanup();
+        if (mem) {
+            msgMem = mem;
+            return;
+        }
+        msgMem = new Msg;
+        memIsNew = true;
+    }
 
     inline int readMsg(const ReceiveBuffer* rbuf, const std::string& channel)
     {
@@ -261,11 +282,32 @@ class TypedFunctionalSubscription : public virtual Subscription
     std::function<void (const ReceiveBuffer* rbuf,
                         const std::string& channel,
                         const Msg* msg)> cb;
-    Msg* msgMem; // Memory to decode this message into
+    Msg* msgMem = nullptr; // Memory to decode this message into
     bool memIsNew = false;
 
+    void cleanup()
+    {
+        if (memIsNew) delete msgMem;
+        else memIsNew = false;
+        msgMem = nullptr;
+    }
+
   public:
-    virtual ~TypedFunctionalSubscription() { if (memIsNew) delete msgMem; }
+    virtual ~TypedFunctionalSubscription() { cleanup(); }
+
+    // if you provide memory here, that memory is yours to clean up.
+    // You cannot clean it up until this subscription has been destroyed
+    // or this function has been called again with nullptr
+    void useMsgRef(Msg* mem)
+    {
+        cleanup();
+        if (mem) {
+            msgMem = mem;
+            return;
+        }
+        msgMem = new Msg;
+        memIsNew = true;
+    }
 
     inline int readMsg(const ReceiveBuffer* rbuf, const std::string& channel)
     {
@@ -397,12 +439,7 @@ inline Subscription* ZCM::subscribe(const std::string& channel,
     }
     sub->handler = handler;
     sub->typedHandlerCallback = cb;
-    if (ref) {
-        sub->msgMem = ref;
-    } else {
-        sub->msgMem = new Msg;
-        sub->memIsNew = true;
-    }
+    sub->useMsgRef(ref);
     subscribeRaw(sub->rawSub, channel, &TypedHandlerSubscriptionDispatch<Msg, Handler>, sub);
 
     subscriptions.push_back(sub);
@@ -459,12 +496,7 @@ inline Subscription* ZCM::subscribe(const std::string& channel,
     }
     sub->usr = usr;
     sub->typedCallback = cb;
-    if (ref) {
-        sub->msgMem = ref;
-    } else {
-        sub->msgMem = new Msg;
-        sub->memIsNew = true;
-    }
+    sub->useMsgRef(ref);
     subscribeRaw(sub->rawSub, channel, &TypedSubscriptionDispatch<Msg>, sub);
 
     subscriptions.push_back(sub);
@@ -494,12 +526,7 @@ inline Subscription* ZCM::subscribe(const std::string& channel,
     }
     sub->usr = nullptr;
     sub->cb = cb;
-    if (ref) {
-        sub->msgMem = ref;
-    } else {
-        sub->msgMem = new Msg;
-        sub->memIsNew = true;
-    }
+    sub->useMsgRef(ref);
     subscribeRaw(sub->rawSub, channel, &TypedFunctionalSubscriptionDispatch<Msg>, sub);
 
     subscriptions.push_back(sub);
