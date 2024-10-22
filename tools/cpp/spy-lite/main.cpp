@@ -285,7 +285,7 @@ struct SpyInfo
                 view_id += (ch - '0');
             }
         } else if (ch == '\n') {
-            if (view_id >= 0) {
+            if (view_id > 0) {
                 // set and increase sub-msg decoding depth
                 minfo.incViewDepth(view_id, decode_prefix_filter);
                 decode_prefix_filter.clear();
@@ -331,7 +331,7 @@ struct SpyInfo
                    (ch == '_') || (ch == '/')) {
             is_setting_decode_prefix = true;
             return handleKeyboardDecodeSettingPrefix(ch);
-        } else if ('0' <= ch && ch <= '9') {
+        } else if ('0' < ch && ch <= '9') {
             // shortcut for single digit channels
             view_id = ch - '0';
             // set and increase sub-msg decoding depth
