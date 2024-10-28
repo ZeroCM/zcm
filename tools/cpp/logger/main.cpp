@@ -209,7 +209,8 @@ struct Args
 
         if (rotate > 0 && auto_increment) {
             cerr << "ERROR.  --increment and --rotate can't both be used." << endl
-                 << "Note that if you don't want --increment, you must specify a log filename." << endl;
+                 << "Note that if you don't want --increment, you must" << endl
+                 << "specify a log filename." << endl;
             return false;
         }
 
@@ -667,6 +668,7 @@ void sighandler(int signal)
 
 void sighup_handler(int signal)
 {
+    if (!logger.args.auto_increment && logger.args.rotate <= 0) return;
     got_sighup = 1;
     logger.wakeup();
 }
@@ -704,10 +706,7 @@ int main(int argc, char *argv[])
     signal(SIGINT,  sighandler);
     signal(SIGQUIT, sighandler);
     signal(SIGTERM, sighandler);
-
-    if (logger.args.auto_increment || logger.args.rotate > 0) {
-        signal(SIGHUP,  sighup_handler);
-    }
+    signal(SIGHUP,  sighup_handler);
 
     ZCM_DEBUG("Starting zcms");
     for (auto& z : zcms) z->start();
