@@ -80,7 +80,7 @@ void * lf_shm_open(const char *path, int flags, size_t * _opt_size, int *_opt_er
     if (flags & LF_SHM_FLAG_MLOCK) {
         int ret = mlock(mem, size);
         if (ret != 0) {
-            printf("MLCOK FAILED: %d (%s)\n", errno, strerror(errno));
+            printf("MLOCK FAILED: %d (%s)\n", errno, strerror(errno));
             munmap(mem, size);
             close(shm_fd);
             if (_opt_err) *_opt_err = LF_SHM_ERR_MLOCK;

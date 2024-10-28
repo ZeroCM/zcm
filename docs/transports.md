@@ -279,14 +279,14 @@ By default, this number is 512.
 
  - `int update(zcm_trans_t *zt)`
 
-   This method is called from the `zcm_handle_nonblock()` function.
+   This method is called from the `zcm_handle()` function.
    This method provides a periodically-running routine that can perform
    updates to the underlying hardware or other general maintenance to
    this transport. A transport implementing this function will typically use
    this time to flush out any bytes left in its internal buffer. This method
    should **never block**. Again, this method is called from
-   `zcm_handle_nonblock()` and thus runs at the same frequency as
-   `zcm_handle_nonblock()`. Failure to call `zcm_handle_nonblock()`
+   `zcm_handle()` and thus runs at the same frequency as
+   `zcm_handle()`. Failure to call `zcm_handle()`
    while using an nonblock transport may cause the transport to work
    incorrectly on both message send and recv.
 
@@ -354,7 +354,7 @@ For the blocking case, there are the following approaches:
 
 For the non-blocking case, there is a single approach:
 
-  - `zcm_handle_nonblock()  /* returns non-zero if a message was available and dispatched */`
+  - `zcm_handle()      /* returns non-zero if a message was available and dispatched */`
 
 To prevent errors, the internal library checks that the API method matches the transport type.
 

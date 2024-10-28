@@ -15,15 +15,6 @@ static void handler(const zcm_recv_buf_t *rbuf, const char *channel, void *usr)
     numrecv++;
 }
 
-static void handle(zcm_t *zcm)
-{
-    int rc = zcm_handle(zcm);
-    if (rc == -1)  {
-        printf("handle() failed!\n");
-        exit(1);
-    }
-}
-
 bool sub(zcm_t *zcm)
 {
     zcm_subscribe(zcm, CHANNEL, handler, NULL);
