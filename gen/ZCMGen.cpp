@@ -883,19 +883,21 @@ void ZCMTypename::dump(zcm::Json::Value& root) const
 
 void ZCMMember::dump(zcm::Json::Value& root) const
 {
-    type.dump(root[membername]["typename"]);
+    root["membername"] = membername;
+    type.dump(root["typename"]);
     for (size_t i = 0; i < dimensions.size(); ++i) {
         const auto& dim = dimensions[i];
-        dim.dump(root[membername]["dims"][(int)i]);
+        dim.dump(root["dims"][(int)i]);
     }
-    root[membername]["comment"] = comment;
+    root["comment"] = comment;
 }
 
 void ZCMConstant::dump(zcm::Json::Value& root) const
 {
-    root[membername]["type"] = type;
-    root[membername]["val"]["as_string"] = valstr;
-    auto& asJson = root[membername]["val"]["as_json"];
+    root["membername"] = membername;
+    root["type"] = type;
+    root["val"]["as_string"] = valstr;
+    auto& asJson = root["val"]["as_json"];
     if (type == "byte") asJson = val.u8;
     else if (type == "int8_t") asJson = val.i8;
     else if (type == "int16_t") asJson = val.i16;
@@ -912,15 +914,24 @@ void ZCMConstant::dump(zcm::Json::Value& root) const
         root["numbits"] = numbits;
         root["sign_extend"] = signExtend;
     }
-    root[membername]["comment"] = comment;
+    root["comment"] = comment;
 }
 
 void ZCMStruct::dump(zcm::Json::Value& root) const
 {
     structname.dump(root[structname.fullname]["structname"]);
-    for (auto& zm : members) zm.dump(root[structname.fullname]["members"]);
-    for (auto& zs : structs) zs.dump(root[structname.fullname]["structs"]);
-    for (auto& zc : constants) zc.dump(root[structname.fullname]["constants"]);
+    for (size_t i = 0; i < members.size(); ++i) {
+        auto& zm = members[i];
+        zm.dump(root[structname.fullname]["members"][(int)i]);
+    }
+    for (size_t i = 0; i < structs.size(); ++i) {
+        auto& zs = structs[i];
+        zs.dump(root[structname.fullname]["structs"][(int)i]);
+    }
+    for (size_t i = 0; i < constants.size(); ++i) {
+        auto& zc = constants[i];
+        zc.dump(root[structname.fullname]["constants"][(int)i]);
+    }
     root[structname.fullname]["hash"] = (zcm::Json::Value::UInt64)hash;
     root[structname.fullname]["comment"] = comment;
 }
