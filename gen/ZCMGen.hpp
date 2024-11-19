@@ -56,6 +56,7 @@ struct ZCMTypename
     {
         return nameUnderscore().c_str();
     }
+    void dump(zcm::Json::Value& root) const;
     //////////////////////////////////////////////////////////////////////////////
 
 };
@@ -70,6 +71,8 @@ struct ZCMDimension
 {
     ZCMDimensionMode mode;
     string size;      // a string containing either a member variable name or a constant
+
+    void dump(zcm::Json::Value& root) const;
 };
 
 struct ZCMMember
@@ -138,6 +141,7 @@ struct ZCMConstant
     unordered_set<string>
         getConflictingTokens(const unordered_set<string>& reservedTokens) const;
 
+    void dump(zcm::Json::Value& root) const;
     ZCMConstant(const string& type, const string& name, const string& valstr);
 };
 

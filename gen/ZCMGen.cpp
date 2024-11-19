@@ -856,31 +856,73 @@ int ZCMGen::handleFile(const string& path)
         return res;
 }
 
+void ZCMDimension::dump(zcm::Json::Value& root) const
+{
+    root["size"] = size;
+    switch (mode) {
+        case ZCM_CONST:
+            root["type"] = "const";
+            break;
+        case ZCM_VAR:
+            root["type"] = "var";
+            break;
+        default:
+            // oops! unhandled case
+            assert(0);
+    }
+}
+
+void ZCMTypename::dump(zcm::Json::Value& root) const
+{
+    root["fullname"] = fullname;
+    if (numbits != 0) {
+        root["numbits"] = numbits;
+        root["sign_extend"] = signExtend;
+    }
+}
+
 void ZCMMember::dump(zcm::Json::Value& root) const
 {
-    root[membername]["typename"] = type.fullname;
-
+    type.dump(root[membername]["typename"]);
     for (size_t i = 0; i < dimensions.size(); ++i) {
         const auto& dim = dimensions[i];
-        root[membername]["dims"][(int)i]["size"] = dim.size;
-        switch (dim.mode) {
-            case ZCM_CONST:
-                root[membername]["dims"][(int)i]["type"] = "const";
-                break;
-            case ZCM_VAR:
-                root[membername]["dims"][(int)i]["type"] = "var";
-                break;
-            default:
-                // oops! unhandled case
-                assert(0);
-        }
+        dim.dump(root[membername]["dims"][(int)i]);
     }
+    root[membername]["comment"] = comment;
+}
+
+void ZCMConstant::dump(zcm::Json::Value& root) const
+{
+    root[membername]["type"] = type;
+    root[membername]["val"]["as_string"] = valstr;
+    auto& asJson = root[membername]["val"]["as_json"];
+    if (type == "byte") asJson = val.u8;
+    else if (type == "int8_t") asJson = val.i8;
+    else if (type == "int16_t") asJson = val.i16;
+    else if (type == "int32_t") asJson = val.i32;
+    else if (type == "int64_t") asJson = (zcm::Json::Value::Int64)val.i64;
+    else if (type == "float") asJson = val.f;
+    else if (type == "double") asJson = val.d;
+    else if (type == "string") asJson = valstr;
+    else {
+        fprintf(stderr, "Unrecognized type \"%s\"\n", type.c_str());
+        assert(0);
+    }
+    if (numbits != 0) {
+        root["numbits"] = numbits;
+        root["sign_extend"] = signExtend;
+    }
+    root[membername]["comment"] = comment;
 }
 
 void ZCMStruct::dump(zcm::Json::Value& root) const
 {
-    root[structname.fullname]["hash"] = (zcm::Json::Value::UInt64)hash;
+    structname.dump(root[structname.fullname]["structname"]);
     for (auto& zm : members) zm.dump(root[structname.fullname]["members"]);
+    for (auto& zs : structs) zs.dump(root[structname.fullname]["structs"]);
+    for (auto& zc : constants) zc.dump(root[structname.fullname]["constants"]);
+    root[structname.fullname]["hash"] = (zcm::Json::Value::UInt64)hash;
+    root[structname.fullname]["comment"] = comment;
 }
 
 void ZCMGen::dump() const
