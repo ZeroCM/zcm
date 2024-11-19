@@ -63,6 +63,7 @@ To learn how you can contribute to this project, check out [Contributing](docs/c
  - A well-defined interface for building custom transports
  - Strong support for embedded applications. The core embedded code is restricted to C89.
  - Only one true dependency: A modern C++11 compiler for the non-embedded code.
+ - Possibility to develop emitters on different languages.
 
 ## Supported platforms and languages
  - Platforms
