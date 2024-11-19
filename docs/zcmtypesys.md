@@ -28,12 +28,12 @@ The grammar is given in EBNF using regex-style repetition and character classes:
     file          = zcmtype*
     zcmtype       = 'struct' name '{' field* '}'
     field         = const_field | data_field
-    const_field   = 'const' const_type numbits? name '=' const_literal ';'
-    const_type    = int_type | float_type | 'byte'
+    const_field   = 'const' const_type name '=' const_literal ';'
+    const_type    = int_type numbits? | float_type | 'byte'
     const_literal = hex_literal | int_literal | float_literal
-    data_field    = type numbits? name arraydim* ';'
+    data_field    = type name arraydim* ';'
     type          = primative | name
-    primative     = int_type | float_type | 'string' | 'boolean' | 'byte'
+    primative     = int_type numbits? | float_type | 'string' | 'boolean' | 'byte'
     int_type      = 'int8_t' | 'int16_t' | 'int32_t' | 'int64_t'
     float_type    = 'float' | 'double'
     numbits       = ':' int_literal
