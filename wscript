@@ -473,9 +473,11 @@ def build(ctx):
     if ctx.variant.startswith('examples'):
         ctx.recurse('examples')
     elif ctx.variant.startswith('tests'):
+        ctx.recurse('tools/cpp/util')
         ctx.recurse('test')
         if ctx.env.USING_CXXTEST:
-            ctx.cxxtest(use = ['zcm', 'testzcmtypes', 'testzcmtypes_cpp', 'testzcmtypes_c_stlib',
+            ctx.cxxtest(use = ['zcm', 'zcm_tools_util',
+                               'testzcmtypes', 'testzcmtypes_cpp', 'testzcmtypes_c_stlib',
                                'multifile_lib'])
     else:
         ctx.recurse('scripts')

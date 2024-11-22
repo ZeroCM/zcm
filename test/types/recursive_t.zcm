@@ -1,5 +1,4 @@
 struct recursive_t {
-
     int8_t n_children;
     recursive_t children[n_children];
     string text;
