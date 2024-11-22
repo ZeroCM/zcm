@@ -74,6 +74,12 @@ bool processType(const string& name,
     return ret;
 }
 
+bool endsWith(const std::string& str, const std::string& suffix)
+{
+    if (suffix.size() > str.size()) return false;
+    return str.rfind(suffix) == (str.size() - suffix.size());
+}
+
 bool processArray(string name,
                   zcm_field_type_t type, const char* typestr,
                   size_t num_dims, int32_t *dim_size, int8_t *dim_is_variable,
