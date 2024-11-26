@@ -40,16 +40,32 @@ class IntrospectionTest : public CxxTest::TestSuite
         TS_ASSERT(typeDb.good());
 
         recursive_t msg;
+
         msg.text = (char*)"";
+        msg.static_texts[0] = (char*)"";
+        msg.static_texts[1] = (char*)"";
         msg.n_children = 1;
         msg.children = (recursive_t*)calloc(1, sizeof(recursive_t));
+
         msg.children[0].text = (char*)"";
+        msg.children[0].static_texts[0] = (char*)"";
+        msg.children[0].static_texts[1] = (char*)"";
         msg.children[0].n_children = 1;
         msg.children[0].children = (recursive_t*)calloc(1, sizeof(recursive_t));
+
         msg.children[0].children[0].text = (char*)"";
+        msg.children[0].children[0].static_texts[0] = (char*)"";
+        msg.children[0].children[0].static_texts[1] = (char*)"";
         msg.children[0].children[0].n_children = 1;
         msg.children[0].children[0].children = (recursive_t*)calloc(1, sizeof(recursive_t));
-        msg.children[0].children[0].children[0].text = (char*)"test";
+
+        msg.children[0].children[0].children[0].text = (char*)"";
+        msg.children[0].children[0].children[0].static_texts[0] = (char*)"";
+        msg.children[0].children[0].children[0].static_texts[1] = (char*)"";
+        msg.children[0].children[0].children[0].n_texts = 2;
+        msg.children[0].children[0].children[0].dynamic_texts = (char**)calloc(2, sizeof(char*));
+        msg.children[0].children[0].children[0].dynamic_texts[0] = (char*)"text1";
+        msg.children[0].children[0].children[0].dynamic_texts[1] = (char*)"text2";
 
         /*
         zcm::ZCM zcmL;
@@ -99,6 +115,7 @@ class IntrospectionTest : public CxxTest::TestSuite
         zcm::Introspection::processType("TEST", *recursive_t_get_type_info(),
                                         &msg, "/", typeDb, cb, nullptr);
 
+        free(msg.children[0].children[0].children[0].dynamic_texts);
         free(msg.children[0].children[0].children);
         free(msg.children[0].children);
         free(msg.children);

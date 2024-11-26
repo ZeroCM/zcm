@@ -48,9 +48,18 @@ export PATH=$PATH:~/.local/bin
 if [ -z ${PYTHON+x} ]; then
     export PYTHON=$(which python)
 fi
-export PYTHONPATH=$($PYTHON -c "import sys
-from distutils.sysconfig import get_python_lib
-print(get_python_lib(standard_lib=0, prefix='$prefix/'))")
+# Note: waf loads waftools out of your PYTHONPATH, so we can use this variable to communicate
+#       to waf (especially in submodules) where our tools are stored
+if [ $? -eq 0 ]; then
+    export PYTHONPATH=$($PYTHON -c "
+import sys
+import os
+import sysconfig
+path_in_commlib = sysconfig.get_path('stdlib', vars={'installed_base': os.environ.get('SS_BUILD_ZCMLOCAL')})
+print(os.path.join(path_in_commlib, 'site-packages'))
+    ")
+fi
+export PYTHONPATH=$SS_BUILD_ZCMLOCAL/share/waf:$PYTHONPATH
 
 checkJuliaInstall()
 {

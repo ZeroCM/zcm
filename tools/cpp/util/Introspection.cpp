@@ -61,10 +61,9 @@ bool processType(const string& name,
                 ret = false;
             }
         } else {
-            const void *p = !f.dim_is_variable[0] ? f.data : *(const void **) f.data;
             if (!processArray(nextName, f.type, f.typestr,
                               f.num_dim, f.dim_size, f.dim_is_variable,
-                              p, separator, typeDb, cb, usr)) {
+                              f.data, separator, typeDb, cb, usr)) {
                 cerr << "Cannot process type's array: " << nextName << endl;
                 ret = false;
             }
@@ -90,7 +89,7 @@ bool processArray(string name,
     assert(num_dims > 0 && "Cant process an array of 0 dimensions");
 
     if (type == ZCM_FIELD_BYTE && num_dims == 1) {
-        if (processEncodedType(name, (uint8_t*)data, dim_size[0], separator, typeDb, cb, usr))
+        if (processEncodedType(name, *(uint8_t**)data, dim_size[0], separator, typeDb, cb, usr))
             return true;
     }
 
@@ -102,10 +101,9 @@ bool processArray(string name,
         string nextName = name + to_string(i);
 
         if (num_dims - 1 > 0) {
-            const void *p = !dim_is_variable[0] ? data : *(const void **) data;
             if (!processArray(nextName, type, typestr,
                               num_dims - 1, dim_size + 1, dim_is_variable + 1,
-                              p, separator, typeDb, cb, usr)) {
+                              data, separator, typeDb, cb, usr)) {
                 cerr << "Cannot process array's array: " << nextName << endl;
                 ret = false;
             }
@@ -114,25 +112,25 @@ bool processArray(string name,
 
         switch (type) {
             case ZCM_FIELD_INT8_T:
-                if (!processScalar(nextName, type, typestr, &((int8_t*)data)[i], separator, typeDb, cb, usr)) {
+                if (!processScalar(nextName, type, typestr, &(*((int8_t**)data))[i], separator, typeDb, cb, usr)) {
                     cerr << "Cannot process int8_t array element: " << nextName << endl;
                     ret = false;
                 }
                 break;
             case ZCM_FIELD_INT16_T:
-                if (!processScalar(nextName, type, typestr, &((int16_t*)data)[i], separator, typeDb, cb, usr)) {
+                if (!processScalar(nextName, type, typestr, &(*((int16_t**)data))[i], separator, typeDb, cb, usr)) {
                     cerr << "Cannot process int16_t array element: " << nextName << endl;
                     ret = false;
                 }
                 break;
             case ZCM_FIELD_INT32_T:
-                if (!processScalar(nextName, type, typestr, &((int32_t*)data)[i], separator, typeDb, cb, usr)) {
+                if (!processScalar(nextName, type, typestr, &(*((int32_t**)data))[i], separator, typeDb, cb, usr)) {
                     cerr << "Cannot process int32_t array element: " << nextName << endl;
                     ret = false;
                 }
                 break;
             case ZCM_FIELD_INT64_T:
-                if (!processScalar(nextName, type, typestr, &((int64_t*)data)[i], separator, typeDb, cb, usr)) {
+                if (!processScalar(nextName, type, typestr, &(*((int64_t**)data))[i], separator, typeDb, cb, usr)) {
                     cerr << "Cannot process int64_t array element: " << nextName << endl;
                     ret = false;
                 }
@@ -140,32 +138,34 @@ bool processArray(string name,
             case ZCM_FIELD_BYTE:
                 // Not introspecting into raw byte fields if it doesn't encode a zcmtype
                 /*
-                if (!processScalar(nextName, type, typestr, &((uint8_t*)data)[i], separator, typeDb, cb, usr)) {
+                if (!processScalar(nextName, type, typestr, &(*((uint8_t**)data))[i], separator, typeDb, cb, usr)) {
                     cerr << "Cannot process byte array element: " << nextName << endl;
                     ret = false;
                 }
                 */
                 break;
             case ZCM_FIELD_FLOAT:
-                if (!processScalar(nextName, type, typestr, &((float*)data)[i], separator, typeDb, cb, usr)) {
+                if (!processScalar(nextName, type, typestr, &(*((float**)data))[i], separator, typeDb, cb, usr)) {
                     cerr << "Cannot process float array element: " << nextName << endl;
                     ret = false;
                 }
                 break;
             case ZCM_FIELD_DOUBLE:
-                if (!processScalar(nextName, type, typestr, &((double*)data)[i], separator, typeDb, cb, usr)) {
+                if (!processScalar(nextName, type, typestr, &(*((double**)data))[i], separator, typeDb, cb, usr)) {
                     cerr << "Cannot process double array element: " << nextName << endl;
                     ret = false;
                 }
                 break;
             case ZCM_FIELD_BOOLEAN:
-                if (!processScalar(nextName, type, typestr, &((bool*)data)[i], separator, typeDb, cb, usr)) {
+                if (!processScalar(nextName, type, typestr, &(*((bool**)data))[i],
+                                   separator, typeDb, cb, usr)) {
                     cerr << "Cannot process boolean array element: " << nextName << endl;
                     ret = false;
                 }
                 break;
             case ZCM_FIELD_STRING:
-                if (!processScalar(nextName, type, typestr, ((const char**)data)[i], separator, typeDb, cb, usr)) {
+                if (!processScalar(nextName, type, typestr, &((*((const char***)data))[i]),
+                                   separator, typeDb, cb, usr)) {
                     cerr << "Cannot process string array element: " << nextName << endl;
                     ret = false;
                 }
@@ -179,7 +179,8 @@ bool processArray(string name,
                     continue;
                 }
                 if (!processType(nextName, *zcmtype->info,
-                                 ((uint8_t*)data) + i * zcmtype->info->struct_size(),
+                                 ((uint8_t*)(*(void**)data)) +
+                                    i * zcmtype->info->struct_size(),
                                  separator, typeDb, cb, usr)) {
                     cerr << "Cannot process " << typestr
                               << " array element: " << nextName << endl;
