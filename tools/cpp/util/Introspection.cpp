@@ -159,7 +159,7 @@ bool processArray(string name,
                 }
                 break;
             case ZCM_FIELD_STRING:
-                if (!processScalar(nextName, type, typestr, ((const char**)data)[i], separator, typeDb, cb, usr)) {
+                if (!processScalar(nextName, type, typestr, &((const char**)data)[i], separator, typeDb, cb, usr)) {
                     cerr << "Cannot process string array element: " << nextName << endl;
                     ret = false;
                 }

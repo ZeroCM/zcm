@@ -41,7 +41,7 @@ static zcm_msg_t makeMasterMsg()
     msg.len = BIG_MESSAGE ? 500000 : 1000;
     msg.buf = (uint8_t*) malloc(msg.len);
     for (size_t i = 0; i < msg.len; i++)
-        msg.buf[i] = (char)(i & 0xff);
+        msg.buf[i] = (uint8_t)(i & 0xff);
 
     return msg;
 }

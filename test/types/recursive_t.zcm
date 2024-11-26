@@ -1,0 +1,12 @@
+struct recursive_t
+{
+    int8_t n_children;
+    recursive_t children[n_children];
+
+    string text;
+
+    int8_t n_texts;
+    string dynamic_texts[n_texts];
+
+    string static_texts[2];
+}
