@@ -34,6 +34,7 @@ class IntrospectionTest : public CxxTest::TestSuite
         zcmL.publish("TEST", &msg);
         zcmL.flush();
     }
+
     void testRecursive()
     {
         zcm::TypeDb typeDb("./build/tests/test/types/libtestzcmtypes.so");
