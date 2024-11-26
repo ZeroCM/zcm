@@ -39,29 +39,29 @@ class IntrospectionTest : public CxxTest::TestSuite
         zcm::TypeDb typeDb("./build/tests/test/types/libtestzcmtypes.so");
         TS_ASSERT(typeDb.good());
 
-        recursive_t msg;
+        recursive_t msg {};
 
         msg.text = (char*)"";
-        msg.static_texts[0] = (char*)"";
-        msg.static_texts[1] = (char*)"";
+        msg.static_texts[0] = (char*)"00";
+        msg.static_texts[1] = (char*)"01";
         msg.n_children = 1;
         msg.children = (recursive_t*)calloc(1, sizeof(recursive_t));
 
         msg.children[0].text = (char*)"";
-        msg.children[0].static_texts[0] = (char*)"";
-        msg.children[0].static_texts[1] = (char*)"";
+        msg.children[0].static_texts[0] = (char*)"10";
+        msg.children[0].static_texts[1] = (char*)"11";
         msg.children[0].n_children = 1;
         msg.children[0].children = (recursive_t*)calloc(1, sizeof(recursive_t));
 
         msg.children[0].children[0].text = (char*)"";
-        msg.children[0].children[0].static_texts[0] = (char*)"";
-        msg.children[0].children[0].static_texts[1] = (char*)"";
+        msg.children[0].children[0].static_texts[0] = (char*)"20";
+        msg.children[0].children[0].static_texts[1] = (char*)"21";
         msg.children[0].children[0].n_children = 1;
         msg.children[0].children[0].children = (recursive_t*)calloc(1, sizeof(recursive_t));
 
         msg.children[0].children[0].children[0].text = (char*)"";
-        msg.children[0].children[0].children[0].static_texts[0] = (char*)"";
-        msg.children[0].children[0].children[0].static_texts[1] = (char*)"";
+        msg.children[0].children[0].children[0].static_texts[0] = (char*)"30";
+        msg.children[0].children[0].children[0].static_texts[1] = (char*)"31";
         msg.children[0].children[0].children[0].n_texts = 2;
         msg.children[0].children[0].children[0].dynamic_texts = (char**)calloc(2, sizeof(char*));
         msg.children[0].children[0].children[0].dynamic_texts[0] = (char*)"text1";
