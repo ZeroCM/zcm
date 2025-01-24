@@ -23,7 +23,7 @@ USE_JULIA=true
 JULIA_0_6_MODE=false
 USE_NODE=true
 USE_PYTHON_2=false
-while getopts "ijmsp" opt; do
+while getopts "ijmnsp" opt; do
     case $opt in
         i) STRICT=false ;;
         j) USE_JULIA=false ;;
