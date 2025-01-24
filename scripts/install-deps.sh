@@ -59,7 +59,7 @@ PKGS+='default-jdk default-jre '
 if $USE_PYTHON_2; then
     PKGS+='python python-pip '
 else
-    PKGS+='python3 python3-pip '
+    PKGS+='python3 python3-dev python3-pip '
 fi
 PIP_PKGS+='Cython==0.29.33 '
 PIP_PKGS+='bitstruct '
