@@ -108,10 +108,11 @@ cdef class ZCM:
     def __dealloc__(self):
         if self.zcm == NULL:
             return
+        zcm_destroy(self.zcm)
+    def __del__(self):
         self.stop()
         while len(self.subscriptions) > 0:
             self.unsubscribe(self.subscriptions[0]);
-        zcm_destroy(self.zcm)
     def good(self):
         return self.zcm != NULL
     def strerrno(self, err):
