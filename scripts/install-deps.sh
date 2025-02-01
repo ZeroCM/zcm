@@ -23,7 +23,7 @@ USE_JULIA=true
 JULIA_0_6_MODE=false
 USE_NODE=true
 USE_PYTHON_2=false
-while getopts "ijmsp" opt; do
+while getopts "ijmnsp" opt; do
     case $opt in
         i) STRICT=false ;;
         j) USE_JULIA=false ;;
@@ -59,7 +59,7 @@ PKGS+='default-jdk default-jre '
 if $USE_PYTHON_2; then
     PKGS+='python python-pip '
 else
-    PKGS+='python3 python3-pip '
+    PKGS+='python3 python3-dev python3-pip '
 fi
 PIP_PKGS+='Cython==0.29.33 '
 PIP_PKGS+='bitstruct '
