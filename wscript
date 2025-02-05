@@ -95,6 +95,12 @@ def add_zcm_build_options(ctx):
                   'most appropriate option in general) is "native". Please see the help text for '
                   'gcc to see the valid values for this option. Set to the empty string to not pass '
                   'the argument at all to the compiler (which results in it using the default)')
+    gr.add_option('--mtune', default='native',
+                  help='The name of the target processor for which zcm should tune the performance '
+                  'of the code. The default (and most appropriate option in general) is "native". '
+                  'Please see the help text for gcc to see the valid values for this option. '
+                  'Set to the empty string to not pass the argument at all to the compiler '
+                  '(which results in it using the default)')
     ctx.add_option('-g', '--skip-signatures', dest='skip_git', default=False, action='store_true',
                    help='Skip building the git signature')
 
@@ -348,6 +354,7 @@ def process_zcm_build_options(ctx):
     ctx.env.USING_OPT = not opt.debug
     ctx.env.USING_SYM = opt.debug or opt.symbols
     ctx.env.MARCH = opt.march
+    ctx.env.MTUNE = opt.mtune
     if ctx.env.USING_CACHE:
         attempt_use_cache(ctx)
     if not ctx.env.USING_SYM:
@@ -400,6 +407,9 @@ def setup_environment(ctx):
     if ctx.env.MARCH:
         ctx.env.CFLAGS_default.append('-march=%s' % ctx.env.MARCH)
         ctx.env.CXXFLAGS_default.append('-march=%s' % ctx.env.MARCH)
+    if ctx.env.MTUNE:
+        ctx.env.CFLAGS_default.append('-mtune=%s' % ctx.env.MTUNE)
+        ctx.env.CXXFLAGS_default.append('-mtune=%s' % ctx.env.MTUNE)
 
     ctx.env.INCLUDES_default  = [ctx.path.abspath()]
     ctx.env.LIB_default       = ['rt']
