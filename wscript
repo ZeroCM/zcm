@@ -101,6 +101,8 @@ def add_zcm_build_options(ctx):
                   'Please see the help text for gcc to see the valid values for this option. '
                   'Set to the empty string to not pass the argument at all to the compiler '
                   '(which results in it using the default)')
+    ctx.add_option('-a', '--no-outline-atomics', dest='no_outline_atomics', default=False, action='store_true',
+                   help='Disable calls to out-of-line helpers to implement atomic operations')
     ctx.add_option('-g', '--skip-signatures', dest='skip_git', default=False, action='store_true',
                    help='Skip building the git signature')
 
@@ -355,6 +357,7 @@ def process_zcm_build_options(ctx):
     ctx.env.USING_SYM = opt.debug or opt.symbols
     ctx.env.MARCH = opt.march
     ctx.env.MTUNE = opt.mtune
+    ctx.env.NO_OUTLINE_ATOMICS = opt.no_outline_atomics
     if ctx.env.USING_CACHE:
         attempt_use_cache(ctx)
     if not ctx.env.USING_SYM:
@@ -410,6 +413,9 @@ def setup_environment(ctx):
     if ctx.env.MTUNE:
         ctx.env.CFLAGS_default.append('-mtune=%s' % ctx.env.MTUNE)
         ctx.env.CXXFLAGS_default.append('-mtune=%s' % ctx.env.MTUNE)
+    if ctx.env.NO_OUTLINE_ATOMICS:
+        ctx.env.CFLAGS_default.append('-mno-outline-atomics ')
+        ctx.env.CXXFLAGS_default.append('-mno-outline-atomics ')
 
     ctx.env.INCLUDES_default  = [ctx.path.abspath()]
     ctx.env.LIB_default       = ['rt']
