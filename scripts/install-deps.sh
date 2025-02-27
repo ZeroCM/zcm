@@ -41,7 +41,7 @@ PKGS=''
 PIP_PKGS=''
 
 ## Dependency dependencies
-PKGS+='plocate wget '
+PKGS+='wget '
 
 ## Waf dependencies
 PKGS+='pkg-config zip '
@@ -197,13 +197,5 @@ rm -rf $ROOTDIR/deps/cxxtest
 wget -O $ROOTDIR/deps/cxxtest.zip https://github.com/ZeroCM/cxxtest/archive/master.zip
 unzip -d $ROOTDIR/deps $ROOTDIR/deps/cxxtest.zip
 mv $ROOTDIR/deps/cxxtest{-master,}
-
-echo "Updating db"
-sudo updatedb
-ret=$?
-if [[ $ret -ne 0 && "$STRICT" == "true" ]]; then
-    echo "Failed to updatedb"
-    exit $ret
-fi
 
 exit 0
