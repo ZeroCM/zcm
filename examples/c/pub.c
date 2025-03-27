@@ -40,10 +40,11 @@ int main(int argc, char *argv[])
     my_data.name = EXAMPLE_T_test_const_string;
     my_data.enabled = 1;
 
+    uint64_t sleepUs = 1000000/HZ;
     while (1) {
         if (example_t_publish(zcm, "EXAMPLE", &my_data) == 0)
             ++my_data.timestamp;
-        usleep(1000000/HZ);
+        if (sleepUs > 0) usleep(sleepUs);
     }
 
     zcm_destroy(zcm);
