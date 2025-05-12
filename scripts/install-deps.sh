@@ -61,7 +61,6 @@ if $USE_PYTHON_2; then
 else
     PKGS+='python3 python3-dev python3-pip '
 fi
-PIP_PKGS+='Cython==0.29.33 '
 PIP_PKGS+='bitstruct '
 
 # Build cache dep
@@ -98,11 +97,18 @@ if $SINGLE_MODE; then
 else
     sudo apt-get install -yq $PKGS
 fi
-
-if $USE_PYTHON_2; then
-    pip install --user $PIP_PKGS
+PYTHON3_VERSION=$(python3 --version | cut -d ' ' -f 2 | cut -d '.' -f 2)
+if [[ $USE_PYTHON_2 == "true" || $PYTHON3_VERSION -lt 12 ]]; then
+    PIP_PKGS+='Cython==0.29.33 '
 else
-    pip3 install --user $PIP_PKGS
+    PIP_PKGS+='Cython==3.0.12 '
+fi
+
+[[ -z "$VIRTUAL_ENV" ]] && USER_ARG="--user" || USER_ARG=""
+if $USE_PYTHON_2; then
+    pip install $USER_ARG $PIP_PKGS
+else
+    pip3 install $USER_ARG  $PIP_PKGS
 fi
 ret=$?
 if [[ $ret -ne 0 && "$STRICT" == "true" ]]; then
