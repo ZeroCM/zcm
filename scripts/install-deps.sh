@@ -99,10 +99,11 @@ else
     sudo apt-get install -yq $PKGS
 fi
 
+[[ -z "$VIRTUAL_ENV" ]] && USER_ARG="--user" || USER_ARG=""
 if $USE_PYTHON_2; then
-    pip install ${VIRTUAL_ENV:-"--user"} $PIP_PKGS
+    pip install $USER_ARG $PIP_PKGS
 else
-    pip3 install ${VIRTUAL_ENV:-"--user"} $PIP_PKGS
+    pip3 install $USER_ARG  $PIP_PKGS
 fi
 ret=$?
 if [[ $ret -ne 0 && "$STRICT" == "true" ]]; then
