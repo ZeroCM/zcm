@@ -101,7 +101,7 @@ PYTHON3_VERSION=$(python3 --version | cut -d ' ' -f 2 | cut -d '.' -f 2)
 if [[ $USE_PYTHON_2 == "true" || $PYTHON3_VERSION -lt 12 ]]; then
     PIP_PKGS+='Cython==0.29.33 '
 else
-    PIP_PKGS+='Cython==3.1.0 '
+    PIP_PKGS+='Cython==3.0.12 '
 fi
 
 [[ -z "$VIRTUAL_ENV" ]] && USER_ARG="--user" || USER_ARG=""
