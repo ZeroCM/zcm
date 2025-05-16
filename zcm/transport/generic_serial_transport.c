@@ -218,7 +218,15 @@ int serial_recvmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t *msg, unsigned time
     }
 
   fail:
-    cb_pop_front(&zt->recvBuffer, consumed);
+    // Attempt to resync as early as possible in the buffer. Technically could know
+    // exactly how many bytes we need to skip forward by checking the value of each
+    // byte read, but that adds significant overhead to the "success" case that seems
+    // not worth doing.
+    do {
+        cb_pop_front(&zt->recvBuffer, 1);
+    } while (cb_size(&zt->recvBuffer) != 0 &&
+             cb_front(&zt->recvBuffer, 0) != ZCM_GENERIC_SERIAL_ESCAPE_CHAR);
+
     // Note: because this is a nonblocking transport, timeout is ignored, so we don't need
     //       to subtract the time used here
     goto serial_recvmsg_start; // Not recursing so we dont increase call stack size
