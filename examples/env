@@ -28,6 +28,12 @@ if [ $ret -ne 0 ]; then
     export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$prefix/lib/pkgconfig
 fi
 
+echo $PKG_CONFIG_PATH | grep -q $prefix/lib64/pkgconfig
+ret=$?
+if [ $ret -ne 0 ]; then
+    export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$prefix/lib64/pkgconfig
+fi
+
 echo $LD_LIBRARY_PATH | grep -q $prefix/lib
 ret=$?
 if [ $ret -ne 0 ]; then
