@@ -83,6 +83,13 @@ struct SpyInfo
         minfo->addMessage(TimeUtil::utime(), rbuf);
     }
 
+    void clearMessages()
+    {
+        for (auto& kv : minfomap) delete kv.second;
+        minfomap.clear();
+        names.clear();
+    }
+
     void display()
     {
         unique_lock<mutex> lk(mut);
@@ -237,6 +244,8 @@ struct SpyInfo
         } else if (ch == '?') {
             prev_mode = DisplayMode::Overview;
             mode = DisplayMode::Help;
+        } else if (ch == DEL_KEY) {
+            clearMessages();
         } else if (ch == ESCAPE_KEY) {
             prefix_filter.clear();
         } else if (('a' <= ch && ch <= 'z') ||
