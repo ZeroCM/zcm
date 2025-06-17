@@ -235,15 +235,16 @@ int serial_recvmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t *msg, unsigned time
 int serial_update_rx(zcm_trans_t *_zt)
 {
     zcm_trans_generic_serial_t* zt = cast(_zt);
+    if (cb_room(&zt->recvBuffer) == 0) return ZCM_EMEMORY;
     cb_flush_in(&zt->recvBuffer, zt->get, zt->put_get_usr);
-    return ZCM_EOK;
+    return cb_room(&zt->recvBuffer) == 0 ? ZCM_EAGAIN : ZCM_EOK;
 }
 
 int serial_update_tx(zcm_trans_t *_zt)
 {
     zcm_trans_generic_serial_t* zt = cast(_zt);
     cb_flush_out(&zt->sendBuffer, zt->put, zt->put_get_usr);
-    return ZCM_EOK;
+    return cb_size(&zt->sendBuffer) == 0 ? ZCM_EOK : ZCM_EAGAIN;
 }
 
 /********************** STATICS **********************/
@@ -272,6 +273,7 @@ static zcm_trans_methods_t methods = {
     &_serial_recvmsg_enable,
     &_serial_recvmsg,
     NULL, // drops
+    NULL, // set_queue_size
     &_serial_update,
     &zcm_trans_generic_serial_destroy,
 };

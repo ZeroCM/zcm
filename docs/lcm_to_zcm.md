@@ -71,7 +71,6 @@ allows LCM users to gradually migrate to ZCM.
 
 ### Known incompatibilities:
  - `zcm_get_fileno()` is not supported
- - `zcm_handle_timeout()` is not supported
  - `zcm_subscription_set_queue_capacity` is not supported
  - LCMType-style enums are not supported
  - Language bindings not currently supported:
