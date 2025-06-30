@@ -86,7 +86,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     }
 
     /********************** METHODS **********************/
-    size_t get_mtu()
+    size_t getMtu()
     {
         return MTU;
     }
@@ -96,7 +96,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         assert(good());
         assert(mode == "w" || mode == "a");
 
-        if (msg.len > get_mtu())
+        if (msg.len > getMtu())
             return ZCM_EINVALID;
 
         zcm::LogEvent le;
@@ -110,7 +110,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         return ZCM_EOK;
     }
 
-    int recvmsg_enable(const char *channel, bool enable)
+    int recvmsgEnable(const char *channel, bool enable)
     {
         return ZCM_EOK;
     }
@@ -170,14 +170,14 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         return (ZCM_TRANS_CLASSNAME*)zt;
     }
 
-    static size_t _get_mtu(zcm_trans_t *zt)
-    { return cast(zt)->get_mtu(); }
+    static size_t _getMtu(zcm_trans_t *zt)
+    { return cast(zt)->getMtu(); }
 
     static int _sendmsg(zcm_trans_t *zt, zcm_msg_t msg)
     { return cast(zt)->sendmsg(msg); }
 
-    static int _recvmsg_enable(zcm_trans_t *zt, const char *channel, bool enable)
-    { return cast(zt)->recvmsg_enable(channel, enable); }
+    static int _recvmsgEnable(zcm_trans_t *zt, const char *channel, bool enable)
+    { return cast(zt)->recvmsgEnable(channel, enable); }
 
     static int _recvmsg(zcm_trans_t *zt, zcm_msg_t *msg, unsigned timeout)
     { return cast(zt)->recvmsg(msg, timeout); }
@@ -189,11 +189,12 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 };
 
 zcm_trans_methods_t ZCM_TRANS_CLASSNAME::methods = {
-    &ZCM_TRANS_CLASSNAME::_get_mtu,
+    &ZCM_TRANS_CLASSNAME::_getMtu,
     &ZCM_TRANS_CLASSNAME::_sendmsg,
-    &ZCM_TRANS_CLASSNAME::_recvmsg_enable,
+    &ZCM_TRANS_CLASSNAME::_recvmsgEnable,
     &ZCM_TRANS_CLASSNAME::_recvmsg,
     NULL, // drops
+    NULL, // set_queue_size
     NULL, // update
     &ZCM_TRANS_CLASSNAME::_destroy,
 };
