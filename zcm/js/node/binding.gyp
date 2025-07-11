@@ -7,10 +7,10 @@
       ],
       "include_dirs": [
         "<!@(node -p \"require('node-addon-api').include\")",
-        "../../.."
+        "<!@(pkg-config zcm --cflags-only-I | sed -s 's/-I//g')"
       ],
       "libraries": [
-        "-lzcm"
+        "<!@(pkg-config zcm --libs)"
       ],
       "dependencies": [
         "<!(node -p \"require('node-addon-api').gyp\")"

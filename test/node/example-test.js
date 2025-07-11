@@ -8,12 +8,16 @@ let periodMs = 100;
 function test(z, zcmtypes, doneCb) {
   let subs;
   let success;
+  let testCompleted = false;
+  let msgReceived = 0;
 
   z.subscribe(
     channel,
     zcmtypes.example_t,
     (channel, msg) => {
-      if (success) return;
+      msgReceived++;
+      console.log(`Received message ${msgReceived}`);
+      if (success || testCompleted) return;
 
       if (msg.utime.toString() !== '10') success = 'Bad decode of utime';
       if (msg.position[0] !== 1) success = 'Bad decode of position[0]';
@@ -46,6 +50,7 @@ function test(z, zcmtypes, doneCb) {
   assert(zcmtypes.example_t.test_const_double === 12.1e200);
 
   function publish() {
+    console.log(`Publishing message ${11 - numMsgs} of 10`);
     var msg = new zcmtypes.example_t();
 
     msg.utime = 10;
@@ -58,10 +63,20 @@ function test(z, zcmtypes, doneCb) {
 
     z.publish(channel, msg);
 
+    // Test z.flush() method
+    try {
+      z.flush();
+    } catch (err) {
+      console.error('z.flush() failed:', err);
+      if (subs) z.unsubscribe(subs);
+      return doneCb('z.flush() failed: ' + err.message);
+    }
+
     numMsgs--;
     if (numMsgs > 0) {
       setTimeout(publish, periodMs);
     } else {
+      testCompleted = true;
       if (subs) z.unsubscribe(subs);
       return doneCb(success === 'success' ? null : success);
     }

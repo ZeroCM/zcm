@@ -133,12 +133,12 @@ if $USE_NODE; then
         $outfile
         rm $outfile
     fi
-    echo "Installing node version v10.23.3"
+    echo "Installing node version v14.18.1"
     bash -c "export NVM_DIR=\$HOME/.nvm; \
         [ -s \"\$NVM_DIR/nvm.sh\" ] && \
         \\. \"\$NVM_DIR/nvm.sh\"; \
-        nvm install v10.23.3 && \
-        nvm alias default v10.23.3"
+        nvm install v14.18.1 && \
+        nvm alias default v14.18.1"
 fi
 
 ## Julia

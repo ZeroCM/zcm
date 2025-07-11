@@ -11,45 +11,45 @@ ROOTDIR=${THISDIR%/examples}
 BUILDDIR=$ROOTDIR/build
 BUILDEXAMPLESDIR=$BUILDDIR/examples/examples
 
-prefix="/usr/local"
+INSTALL_BASE="/usr/local"
 if [[ $1 != "" ]]; then
-    prefix=$1
+    INSTALL_BASE=$1
 fi
 
-echo $PATH | grep -q $prefix/bin
+echo $PATH | grep -q $INSTALL_BASE/bin
 ret=$?
 if [ $ret -ne 0 ]; then
-    export PATH=$PATH:$prefix/bin
+    export PATH=$PATH:$INSTALL_BASE/bin
 fi
 
-echo $PKG_CONFIG_PATH | grep -q $prefix/lib/pkgconfig
+echo $PKG_CONFIG_PATH | grep -q $INSTALL_BASE/lib/pkgconfig
 ret=$?
 if [ $ret -ne 0 ]; then
-    export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$prefix/lib/pkgconfig
+    export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$INSTALL_BASE/lib/pkgconfig
 fi
 
-echo $PKG_CONFIG_PATH | grep -q $prefix/lib64/pkgconfig
+echo $PKG_CONFIG_PATH | grep -q $INSTALL_BASE/lib64/pkgconfig
 ret=$?
 if [ $ret -ne 0 ]; then
-    export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$prefix/lib64/pkgconfig
+    export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$INSTALL_BASE/lib64/pkgconfig
 fi
 
-echo $LD_LIBRARY_PATH | grep -q $prefix/lib
+echo $LD_LIBRARY_PATH | grep -q $INSTALL_BASE/lib
 ret=$?
 if [ $ret -ne 0 ]; then
-    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$prefix/lib/
+    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$INSTALL_BASE/lib/
 fi
 
 export ASAN_SYMBOLIZER_PATH=/usr/bin/llvm-symbolizer
 export ASAN_OPTIONS=check_initialization_order=1
-export CLASSPATH=$CLASSPATH:$prefix/share/java/zcm.jar
-export CLASSPATH=$CLASSPATH:$prefix/share/java/zcm-tools.jar
+export CLASSPATH=$CLASSPATH:$INSTALL_BASE/share/java/zcm.jar
+export CLASSPATH=$CLASSPATH:$INSTALL_BASE/share/java/zcm-tools.jar
 export CLASSPATH=$CLASSPATH:$BUILDEXAMPLESDIR/types/examplezcmtypes.jar
 export CLASSPATH=$CLASSPATH:$BUILDEXAMPLESDIR/types/examplezcmtypespfx.jar
 export CLASSPATH=$CLASSPATH:$BUILDEXAMPLESDIR/java/example.jar
 export ZCM_SPY_LITE_PATH=$BUILDEXAMPLESDIR/types/libexamplezcmtypes.so
 export ZCM_DEFAULT_URL=ipc
-export JULIA_LOAD_PATH="$JULIA_LOAD_PATH:$prefix/share/julia:$BUILDEXAMPLESDIR/types"
+export JULIA_LOAD_PATH="$JULIA_LOAD_PATH:$INSTALL_BASE/share/julia:$BUILDEXAMPLESDIR/types"
 export PATH=$PATH:~/.local/bin
 if [ -z ${PYTHON+x} ]; then
     export PYTHON=$(which python)
@@ -57,15 +57,16 @@ fi
 # Note: waf loads waftools out of your PYTHONPATH, so we can use this variable to communicate
 #       to waf (especially in submodules) where our tools are stored
 if [ $? -eq 0 ]; then
+    export ZCM_PYTHON=$INSTALL_BASE
     export PYTHONPATH=$($PYTHON -c "
 import sys
 import os
 import sysconfig
-path_in_commlib = sysconfig.get_path('stdlib', vars={'installed_base': os.environ.get('SS_BUILD_ZCMLOCAL')})
+path_in_commlib = sysconfig.get_path('stdlib', vars={'installed_base': os.environ.get('ZCM_PYTHON')})
 print(os.path.join(path_in_commlib, 'site-packages'))
     ")
 fi
-export PYTHONPATH=$SS_BUILD_ZCMLOCAL/share/waf:$PYTHONPATH
+export PYTHONPATH=$ZCM_PYTHON/share/waf:$PYTHONPATH
 
 checkJuliaInstall()
 {
