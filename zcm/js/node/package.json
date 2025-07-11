@@ -1,6 +1,6 @@
 {
   "name": "zerocm",
-  "version": "1.1.5",
+  "version": "1.2.0",
   "description": "Native Node.js bindings for Zero Communications and Marshalling (ZCM) library",
   "main": "index.js",
   "author": "The ZCM Team",
@@ -25,8 +25,7 @@
   ],
   "scripts": {
     "build": "node-gyp rebuild",
-    "install": "node-gyp rebuild",
-    "prepack": "npm run build"
+    "install": "node-gyp rebuild"
   },
   "dependencies": {
     "big-integer": "^1.6.52",

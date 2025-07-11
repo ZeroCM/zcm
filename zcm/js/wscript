@@ -8,8 +8,6 @@ def build(ctx):
     def build_node_pkg(task):
         srcdir = os.path.dirname(task.inputs[0].abspath())
         blddir = task.generator.path.get_bld().abspath()
-        # Build native addon first, then pack
-        task.exec_command('(cd %s && npm install > /dev/null 2>&1)' % (srcdir))
         task.exec_command('(cd %s && npm pack %s > /dev/null)' % (blddir, srcdir))
 
     tarball = 'zerocm-' + ctx.env.VERSION + '.tgz'

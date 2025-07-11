@@ -12,8 +12,8 @@ extern "C" {
  *   u: Micro
  */
 #define ZCM_MAJOR_VERSION 1
-#define ZCM_MINOR_VERSION 1
-#define ZCM_MICRO_VERSION 5
+#define ZCM_MINOR_VERSION 2
+#define ZCM_MICRO_VERSION 0
 
 #include <stdint.h>
 
@@ -26,27 +26,29 @@ extern "C" {
 
 /* Important hardcoded values */
 #define ZCM_CHANNEL_MAXLEN 32
-enum zcm_type {
+enum zcm_type
+{
     ZCM_BLOCKING,
     ZCM_NONBLOCKING
 };
 
-#define ZCM_RETURN_CODES \
-    X(ZCM_EOK,               0, "Okay, no errors"                       ) \
-    X(ZCM_EINVALID,         -1, "Invalid arguments"                     ) \
-    X(ZCM_EAGAIN  ,         -2, "Resource unavailable, try again"       ) \
-    X(ZCM_ECONNECT,         -3, "Transport connection failed"           ) \
-    X(ZCM_EINTR   ,         -4, "Operation was unexpectedly interrupted") \
-    X(ZCM_EUNKNOWN,         -5, "Unknown error"                         ) \
-    X(ZCM_EMEMORY,          -6, "Out of memory"                         ) \
-    X(ZCM_EUNIMPL,          -7, "Function is not implemented"           ) \
-    X(ZCM_NUM_RETURN_CODES,  8, "Invalid return code"                   )
+#define ZCM_RETURN_CODES                                       \
+    X(ZCM_EOK, 0, "Okay, no errors")                           \
+    X(ZCM_EINVALID, -1, "Invalid arguments")                   \
+    X(ZCM_EAGAIN, -2, "Resource unavailable, try again")       \
+    X(ZCM_ECONNECT, -3, "Transport connection failed")         \
+    X(ZCM_EINTR, -4, "Operation was unexpectedly interrupted") \
+    X(ZCM_EUNKNOWN, -5, "Unknown error")                       \
+    X(ZCM_EMEMORY, -6, "Out of memory")                        \
+    X(ZCM_EUNIMPL, -7, "Function is not implemented")          \
+    X(ZCM_NUM_RETURN_CODES, 8, "Invalid return code")
 
 /* Return codes */
-enum zcm_return_codes {
-    #define X(n, v, s) n = v,
+enum zcm_return_codes
+{
+#define X(n, v, s) n = v,
     ZCM_RETURN_CODES
-    #undef X
+#undef X
 };
 
 /* Forward typedef'd structs */
@@ -56,8 +58,8 @@ typedef struct zcm_recv_buf_t zcm_recv_buf_t;
 typedef struct zcm_sub_t      zcm_sub_t;
 
 /* Generic message handler function type */
-typedef void (*zcm_msg_handler_t)(const zcm_recv_buf_t* rbuf,
-                                  const char* channel, void* usr);
+typedef void (*zcm_msg_handler_t)(const zcm_recv_buf_t* rbuf, const char* channel,
+                                  void* usr);
 
 /* Note: some language bindings depend on the specific memory layout
  *       of ZCM structures. If you change these, be sure to update
@@ -89,7 +91,7 @@ int zcm_retcode_name_to_enum(const char* zcm_retcode_name);
 zcm_t* zcm_create(const char* url);
 // If opt_errmsg pointer is provided, it will be set to new memory that you
 // must deallocate
-int    zcm_try_create(zcm_t** z, const char* url, char **opt_errmsg);
+int zcm_try_create(zcm_t** z, const char* url, char** opt_errmsg);
 #endif
 zcm_t* zcm_create_from_trans(zcm_trans_t* zt);
 int    zcm_try_create_from_trans(zcm_t** z, zcm_trans_t* zt);
@@ -98,8 +100,9 @@ void   zcm_destroy(zcm_t* zcm);
 #ifndef ZCM_EMBEDDED
 /* Initialize a zcm object allocated by caller
    Returns ZCM_EOK on success, error code on failure
-   Optionally sets the out-param opt_errmsg with an error message (called is responsible for free())*/
-int zcm_init(zcm_t* zcm, const char* url, char **opt_errmsg);
+   Optionally sets the out-param opt_errmsg with an error message (called is responsible
+   for free())*/
+int zcm_init(zcm_t* zcm, const char* url, char** opt_errmsg);
 #endif
 
 /* Initialize a zcm instance allocated by caller using a transport provided by caller
@@ -114,7 +117,8 @@ const char* zcm_strerrno(int err);
 
 /* Subscribe to zcm messages
    Returns a subscription object on success, and NULL on failure */
-zcm_sub_t* zcm_subscribe(zcm_t* zcm, const char* channel, zcm_msg_handler_t cb, void* usr);
+zcm_sub_t* zcm_subscribe(zcm_t* zcm, const char* channel, zcm_msg_handler_t cb,
+                         void* usr);
 
 /* Unsubscribe to zcm messages, freeing the subscription object
    Returns ZCM_EOK on success, error code on failure */
@@ -161,7 +165,7 @@ int zcm_handle_nonblock(zcm_t* zcm);
 /* Query the drop counter on the underlying transport
    NOTE: This may be unimplemented, in which case it will return ZCM_EIMPL and
    the out-param will be disregarded. */
-int zcm_query_drops(zcm_t *zcm, uint64_t *out_drops);
+int zcm_query_drops(zcm_t* zcm, uint64_t* out_drops);
 
 /****************************************************************************/
 /*    NOT FOR GENERAL USE. USED FOR LANGUAGE-SPECIFIC BINDINGS WITH VERY    */
@@ -170,7 +174,8 @@ int zcm_query_drops(zcm_t *zcm, uint64_t *out_drops);
 /* Subscribe to zcm messages
    Returns a subscription object on success, and NULL on failure.
    Can fail to subscribe if zcm is already running */
-zcm_sub_t* zcm_try_subscribe(zcm_t* zcm, const char* channel, zcm_msg_handler_t cb, void* usr);
+zcm_sub_t* zcm_try_subscribe(zcm_t* zcm, const char* channel, zcm_msg_handler_t cb,
+                             void* usr);
 /* Unsubscribe to zcm messages, freeing the subscription object
    Returns ZCM_EOK on success, error code on failure
    Can fail to subscribe if zcm is already running */
@@ -181,7 +186,8 @@ int zcm_try_unsubscribe(zcm_t* zcm, zcm_sub_t* sub);
 int zcm_try_flush(zcm_t* zcm);
 #ifndef ZCM_EMBEDDED
 int zcm_try_stop(zcm_t* zcm); /* returns ZCM_EOK on success, error code on failure */
-int zcm_try_set_queue_size(zcm_t* zcm, uint32_t numMsgs); /* returns ZCM_EOK or ZCM_EAGAIN */
+int zcm_try_set_queue_size(zcm_t*   zcm,
+                           uint32_t numMsgs); /* returns ZCM_EOK or ZCM_EAGAIN */
 #endif
 /****************************************************************************/
 
