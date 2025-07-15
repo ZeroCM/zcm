@@ -107,9 +107,8 @@ struct EmitModule : public Emitter
                            "val.shiftRight(63).and(1))");
         emit(0, "}");
         emit(0, "");
-        emit(0, "function createReader(data)");
+        emit(0, "function createReader(buf)");
         emit(0, "{");
-        emit(0, "    let buf = new Buffer(data);");
         emit(0, "    let offset_byte = 0;");
         emit(0, "    let offset_bit = 0;");
         emit(0, "    let methods = {");

@@ -1,10 +1,6 @@
 /*******************************************************
  * NodeJS Native N-API bindings to ZCM
  * -----------------------------------
- * This replaces the previous ffi-napi implementation
- * with a native N-API addon for better performance
- ******************************************************/
-
 const zcmNative = require("./build/Release/zcm_native");
 const bigint = require("big-integer");
 const assert = require("assert");
@@ -125,9 +121,7 @@ function zcm(zcmtypes, zcmurl) {
       const subId = parent.nativeZcm.subscribe(
         channel,
         function (channel, data) {
-          // Convert Buffer to array for compatibility
-          const dataArray = Array.from(data);
-          cb(channel, dataArray);
+          cb(channel, data);
         },
       );
 
