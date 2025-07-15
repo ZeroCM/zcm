@@ -8,12 +8,12 @@
       "      zcm-client.js file into a client-visible folder"
     ],
     "preinstall": "npm install zerocm --force",
-    "postinstall": "cp /usr/local/share/node/zcm-client.js public/js/. && cp ../../build/examples/examples/types/zcmtypes.js node_modules/"
+    "postinstall": "cp ../../build/zcm/js/zcm-client.js public/js/. && cp ../../build/examples/examples/types/zcmtypes.js node_modules/"
   },
   "dependencies": {
     "big-integer": "^1.6.27",
     "express": "^4.14.0",
     "ref-napi": "^3.0.0",
-    "zerocm": "file:../../../../../../usr/local/share/node/zerocm-1.2.0.tgz"
+    "zerocm": "file:../../build/zcm/js/zerocm-1.2.0.tgz"
   }
 }

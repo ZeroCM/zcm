@@ -2,7 +2,10 @@
  * NodeJS Native N-API bindings to ZCM
  * -----------------------------------
  *******************************************************/
-const zcmNative = require("./build/Release/zcm_native");
+const zcmNative =
+  process.env.NODE_ENV === "dev"
+    ? require("./build/Debug/zcm_native")
+    : require("./build/Release/zcm_native");
 const bigint = require("big-integer");
 const assert = require("assert");
 
@@ -20,6 +23,12 @@ exports.ZCM_NUM_RETURN_CODES = zcmNative.ZCM_NUM_RETURN_CODES;
 function zcm(zcmtypes, zcmurl) {
   const parent = this;
 
+  // Create native ZCM instance
+  try {
+    parent.nativeZcm = new zcmNative.ZcmNative(zcmurl);
+  } catch (error) {
+    return null;
+  }
   parent.subscriptions = new Set();
   parent.zcmtypeHashMap = {};
 
@@ -36,13 +45,6 @@ function zcm(zcmtypes, zcmurl) {
     }
   }
   rehashTypes(zcmtypes);
-
-  // Create native ZCM instance
-  try {
-    parent.nativeZcm = new zcmNative.ZcmNative(zcmurl);
-  } catch (error) {
-    return null;
-  }
 
   /**
    * Publishes a zcm message on the created transport
@@ -182,16 +184,16 @@ function zcm(zcmtypes, zcmurl) {
     return parent.nativeZcm.writeTopology(name);
   };
 
-  zcm.prototype.destroy = function (destroyedCb) {
+  zcm.prototype.destroy = function (cb) {
     if (!parent.nativeZcm) {
-      if (destroyedCb) destroyedCb();
+      if (cb) cb();
       return;
     }
     setTimeout(function d() {
       var ret = parent.nativeZcm.tryDestroy();
       if (ret == exports.ZCM_EOK) {
         parent.nativeZcm = null;
-        if (destroyedCb) destroyedCb();
+        if (cb) cb();
       } else if (ret == exports.ZCM_EAGAIN) {
         setTimeout(d, 0);
       } else {
@@ -205,6 +207,7 @@ function zcm(zcmtypes, zcmurl) {
 
 function zcm_create(zcmtypes, zcmurl, http, socketIoOptions = {}) {
   var ret = new zcm(zcmtypes, zcmurl);
+  if (!ret.nativeZcm) return null;
 
   if (http) {
     var io = require("socket.io")(http, { ...socketIoOptions, path: "/zcm" });
