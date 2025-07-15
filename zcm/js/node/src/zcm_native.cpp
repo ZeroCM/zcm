@@ -25,13 +25,17 @@ class ZcmWrapper : public Napi::ObjectWrap<ZcmWrapper>
     // Subscription management
     struct SubscriptionInfo
     {
+        ZcmWrapper* me;
         uint32_t                 id;
-        zcm_sub_t*               sub;
-        Napi::ThreadSafeFunction tsfn;
         std::string              channel;
+        Napi::ThreadSafeFunction tsfn;
+        zcm_sub_t*               sub;
     };
+    std::mutex callback_mutex;
+    std::condition_variable callback_cv;
+    bool callback_completed = false;
 
-    std::map<uint32_t, SubscriptionInfo> subscriptions_;
+    std::map<uint32_t, SubscriptionInfo*> subscriptions_;
     uint32_t                             next_sub_id_;
 
     // Methods
@@ -120,8 +124,8 @@ ZcmWrapper::~ZcmWrapper()
 
     // Clean up subscriptions
     for (auto& pair : subscriptions_) {
-        zcm_try_unsubscribe(zcm_, pair.second.sub);
-        pair.second.tsfn.Release();
+        zcm_try_unsubscribe(zcm_, pair.second->sub);
+        pair.second->tsfn.Release();
     }
     subscriptions_.clear();
 
@@ -162,47 +166,24 @@ void ZcmWrapper::messageHandler(const zcm_recv_buf_t* rbuf, const char* channel,
                                 void* usr)
 {
     SubscriptionInfo* subInfo = static_cast<SubscriptionInfo*>(usr);
-    std::cout << "Received message on channel: " << channel << std::endl;
-    std::cout << "rbuf contents:" << std::endl;
-    std::cout << "  recv_utime: " << rbuf->recv_utime << std::endl;
-    std::cout << "  data_size: " << rbuf->data_size << std::endl;
 
-    // Manual synchronization to verify BlockingCall behavior
-    std::mutex callback_mutex;
-    std::condition_variable callback_cv;
-    bool callback_completed = false;
-
-    std::cout << "About to call BlockingCall" << std::endl;
-
-    // Call JavaScript callback directly
     subInfo->tsfn.BlockingCall([&](Napi::Env env, Napi::Function jsCallback) {
-        std::cout << "Entering Blocking callback" << std::endl;
-        // Create JavaScript objects with copied data
-        Napi::String          jsChannel = Napi::String::New(env, std::string(channel));
+        Napi::String          jsChannel = Napi::String::New(env, channel);
         Napi::Buffer<uint8_t> jsData =
-            Napi::Buffer<uint8_t>::Copy(env, rbuf->data, rbuf->data_size);
+            Napi::Buffer<uint8_t>::New(env, rbuf->data, rbuf->data_size);
 
-        // Call the JavaScript callback
-        std::cout << "Calling JavaScript callback" << std::endl;
         jsCallback.Call({ jsChannel, jsData });
-        std::cout << "JavaScript callback completed" << std::endl;
 
-        // Signal that callback is done
         {
-            std::lock_guard<std::mutex> lock(callback_mutex);
-            callback_completed = true;
+            std::lock_guard<std::mutex> lock(subInfo->me->callback_mutex);
+            subInfo->me->callback_completed = true;
         }
-        callback_cv.notify_one();
-        std::cout << "Notified callback completion" << std::endl;
+        subInfo->me->callback_cv.notify_one();
     });
 
-    std::cout << "BlockingCall returned" << std::endl;
-
-    // Wait for manual confirmation that callback completed
-    std::unique_lock<std::mutex> lock(callback_mutex);
-    callback_cv.wait(lock, [&]{ return callback_completed; });
-
-    std::cout << "Manual sync confirmed callback completed, message handler completing" << std::endl;
+    std::unique_lock<std::mutex> lock(subInfo->me->callback_mutex);
+    subInfo->me->callback_cv.wait(lock, [&]{ return subInfo->me->callback_completed; });
+    subInfo->me->callback_completed = false;
 }
 
 Napi::Value ZcmWrapper::trySubscribe(const Napi::CallbackInfo& info)
@@ -230,20 +211,25 @@ Napi::Value ZcmWrapper::trySubscribe(const Napi::CallbackInfo& info)
     std::string    channel  = info[0].As<Napi::String>().Utf8Value();
     Napi::Function callback = info[1].As<Napi::Function>();
 
+    SubscriptionInfo *subInfo = new SubscriptionInfo();
+    if (!subInfo) {
+        Napi::Error::New(env, "Failed to allocate memory for subscription")
+            .ThrowAsJavaScriptException();
+        return env.Null();
+    }
     // Create subscription info
     uint32_t subId = next_sub_id_++;
-
-    SubscriptionInfo subInfo;
-    subInfo.id      = subId;
-    subInfo.channel = channel;
+    subInfo->me      = this;
+    subInfo->id      = subId;
+    subInfo->channel = channel;
 
     // Create thread-safe function
-    subInfo.tsfn = Napi::ThreadSafeFunction::New(
+    subInfo->tsfn = Napi::ThreadSafeFunction::New(
         env, callback, "ZCM Subscription", 0, 1, [this, subId](Napi::Env env) {
             // Warn about improper cleanup - subscription should have been explicitly unsubscribed
             auto it = subscriptions_.find(subId);
             if (it != subscriptions_.end()) {
-                Napi::Error::New(env, std::string("ZCM subscription ") + it->second.channel +
+                Napi::Error::New(env, std::string("ZCM subscription ") + it->second->channel +
                                 " is being garbage collected without explicit tryUnsubscribe() call. "
                                 "This may cause resource leaks. Always call tryUnsubscribe() before "
                                 "releasing subscription references.")
@@ -251,21 +237,18 @@ Napi::Value ZcmWrapper::trySubscribe(const Napi::CallbackInfo& info)
             }
         });
 
-    // Store subscription info before calling zcm_try_subscribe
-    subscriptions_[subId] = subInfo;
-
     // Subscribe to ZCM
     zcm_sub_t* sub =
-        zcm_try_subscribe(zcm_, channel.c_str(), messageHandler, &subscriptions_[subId]);
+        zcm_try_subscribe(zcm_, channel.c_str(), messageHandler, subInfo);
 
     if (!sub) {
-        subscriptions_.erase(subId);
         Napi::Error::New(env, "Failed to subscribe to channel")
             .ThrowAsJavaScriptException();
         return env.Null();
     }
 
-    subscriptions_[subId].sub = sub;
+    subInfo->sub = sub;
+    subscriptions_[subId] = subInfo;
 
     return Napi::Number::New(env, subId);
 }
@@ -291,10 +274,11 @@ Napi::Value ZcmWrapper::tryUnsubscribe(const Napi::CallbackInfo& info)
     auto it = subscriptions_.find(subId);
     if (it == subscriptions_.end()) { return Napi::Number::New(env, ZCM_EINVALID); }
 
-    int ret = zcm_try_unsubscribe(zcm_, it->second.sub);
+    int ret = zcm_try_unsubscribe(zcm_, it->second->sub);
     if (ret == ZCM_EOK) {
         subscriptions_.erase(it);
-        it->second.tsfn.Release();
+        it->second->tsfn.Release();
+        delete it->second;
     }
 
     return Napi::Number::New(env, ret);
@@ -385,11 +369,12 @@ Napi::Value ZcmWrapper::tryDestroy(const Napi::CallbackInfo& info)
 
     if (zcm_) {
         for (auto& pair : subscriptions_) {
-            int ret = zcm_try_unsubscribe(zcm_, pair.second.sub);
+            int ret = zcm_try_unsubscribe(zcm_, pair.second->sub);
             if (ret != ZCM_EOK) {
                 return Napi::Number::New(env, ret);
             }
-            pair.second.tsfn.Release();
+            pair.second->tsfn.Release();
+            delete pair.second;
         }
         subscriptions_.clear();
 

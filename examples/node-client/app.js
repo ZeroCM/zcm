@@ -107,7 +107,7 @@ function encodeExample() {
     chan,
     zcmtypes.encoded_t,
     function (channel, msg) {
-      const recEnc = zcmtypes.example_t.decode(msg.msg);
+      const recEnc = zcmtypes.example_t.decode(Buffer.from(msg.msg));
       console.log(
         "Encoded message received on channel " + channel + ": " + recEnc.name,
       );
@@ -326,16 +326,16 @@ z.subscribe(
 );
 
 var sub;
-// z.subscribe(
-//   ".*",
-//   null,
-//   function (channel, msg) {
-//     console.log("Untyped message received on channel " + channel);
-//   },
-//   function successCb(_sub) {
-//     sub = _sub;
-//   },
-// );
+z.subscribe(
+  ".*",
+  null,
+  function (channel, msg) {
+    console.log("Untyped message received on channel " + channel);
+  },
+  function successCb(_sub) {
+    sub = _sub;
+  },
+);
 
 process.on("exit", function () {
   if (sub) z.unsubscribe(sub);
