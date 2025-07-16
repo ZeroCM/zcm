@@ -2,8 +2,10 @@ var assert = require('assert');
 var bigint = require('big-integer');
 
 let channel = 'EXAMPLE';
-let numMsgs = 10;
-let periodMs = 100;
+let numMsgs = 100;
+let totalMsgs = 100;
+let currentMsg = 0;
+let periodMs = 0;
 
 function test(z, zcmtypes, doneCb) {
   let subs;
@@ -50,7 +52,8 @@ function test(z, zcmtypes, doneCb) {
   assert(zcmtypes.example_t.test_const_double === 12.1e200);
 
   function publish() {
-    console.log(`Publishing message ${11 - numMsgs} of 10`);
+    currentMsg++;
+    console.log(`Publishing message ${currentMsg} of ${totalMsgs}`);
     var msg = new zcmtypes.example_t();
 
     msg.utime = 10;
@@ -81,7 +84,7 @@ function test(z, zcmtypes, doneCb) {
       return doneCb(success === 'success' ? null : success);
     }
   }
-  publish();
+  setTimeout(publish, 1000);
 }
 
 module.exports = (z, zcmtypes) => {

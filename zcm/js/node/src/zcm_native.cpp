@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 
-#include <iostream>
+
 
 #include <zcm/zcm.h>
 
@@ -162,6 +162,8 @@ Napi::Value ZcmWrapper::publish(const Napi::CallbackInfo& info)
     return Napi::Number::New(env, ret);
 }
 
+static void emptyFinalizer(Napi::Env env, uint8_t* data) {}
+
 void ZcmWrapper::messageHandler(const zcm_recv_buf_t* rbuf, const char* channel,
                                 void* usr)
 {
@@ -170,9 +172,13 @@ void ZcmWrapper::messageHandler(const zcm_recv_buf_t* rbuf, const char* channel,
     subInfo->tsfn.BlockingCall([&](Napi::Env env, Napi::Function jsCallback) {
         Napi::String          jsChannel = Napi::String::New(env, channel);
         Napi::Buffer<uint8_t> jsData =
-            Napi::Buffer<uint8_t>::New(env, rbuf->data, rbuf->data_size);
+            Napi::Buffer<uint8_t>::New(env, rbuf->data, rbuf->data_size, emptyFinalizer);
 
         jsCallback.Call({ jsChannel, jsData });
+        Napi::Uint8Array u8a = jsData.As<Napi::Uint8Array>();
+        Napi::ArrayBuffer ab = u8a.ArrayBuffer();
+        napi_status st = napi_detach_arraybuffer(env, ab);
+        assert(st == napi_ok);
 
         {
             std::lock_guard<std::mutex> lock(subInfo->me->callback_mutex);
@@ -184,6 +190,7 @@ void ZcmWrapper::messageHandler(const zcm_recv_buf_t* rbuf, const char* channel,
     std::unique_lock<std::mutex> lock(subInfo->me->callback_mutex);
     subInfo->me->callback_cv.wait(lock, [&]{ return subInfo->me->callback_completed; });
     subInfo->me->callback_completed = false;
+
 }
 
 Napi::Value ZcmWrapper::trySubscribe(const Napi::CallbackInfo& info)
