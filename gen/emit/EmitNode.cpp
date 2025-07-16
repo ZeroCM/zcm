@@ -169,6 +169,11 @@ struct EmitModule : public Emitter
         emit(0, "                arr[i] = readValFunc();");
         emit(0, "            return arr;");
         emit(0, "        },");
+        emit(0, "        readBuffer: function(size) {");
+        emit(0, "            var arr = Buffer.from(buf.subarray(offset_byte, offset_byte + size));");
+        emit(0, "            offset_byte += size;");
+        emit(0, "            return arr;");
+        emit(0, "        },");
         emit(0, "        resetBits: function() {");
         emit(0, "            if (offset_bit !== 0) ++offset_byte;");
         emit(0, "            offset_bit = 0;");
@@ -304,6 +309,11 @@ struct EmitModule : public Emitter
         emit(0, "            for (var i = 0; i < size; ++i)");
         emit(0, "                writeValFunc(arr[i]);");
         emit(0, "        },");
+        emit(0, "        writeBuffer: function(bufIn) {");
+        emit(0, "          const convertedBuffer = Buffer.isBuffer(bufIn) ? bufIn : Buffer.from(bufIn);");
+        emit(0, "          convertedBuffer.copy(buf, offset_byte);");
+        emit(0, "          offset_byte += convertedBuffer.length;");
+        emit(0, "        },");
         emit(0, "        getBuffer: function() {");
         emit(0, "            return buf;");
         emit(0, "        },");
@@ -353,7 +363,9 @@ struct EmitModule : public Emitter
 
         auto writerFunc = getWriterFunc(tn);
 
-        if (zm.type.numbits != 0) {
+        if (tn == "byte" && zm.type.numbits == 0) {
+            emit(indent, "W.writeBuffer(%s);", accessor);
+        } else if (zm.type.numbits != 0) {
             emit(indent, "W.writeArray(%s, %s%s, (f) => { return W.writeBits(f, %u); });",
                  accessor, fixedLen ? "" : "msg.", len, zm.type.numbits);
         } else if (writerFunc != "") {
@@ -585,6 +597,12 @@ struct EmitModule : public Emitter
         if (StringUtil::endswith(readerFunc, ")")) {
             readerFunc = string("() => { return ") + readerFunc + string("; }");
         }
+        if (tn == "byte" && zm.type.numbits == 0) {
+            emit(indent, "%sR.readBuffer(%s%s)%s",
+                         accessor, (fixedLen ? "" : "msg."), len,
+                         suffix);
+            return;
+        }
         emit(indent, "%sR.readArray(%s%s, %s)%s",
                      accessor, (fixedLen ? "" : "msg."),
                      len, readerFunc.c_str(), suffix);
@@ -728,8 +746,8 @@ struct EmitModule : public Emitter
 
     void emitMemberInitializer(const ZCMMember& zm, int dimNum)
     {
+        auto& tn = zm.type.fullname;
         if((size_t)dimNum == zm.dimensions.size()) {
-            auto& tn = zm.type.fullname;
             const char* initializer = nullptr;
             if      (tn == "byte")    initializer = "0";
             else if (tn == "boolean") initializer = "false";
@@ -750,7 +768,11 @@ struct EmitModule : public Emitter
         }
         auto& dim = zm.dimensions[dimNum];
         if (dim.mode == ZCM_VAR) {
-            emitContinue("[]");
+            if (tn != "byte") {
+                emitContinue("[]");
+            } else {
+                emitContinue("new Buffer(0)");
+            }
         } else if ((size_t)dimNum == zm.dimensions.size() - 1) {
             emitContinue("new Array(%s).fill(", dim.size.c_str());
             emitMemberInitializer(zm, dimNum+1);

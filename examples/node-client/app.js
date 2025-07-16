@@ -107,7 +107,7 @@ function encodeExample() {
     chan,
     zcmtypes.encoded_t,
     function (channel, msg) {
-      const recEnc = zcmtypes.example_t.decode(Buffer.from(msg.msg));
+      const recEnc = zcmtypes.example_t.decode(msg.msg);
       console.log(
         "Encoded message received on channel " + channel + ": " + recEnc.name,
       );
