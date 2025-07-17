@@ -3,9 +3,12 @@
 #include <memory>
 #include <napi.h>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include <zcm/zcm.h>
+
+#include <iostream>
 
 class ZcmWrapper : public Napi::ObjectWrap<ZcmWrapper>
 {
@@ -27,11 +30,14 @@ class ZcmWrapper : public Napi::ObjectWrap<ZcmWrapper>
         uint32_t                 id;
         std::string              channel;
         Napi::ThreadSafeFunction tsfn;
+        Napi::Function           callback;
         zcm_sub_t*               sub;
     };
     std::mutex              callback_mutex;
     std::condition_variable callback_cv;
     bool                    callback_completed = false;
+    std::thread::id         flush_thread_id {};
+    Napi::Env               flush_env;
 
     std::map<uint32_t, SubscriptionInfo*> subscriptions_;
     uint32_t                              next_sub_id_;
@@ -85,7 +91,8 @@ Napi::Object ZcmWrapper::Init(Napi::Env env, Napi::Object exports)
 }
 
 ZcmWrapper::ZcmWrapper(const Napi::CallbackInfo& info)
-    : Napi::ObjectWrap<ZcmWrapper>(info)
+    : Napi::ObjectWrap<ZcmWrapper>(info),
+      flush_env(info.Env())
 {
     Napi::Env         env = info.Env();
     Napi::HandleScope scope(env);
@@ -165,7 +172,23 @@ void ZcmWrapper::messageHandler(const zcm_recv_buf_t* rbuf, const char* channel,
 {
     SubscriptionInfo* subInfo = static_cast<SubscriptionInfo*>(usr);
 
+    if (subInfo->me->flush_thread_id == std::this_thread::get_id()) {
+        std::cout << "Handling in main thread" << std::endl;
+        Napi::Env env = subInfo->me->flush_env;
+        Napi::String          jsChannel = Napi::String::New(env.Global(), channel);
+        Napi::Buffer<uint8_t> jsData =
+            Napi::Buffer<uint8_t>::New(env.Global(), rbuf->data, rbuf->data_size, emptyFinalizer);
+
+        subInfo->callback.Call(env.Global(), { jsChannel, jsData });
+        Napi::Uint8Array  u8a = jsData.As<Napi::Uint8Array>();
+        Napi::ArrayBuffer ab  = u8a.ArrayBuffer();
+        napi_status       st  = napi_detach_arraybuffer(env, ab);
+        assert(st == napi_ok);
+        return;
+    }
+
     subInfo->tsfn.BlockingCall([&](Napi::Env env, Napi::Function jsCallback) {
+        std::cout << "Handling in C thread" << std::endl;
         Napi::String          jsChannel = Napi::String::New(env, channel);
         Napi::Buffer<uint8_t> jsData =
             Napi::Buffer<uint8_t>::New(env, rbuf->data, rbuf->data_size, emptyFinalizer);
@@ -224,6 +247,7 @@ Napi::Value ZcmWrapper::trySubscribe(const Napi::CallbackInfo& info)
     subInfo->me      = this;
     subInfo->id      = subId;
     subInfo->channel = channel;
+    subInfo->callback = callback;
 
     // Create thread-safe function
     subInfo->tsfn = Napi::ThreadSafeFunction::New(
@@ -305,7 +329,9 @@ Napi::Value ZcmWrapper::tryStop(const Napi::CallbackInfo& info)
 
 Napi::Value ZcmWrapper::tryFlush(const Napi::CallbackInfo& info)
 {
+    flush_thread_id = std::this_thread::get_id();
     Napi::Env env = info.Env();
+    flush_env = env;
     int       ret = zcm_try_flush(zcm_);
     return Napi::Number::New(env, ret);
 }
