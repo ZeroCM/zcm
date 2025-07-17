@@ -59,6 +59,6 @@ echo "Running node tests"
 echo "**********************************"
 pushd $THISDIR/node
 rm -rf node_modules
-npm i --unsafe-perm
+npm i
 node index.js
 echo "Success"
