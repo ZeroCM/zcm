@@ -5,8 +5,6 @@
 #include <string>
 #include <vector>
 
-
-
 #include <zcm/zcm.h>
 
 class ZcmWrapper : public Napi::ObjectWrap<ZcmWrapper>
@@ -25,18 +23,18 @@ class ZcmWrapper : public Napi::ObjectWrap<ZcmWrapper>
     // Subscription management
     struct SubscriptionInfo
     {
-        ZcmWrapper* me;
+        ZcmWrapper*              me;
         uint32_t                 id;
         std::string              channel;
         Napi::ThreadSafeFunction tsfn;
         zcm_sub_t*               sub;
     };
-    std::mutex callback_mutex;
+    std::mutex              callback_mutex;
     std::condition_variable callback_cv;
-    bool callback_completed = false;
+    bool                    callback_completed = false;
 
     std::map<uint32_t, SubscriptionInfo*> subscriptions_;
-    uint32_t                             next_sub_id_;
+    uint32_t                              next_sub_id_;
 
     // Methods
     Napi::Value publish(const Napi::CallbackInfo& info);
@@ -58,8 +56,6 @@ class ZcmWrapper : public Napi::ObjectWrap<ZcmWrapper>
 
 // Static member initialization
 Napi::FunctionReference ZcmWrapper::constructor;
-
-
 
 Napi::Object ZcmWrapper::Init(Napi::Env env, Napi::Object exports)
 {
@@ -107,7 +103,7 @@ ZcmWrapper::ZcmWrapper(const Napi::CallbackInfo& info)
         return;
     }
 
-    zcm_            = zcm_create(url.c_str());
+    zcm_ = zcm_create(url.c_str());
 
     if (!zcm_) {
         Napi::Error::New(env, "Failed to create ZCM instance")
@@ -175,9 +171,9 @@ void ZcmWrapper::messageHandler(const zcm_recv_buf_t* rbuf, const char* channel,
             Napi::Buffer<uint8_t>::New(env, rbuf->data, rbuf->data_size, emptyFinalizer);
 
         jsCallback.Call({ jsChannel, jsData });
-        Napi::Uint8Array u8a = jsData.As<Napi::Uint8Array>();
-        Napi::ArrayBuffer ab = u8a.ArrayBuffer();
-        napi_status st = napi_detach_arraybuffer(env, ab);
+        Napi::Uint8Array  u8a = jsData.As<Napi::Uint8Array>();
+        Napi::ArrayBuffer ab  = u8a.ArrayBuffer();
+        napi_status       st  = napi_detach_arraybuffer(env, ab);
         assert(st == napi_ok);
 
         {
@@ -188,9 +184,8 @@ void ZcmWrapper::messageHandler(const zcm_recv_buf_t* rbuf, const char* channel,
     });
 
     std::unique_lock<std::mutex> lock(subInfo->me->callback_mutex);
-    subInfo->me->callback_cv.wait(lock, [&]{ return subInfo->me->callback_completed; });
+    subInfo->me->callback_cv.wait(lock, [&] { return subInfo->me->callback_completed; });
     subInfo->me->callback_completed = false;
-
 }
 
 Napi::Value ZcmWrapper::trySubscribe(const Napi::CallbackInfo& info)
@@ -218,14 +213,14 @@ Napi::Value ZcmWrapper::trySubscribe(const Napi::CallbackInfo& info)
     std::string    channel  = info[0].As<Napi::String>().Utf8Value();
     Napi::Function callback = info[1].As<Napi::Function>();
 
-    SubscriptionInfo *subInfo = new SubscriptionInfo();
+    SubscriptionInfo* subInfo = new SubscriptionInfo();
     if (!subInfo) {
         Napi::Error::New(env, "Failed to allocate memory for subscription")
             .ThrowAsJavaScriptException();
         return env.Null();
     }
     // Create subscription info
-    uint32_t subId = next_sub_id_++;
+    uint32_t subId   = next_sub_id_++;
     subInfo->me      = this;
     subInfo->id      = subId;
     subInfo->channel = channel;
@@ -233,20 +228,23 @@ Napi::Value ZcmWrapper::trySubscribe(const Napi::CallbackInfo& info)
     // Create thread-safe function
     subInfo->tsfn = Napi::ThreadSafeFunction::New(
         env, callback, "ZCM Subscription", 0, 1, [this, subId](Napi::Env env) {
-            // Warn about improper cleanup - subscription should have been explicitly unsubscribed
+            // Warn about improper cleanup - subscription should have been explicitly
+            // unsubscribed
             auto it = subscriptions_.find(subId);
             if (it != subscriptions_.end()) {
-                Napi::Error::New(env, std::string("ZCM subscription ") + it->second->channel +
-                                " is being garbage collected without explicit tryUnsubscribe() call. "
-                                "This may cause resource leaks. Always call tryUnsubscribe() before "
-                                "releasing subscription references.")
+                Napi::Error::New(env, std::string("ZCM subscription ") +
+                                          it->second->channel +
+                                          " is being garbage collected without explicit "
+                                          "tryUnsubscribe() call. "
+                                          "This may cause resource leaks. Always call "
+                                          "tryUnsubscribe() before "
+                                          "releasing subscription references.")
                     .ThrowAsJavaScriptException();
             }
         });
 
     // Subscribe to ZCM
-    zcm_sub_t* sub =
-        zcm_try_subscribe(zcm_, channel.c_str(), messageHandler, subInfo);
+    zcm_sub_t* sub = zcm_try_subscribe(zcm_, channel.c_str(), messageHandler, subInfo);
 
     if (!sub) {
         Napi::Error::New(env, "Failed to subscribe to channel")
@@ -254,7 +252,7 @@ Napi::Value ZcmWrapper::trySubscribe(const Napi::CallbackInfo& info)
         return env.Null();
     }
 
-    subInfo->sub = sub;
+    subInfo->sub          = sub;
     subscriptions_[subId] = subInfo;
 
     return Napi::Number::New(env, subId);
@@ -377,9 +375,7 @@ Napi::Value ZcmWrapper::tryDestroy(const Napi::CallbackInfo& info)
     if (zcm_) {
         for (auto& pair : subscriptions_) {
             int ret = zcm_try_unsubscribe(zcm_, pair.second->sub);
-            if (ret != ZCM_EOK) {
-                return Napi::Number::New(env, ret);
-            }
+            if (ret != ZCM_EOK) return Napi::Number::New(env, ret);
             pair.second->tsfn.Release();
             delete pair.second;
         }
