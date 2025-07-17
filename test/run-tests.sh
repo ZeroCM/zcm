@@ -58,6 +58,7 @@ echo "**********************************"
 echo "Running node tests"
 echo "**********************************"
 pushd $THISDIR/node
+nvm use
 rm -rf node_modules
 npm i
 node index.js
