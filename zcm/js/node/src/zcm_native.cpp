@@ -30,7 +30,7 @@ class ZcmWrapper : public Napi::ObjectWrap<ZcmWrapper>
         uint32_t                 id;
         std::string              channel;
         Napi::ThreadSafeFunction tsfn;
-        Napi::Function           callback;
+        Napi::FunctionReference  callback;
         zcm_sub_t*               sub;
     };
     std::mutex              callback_mutex;
@@ -129,6 +129,7 @@ ZcmWrapper::~ZcmWrapper()
     for (auto& pair : subscriptions_) {
         zcm_try_unsubscribe(zcm_, pair.second->sub);
         pair.second->tsfn.Release();
+        pair.second->callback.Reset();
     }
     subscriptions_.clear();
 
@@ -173,13 +174,18 @@ void ZcmWrapper::messageHandler(const zcm_recv_buf_t* rbuf, const char* channel,
     SubscriptionInfo* subInfo = static_cast<SubscriptionInfo*>(usr);
 
     if (subInfo->me->flush_thread_id == std::this_thread::get_id()) {
-        std::cout << "Handling in main thread" << std::endl;
         Napi::Env env = subInfo->me->flush_env;
-        Napi::String          jsChannel = Napi::String::New(env.Global(), channel);
+        Napi::String          jsChannel = Napi::String::New(env, channel);
         Napi::Buffer<uint8_t> jsData =
-            Napi::Buffer<uint8_t>::New(env.Global(), rbuf->data, rbuf->data_size, emptyFinalizer);
+            Napi::Buffer<uint8_t>::New(env, rbuf->data, rbuf->data_size, emptyFinalizer);
 
         subInfo->callback.Call(env.Global(), { jsChannel, jsData });
+
+        if (env.IsExceptionPending()) {
+            Napi::Error err = env.GetAndClearPendingException();
+            std::cerr << err.Get("stack").ToString().Utf8Value() << std::endl;
+        }
+
         Napi::Uint8Array  u8a = jsData.As<Napi::Uint8Array>();
         Napi::ArrayBuffer ab  = u8a.ArrayBuffer();
         napi_status       st  = napi_detach_arraybuffer(env, ab);
@@ -188,12 +194,17 @@ void ZcmWrapper::messageHandler(const zcm_recv_buf_t* rbuf, const char* channel,
     }
 
     subInfo->tsfn.BlockingCall([&](Napi::Env env, Napi::Function jsCallback) {
-        std::cout << "Handling in C thread" << std::endl;
         Napi::String          jsChannel = Napi::String::New(env, channel);
         Napi::Buffer<uint8_t> jsData =
             Napi::Buffer<uint8_t>::New(env, rbuf->data, rbuf->data_size, emptyFinalizer);
 
         jsCallback.Call({ jsChannel, jsData });
+
+        if (env.IsExceptionPending()) {
+            Napi::Error err = env.GetAndClearPendingException();
+            std::cerr << err.Get("stack").ToString().Utf8Value() << std::endl;
+        }
+
         Napi::Uint8Array  u8a = jsData.As<Napi::Uint8Array>();
         Napi::ArrayBuffer ab  = u8a.ArrayBuffer();
         napi_status       st  = napi_detach_arraybuffer(env, ab);
@@ -247,7 +258,8 @@ Napi::Value ZcmWrapper::trySubscribe(const Napi::CallbackInfo& info)
     subInfo->me      = this;
     subInfo->id      = subId;
     subInfo->channel = channel;
-    subInfo->callback = callback;
+    subInfo->callback = Napi::Persistent(callback);
+    subInfo->callback.SuppressDestruct();
 
     // Create thread-safe function
     subInfo->tsfn = Napi::ThreadSafeFunction::New(
@@ -307,6 +319,7 @@ Napi::Value ZcmWrapper::tryUnsubscribe(const Napi::CallbackInfo& info)
     if (ret == ZCM_EOK) {
         subscriptions_.erase(it);
         it->second->tsfn.Release();
+        it->second->callback.Reset();
         delete it->second;
     }
 
@@ -403,6 +416,7 @@ Napi::Value ZcmWrapper::tryDestroy(const Napi::CallbackInfo& info)
             int ret = zcm_try_unsubscribe(zcm_, pair.second->sub);
             if (ret != ZCM_EOK) return Napi::Number::New(env, ret);
             pair.second->tsfn.Release();
+            pair.second->callback.Reset();
             delete pair.second;
         }
         subscriptions_.clear();

@@ -389,28 +389,17 @@ int zcm_blocking_t::handle()
 {
     if (!startRecvThread()) return ZCM_EINVALID;
 
-    std::cout << "[DEBUG] handle(): Acquiring dispOneMutex" << std::endl;
     unique_lock<mutex> lk(dispOneMutex);
-    std::cout << "[DEBUG] handle(): dispOneMutex acquired" << std::endl;
-    auto result = dispatchOneMessage(true) ? ZCM_EOK : ZCM_EAGAIN;
-    std::cout << "[DEBUG] handle(): Releasing dispOneMutex" << std::endl;
-    return result;
+    return dispatchOneMessage(true) ? ZCM_EOK : ZCM_EAGAIN;
 }
 
 int zcm_blocking_t::handle_nonblock()
 {
     if (!startRecvThread()) return ZCM_EINVALID;
 
-    std::cout << "[DEBUG] handle_nonblock(): Acquiring dispOneMutex" << std::endl;
     unique_lock<mutex> lk(dispOneMutex);
-    std::cout << "[DEBUG] handle_nonblock(): dispOneMutex acquired" << std::endl;
-    if (!recvQueue.hasMessage()) {
-        std::cout << "[DEBUG] handle_nonblock(): Releasing dispOneMutex (no message)" << std::endl;
-        return ZCM_EAGAIN;
-    }
-    auto result = dispatchOneMessage(true) ? ZCM_EOK : ZCM_EAGAIN;
-    std::cout << "[DEBUG] handle_nonblock(): Releasing dispOneMutex" << std::endl;
-    return result;
+    if (!recvQueue.hasMessage()) return ZCM_EAGAIN;
+    return dispatchOneMessage(true) ? ZCM_EOK : ZCM_EAGAIN;
 }
 
 void zcm_blocking_t::pause()
@@ -550,50 +539,36 @@ int zcm_blocking_t::flush(bool block)
     {
         sendQueue.disable();
 
-        std::cout << "[DEBUG] flush(): Attempting to acquire sendOneMutex" << std::endl;
         unique_lock<mutex> lk(sendOneMutex, defer_lock);
 
-        if (block) {
-            lk.lock();
-            std::cout << "[DEBUG] flush(): sendOneMutex acquired (blocking)" << std::endl;
-        } else if (!lk.try_lock()) {
-            std::cout << "[DEBUG] flush(): Failed to acquire sendOneMutex (non-blocking)" << std::endl;
+        if (block) lk.lock();
+        else if (!lk.try_lock()) {
             sendQueue.enable();
             sendPauseCond.notify_all();
             return ZCM_EAGAIN;
-        } else {
-            std::cout << "[DEBUG] flush(): sendOneMutex acquired (non-blocking)" << std::endl;
         }
 
         sendQueue.enable();
         n = sendQueue.numMessages();
         for (size_t i = 0; i < n; ++i) sendOneMessage(false);
-        std::cout << "[DEBUG] flush(): Releasing sendOneMutex" << std::endl;
     }
     sendPauseCond.notify_all();
 
     {
         recvQueue.disable();
 
-        std::cout << "[DEBUG] flush(): Attempting to acquire dispOneMutex" << std::endl;
         unique_lock<mutex> lk(dispOneMutex, defer_lock);
 
-        if (block) {
-            lk.lock();
-            std::cout << "[DEBUG] flush(): dispOneMutex acquired (blocking)" << std::endl;
-        } else if (!lk.try_lock()) {
-            std::cout << "[DEBUG] flush(): Failed to acquire dispOneMutex (non-blocking)" << std::endl;
+        if (block) lk.lock();
+        else if (!lk.try_lock()) {
             recvQueue.enable();
             hndlPauseCond.notify_all();
             return ZCM_EAGAIN;
-        } else {
-            std::cout << "[DEBUG] flush(): dispOneMutex acquired (non-blocking)" << std::endl;
         }
 
         recvQueue.enable();
         n = recvQueue.numMessages();
         for (size_t i = 0; i < n; ++i) dispatchOneMessage(false);
-        std::cout << "[DEBUG] flush(): Releasing dispOneMutex" << std::endl;
     }
     hndlPauseCond.notify_all();
 
@@ -606,21 +581,15 @@ int zcm_blocking_t::setQueueSize(uint32_t numMsgs, bool block)
 
         sendQueue.disable();
 
-        std::cout << "[DEBUG] setQueueSize(): Attempting to acquire sendOneMutex" << std::endl;
         unique_lock<mutex> lk(sendOneMutex, defer_lock);
 
-        if (block) {
-            lk.lock();
-            std::cout << "[DEBUG] setQueueSize(): sendOneMutex acquired (blocking)" << std::endl;
-        } else if (!lk.try_lock()) {
-            std::cout << "[DEBUG] setQueueSize(): Failed to acquire sendOneMutex (non-blocking)" << std::endl;
+        if (block) lk.lock();
+        else if (!lk.try_lock()) {
             sendQueue.enable();
             lk.unlock();
             unique_lock<mutex> lk2(sendStateMutex);
             sendPauseCond.notify_all();
             return ZCM_EAGAIN;
-        } else {
-            std::cout << "[DEBUG] setQueueSize(): sendOneMutex acquired (non-blocking)" << std::endl;
         }
 
         sendQueue.setCapacity(numMsgs);
@@ -628,28 +597,21 @@ int zcm_blocking_t::setQueueSize(uint32_t numMsgs, bool block)
         lk.unlock();
         unique_lock<mutex> lk2(sendStateMutex);
         sendPauseCond.notify_all();
-        std::cout << "[DEBUG] setQueueSize(): Releasing sendOneMutex" << std::endl;
     }
 
     if (recvQueue.getCapacity() != numMsgs) {
 
         recvQueue.disable();
 
-        std::cout << "[DEBUG] setQueueSize(): Attempting to acquire dispOneMutex" << std::endl;
         unique_lock<mutex> lk(dispOneMutex, defer_lock);
 
-        if (block) {
-            lk.lock();
-            std::cout << "[DEBUG] setQueueSize(): dispOneMutex acquired (blocking)" << std::endl;
-        } else if (!lk.try_lock()) {
-            std::cout << "[DEBUG] setQueueSize(): Failed to acquire dispOneMutex (non-blocking)" << std::endl;
+        if (block) lk.lock();
+        else if (!lk.try_lock()) {
             recvQueue.enable();
             lk.unlock();
             unique_lock<mutex> lk2(hndlStateMutex);
             hndlPauseCond.notify_all();
             return ZCM_EAGAIN;
-        } else {
-            std::cout << "[DEBUG] setQueueSize(): dispOneMutex acquired (non-blocking)" << std::endl;
         }
 
         recvQueue.setCapacity(numMsgs);
@@ -657,7 +619,6 @@ int zcm_blocking_t::setQueueSize(uint32_t numMsgs, bool block)
         lk.unlock();
         unique_lock<mutex> lk2(hndlStateMutex);
         hndlPauseCond.notify_all();
-        std::cout << "[DEBUG] setQueueSize(): Releasing dispOneMutex" << std::endl;
     }
 
     return ZCM_EOK;
@@ -682,11 +643,8 @@ void zcm_blocking_t::sendThreadFunc()
             });
             if (sendThreadState == THREAD_STATE_HALTING) break;
         }
-        std::cout << "[DEBUG] sendThreadFunc(): Acquiring sendOneMutex" << std::endl;
         unique_lock<mutex> lk(sendOneMutex);
-        std::cout << "[DEBUG] sendThreadFunc(): sendOneMutex acquired" << std::endl;
         sendOneMessage(true);
-        std::cout << "[DEBUG] sendThreadFunc(): Releasing sendOneMutex" << std::endl;
     }
 
     unique_lock<mutex> lk(sendStateMutex);
@@ -761,11 +719,8 @@ void zcm_blocking_t::hndlThreadFunc()
             });
             if (hndlThreadState == THREAD_STATE_HALTING) break;
         }
-        std::cout << "[DEBUG] hndlThreadFunc(): Acquiring dispOneMutex" << std::endl;
         unique_lock<mutex> lk(dispOneMutex);
-        std::cout << "[DEBUG] hndlThreadFunc(): dispOneMutex acquired" << std::endl;
         dispatchOneMessage(true);
-        std::cout << "[DEBUG] hndlThreadFunc(): Releasing dispOneMutex" << std::endl;
     }
 
     {

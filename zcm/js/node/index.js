@@ -224,9 +224,10 @@ function zcm_create(zcmtypes, zcmurl, http, socketIoOptions = {}) {
           data.channel,
           data.type,
           function (channel, msg) {
+            const safeMsg = Buffer.isBuffer(msg) ? Buffer.from(msg) : msg;
             socket.emit("server-to-client", {
               channel: channel,
-              msg: msg,
+              msg: safeMsg,
               subId: subId,
             });
           },
