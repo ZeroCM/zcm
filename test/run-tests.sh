@@ -60,6 +60,6 @@ echo "**********************************"
 pushd $THISDIR/node
 nvm use
 rm -rf node_modules
-npm i
+npm i --unsafe-perm
 node index.js
 echo "Success"
