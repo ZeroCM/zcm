@@ -67,28 +67,28 @@ function test(z, zcmtypes, doneCb) {
     z.publish(channel, msg);
 
     // Test z.flush() method
-    try {
-      z.flush();
-    } catch (err) {
-      console.error('z.flush() failed:', err);
-      if (subs) z.unsubscribe(subs, err => {
-        if (!err) return;
-        console.error("Failed to unsubscribe");
-      });
-      return doneCb('z.flush() failed: ' + err.message);
-    }
+    z.flush(err => {
+      if (err) {
+        console.error('z.flush() failed:', err);
+        if (subs) z.unsubscribe(subs, err => {
+          if (!err) return;
+          console.error("Failed to unsubscribe");
+        });
+        return doneCb('z.flush() failed: ' + err.message);
+      }
 
-    numMsgs--;
-    if (numMsgs > 0) {
-      setTimeout(publish, periodMs);
-    } else {
-      testCompleted = true;
-      if (subs) z.unsubscribe(subs, err => {
-        if (!err) return;
-        console.error("Failed to unsubscribe");
-      });
-      return doneCb(success === 'success' ? null : success);
-    }
+      numMsgs--;
+      if (numMsgs > 0) {
+        setTimeout(publish, periodMs);
+      } else {
+        testCompleted = true;
+        if (subs) z.unsubscribe(subs, err => {
+          if (!err) return;
+          console.error("Failed to unsubscribe");
+        });
+        return doneCb(success === 'success' ? null : success);
+      }
+    });
   }
   setTimeout(publish, 1000);
 }

@@ -178,7 +178,7 @@ function test(z, zcmtypes, doneCb) {
     if (numMsgs > 0) {
       setTimeout(publish, periodMs);
     } else {
-      if (subs) z.unsubscribe(subs, (err) => {
+      if (subs) z.unsubscribe(subs, err => {
         if (!err) return;
         console.error("Failed to unsubscribe");
       });
