@@ -4,7 +4,7 @@
 
 # ZCM: Zero Communications and Marshalling
 
-[![Build Status](https://github.com/ZeroCM/zcm/workflows/Build/badge.svg)](https://github.com/ZeroCM/zcm/actions)
+[![Build Status](https://github.com/ZeroCM/zcm/workflows/Build/badge.svg?branch=master)](https://github.com/ZeroCM/zcm/actions)
 
 ZCM is a micro-framework for message-passing and data-marshalling, designed originally
 for robotics systems where high-bandwidth and low-latency are critical and the variance in
