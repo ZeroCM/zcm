@@ -1,35 +1,16 @@
-#include <condition_variable>
-#include <map>
-#include <functional>
-#include <memory>
 #include <napi.h>
+
+#include <condition_variable>
+#include <iostream>
+#include <map>
+#include <memory>
 #include <string>
 #include <thread>
 #include <vector>
 
 #include <zcm/zcm.h>
 
-#include <iostream>
-
-class AsyncFn : public Napi::AsyncWorker
-{
-    std::function<int()> fn;
-    int ret;
-
-  public:
-    AsyncFn(Napi::Function& callback, std::function<int()> fn)
-        : Napi::AsyncWorker(callback), fn(fn) {}
-
-    void Execute() override
-    {
-        ret = fn();
-    }
-
-    void OnOK() override
-    {
-        Callback().Call({ Napi::Number::New(Env(), ret) });
-    }
-};
+#include "async_fn.hpp"
 
 class ZcmWrapper : public Napi::ObjectWrap<ZcmWrapper>
 {
@@ -269,15 +250,19 @@ Napi::Value ZcmWrapper::subscribe(const Napi::CallbackInfo& info)
         env, handle, "ZCM Subscription", 0, 1, [this](Napi::Env env) {}
     );
 
-    (new AsyncFn(callback, [this, subInfo](){
+    (new AsyncFn<int, decltype(next_sub_id)>(callback, [this, subInfo](){
         std::unique_lock<std::mutex> lk(zcmLk);
         subInfo->id      = next_sub_id_++;
         zcm_sub_t* sub = zcm_subscribe(zcm_, subInfo->channel.c_str(), messageHandler, subInfo);
-        if (!sub) return ZCM_EAGAIN;
+        if (!sub) {
+            --next_sub_id_;
+            delete subInfo;
+            return std::make_tuple(ZCM_EAGAIN, static_cast<uint32_t>(0));
+        }
         subInfo->sub = sub;
-        subscriptions_[subInfo->id] = subInfo;
         subInfo->initializationComplete = true;
-        return ZCM_EOK;
+        subscriptions_[subInfo->id] = subInfo;
+        return std::make_tuple(ZCM_EOK, subInfo->id);
     }))->Queue();
 
     return env.Undefined();
@@ -308,17 +293,17 @@ Napi::Value ZcmWrapper::unsubscribe(const Napi::CallbackInfo& info)
     uint32_t subId = info[0].As<Napi::Number>().Uint32Value();
     Napi::Function callback = info[1].As<Napi::Function>();
 
-    (new AsyncFn(callback, [this, subId]()->int{
+    (new AsyncFn<int>(callback, [this, subId](){
         std::unique_lock<std::mutex> lk(zcmLk);
         auto it = subscriptions_.find(subId);
-        if (it == subscriptions_.end())  return ZCM_EINVALID;
+        if (it == subscriptions_.end())  return std::make_tuple(ZCM_EINVALID);
         int ret = zcm_unsubscribe(zcm_, it->second->sub);
         if (ret == ZCM_EOK) {
             subscriptions_.erase(it);
             it->second->tsfn.Release();
             delete it->second;
         }
-        return ret;
+        return std::make_tuple(static_cast<enum zcm_return_codes>(ret));
     }))->Queue();
 
     return env.Undefined();
@@ -349,10 +334,10 @@ Napi::Value ZcmWrapper::stop(const Napi::CallbackInfo& info)
     }
 
     Napi::Function callback = info[0].As<Napi::Function>();
-    (new AsyncFn(callback, [this](){
+    (new AsyncFn<int>(callback, [this](){
         std::unique_lock<std::mutex> lk(zcmLk);
         zcm_stop(zcm_);
-        return ZCM_EOK;
+        return std::make_tuple(ZCM_EOK);
     }))->Queue();
 
     return env.Undefined();
@@ -375,10 +360,10 @@ Napi::Value ZcmWrapper::flush(const Napi::CallbackInfo& info)
     }
 
     Napi::Function callback = info[0].As<Napi::Function>();
-    (new AsyncFn(callback, [this](){
+    (new AsyncFn<int>(callback, [this](){
         std::unique_lock<std::mutex> lk(zcmLk);
         zcm_flush(zcm_);
-        return ZCM_EOK;
+        return std::make_tuple(ZCM_EOK);
     }))->Queue();
 
     return env.Undefined();
@@ -401,10 +386,10 @@ Napi::Value ZcmWrapper::pause(const Napi::CallbackInfo& info)
     }
 
     Napi::Function callback = info[0].As<Napi::Function>();
-    (new AsyncFn(callback, [this](){
+    (new AsyncFn<int>(callback, [this](){
         std::unique_lock<std::mutex> lk(zcmLk);
         zcm_pause(zcm_);
-        return ZCM_EOK;
+        return std::make_tuple(ZCM_EOK);
     }))->Queue();
 
     return env.Undefined();
@@ -427,10 +412,10 @@ Napi::Value ZcmWrapper::resume(const Napi::CallbackInfo& info)
     }
 
     Napi::Function callback = info[0].As<Napi::Function>();
-    (new AsyncFn(callback, [this](){
+    (new AsyncFn<int>(callback, [this](){
         std::unique_lock<std::mutex> lk(zcmLk);
         zcm_resume(zcm_);
-        return ZCM_EOK;
+        return std::make_tuple(ZCM_EOK);
     }))->Queue();
 
     return env.Undefined();
@@ -461,10 +446,10 @@ Napi::Value ZcmWrapper::setQueueSize(const Napi::CallbackInfo& info)
     Napi::Function callback = info[0].As<Napi::Function>();
     uint32_t size = info[0].As<Napi::Number>().Uint32Value();
 
-    (new AsyncFn(callback, [this, size](){
+    (new AsyncFn<int>(callback, [this, size](){
         std::unique_lock<std::mutex> lk(zcmLk);
         zcm_set_queue_size(zcm_, size);
-        return ZCM_EOK;
+        return std::make_tuple(ZCM_EOK);
     }))->Queue();
 
     return env.Undefined();
@@ -510,9 +495,9 @@ Napi::Value ZcmWrapper::destroy(const Napi::CallbackInfo& info)
 
     Napi::Function callback = info[0].As<Napi::Function>();
 
-    (new AsyncFn(callback, [this](){
+    (new AsyncFn<int>(callback, [this](){
         std::unique_lock<std::mutex> lk(zcmLk);
-        if (!zcm_) return ZCM_EOK;
+        if (!zcm_) return std::make_tuple(ZCM_EOK);
         zcm_destroy(zcm_);
         zcm_ = nullptr;
 
@@ -521,7 +506,7 @@ Napi::Value ZcmWrapper::destroy(const Napi::CallbackInfo& info)
             delete pair.second;
         }
         subscriptions_.clear();
-        return ZCM_EOK;
+        return std::make_tuple(ZCM_EOK);
     }))->Queue();
 
     return env.Undefined();

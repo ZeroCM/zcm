@@ -136,7 +136,7 @@ function zcm(zcmtypes, zcmurl) {
    * @param {fn(err)} successCb - callback for successful queue size change
    */
   zcm.prototype.setQueueSize = (...args) => {
-    parent.nativeZcm.trySetQueueSize(...args);
+    parent.nativeZcm.setQueueSize(...args);
   };
 
   /**
