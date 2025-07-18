@@ -5,7 +5,12 @@ if (!z) throw 'Failed to create ZCM';
 
 const tests = [require('./bitfield-test'), require('./example-test')].map(t => t(z, zcmtypes));
 
-Promise.all(tests).catch(err => {
-  console.error(err);
-  process.exit(1);
-});
+Promise.all(tests)
+  .then(() => {
+    console.log('All tests passed!');
+    process.exit(0);
+  })
+  .catch(err => {
+    console.error(err);
+    process.exit(1);
+  });

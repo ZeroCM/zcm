@@ -1,0 +1,6 @@
+# Build outputs
+build/
+*.node
+
+# Dependency directories
+node_modules/

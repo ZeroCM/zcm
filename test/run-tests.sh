@@ -13,10 +13,7 @@ THISDIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
 ROOTDIR=${THISDIR%/test}
 ####
 
-BLD=tests
-if [ $# -ne 0 ]; then
-    BLD=$BLD$1
-fi
+BLD="tests${1:-}"
 
 #### We want to exit with an error code if anything goes wrong
 set -o errtrace
@@ -41,7 +38,7 @@ echo "**********************************"
 $ROOTDIR/build/$BLD/test/runner
 echo "Success"
 
-if [ $# -ne 0 ]; then
+if [ -n "$1" ]; then
     echo "Skipping non c/c++ lanugage tests in sanitizer mode"
     exit 0
 fi

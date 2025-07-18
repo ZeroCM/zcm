@@ -1,13 +1,39 @@
 {
   "name": "zerocm",
-  "version": "1.1.5",
-  "description": "Bindings to Zero Communications and Marshalling",
+  "version": "1.2.0",
+  "description": "Native Node.js bindings for Zero Communications and Marshalling (ZCM) library",
+  "main": "index.js",
+  "author": "The ZCM Team",
+  "license": "LGPL-2.1",
+  "homepage": "http://www.zcm-project.org",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ZeroCM/zcm.git",
+    "directory": "zcm/js/node"
+  },
+  "bugs": {
+    "url": "https://github.com/ZeroCM/zcm/issues"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "files": [
+    "index.js",
+    "src/",
+    "binding.gyp",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "node-gyp rebuild",
+    "install": "node-gyp rebuild"
+  },
   "dependencies": {
-    "big-integer": "^1.6.25",
-    "ffi-napi": "^3.0.1",
-    "ref-array-napi": "^1.2.1",
-    "ref-napi": "^3.0.0",
-    "ref-struct-napi": "^1.1.1",
+    "big-integer": "^1.6.52",
+    "node-addon-api": "^7.0.0",
     "socket.io": "^1.5.1"
-  }
+  },
+  "devDependencies": {
+    "node-gyp": "^10.0.0"
+  },
+  "gypfile": true
 }

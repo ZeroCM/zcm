@@ -1,19 +1,23 @@
 var assert = require('assert');
-var bigint = require('big-integer');
 
 let channel = 'EXAMPLE';
-let numMsgs = 10;
-let periodMs = 100;
+let numMsgs = 100;
+let totalMsgs = 100;
+let currentMsg = 0;
+let periodMs = 0;
 
 function test(z, zcmtypes, doneCb) {
   let subs;
   let success;
+  let testCompleted = false;
+  let msgReceived = 0;
 
   z.subscribe(
     channel,
     zcmtypes.example_t,
     (channel, msg) => {
-      if (success) return;
+      msgReceived++;
+      if (success || testCompleted) return;
 
       if (msg.utime.toString() !== '10') success = 'Bad decode of utime';
       if (msg.position[0] !== 1) success = 'Bad decode of position[0]';
@@ -32,7 +36,8 @@ function test(z, zcmtypes, doneCb) {
 
       if (!success) success = 'success';
     },
-    sub => {
+    (err, sub) => {
+      if (err) throw "Failed to subscribe";
       subs = sub;
     }
   );
@@ -45,7 +50,8 @@ function test(z, zcmtypes, doneCb) {
   assert(zcmtypes.example_t.test_const_float === 1e-20);
   assert(zcmtypes.example_t.test_const_double === 12.1e200);
 
-  function publish() {
+  async function publish() {
+    currentMsg++;
     var msg = new zcmtypes.example_t();
 
     msg.utime = 10;
@@ -58,15 +64,18 @@ function test(z, zcmtypes, doneCb) {
 
     z.publish(channel, msg);
 
+    await z.flush().promise();
+
     numMsgs--;
     if (numMsgs > 0) {
       setTimeout(publish, periodMs);
     } else {
-      if (subs) z.unsubscribe(subs);
+      testCompleted = true;
+      if (subs) await z.unsubscribe(subs).promise();
       return doneCb(success === 'success' ? null : success);
     }
   }
-  publish();
+  setTimeout(publish, 1000);
 }
 
 module.exports = (z, zcmtypes) => {
