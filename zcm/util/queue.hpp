@@ -54,7 +54,7 @@ class Queue
         ZCM_ASSERT(newQueue);
 
         size_t newBack = 0;
-        while (hasMessage() && newBack < capacity) {
+        while (capacity != 0 && hasMessage() && newBack < capacity - 1) {
             uint8_t* msg = (uint8_t*) &top();
             std::uninitialized_copy_n(msg, sizeof(Element), newQueue + newBack * sizeof(Element));
             front = incIdx(front);

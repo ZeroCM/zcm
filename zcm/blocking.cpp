@@ -586,11 +586,17 @@ int zcm_blocking_t::setQueueSize(uint32_t numMsgs, bool block)
         if (block) lk.lock();
         else if (!lk.try_lock()) {
             sendQueue.enable();
+            lk.unlock();
+            unique_lock<mutex> lk2(sendStateMutex);
+            sendPauseCond.notify_all();
             return ZCM_EAGAIN;
         }
 
         sendQueue.setCapacity(numMsgs);
         sendQueue.enable();
+        lk.unlock();
+        unique_lock<mutex> lk2(sendStateMutex);
+        sendPauseCond.notify_all();
     }
 
     if (recvQueue.getCapacity() != numMsgs) {
@@ -602,11 +608,17 @@ int zcm_blocking_t::setQueueSize(uint32_t numMsgs, bool block)
         if (block) lk.lock();
         else if (!lk.try_lock()) {
             recvQueue.enable();
+            lk.unlock();
+            unique_lock<mutex> lk2(hndlStateMutex);
+            hndlPauseCond.notify_all();
             return ZCM_EAGAIN;
         }
 
         recvQueue.setCapacity(numMsgs);
         recvQueue.enable();
+        lk.unlock();
+        unique_lock<mutex> lk2(hndlStateMutex);
+        hndlPauseCond.notify_all();
     }
 
     return ZCM_EOK;
