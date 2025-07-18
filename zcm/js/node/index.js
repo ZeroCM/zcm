@@ -20,6 +20,30 @@ exports.ZCM_EMEMORY = zcmNative.ZCM_EMEMORY;
 exports.ZCM_EUNIMPL = zcmNative.ZCM_EUNIMPL;
 exports.ZCM_NUM_RETURN_CODES = zcmNative.ZCM_NUM_RETURN_CODES;
 
+function makePromiseApi(fn) {
+  return (...args) => {
+    if (typeof args[args.length - 1] !== "function")
+      throw new Error("Callback must be provided");
+    const cb = args.pop();
+    let promRes, promRej;
+    fn(...args, (err, ...resolveArgs) => {
+      if (cb) cb(err, ...resolveArgs);
+      if (promRes) {
+        if (err) rej(...resolveArgs);
+        else res(...resolveArgs);
+      }
+    });
+    return {
+      promise() {
+        return new Promise((res, rej) => {
+          promRes = res;
+          promRej = rej;
+        });
+      },
+    };
+  };
+}
+
 function zcm(zcmtypes, zcmurl) {
   const parent = this;
 
@@ -87,17 +111,19 @@ function zcm(zcmtypes, zcmurl) {
    * @param {subscriptionRef} subscription - ref to the subscription to be unsubscribed from
    * @param {fn(err)} successCb - callback for successful unsubscription
    */
-  zcm.prototype.unsubscribe = (...args) => {
+  function _unsubscribe(...args) {
     parent.nativeZcm.unsubscribe(...args);
-  };
+  }
+  zcm.prototype.unsubscribe = makePromiseApi(_unsubscribe);
 
   /**
    * Forces all incoming and outgoing messages to be flushed to their handlers / to the transport.
    * @param {fn(err)} doneCb - callback for successful flush
    */
-  zcm.prototype.flush = (...args) => {
+  function _flush(...args) {
     parent.nativeZcm.flush(...args);
-  };
+  }
+  zcm.prototype.flush = makePromiseApi(_flush);
 
   /**
    * Starts the zcm internal threads. Called by default on creation
@@ -110,34 +136,38 @@ function zcm(zcmtypes, zcmurl) {
    * Stops the zcm internal threads.
    * @param {fn(err)} successCb - callback for successful stop
    */
-  zcm.prototype.stop = (...args) => {
+  function _stop(...args) {
     parent.nativeZcm.stop(...args);
-  };
+  }
+  zcm.prototype.stop = makePromiseApi(_stop);
 
   /**
    * Pauses transport publishing and message dispatch
    * @param {fn(err)} successCb - callback for successful pause
    */
-  zcm.prototype.pause = (...args) => {
+  function _pause(...args) {
     parent.nativeZcm.pause(...args);
-  };
+  }
+  zcm.prototype.pause = makePromiseApi(_pause);
 
   /**
    * Resumes transport publishing and message dispatch
    * @param {fn(err)} successCb - callback for successful resume
    */
-  zcm.prototype.resume = (...args) => {
+  function _resume(...args) {
     parent.nativeZcm.resume(...args);
-  };
+  }
+  zcm.prototype.resume = makePromiseApi(_resume);
 
   /**
    * Sets the recv and send queue sizes within zcm
    * @param {number} size - queue size
    * @param {fn(err)} successCb - callback for successful queue size change
    */
-  zcm.prototype.setQueueSize = (...args) => {
+  function _setQueueSize(...args) {
     parent.nativeZcm.setQueueSize(...args);
-  };
+  }
+  zcm.prototype.setQueueSize = makePromiseApi(_setQueueSize);
 
   /**
    * Writes the topology index file showing what channels were published and received
@@ -147,13 +177,14 @@ function zcm(zcmtypes, zcmurl) {
     return parent.nativeZcm.writeTopology(name);
   };
 
-  zcm.prototype.destroy = function (cb) {
+  function _destroy(cb) {
     if (!parent.nativeZcm) {
       if (cb) cb();
       return;
     }
-    parent.nativeZcm.destroy(cb);
-  };
+    return parent.nativeZcm.destroy(cb);
+  }
+  zcm.prototype.destroy = makePromiseApi(_destroy);
 
   parent.start();
 }
@@ -184,7 +215,7 @@ function zcm_create(zcmtypes, zcmurl, http, socketIoOptions = {}) {
               subId: subId,
             });
           },
-          function successCb(subscription) {
+          function successCb(err, subscription) {
             subscriptions[subId] = subscription;
             if (cb) cb(subId);
           },
