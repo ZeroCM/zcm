@@ -228,11 +228,11 @@ function bitfieldExample() {
 }
 
 basicExample();
-// recursiveExample();
-// multidimExample();
-// packageExample();
-// encodeExample();
-// bitfieldExample();
+recursiveExample();
+multidimExample();
+packageExample();
+encodeExample();
+bitfieldExample();
 
 // Intentionally not saving the subscription here to make sure we don't
 // segfault due to not tracking the subscription in user-space

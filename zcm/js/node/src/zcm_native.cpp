@@ -1,5 +1,6 @@
 #include <condition_variable>
 #include <map>
+#include <functional>
 #include <memory>
 #include <napi.h>
 #include <string>
@@ -9,6 +10,26 @@
 #include <zcm/zcm.h>
 
 #include <iostream>
+
+class AsyncFn : public Napi::AsyncWorker
+{
+    std::function<int()> fn;
+    int ret;
+
+  public:
+    AsyncFn(Napi::Function& callback, std::function<int()> fn)
+        : Napi::AsyncWorker(callback), fn(fn) {}
+
+    void Execute() override
+    {
+        ret = fn();
+    }
+
+    void OnOK() override
+    {
+        Callback().Call({ Napi::Number::New(Env(), ret) });
+    }
+};
 
 class ZcmWrapper : public Napi::ObjectWrap<ZcmWrapper>
 {
@@ -22,38 +43,37 @@ class ZcmWrapper : public Napi::ObjectWrap<ZcmWrapper>
 
     // ZCM instance
     zcm_t* zcm_ = nullptr;
+    std::mutex zcmLk;
 
     // Subscription management
     struct SubscriptionInfo
     {
+        bool                     initializationComplete;
         ZcmWrapper*              me;
         uint32_t                 id;
         std::string              channel;
         Napi::ThreadSafeFunction tsfn;
-        Napi::FunctionReference  callback;
         zcm_sub_t*               sub;
     };
     std::mutex              callback_mutex;
     std::condition_variable callback_cv;
     bool                    callback_completed = false;
-    std::thread::id         flush_thread_id {};
-    Napi::Env               flush_env;
 
     std::map<uint32_t, SubscriptionInfo*> subscriptions_;
     uint32_t                              next_sub_id_;
 
     // Methods
     Napi::Value publish(const Napi::CallbackInfo& info);
-    Napi::Value trySubscribe(const Napi::CallbackInfo& info);
-    Napi::Value tryUnsubscribe(const Napi::CallbackInfo& info);
+    Napi::Value subscribe(const Napi::CallbackInfo& info);
+    Napi::Value unsubscribe(const Napi::CallbackInfo& info);
     Napi::Value start(const Napi::CallbackInfo& info);
-    Napi::Value tryStop(const Napi::CallbackInfo& info);
-    Napi::Value tryFlush(const Napi::CallbackInfo& info);
+    Napi::Value stop(const Napi::CallbackInfo& info);
+    Napi::Value flush(const Napi::CallbackInfo& info);
     Napi::Value pause(const Napi::CallbackInfo& info);
     Napi::Value resume(const Napi::CallbackInfo& info);
-    Napi::Value trySetQueueSize(const Napi::CallbackInfo& info);
+    Napi::Value setQueueSize(const Napi::CallbackInfo& info);
     Napi::Value writeTopology(const Napi::CallbackInfo& info);
-    Napi::Value tryDestroy(const Napi::CallbackInfo& info);
+    Napi::Value destroy(const Napi::CallbackInfo& info);
 
     // Static callback for ZCM
     static void messageHandler(const zcm_recv_buf_t* rbuf, const char* channel,
@@ -71,16 +91,16 @@ Napi::Object ZcmWrapper::Init(Napi::Env env, Napi::Object exports)
         DefineClass(env, "ZcmNative",
                     {
                         InstanceMethod("publish", &ZcmWrapper::publish),
-                        InstanceMethod("trySubscribe", &ZcmWrapper::trySubscribe),
-                        InstanceMethod("tryUnsubscribe", &ZcmWrapper::tryUnsubscribe),
+                        InstanceMethod("subscribe", &ZcmWrapper::subscribe),
+                        InstanceMethod("unsubscribe", &ZcmWrapper::unsubscribe),
                         InstanceMethod("start", &ZcmWrapper::start),
-                        InstanceMethod("tryStop", &ZcmWrapper::tryStop),
-                        InstanceMethod("tryFlush", &ZcmWrapper::tryFlush),
+                        InstanceMethod("stop", &ZcmWrapper::stop),
+                        InstanceMethod("flush", &ZcmWrapper::flush),
                         InstanceMethod("pause", &ZcmWrapper::pause),
                         InstanceMethod("resume", &ZcmWrapper::resume),
-                        InstanceMethod("trySetQueueSize", &ZcmWrapper::trySetQueueSize),
+                        InstanceMethod("setQueueSize", &ZcmWrapper::setQueueSize),
                         InstanceMethod("writeTopology", &ZcmWrapper::writeTopology),
-                        InstanceMethod("tryDestroy", &ZcmWrapper::tryDestroy),
+                        InstanceMethod("destroy", &ZcmWrapper::destroy),
                     });
 
     constructor = Napi::Persistent(func);
@@ -91,8 +111,7 @@ Napi::Object ZcmWrapper::Init(Napi::Env env, Napi::Object exports)
 }
 
 ZcmWrapper::ZcmWrapper(const Napi::CallbackInfo& info)
-    : Napi::ObjectWrap<ZcmWrapper>(info),
-      flush_env(info.Env())
+    : Napi::ObjectWrap<ZcmWrapper>(info)
 {
     Napi::Env         env = info.Env();
     Napi::HandleScope scope(env);
@@ -121,22 +140,21 @@ ZcmWrapper::ZcmWrapper(const Napi::CallbackInfo& info)
     next_sub_id_ = 0;
 }
 
+// RRR What's the difference between this and destroy()
 ZcmWrapper::~ZcmWrapper()
 {
     if (!zcm_) return;
-
-    // Clean up subscriptions
-    for (auto& pair : subscriptions_) {
-        zcm_try_unsubscribe(zcm_, pair.second->sub);
-        pair.second->tsfn.Release();
-        pair.second->callback.Reset();
-    }
-    subscriptions_.clear();
-
     zcm_destroy(zcm_);
     zcm_ = nullptr;
+
+    for (auto& pair : subscriptions_) {
+        pair.second->tsfn.Release();
+        delete pair.second;
+    }
+    subscriptions_.clear();
 }
 
+// RRR Should we make this async too?
 Napi::Value ZcmWrapper::publish(const Napi::CallbackInfo& info)
 {
     Napi::Env env = info.Env();
@@ -144,18 +162,18 @@ Napi::Value ZcmWrapper::publish(const Napi::CallbackInfo& info)
     if (info.Length() < 2) {
         Napi::TypeError::New(env, "Expected channel and data arguments")
             .ThrowAsJavaScriptException();
-        return env.Null();
+        return env.Undefined();
     }
 
     if (!info[0].IsString()) {
         Napi::TypeError::New(env, "Channel must be a string")
             .ThrowAsJavaScriptException();
-        return env.Null();
+        return env.Undefined();
     }
 
     if (!info[1].IsBuffer()) {
         Napi::TypeError::New(env, "Data must be a buffer").ThrowAsJavaScriptException();
-        return env.Null();
+        return env.Undefined();
     }
 
     std::string           channel = info[0].As<Napi::String>().Utf8Value();
@@ -173,26 +191,6 @@ void ZcmWrapper::messageHandler(const zcm_recv_buf_t* rbuf, const char* channel,
 {
     SubscriptionInfo* subInfo = static_cast<SubscriptionInfo*>(usr);
 
-    if (subInfo->me->flush_thread_id == std::this_thread::get_id()) {
-        Napi::Env env = subInfo->me->flush_env;
-        Napi::String          jsChannel = Napi::String::New(env, channel);
-        Napi::Buffer<uint8_t> jsData =
-            Napi::Buffer<uint8_t>::New(env, rbuf->data, rbuf->data_size, emptyFinalizer);
-
-        subInfo->callback.Call(env.Global(), { jsChannel, jsData });
-
-        if (env.IsExceptionPending()) {
-            Napi::Error err = env.GetAndClearPendingException();
-            std::cerr << err.Get("stack").ToString().Utf8Value() << std::endl;
-        }
-
-        Napi::Uint8Array  u8a = jsData.As<Napi::Uint8Array>();
-        Napi::ArrayBuffer ab  = u8a.ArrayBuffer();
-        napi_status       st  = napi_detach_arraybuffer(env, ab);
-        assert(st == napi_ok);
-        return;
-    }
-
     subInfo->tsfn.BlockingCall([&](Napi::Env env, Napi::Function jsCallback) {
         Napi::String          jsChannel = Napi::String::New(env, channel);
         Napi::Buffer<uint8_t> jsData =
@@ -205,6 +203,7 @@ void ZcmWrapper::messageHandler(const zcm_recv_buf_t* rbuf, const char* channel,
             std::cerr << err.Get("stack").ToString().Utf8Value() << std::endl;
         }
 
+        // RRR Detach the channel string too
         Napi::Uint8Array  u8a = jsData.As<Napi::Uint8Array>();
         Napi::ArrayBuffer ab  = u8a.ArrayBuffer();
         napi_status       st  = napi_detach_arraybuffer(env, ab);
@@ -222,110 +221,110 @@ void ZcmWrapper::messageHandler(const zcm_recv_buf_t* rbuf, const char* channel,
     subInfo->me->callback_completed = false;
 }
 
-Napi::Value ZcmWrapper::trySubscribe(const Napi::CallbackInfo& info)
+// RRR Change this one to async
+Napi::Value ZcmWrapper::subscribe(const Napi::CallbackInfo& info)
+{
+    Napi::Env env = info.Env();
+
+    if (info.Length() < 3) {
+        Napi::TypeError::New(env, "Expected channel, callback, and success callback arguments")
+            .ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    if (!info[0].IsString()) {
+        Napi::TypeError::New(env, "Channel must be a string")
+            .ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    if (!info[1].IsFunction()) {
+        Napi::TypeError::New(env, "Callback must be a function")
+            .ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    if (!info[2].IsFunction()) {
+        Napi::TypeError::New(env, "Success callback must be a function")
+            .ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    std::string    channel  = info[0].As<Napi::String>().Utf8Value();
+    Napi::Function handle = info[1].As<Napi::Function>();
+    Napi::Function callback = info[2].As<Napi::Function>();
+
+    SubscriptionInfo* subInfo = new SubscriptionInfo();
+    if (!subInfo) {
+        Napi::Error::New(env, "Failed to allocate memory for subscription")
+            .ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+    subInfo->initializationComplete = false;
+    subInfo->me      = this;
+    subInfo->channel = channel;
+
+    // Create thread-safe function
+    subInfo->tsfn = Napi::ThreadSafeFunction::New(
+        env, handle, "ZCM Subscription", 0, 1, [this](Napi::Env env) {}
+    );
+
+    (new AsyncFn(callback, [this, subInfo](){
+        std::unique_lock<std::mutex> lk(zcmLk);
+        subInfo->id      = next_sub_id_++;
+        zcm_sub_t* sub = zcm_subscribe(zcm_, subInfo->channel.c_str(), messageHandler, subInfo);
+        if (!sub) return ZCM_EAGAIN;
+        subInfo->sub = sub;
+        subscriptions_[subInfo->id] = subInfo;
+        subInfo->initializationComplete = true;
+        return ZCM_EOK;
+    }))->Queue();
+
+    return env.Undefined();
+}
+
+Napi::Value ZcmWrapper::unsubscribe(const Napi::CallbackInfo& info)
 {
     Napi::Env env = info.Env();
 
     if (info.Length() < 2) {
         Napi::TypeError::New(env, "Expected channel and callback arguments")
             .ThrowAsJavaScriptException();
-        return env.Null();
-    }
-
-    if (!info[0].IsString()) {
-        Napi::TypeError::New(env, "Channel must be a string")
-            .ThrowAsJavaScriptException();
-        return env.Null();
-    }
-
-    if (!info[1].IsFunction()) {
-        Napi::TypeError::New(env, "Callback must be a function")
-            .ThrowAsJavaScriptException();
-        return env.Null();
-    }
-
-    std::string    channel  = info[0].As<Napi::String>().Utf8Value();
-    Napi::Function callback = info[1].As<Napi::Function>();
-
-    SubscriptionInfo* subInfo = new SubscriptionInfo();
-    if (!subInfo) {
-        Napi::Error::New(env, "Failed to allocate memory for subscription")
-            .ThrowAsJavaScriptException();
-        return env.Null();
-    }
-    // Create subscription info
-    uint32_t subId   = next_sub_id_++;
-    subInfo->me      = this;
-    subInfo->id      = subId;
-    subInfo->channel = channel;
-    subInfo->callback = Napi::Persistent(callback);
-    subInfo->callback.SuppressDestruct();
-
-    // Create thread-safe function
-    subInfo->tsfn = Napi::ThreadSafeFunction::New(
-        env, callback, "ZCM Subscription", 0, 1, [this, subId](Napi::Env env) {
-            // Warn about improper cleanup - subscription should have been explicitly
-            // unsubscribed
-            auto it = subscriptions_.find(subId);
-            if (it != subscriptions_.end()) {
-                Napi::Error::New(env, std::string("ZCM subscription ") +
-                                          it->second->channel +
-                                          " is being garbage collected without explicit "
-                                          "tryUnsubscribe() call. "
-                                          "This may cause resource leaks. Always call "
-                                          "tryUnsubscribe() before "
-                                          "releasing subscription references.")
-                    .ThrowAsJavaScriptException();
-            }
-        });
-
-    // Subscribe to ZCM
-    zcm_sub_t* sub = zcm_try_subscribe(zcm_, channel.c_str(), messageHandler, subInfo);
-
-    if (!sub) {
-        Napi::Error::New(env, "Failed to subscribe to channel")
-            .ThrowAsJavaScriptException();
-        return env.Null();
-    }
-
-    subInfo->sub          = sub;
-    subscriptions_[subId] = subInfo;
-
-    return Napi::Number::New(env, subId);
-}
-
-Napi::Value ZcmWrapper::tryUnsubscribe(const Napi::CallbackInfo& info)
-{
-    Napi::Env env = info.Env();
-
-    if (info.Length() < 1) {
-        Napi::TypeError::New(env, "Expected subscription ID argument")
-            .ThrowAsJavaScriptException();
-        return env.Null();
+        return env.Undefined();
     }
 
     if (!info[0].IsNumber()) {
         Napi::TypeError::New(env, "Subscription ID must be a number")
             .ThrowAsJavaScriptException();
-        return env.Null();
+        return env.Undefined();
+    }
+
+    if (!info[1].IsFunction()) {
+        Napi::TypeError::New(env, "Callback must be a function")
+            .ThrowAsJavaScriptException();
+        return env.Undefined();
     }
 
     uint32_t subId = info[0].As<Napi::Number>().Uint32Value();
+    Napi::Function callback = info[1].As<Napi::Function>();
 
-    auto it = subscriptions_.find(subId);
-    if (it == subscriptions_.end()) { return Napi::Number::New(env, ZCM_EINVALID); }
+    (new AsyncFn(callback, [this, subId]()->int{
+        std::unique_lock<std::mutex> lk(zcmLk);
+        auto it = subscriptions_.find(subId);
+        if (it == subscriptions_.end())  return ZCM_EINVALID;
+        int ret = zcm_unsubscribe(zcm_, it->second->sub);
+        if (ret == ZCM_EOK) {
+            subscriptions_.erase(it);
+            it->second->tsfn.Release();
+            delete it->second;
+        }
+        return ret;
+    }))->Queue();
 
-    int ret = zcm_try_unsubscribe(zcm_, it->second->sub);
-    if (ret == ZCM_EOK) {
-        subscriptions_.erase(it);
-        it->second->tsfn.Release();
-        it->second->callback.Reset();
-        delete it->second;
-    }
-
-    return Napi::Number::New(env, ret);
+    return env.Undefined();
 }
 
+// RRR Should we make this async too?
 Napi::Value ZcmWrapper::start(const Napi::CallbackInfo& info)
 {
     Napi::Env env = info.Env();
@@ -333,56 +332,142 @@ Napi::Value ZcmWrapper::start(const Napi::CallbackInfo& info)
     return env.Undefined();
 }
 
-Napi::Value ZcmWrapper::tryStop(const Napi::CallbackInfo& info)
+Napi::Value ZcmWrapper::stop(const Napi::CallbackInfo& info)
 {
     Napi::Env env = info.Env();
-    int       ret = zcm_try_stop(zcm_);
-    return Napi::Number::New(env, ret);
+
+    if (info.Length() < 1) {
+        Napi::TypeError::New(env, "Expected callback argument")
+            .ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    if (!info[0].IsFunction()) {
+        Napi::TypeError::New(env, "Callback must be a function")
+            .ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    Napi::Function callback = info[0].As<Napi::Function>();
+    (new AsyncFn(callback, [this](){
+        std::unique_lock<std::mutex> lk(zcmLk);
+        zcm_stop(zcm_);
+        return ZCM_EOK;
+    }))->Queue();
+
+    return env.Undefined();
 }
 
-Napi::Value ZcmWrapper::tryFlush(const Napi::CallbackInfo& info)
+Napi::Value ZcmWrapper::flush(const Napi::CallbackInfo& info)
 {
-    flush_thread_id = std::this_thread::get_id();
     Napi::Env env = info.Env();
-    flush_env = env;
-    int       ret = zcm_try_flush(zcm_);
-    return Napi::Number::New(env, ret);
+
+    if (info.Length() < 1) {
+        Napi::TypeError::New(env, "Expected callback argument")
+            .ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    if (!info[0].IsFunction()) {
+        Napi::TypeError::New(env, "Callback must be a function")
+            .ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    Napi::Function callback = info[0].As<Napi::Function>();
+    (new AsyncFn(callback, [this](){
+        std::unique_lock<std::mutex> lk(zcmLk);
+        zcm_flush(zcm_);
+        return ZCM_EOK;
+    }))->Queue();
+
+    return env.Undefined();
 }
 
 Napi::Value ZcmWrapper::pause(const Napi::CallbackInfo& info)
 {
     Napi::Env env = info.Env();
-    zcm_pause(zcm_);
+
+    if (info.Length() < 1) {
+        Napi::TypeError::New(env, "Expected callback argument")
+            .ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    if (!info[0].IsFunction()) {
+        Napi::TypeError::New(env, "Callback must be a function")
+            .ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    Napi::Function callback = info[0].As<Napi::Function>();
+    (new AsyncFn(callback, [this](){
+        std::unique_lock<std::mutex> lk(zcmLk);
+        zcm_pause(zcm_);
+        return ZCM_EOK;
+    }))->Queue();
+
     return env.Undefined();
 }
 
 Napi::Value ZcmWrapper::resume(const Napi::CallbackInfo& info)
 {
     Napi::Env env = info.Env();
-    zcm_resume(zcm_);
+
+    if (info.Length() < 1) {
+        Napi::TypeError::New(env, "Expected callback argument")
+            .ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    if (!info[0].IsFunction()) {
+        Napi::TypeError::New(env, "Callback must be a function")
+            .ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    Napi::Function callback = info[0].As<Napi::Function>();
+    (new AsyncFn(callback, [this](){
+        std::unique_lock<std::mutex> lk(zcmLk);
+        zcm_resume(zcm_);
+        return ZCM_EOK;
+    }))->Queue();
+
     return env.Undefined();
 }
 
-Napi::Value ZcmWrapper::trySetQueueSize(const Napi::CallbackInfo& info)
+Napi::Value ZcmWrapper::setQueueSize(const Napi::CallbackInfo& info)
 {
     Napi::Env env = info.Env();
 
-    if (info.Length() < 1) {
-        Napi::TypeError::New(env, "Expected queue size argument")
+    if (info.Length() < 2) {
+        Napi::TypeError::New(env, "Expected queue size and callback arguments")
             .ThrowAsJavaScriptException();
-        return env.Null();
+        return env.Undefined();
     }
 
     if (!info[0].IsNumber()) {
         Napi::TypeError::New(env, "Queue size must be a number")
             .ThrowAsJavaScriptException();
-        return env.Null();
+        return env.Undefined();
     }
 
-    uint32_t size = info[0].As<Napi::Number>().Uint32Value();
-    int      ret  = zcm_try_set_queue_size(zcm_, size);
+    if (!info[1].IsFunction()) {
+        Napi::TypeError::New(env, "Callback must be a function")
+            .ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
 
-    return Napi::Number::New(env, ret);
+    Napi::Function callback = info[0].As<Napi::Function>();
+    uint32_t size = info[0].As<Napi::Number>().Uint32Value();
+
+    (new AsyncFn(callback, [this, size](){
+        std::unique_lock<std::mutex> lk(zcmLk);
+        zcm_set_queue_size(zcm_, size);
+        return ZCM_EOK;
+    }))->Queue();
+
+    return env.Undefined();
 }
 
 Napi::Value ZcmWrapper::writeTopology(const Napi::CallbackInfo& info)
@@ -392,13 +477,13 @@ Napi::Value ZcmWrapper::writeTopology(const Napi::CallbackInfo& info)
     if (info.Length() < 1) {
         Napi::TypeError::New(env, "Expected filename argument")
             .ThrowAsJavaScriptException();
-        return env.Null();
+        return env.Undefined();
     }
 
     if (!info[0].IsString()) {
         Napi::TypeError::New(env, "Filename must be a string")
             .ThrowAsJavaScriptException();
-        return env.Null();
+        return env.Undefined();
     }
 
     std::string filename = info[0].As<Napi::String>().Utf8Value();
@@ -407,25 +492,39 @@ Napi::Value ZcmWrapper::writeTopology(const Napi::CallbackInfo& info)
     return Napi::Number::New(env, ret);
 }
 
-Napi::Value ZcmWrapper::tryDestroy(const Napi::CallbackInfo& info)
+Napi::Value ZcmWrapper::destroy(const Napi::CallbackInfo& info)
 {
     Napi::Env env = info.Env();
 
-    if (zcm_) {
+    if (info.Length() < 1) {
+        Napi::TypeError::New(env, "Expected callback argument")
+            .ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    if (!info[0].IsFunction()) {
+        Napi::TypeError::New(env, "Callback must be a function")
+            .ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    Napi::Function callback = info[0].As<Napi::Function>();
+
+    (new AsyncFn(callback, [this](){
+        std::unique_lock<std::mutex> lk(zcmLk);
+        if (!zcm_) return ZCM_EOK;
+        zcm_destroy(zcm_);
+        zcm_ = nullptr;
+
         for (auto& pair : subscriptions_) {
-            int ret = zcm_try_unsubscribe(zcm_, pair.second->sub);
-            if (ret != ZCM_EOK) return Napi::Number::New(env, ret);
             pair.second->tsfn.Release();
-            pair.second->callback.Reset();
             delete pair.second;
         }
         subscriptions_.clear();
+        return ZCM_EOK;
+    }))->Queue();
 
-        zcm_destroy(zcm_);
-        zcm_ = nullptr;
-    }
-
-    return Napi::Number::New(env, ZCM_EOK);
+    return env.Undefined();
 }
 
 // Module initialization

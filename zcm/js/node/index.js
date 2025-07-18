@@ -29,7 +29,6 @@ function zcm(zcmtypes, zcmurl) {
   } catch (error) {
     return null;
   }
-  parent.subscriptions = new Set();
   parent.zcmtypeHashMap = {};
 
   // Note: recursive to handle packages (which are set as objects in the zcmtypes exports)
@@ -62,7 +61,7 @@ function zcm(zcmtypes, zcmurl) {
    * @param {string} type - the zcmtype of messages on the channel (must be a generated
    *                        type from zcmtypes.js)
    * @param {fn(channel, decodedData || encodedData)} cb - callback to handle received messages
-   * @param {successCb} successCb - callback for successful subscription
+   * @param {fn(err, subscriptionRef)} successCb - callback for successful subscription
    */
   zcm.prototype.subscribe = function (channel, _type, cb, successCb) {
     if (!successCb)
@@ -80,105 +79,69 @@ function zcm(zcmtypes, zcmurl) {
         if (msg != null) cb(channel, msg);
       };
     }
-    const subscription = parent.nativeZcm.trySubscribe(channel, raw_cb);
-    parent.subscriptions.add(subscription);
-    successCb(subscription);
+    const subscription = parent.nativeZcm.subscribe(channel, raw_cb, successCb);
   };
 
   /**
    * Unsubscribes from the zcm channel referenced by the given subscription
    * @param {subscriptionRef} subscription - ref to the subscription to be unsubscribed from
-   * @param {successCb} successCb - callback for successful unsubscription
+   * @param {fn(err)} successCb - callback for successful unsubscription
    */
-  zcm.prototype.unsubscribe = function (sub, successCb) {
-    if (!parent.subscriptions.has(sub)) return;
-
-    setTimeout(function unsub() {
-      var ret = parent.nativeZcm.tryUnsubscribe(sub);
-      if (ret == exports.ZCM_EOK) {
-        parent.subscriptions.delete(sub);
-        if (successCb) successCb();
-      } else if (ret == exports.ZCM_EAGAIN) {
-        setTimeout(unsub, 0);
-      } else {
-        throw new Error("Unsubscribe failed with return code: " + ret);
-      }
-    }, 0);
+  zcm.prototype.unsubscribe = (...args) => {
+    parent.nativeZcm.unsubscribe(...args);
   };
 
   /**
    * Forces all incoming and outgoing messages to be flushed to their handlers / to the transport.
-   * @params {doneCb} doneCb - callback for successful flush
+   * @param {fn(err)} doneCb - callback for successful flush
    */
-  zcm.prototype.flush = function (doneCb) {
-    setTimeout(function f() {
-      var ret = parent.nativeZcm.tryFlush();
-      if (ret == exports.ZCM_EOK) {
-        if (doneCb) doneCb();
-      } else if (ret == exports.ZCM_EAGAIN) {
-        setTimeout(f, 0);
-      } else {
-        throw new Error("Flush failed with return code: " + ret);
-      }
-    }, 0);
+  zcm.prototype.flush = (...args) => {
+    parent.nativeZcm.flush(...args);
   };
 
   /**
    * Starts the zcm internal threads. Called by default on creation
    */
-  zcm.prototype.start = function () {
-    parent.nativeZcm.start();
+  zcm.prototype.start = (...args) => {
+    parent.nativeZcm.start(...args);
   };
 
   /**
    * Stops the zcm internal threads.
-   * @params {stoppedCb} stoppedCb - callback for successful stop
+   * @param {fn(err)} successCb - callback for successful stop
    */
-  zcm.prototype.stop = function (stoppedCb) {
-    setTimeout(function s() {
-      var ret = parent.nativeZcm.tryStop();
-      if (ret == exports.ZCM_EOK) {
-        if (stoppedCb) stoppedCb();
-      } else if (ret == exports.ZCM_EAGAIN) {
-        setTimeout(s, 0);
-      } else {
-        throw new Error("Stop failed with return code: " + ret);
-      }
-    }, 0);
+  zcm.prototype.stop = (...args) => {
+    parent.nativeZcm.stop(...args);
   };
 
   /**
    * Pauses transport publishing and message dispatch
+   * @param {fn(err)} successCb - callback for successful pause
    */
-  zcm.prototype.pause = function () {
-    parent.nativeZcm.pause();
+  zcm.prototype.pause = (...args) => {
+    parent.nativeZcm.pause(...args);
   };
 
   /**
    * Resumes transport publishing and message dispatch
+   * @param {fn(err)} successCb - callback for successful resume
    */
-  zcm.prototype.resume = function () {
-    parent.nativeZcm.resume();
+  zcm.prototype.resume = (...args) => {
+    parent.nativeZcm.resume(...args);
   };
 
   /**
    * Sets the recv and send queue sizes within zcm
+   * @param {number} size - queue size
+   * @param {fn(err)} successCb - callback for successful queue size change
    */
-  zcm.prototype.setQueueSize = function (sz, cb) {
-    setTimeout(function s() {
-      var ret = parent.nativeZcm.trySetQueueSize(sz);
-      if (ret == exports.ZCM_EOK) {
-        if (cb) cb();
-      } else if (ret == exports.ZCM_EAGAIN) {
-        setTimeout(s, 0);
-      } else {
-        throw new Error("Set queue size failed with return code: " + ret);
-      }
-    }, 0);
+  zcm.prototype.setQueueSize = (...args) => {
+    parent.nativeZcm.trySetQueueSize(...args);
   };
 
   /**
    * Writes the topology index file showing what channels were published and received
+   * @param {string} filename - path to file written on disk
    */
   zcm.prototype.writeTopology = function (name) {
     return parent.nativeZcm.writeTopology(name);
@@ -189,17 +152,7 @@ function zcm(zcmtypes, zcmurl) {
       if (cb) cb();
       return;
     }
-    setTimeout(function d() {
-      var ret = parent.nativeZcm.tryDestroy();
-      if (ret == exports.ZCM_EOK) {
-        parent.nativeZcm = null;
-        if (cb) cb();
-      } else if (ret == exports.ZCM_EAGAIN) {
-        setTimeout(d, 0);
-      } else {
-        throw new Error("Destroy failed with return code: " + ret);
-      }
-    }, 0);
+    parent.nativeZcm.destroy(cb);
   };
 
   parent.start();
@@ -218,7 +171,7 @@ function zcm_create(zcmtypes, zcmurl, http, socketIoOptions = {}) {
       socket.on("client-to-server", function (data) {
         ret.publish(data.channel, data.msg);
       });
-      socket.on("subscribe", function (data, returnSubscription) {
+      socket.on("subscribe", function (data, cb) {
         var subId = nextSub++;
         ret.subscribe(
           data.channel,
@@ -233,33 +186,31 @@ function zcm_create(zcmtypes, zcmurl, http, socketIoOptions = {}) {
           },
           function successCb(subscription) {
             subscriptions[subId] = subscription;
-            returnSubscription(subId);
+            if (cb) cb(subId);
           },
         );
       });
-      socket.on("unsubscribe", function (subId, successCb) {
+      socket.on("unsubscribe", function (subId, cb) {
         if (!(subId in subscriptions)) {
-          successCb();
+          if (cb) cb();
           return;
         }
         ret.unsubscribe(subscriptions[subId], function _successCb() {
           delete subscriptions[subId];
-          if (successCb) successCb();
+          if (cb) cb();
         });
       });
-      socket.on("flush", function (doneCb) {
-        ret.flush(doneCb);
+      socket.on("flush", function (cb) {
+        ret.flush(cb ? cb : (err) => {});
       });
       socket.on("pause", function (cb) {
-        ret.pause();
-        if (cb) cb();
+        ret.pause(cb ? cb : (err) => {});
       });
       socket.on("resume", function (cb) {
-        ret.resume();
-        if (cb) cb();
+        ret.resume(cb ? cb : (err) => {});
       });
       socket.on("setQueueSize", function (sz, cb) {
-        ret.setQueueSize(sz, cb);
+        ret.setQueueSize(sz, cb ? cb : (err) => {});
       });
       socket.on("disconnect", function () {
         for (var subId in subscriptions) {
