@@ -22,9 +22,7 @@ exports.ZCM_NUM_RETURN_CODES = zcmNative.ZCM_NUM_RETURN_CODES;
 
 function makePromiseApi(fn) {
   return (...args) => {
-    if (typeof args[args.length - 1] !== "function")
-      throw new Error("Callback must be provided");
-    const cb = args.pop();
+    const cb = typeof args[args.length - 1] === "function" ? args.pop() : null;
     let promRes, promRej;
     fn(...args, (err, ...resolveArgs) => {
       if (cb) cb(err, ...resolveArgs);
@@ -88,8 +86,6 @@ function zcm(zcmtypes, zcmurl) {
    * @param {fn(err, subscriptionRef)} successCb - callback for successful subscription
    */
   zcm.prototype.subscribe = function (channel, _type, cb, successCb) {
-    if (!successCb)
-      assert(false, "subscribe requires a success callback to be specified");
     var raw_cb = cb;
     if (_type) {
       // Note: this lookup is because the type that is given by a client doesn't have
@@ -103,7 +99,13 @@ function zcm(zcmtypes, zcmurl) {
         if (msg != null) cb(channel, msg);
       };
     }
-    const subscription = parent.nativeZcm.subscribe(channel, raw_cb, successCb);
+    parent.nativeZcm.subscribe(
+      channel,
+      raw_cb,
+      (...args) => {
+        if (successCb) successCb(...args);
+      }
+    );
   };
 
   /**
@@ -176,15 +178,6 @@ function zcm(zcmtypes, zcmurl) {
   zcm.prototype.writeTopology = function (name) {
     return parent.nativeZcm.writeTopology(name);
   };
-
-  function _destroy(cb) {
-    if (!parent.nativeZcm) {
-      if (cb) cb();
-      return;
-    }
-    return parent.nativeZcm.destroy(cb);
-  }
-  zcm.prototype.destroy = makePromiseApi(_destroy);
 
   parent.start();
 }

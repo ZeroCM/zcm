@@ -22,8 +22,6 @@ class ZcmWrapper : public Napi::ObjectWrap<ZcmWrapper>
   private:
     static Napi::FunctionReference constructor;
 
-    void cleanup();
-
     // ZCM instance
     zcm_t* zcm_ = nullptr;
     std::mutex zcmLk;
@@ -56,7 +54,6 @@ class ZcmWrapper : public Napi::ObjectWrap<ZcmWrapper>
     Napi::Value resume(const Napi::CallbackInfo& info);
     Napi::Value setQueueSize(const Napi::CallbackInfo& info);
     Napi::Value writeTopology(const Napi::CallbackInfo& info);
-    Napi::Value destroy(const Napi::CallbackInfo& info);
 
     // Static callback for ZCM
     static void messageHandler(const zcm_recv_buf_t* rbuf, const char* channel,
@@ -83,7 +80,6 @@ Napi::Object ZcmWrapper::Init(Napi::Env env, Napi::Object exports)
                         InstanceMethod("resume", &ZcmWrapper::resume),
                         InstanceMethod("setQueueSize", &ZcmWrapper::setQueueSize),
                         InstanceMethod("writeTopology", &ZcmWrapper::writeTopology),
-                        InstanceMethod("destroy", &ZcmWrapper::destroy),
                     });
 
     constructor = Napi::Persistent(func);
@@ -123,7 +119,7 @@ ZcmWrapper::ZcmWrapper(const Napi::CallbackInfo& info)
     next_sub_id_ = 0;
 }
 
-void ZcmWrapper::cleanup()
+ZcmWrapper::~ZcmWrapper()
 {
     std::unique_lock<std::mutex> lk(zcmLk);
     if (!zcm_) return;
@@ -135,11 +131,6 @@ void ZcmWrapper::cleanup()
         delete pair.second;
     }
     subscriptions_.clear();
-}
-
-ZcmWrapper::~ZcmWrapper()
-{
-    cleanup();
 }
 
 Napi::Value ZcmWrapper::publish(const Napi::CallbackInfo& info)
@@ -478,32 +469,6 @@ Napi::Value ZcmWrapper::writeTopology(const Napi::CallbackInfo& info)
     int         ret      = zcm_write_topology(zcm_, filename.c_str());
 
     return Napi::Number::New(env, ret);
-}
-
-Napi::Value ZcmWrapper::destroy(const Napi::CallbackInfo& info)
-{
-    Napi::Env env = info.Env();
-
-    if (info.Length() < 1) {
-        Napi::TypeError::New(env, "Expected callback argument")
-            .ThrowAsJavaScriptException();
-        return env.Undefined();
-    }
-
-    if (!info[0].IsFunction()) {
-        Napi::TypeError::New(env, "Callback must be a function")
-            .ThrowAsJavaScriptException();
-        return env.Undefined();
-    }
-
-    Napi::Function callback = info[0].As<Napi::Function>();
-
-    (new AsyncFn<int>(callback, [this](){
-        cleanup(); // gets lock internally
-        return std::make_tuple(ZCM_EOK);
-    }))->Queue();
-
-    return env.Undefined();
 }
 
 // Module initialization

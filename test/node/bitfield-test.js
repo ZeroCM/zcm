@@ -180,7 +180,7 @@ function test(z, zcmtypes, doneCb) {
     } else {
       if (subs) z.unsubscribe(subs, err => {
         if (!err) return;
-        console.error("Failed to unsubscribe");
+        throw "Failed to unsubscribe";
       });
       return doneCb(success === 'success' ? null : success);
     }

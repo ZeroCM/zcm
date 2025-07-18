@@ -17,7 +17,6 @@ function test(z, zcmtypes, doneCb) {
     zcmtypes.example_t,
     (channel, msg) => {
       msgReceived++;
-      console.log(`Received message ${msgReceived}`);
       if (success || testCompleted) return;
 
       if (msg.utime.toString() !== '10') success = 'Bad decode of utime';
@@ -51,9 +50,8 @@ function test(z, zcmtypes, doneCb) {
   assert(zcmtypes.example_t.test_const_float === 1e-20);
   assert(zcmtypes.example_t.test_const_double === 12.1e200);
 
-  function publish() {
+  async function publish() {
     currentMsg++;
-    console.log(`Publishing message ${currentMsg} of ${totalMsgs}`);
     var msg = new zcmtypes.example_t();
 
     msg.utime = 10;
@@ -66,29 +64,16 @@ function test(z, zcmtypes, doneCb) {
 
     z.publish(channel, msg);
 
-    // Test z.flush() method
-    z.flush(err => {
-      if (err) {
-        console.error('z.flush() failed:', err);
-        if (subs) z.unsubscribe(subs, err => {
-          if (!err) return;
-          console.error("Failed to unsubscribe");
-        });
-        return doneCb('z.flush() failed: ' + err.message);
-      }
+    await z.flush().promise();
 
-      numMsgs--;
-      if (numMsgs > 0) {
-        setTimeout(publish, periodMs);
-      } else {
-        testCompleted = true;
-        if (subs) z.unsubscribe(subs, err => {
-          if (!err) return;
-          console.error("Failed to unsubscribe");
-        });
-        return doneCb(success === 'success' ? null : success);
-      }
-    });
+    numMsgs--;
+    if (numMsgs > 0) {
+      setTimeout(publish, periodMs);
+    } else {
+      testCompleted = true;
+      if (subs) await z.unsubscribe(subs).promise();
+      return doneCb(success === 'success' ? null : success);
+    }
   }
   setTimeout(publish, 1000);
 }

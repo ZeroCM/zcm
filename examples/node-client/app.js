@@ -11,7 +11,7 @@ var z = zcm.create(zcmtypes, null, http);
 if (!z) throw "Failed to create ZCM";
 
 function basicExample() {
-  setInterval(function () {
+  setInterval(() => {
     var msg = new zcmtypes.example_t();
     msg.timestamp = 0;
     msg.position = [2, 4, 6];
@@ -29,7 +29,7 @@ function basicExample() {
 }
 
 function recursiveExample() {
-  setInterval(function () {
+  setInterval(() => {
     var msg = new zcmtypes.example_t();
     // Test both methods of accessing consts
     msg.timestamp = zcmtypes.example_t.test_const_32_max_hex;
@@ -51,7 +51,7 @@ function recursiveExample() {
 }
 
 function multidimExample() {
-  setInterval(function () {
+  setInterval(() => {
     var msg = new zcmtypes.multidim_t();
     msg.rows = 2;
     msg.jk = 2;
@@ -72,7 +72,7 @@ function multidimExample() {
 function packageExample() {
   var state = false;
   var t = 0;
-  setInterval(function () {
+  setInterval(() => {
     var msg = new zcmtypes.test_package.packaged_t();
     msg.packaged = state;
     msg.a.packaged = !state;
@@ -86,8 +86,6 @@ function packageExample() {
 }
 
 function encodeExample() {
-  var encSub;
-
   const chan = "ENCODED_EXAMPLE";
 
   const enc = new zcmtypes.example_t();
@@ -106,18 +104,15 @@ function encodeExample() {
   z.subscribe(
     chan,
     zcmtypes.encoded_t,
-    function (channel, msg) {
+    (channel, msg) => {
       const recEnc = zcmtypes.example_t.decode(msg.msg);
       console.log(
         "Encoded message received on channel " + channel + ": " + recEnc.name,
       );
     },
-    function successCb(_sub) {
-      encSub = _sub;
-    },
   );
 
-  setInterval(function () {
+  setInterval(() => {
     var msg = new zcmtypes.encoded_t();
     const buf = enc.encode();
     msg.n = buf.length;
@@ -183,7 +178,7 @@ function bitfieldExample() {
   assert(zcmtypes.bitfield_t.SIGN_TEST_44 == "9223372036854775807");
   assert(zcmtypes.bitfield_t.SIGN_TEST_45 == -1);
 
-  setInterval(function () {
+  setInterval(() => {
     var b = new zcmtypes.bitfield_t();
     b.field1 = 3;
     b.field2 = [
@@ -234,12 +229,10 @@ packageExample();
 encodeExample();
 bitfieldExample();
 
-// Intentionally not saving the subscription here to make sure we don't
-// segfault due to not tracking the subscription in user-space
 z.subscribe(
   "RECURSIVE_EXAMPLE",
   zcmtypes.recursive_t,
-  function (channel, msg) {
+  (channel, msg) => {
     console.log("Typed message received on channel " + channel);
     assert(
       "e" in msg &&
@@ -247,19 +240,20 @@ z.subscribe(
         msg.e.timestamp == zcmtypes.example_t.test_const_32_max_hex,
       "Wrong msg received",
     );
-  },
-  function successCb(_sub) {},
+  }
 );
 
 var typedSub2;
 z.subscribe(
   "PACKAGED",
   zcmtypes.test_package.packaged_t,
-  function (channel, msg) {
+  (channel, msg) => {
     console.log("Typed message received on channel " + channel);
   },
-  function successCb(_sub) {
+  (err, _sub) => {
+    if (err) throw err;
     typedSub2 = _sub;
+    // Can call z.unsubscribe(typedSub2, (err) => { console.log("Unsubscribed"); });
   },
 );
 
@@ -322,27 +316,16 @@ z.subscribe(
     if (msg.field34 != 0x7fffffffffffffff)
       console.log("Bad decode of field 34");
   },
-  () => {},
 );
 
-var sub;
 z.subscribe(
   ".*",
   null,
-  function (channel, msg) {
+  (channel, msg) => {
     console.log("Untyped message received on channel " + channel);
-  },
-  function successCb(_sub) {
-    sub = _sub;
   },
 );
 
-process.on("exit", function () {
-  if (sub) z.unsubscribe(sub);
-  if (typedSub2) z.unsubscribe(typedSub2);
-  z.destroy();
-});
-
-http.listen(3000, function () {
+http.listen(3000, () => {
   console.log("listening on *:3000");
 });
