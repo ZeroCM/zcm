@@ -22,6 +22,8 @@ class ZcmWrapper : public Napi::ObjectWrap<ZcmWrapper>
   private:
     static Napi::FunctionReference constructor;
 
+    void cleanup();
+
     // ZCM instance
     zcm_t* zcm_ = nullptr;
     std::mutex zcmLk;
@@ -121,9 +123,9 @@ ZcmWrapper::ZcmWrapper(const Napi::CallbackInfo& info)
     next_sub_id_ = 0;
 }
 
-// RRR What's the difference between this and destroy()
-ZcmWrapper::~ZcmWrapper()
+void ZcmWrapper::cleanup()
 {
+    std::unique_lock<std::mutex> lk(zcmLk);
     if (!zcm_) return;
     zcm_destroy(zcm_);
     zcm_ = nullptr;
@@ -133,6 +135,11 @@ ZcmWrapper::~ZcmWrapper()
         delete pair.second;
     }
     subscriptions_.clear();
+}
+
+ZcmWrapper::~ZcmWrapper()
+{
+    cleanup();
 }
 
 Napi::Value ZcmWrapper::publish(const Napi::CallbackInfo& info)
@@ -200,7 +207,6 @@ void ZcmWrapper::messageHandler(const zcm_recv_buf_t* rbuf, const char* channel,
     subInfo->me->callback_completed = false;
 }
 
-// RRR Change this one to async
 Napi::Value ZcmWrapper::subscribe(const Napi::CallbackInfo& info)
 {
     Napi::Env env = info.Env();
@@ -493,16 +499,7 @@ Napi::Value ZcmWrapper::destroy(const Napi::CallbackInfo& info)
     Napi::Function callback = info[0].As<Napi::Function>();
 
     (new AsyncFn<int>(callback, [this](){
-        std::unique_lock<std::mutex> lk(zcmLk);
-        if (!zcm_) return std::make_tuple(ZCM_EOK);
-        zcm_destroy(zcm_);
-        zcm_ = nullptr;
-
-        for (auto& pair : subscriptions_) {
-            pair.second->tsfn.Release();
-            delete pair.second;
-        }
-        subscriptions_.clear();
+        cleanup(); // gets lock internally
         return std::make_tuple(ZCM_EOK);
     }))->Queue();
 
