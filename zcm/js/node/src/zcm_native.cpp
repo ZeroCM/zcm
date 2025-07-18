@@ -250,7 +250,7 @@ Napi::Value ZcmWrapper::subscribe(const Napi::CallbackInfo& info)
         env, handle, "ZCM Subscription", 0, 1, [this](Napi::Env env) {}
     );
 
-    (new AsyncFn<int, decltype(next_sub_id)>(callback, [this, subInfo](){
+    (new AsyncFn<int, decltype(next_sub_id_)>(callback, [this, subInfo](){
         std::unique_lock<std::mutex> lk(zcmLk);
         subInfo->id      = next_sub_id_++;
         zcm_sub_t* sub = zcm_subscribe(zcm_, subInfo->channel.c_str(), messageHandler, subInfo);
