@@ -69,7 +69,8 @@ function test(z, zcmtypes, doneCb) {
 
       if (!success) success = 'success';
     },
-    sub => {
+    (err, sub) => {
+      if (err) throw "Failed to subscribe";
       subs = sub;
     }
   );
@@ -177,7 +178,10 @@ function test(z, zcmtypes, doneCb) {
     if (numMsgs > 0) {
       setTimeout(publish, periodMs);
     } else {
-      if (subs) z.unsubscribe(subs);
+      if (subs) z.unsubscribe(subs, (err) => {
+        if (!err) return;
+        console.error("Failed to unsubscribe");
+      });
       return doneCb(success === 'success' ? null : success);
     }
   }

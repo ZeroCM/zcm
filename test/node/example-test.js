@@ -1,5 +1,4 @@
 var assert = require('assert');
-var bigint = require('big-integer');
 
 let channel = 'EXAMPLE';
 let numMsgs = 100;
@@ -38,7 +37,8 @@ function test(z, zcmtypes, doneCb) {
 
       if (!success) success = 'success';
     },
-    sub => {
+    (err, sub) => {
+      if (err) throw "Failed to subscribe";
       subs = sub;
     }
   );
@@ -71,7 +71,10 @@ function test(z, zcmtypes, doneCb) {
       z.flush();
     } catch (err) {
       console.error('z.flush() failed:', err);
-      if (subs) z.unsubscribe(subs);
+      if (subs) z.unsubscribe(subs, err => {
+        if (!err) return;
+        console.error("Failed to unsubscribe");
+      });
       return doneCb('z.flush() failed: ' + err.message);
     }
 
@@ -80,7 +83,10 @@ function test(z, zcmtypes, doneCb) {
       setTimeout(publish, periodMs);
     } else {
       testCompleted = true;
-      if (subs) z.unsubscribe(subs);
+      if (subs) z.unsubscribe(subs, err => {
+        if (!err) return;
+        console.error("Failed to unsubscribe");
+      });
       return doneCb(success === 'success' ? null : success);
     }
   }
