@@ -27,8 +27,8 @@ function makePromiseApi(fn) {
     fn(...args, (err, ...resolveArgs) => {
       if (cb) cb(err, ...resolveArgs);
       if (promRes) {
-        if (err) rej(...resolveArgs);
-        else res(...resolveArgs);
+        if (err) promRej(...resolveArgs);
+        else promRes(...resolveArgs);
       }
     });
     return {
