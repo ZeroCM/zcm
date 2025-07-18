@@ -135,7 +135,6 @@ ZcmWrapper::~ZcmWrapper()
     subscriptions_.clear();
 }
 
-// RRR Should we make this async too?
 Napi::Value ZcmWrapper::publish(const Napi::CallbackInfo& info)
 {
     Napi::Env env = info.Env();
@@ -184,7 +183,6 @@ void ZcmWrapper::messageHandler(const zcm_recv_buf_t* rbuf, const char* channel,
             std::cerr << err.Get("stack").ToString().Utf8Value() << std::endl;
         }
 
-        // RRR Detach the channel string too
         Napi::Uint8Array  u8a = jsData.As<Napi::Uint8Array>();
         Napi::ArrayBuffer ab  = u8a.ArrayBuffer();
         napi_status       st  = napi_detach_arraybuffer(env, ab);
@@ -250,7 +248,7 @@ Napi::Value ZcmWrapper::subscribe(const Napi::CallbackInfo& info)
         env, handle, "ZCM Subscription", 0, 1, [this](Napi::Env env) {}
     );
 
-    (new AsyncFn<int, decltype(next_sub_id_)>(callback, [this, subInfo](){
+    (new AsyncFn<int, uint32_t>(callback, [this, subInfo](){
         std::unique_lock<std::mutex> lk(zcmLk);
         subInfo->id      = next_sub_id_++;
         zcm_sub_t* sub = zcm_subscribe(zcm_, subInfo->channel.c_str(), messageHandler, subInfo);
@@ -309,7 +307,6 @@ Napi::Value ZcmWrapper::unsubscribe(const Napi::CallbackInfo& info)
     return env.Undefined();
 }
 
-// RRR Should we make this async too?
 Napi::Value ZcmWrapper::start(const Napi::CallbackInfo& info)
 {
     Napi::Env env = info.Env();
@@ -443,8 +440,8 @@ Napi::Value ZcmWrapper::setQueueSize(const Napi::CallbackInfo& info)
         return env.Undefined();
     }
 
-    Napi::Function callback = info[0].As<Napi::Function>();
     uint32_t size = info[0].As<Napi::Number>().Uint32Value();
+    Napi::Function callback = info[1].As<Napi::Function>();
 
     (new AsyncFn<int>(callback, [this, size](){
         std::unique_lock<std::mutex> lk(zcmLk);
