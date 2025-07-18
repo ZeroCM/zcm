@@ -8,11 +8,9 @@ const tests = [require('./bitfield-test'), require('./example-test')].map(t => t
 Promise.all(tests)
   .then(() => {
     console.log('All tests passed!');
-    z.destroy();
     process.exit(0);
   })
   .catch(err => {
     console.error(err);
-    z.destroy();
     process.exit(1);
   });
