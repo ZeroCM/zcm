@@ -104,10 +104,11 @@ function zcm(zcmtypes, zcmurl) {
       (...args) => {
         try {
           raw_cb(...args);
-        } catch (err) {
-          setImmediate(() => {
-            throw err;
-          }, 0);
+        } catch (e) {
+          const subscriptionHandleError = e instanceof Error ? e : new Error(String(e));
+          process.nextTick(() => {
+            throw subscriptionHandleError;
+          });
         }
       },
       (...args) => {
