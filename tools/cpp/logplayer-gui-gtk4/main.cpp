@@ -22,14 +22,11 @@ using namespace std;
 
 static atomic_int done {0};
 
-#if GTK_MINOR_VERSION < (22)
-static void gtk_menu_popup_at_pointer(GtkMenu *menu, GdkEvent *event)
-{
-    assert(event->type == GDK_BUTTON_PRESS);
-    GdkEventButton *bevent = (GdkEventButton *) event;
-    gtk_menu_popup(menu, NULL, NULL, NULL, NULL, bevent->button, bevent->time);
+// Helper function for string operations
+static bool startsWith(const string& str, const string& prefix) {
+    return str.length() >= prefix.length() && 
+           str.substr(0, prefix.length()) == prefix;
 }
-#endif
 
 static double mathMap(double a, double inMin, double inMax, double outMin, double outMax)
 {
@@ -125,6 +122,12 @@ struct LogPlayer
     GtkWidget *btnToggle;
     GtkWidget *txtPrefix;
 
+    // Event controllers
+    GtkEventController *keyController;
+    GtkGestureClick *logNameClickGesture;
+    GtkGestureClick *macroScrubClickGesture;
+    GtkGestureClick *microScrubClickGesture;
+
     uint64_t totalTimeUs;
     uint64_t firstMsgUtime;
 
@@ -205,109 +208,115 @@ struct LogPlayer
 
     ~LogPlayer()
     {
-        if (zcmIn)  { delete zcmIn;  }
-        if (zcmOut) { delete zcmOut; }
+        if (zcmIn) delete zcmIn;
+        if (zcmOut) delete zcmOut;
     }
 
     void loadPreferences()
     {
-        string jlpPath = args.filename + ".jlp";
-
-        fstream jlpFile;
-        jlpFile.open(jlpPath.c_str(), ios::in);
-        if (!jlpFile.is_open()) return; // no jlp file is fine
+        ifstream f(".zcm-logplayer-gui");
+        if (!f.good()) return;
 
         string line;
-        while (getline(jlpFile, line)) {
-            auto toks = StringUtil::split(line, ' ');
-            if (toks.size() < 1) continue;
-            if (toks[0] == "BOOKMARK") {
-                if (toks.size() < 3) continue;
+        while (getline(f, line)) {
+            if (line.size() == 0) continue;
+            if (line[0] == '#') continue;
+
+            if (startsWith(line, "bookmark ")) {
+                vector<string> toks = StringUtil::split(line, ' ');
+                if (toks.size() != 3) continue;
                 BookmarkType type = bookmarkTypeFromSting(toks[1]);
                 if (type == BookmarkType::NUM_BOOKMARK_TYPES) continue;
-                char *endptr;
-                double logTimePerc = std::strtod(toks[2].c_str(), &endptr);
-                if (endptr == toks[2].c_str()) continue;
-                addBookmark(type, logTimePerc);
-            } else if (toks[0] == "CHANNEL") {
-                if (toks.size() < 4) continue;
-                channelMap[toks[1]].pubChannel = toks[2];
-                channelMap[toks[1]].enabled = string(toks[3]) == "true";
-            } else {
-                cerr << "Unsupported JLP directive: " << line << endl;
+                double logTimePerc = stod(toks[2]);
+                bookmarks.emplace_back(type, logTimePerc);
+            }
+
+            if (startsWith(line, "channel ")) {
+                vector<string> toks = StringUtil::split(line, ' ');
+                if (toks.size() != 4) continue;
+                string logChan = toks[1];
+                string pubChan = toks[2];
+                bool enabled = (toks[3] == "true");
+                ChannelInfo& ci = channelMap[logChan];
+                ci.pubChannel = pubChan;
+                ci.enabled = enabled;
             }
         }
-        jlpFile.close();
     }
 
     void savePreferences()
     {
-        string jlpPath = args.filename + ".jlp";
+        ofstream f(".zcm-logplayer-gui", ios::trunc);
+        if (!f.good()) {
+            cerr << "Unable to save preferences" << endl;
+            return;
+        }
 
-        ofstream jlpFile;
-        jlpFile.open(jlpPath.c_str(), ios::out);
-        if (!jlpFile.is_open()) return; // no jlp file is fine
+        f << "# Zcm Logplayer GUI preferences" << endl;
 
-        map<string, ChannelInfo> _channelMap;
         {
-            unique_lock<mutex> lk(zcmLk);
-            _channelMap = channelMap;
-        }
+            unique_lock<mutex> lk(windowLk);
+            for (const auto &b : bookmarks) {
+                f << "bookmark " << bookmarkTypeToSting(b.type) << " "
+                  << fixed << setprecision(10) << b.logTimePerc << endl;
+            }
 
-        for (const auto& b : bookmarks) {
-            jlpFile << "BOOKMARK "
-                    << bookmarkTypeToSting(b.type) << " "
-                    << std::setprecision(std::numeric_limits<long double>::digits10 + 1)
-                    << std::fixed << b.logTimePerc << endl;
+            for (const auto &p : channelMap) {
+                f << "channel " << p.first << " " << p.second.pubChannel
+                  << " " << (p.second.enabled ? "true" : "false") << endl;
+            }
         }
-
-        for (const auto& c : _channelMap) {
-            jlpFile << "CHANNEL "
-                    << c.first << " "
-                    << c.second.pubChannel << " "
-                    << (c.second.enabled ? "true" : "false") << endl;
-        }
-
-        jlpFile.close();
     }
 
     void wakeup()
     {
-        zcmCv.notify_all();
+        unique_lock<mutex> lk(redrawLk);
+        redrawNow = true;
         redrawCv.notify_all();
     }
 
     void addBookmark(BookmarkType type, double logTimePerc)
     {
+        unique_lock<mutex> lk(windowLk);
         bookmarks.emplace_back(type, logTimePerc);
-        {
-            unique_lock<mutex> lk(windowLk);
-            if (window) {
-                gtk_scale_add_mark(GTK_SCALE(sclMacroScrub),
-                                   bookmarks.back().logTimePerc, GTK_POS_TOP,
-                                   to_string(bookmarks.size() - 1).c_str());
-                bookmarks.back().addedToGui = true;
-            }
+        if (zcmIn && zcmIn->good()) {
+            size_t idx = bookmarks.size() - 1;
+            gtk_scale_add_mark(GTK_SCALE(sclMacroScrub),
+                               logTimePerc, GTK_POS_TOP,
+                               to_string(idx).c_str());
+            bookmarks[idx].addedToGui = true;
         }
     }
 
-    bool toggleChannelPublish(GtkTreeIter iter)
+    bool toggleChannelPublish(const string& logChannel)
     {
+        unique_lock<mutex> lk(windowLk);
+        auto itr = channelMap.find(logChannel);
+        if (itr == channelMap.end()) return false;
+
+        ChannelInfo& ci = itr->second;
+        ci.enabled = !ci.enabled;
+
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
         GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(tblData));
-        gchar *name;
-        gtk_tree_model_get(model, &iter, LOG_CHAN_COLUMN, &name, -1);
-
-        bool enabled;
-        {
-            unique_lock<mutex> lk(zcmLk);
-            channelMap[name].enabled = !channelMap[name].enabled;
-            enabled = channelMap[name].enabled;
+        GtkTreeIter iter;
+        if (gtk_tree_model_get_iter_first(model, &iter)) {
+            do {
+                char *logChan;
+                gtk_tree_model_get(model, &iter, LOG_CHAN_COLUMN, &logChan, -1);
+                if (string(logChan) == logChannel) {
+                    gtk_list_store_set(GTK_LIST_STORE(model), &iter,
+                                       ENABLED_COLUMN, ci.enabled, -1);
+                    g_free(logChan);
+                    break;
+                }
+                g_free(logChan);
+            } while (gtk_tree_model_iter_next(model, &iter));
         }
-        savePreferences();
+        #pragma GCC diagnostic pop
 
-        gtk_list_store_set(GTK_LIST_STORE(model), &iter, ENABLED_COLUMN, enabled, -1);
-
-        return enabled;
+        return true;
     }
 
     bool initializeZcm()
@@ -316,64 +325,60 @@ struct LogPlayer
 
         zcmIn = new zcm::LogFile(args.filename, "r");
         if (!zcmIn->good()) {
-            delete zcmIn;
-            zcmIn = nullptr;
-            cerr << "Error: Failed to open '" << args.filename << "'" << endl;
+            cerr << "Unable to open zcm log file" << endl;
             return false;
         }
 
-        const zcm::LogEvent* leStart = zcmIn->readNextEvent();
-        if (!leStart) {
-            delete zcmIn;
-            zcmIn = nullptr;
-            cerr << "Error: Unable to find valid event in logfile: '" << args.filename << "'" << endl;
+        const zcm::LogEvent *evt;
+        evt = zcmIn->readNextEvent();
+        if (evt == nullptr) {
+            cerr << "Log file appears to be empty" << endl;
             return false;
         }
-        firstMsgUtime = (uint64_t)leStart->timestamp;
+        firstMsgUtime = evt->timestamp;
+
+        uint64_t lastMsgUtime = firstMsgUtime;
+        do {
+            lastMsgUtime = evt->timestamp;
+            string channel = evt->channel;
+            if (channelMap.find(channel) == channelMap.end()) {
+                ChannelInfo& ci = channelMap[channel];
+                ci.pubChannel = channel;
+                ci.enabled = true;
+                ci.addedToGui = false;
+            }
+        } while ((evt = zcmIn->readNextEvent()) != nullptr);
+
+        totalTimeUs = lastMsgUtime - firstMsgUtime;
+        zcmIn->seekToTimestamp(firstMsgUtime);
         currMsgUtime = firstMsgUtime;
 
-        zcmOut = new zcm::ZCM(args.zcmUrlOut);
-        if (!zcmOut->good()) {
-            delete zcmOut;
-            zcmOut = nullptr;
-            delete zcmIn;
-            zcmIn = nullptr;
-            cerr << "Error: Failed to open zcm: '" << args.zcmUrlOut << "'" << endl;
-            return false;
+        if (!args.zcmUrlOut.empty()) {
+            zcmOut = new zcm::ZCM(args.zcmUrlOut);
+            if (!zcmOut->good()) {
+                cerr << "Unable to initialize zcm" << endl;
+                return false;
+            }
         }
-
-        fseeko(zcmIn->getFilePtr(), 0, SEEK_END);
-
-        const zcm::LogEvent* leEnd = zcmIn->readPrevEvent();
-        if (!leEnd) leEnd = zcmIn->readPrevEvent(); // In case log was cut off at end
-        assert(leEnd);
-
-        uint64_t lastMsgUtime = (uint64_t)leEnd->timestamp;
-
-        assert(lastMsgUtime > firstMsgUtime);
-        totalTimeUs = lastMsgUtime - firstMsgUtime;
-
-        loadPreferences();
 
         return true;
     }
 
     bool init(int argc, char *argv[])
     {
-        if (!args.init(argc, argv))
-            return false;
-
-        isPlaying = args.playOnStart;
-
+        if (!args.init(argc, argv)) return false;
+        loadPreferences();
+        if (!initializeZcm()) return false;
         {
-            unique_lock<mutex> lk(zcmLk);
-            initializeZcm();
+            unique_lock<mutex> lk(redrawLk);
+            redrawNow = false;
         }
-
+        thread redrawThr(&LogPlayer::redrawThrFunc, this);
+        redrawThr.detach();
         return true;
     }
 
-    void enableUI(gboolean enable)
+    void enableUI(bool enable)
     {
         gtk_widget_set_sensitive(btnPlay, enable);
         gtk_widget_set_sensitive(btnStep, enable);
@@ -386,285 +391,288 @@ struct LogPlayer
         gtk_widget_set_sensitive(txtPrefix, enable);
     }
 
-    void addChannels(const map<string, ChannelInfo>& channelMap)
+    void addChannels()
     {
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
         GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(tblData));
-
-        for (const auto& c : channelMap) {
-            if (c.second.addedToGui) continue;
+        for (auto& p : channelMap) {
+            if (p.second.addedToGui) continue;
+            const string& logChan = p.first;
+            ChannelInfo& ci = p.second;
             GtkTreeIter iter;
             gtk_list_store_append(GTK_LIST_STORE(model), &iter);
             gtk_list_store_set(GTK_LIST_STORE(model), &iter,
-                               LOG_CHAN_COLUMN, c.first.c_str(), -1);
-            gtk_list_store_set(GTK_LIST_STORE(model), &iter,
-                               PLAY_CHAN_COLUMN, c.second.pubChannel.c_str(), -1);
-            gtk_list_store_set(GTK_LIST_STORE(model), &iter,
-                               ENABLED_COLUMN, c.second.enabled, -1);
+                               LOG_CHAN_COLUMN, logChan.c_str(),
+                               PLAY_CHAN_COLUMN, ci.pubChannel.c_str(),
+                               ENABLED_COLUMN, ci.enabled, -1);
+            ci.addedToGui = true;
         }
+        #pragma GCC diagnostic pop
     }
 
     static gboolean zcmUpdateGui(LogPlayer *me)
     {
-        map<string, ChannelInfo> _channelMap;
-        double currSpeed;
-        double currTimeS;
-        double totalTimeS;
-        double perc;
+        unique_lock<mutex> lk(me->windowLk);
+        if (!me->zcmIn || !me->zcmIn->good()) return G_SOURCE_CONTINUE;
+
+        me->addChannels();
+
+        double totTime = me->totalTimeUs / 1e6;
+        double currTime = (me->currMsgUtime - me->firstMsgUtime) / 1e6;
+        double currPerc = me->totalTimeUs == 0 ? 0 : currTime / totTime;
+
+        ostringstream oss;
+        oss << fixed << setprecision(1) << currTime << " s";
+        gtk_label_set_text(GTK_LABEL(me->lblCurrTime), oss.str().c_str());
+
+        oss.str("");
+        oss << fixed << setprecision(1) << me->currSpeed << "x";
+        gtk_label_set_text(GTK_LABEL(me->lblCurrSpeed), oss.str().c_str());
+
+        if (!me->macroScrubIsDragging) {
+            me->ignoreMacroScrubEvts++;
+            gtk_range_set_value(GTK_RANGE(me->sclMacroScrub), currPerc);
+        }
+
+        if (!me->microScrubIsDragging) {
+            double microScrubPerc;
+            if (me->microScrubMax == me->microScrubMin) {
+            microScrubPerc = 0.5;
+            } else {
+                double currOffset = (me->currMsgUtime - me->microPivotTimeUs) / 1e6;
+                microScrubPerc = mathMap(currOffset, me->microScrubMin, me->microScrubMax, 0, 1);
+                microScrubPerc = max(0.0, min(1.0, microScrubPerc));
+            }
+            me->ignoreMicroScrubEvts++;
+            gtk_range_set_value(GTK_RANGE(me->sclMicroScrub), microScrubPerc);
+        }
+
         bool isPlaying;
         {
-            unique_lock<mutex> lk(me->zcmLk);
-
-            perc = (double) (me->currMsgUtime - me->firstMsgUtime) / (double) me->totalTimeUs;
-
-            _channelMap = me->channelMap;
-            for (auto& c : me->channelMap) c.second.addedToGui = true;
-
-            currTimeS = (me->currMsgUtime - me->firstMsgUtime) / 1e6;
-
-            totalTimeS = me->totalTimeUs / 1e6;
-
-            currSpeed = me->currSpeed;
-
+            unique_lock<mutex> lk2(me->zcmLk);
             isPlaying = me->isPlaying;
         }
-        {
-            unique_lock<mutex> lk(me->windowLk);
 
-            if (!me->window) return FALSE;
-
-            auto changeIgnore = [](GtkRange *range, int &ignoreCount, double val){
-                double lastVal = gtk_range_get_value(range);
-                if (val != lastVal) {
-                    ignoreCount++;
-                    gtk_range_set_value(range, val);
-                }
-            };
-
-            if (!me->macroScrubIsDragging)
-                changeIgnore(GTK_RANGE(me->sclMacroScrub), me->ignoreMacroScrubEvts, perc);
-
-            if (currTimeS < 1) {
-                me->microScrubMin = -currTimeS;
-                me->microScrubMax = 1;
-                double displayVal = mathMap(me->microScrubCurr,
-                                       me->microScrubMin, me->microScrubMax, 0, 1);
-                if (!me->microScrubIsDragging)
-                    changeIgnore(GTK_RANGE(me->sclMicroScrub),
-                                 me->ignoreMicroScrubEvts, displayVal);
-            } else if (currTimeS > totalTimeS - 1) {
-                me->microScrubMin = -1;
-                me->microScrubMax = totalTimeS - currTimeS;
-                double displayVal = mathMap(me->microScrubCurr,
-                                       me->microScrubMin, me->microScrubMax, 0, 1);
-                if (!me->microScrubIsDragging)
-                    changeIgnore(GTK_RANGE(me->sclMicroScrub),
-                                 me->ignoreMicroScrubEvts, displayVal);
-            } else {
-                me->microScrubMin = -1;
-                me->microScrubMax = 1;
-                double displayVal = mathMap(me->microScrubCurr,
-                                       me->microScrubMin, me->microScrubMax, 0, 1);
-                if (!me->microScrubIsDragging)
-                    changeIgnore(GTK_RANGE(me->sclMicroScrub),
-                                 me->ignoreMicroScrubEvts, displayVal);
-            }
-
-            gchar buf[50];
-
-            g_snprintf(buf, 50, "%9.3f s / %.3f s", currTimeS, totalTimeS);
-            gtk_label_set_text(GTK_LABEL(me->lblCurrTime), buf);
-
-            g_snprintf(buf, 50, "%.2f x", currSpeed);
-            gtk_label_set_text(GTK_LABEL(me->lblCurrSpeed), buf);
-
-            if (isPlaying) {
-                gtk_button_set_label(GTK_BUTTON(me->btnPlay), "Pause");
-            } else {
-                gtk_button_set_label(GTK_BUTTON(me->btnPlay), "Play");
-            }
-
-            me->addChannels(_channelMap);
+        if (isPlaying) {
+            gtk_button_set_label(GTK_BUTTON(me->btnPlay), "Pause");
+        } else {
+            gtk_button_set_label(GTK_BUTTON(me->btnPlay), "Play");
         }
 
-        return FALSE;
+        if (me->args.exitWhenDone && currTime >= totTime) {
+            done++;
+            me->wakeup();
+        }
+
+        return G_SOURCE_CONTINUE;
     }
 
     void updateSpeedTarget()
     {
-        gchar speedStr[20];
-        g_snprintf(speedStr, 20, "%.3f", speedTarget);
-        gtk_label_set_text(GTK_LABEL(lblSpeedTarget), speedStr);
+        ostringstream oss;
+        oss << fixed << setprecision(1) << speedTarget << "x";
+        gtk_label_set_text(GTK_LABEL(lblSpeedTarget), oss.str().c_str());
     }
 
-    static void prefixChanged(GtkEditable *editable, LogPlayer *me)
+    static void prefixChanged(GtkEntry *entry, LogPlayer *me)
     {
-        const gchar *prefix;
-        prefix = gtk_entry_get_text(GTK_ENTRY(editable));
-        {
-            unique_lock<mutex> lk(me->zcmLk);
-            me->stepPrefix = prefix;
-            me->stepRequest = false;
-            me->isPlaying = false;
-        }
-    }
-
-    static void toggle(GtkWidget *widget, LogPlayer *me)
-    {
-        auto toggleChan = [](GtkTreeModel *model, GtkTreePath *path,
-                             GtkTreeIter *iter, gpointer usr) {
-            LogPlayer *me = (LogPlayer*) usr;
-            me->toggleChannelPublish(*iter);
-        };
-
-        GtkTreeSelection *selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(me->tblData));
-        gtk_tree_selection_selected_foreach(selection, toggleChan, me);
-    }
-
-    static void playbackChanEdit(GtkCellRendererText *cell,
-                                 gchar *path, gchar *newChan,
-                                 LogPlayer *me)
-    {
+        const char *prefix = gtk_editable_get_text(GTK_EDITABLE(entry));
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
         GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(me->tblData));
-
         GtkTreeIter iter;
-        gtk_tree_model_get_iter_from_string(GTK_TREE_MODEL(model), &iter, path);
 
-        gchar *chan;
-        gtk_tree_model_get(GTK_TREE_MODEL(model), &iter, LOG_CHAN_COLUMN, &chan, -1);
-        gtk_list_store_set(GTK_LIST_STORE(model), &iter, PLAY_CHAN_COLUMN, newChan, -1);
-        {
-            unique_lock<mutex> lk(me->zcmLk);
-            me->channelMap[chan].pubChannel = newChan;
+        if (gtk_tree_model_get_iter_first(model, &iter)) {
+            do {
+                char *logChan;
+                gtk_tree_model_get(model, &iter, LOG_CHAN_COLUMN, &logChan, -1);
+                string newPubChan = string(prefix) + string(logChan);
+                gtk_list_store_set(GTK_LIST_STORE(model), &iter,
+                                   PLAY_CHAN_COLUMN, newPubChan.c_str(), -1);
+                me->channelMap[string(logChan)].pubChannel = newPubChan;
+                g_free(logChan);
+            } while (gtk_tree_model_iter_next(model, &iter));
         }
-        me->savePreferences();
+        #pragma GCC diagnostic pop
     }
 
-    static void channelEnable(GtkCellRendererToggle *cell, gchar *path, LogPlayer *me)
+    static void toggle(GtkButton *button, LogPlayer *me)
     {
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+        GtkTreeView *treeView = GTK_TREE_VIEW(me->tblData);
+        GtkTreeSelection *selection = gtk_tree_view_get_selection(treeView);
+        GtkTreeModel *model = gtk_tree_view_get_model(treeView);
+        GList *selectedRows = gtk_tree_selection_get_selected_rows(selection, &model);
+
+        for (GList *l = selectedRows; l != nullptr; l = l->next) {
+            GtkTreePath *path = (GtkTreePath*)l->data;
+            GtkTreeIter iter;
+            gtk_tree_model_get_iter(model, &iter, path);
+            char *logChan;
+            gtk_tree_model_get(model, &iter, LOG_CHAN_COLUMN, &logChan, -1);
+            me->toggleChannelPublish(string(logChan));
+            g_free(logChan);
+        }
+
+        g_list_free_full(selectedRows, (GDestroyNotify)gtk_tree_path_free);
+        #pragma GCC diagnostic pop
+    }
+
+    static void playbackChanEdit(GtkCellRendererText *renderer, char *path_str,
+                                 char *new_text, LogPlayer *me)
+    {
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
         GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(me->tblData));
-
+        GtkTreePath *path = gtk_tree_path_new_from_string(path_str);
         GtkTreeIter iter;
-        gtk_tree_model_get_iter_from_string(GTK_TREE_MODEL(model), &iter, path);
 
-        me->toggleChannelPublish(iter);
+        if (gtk_tree_model_get_iter(model, &iter, path)) {
+            char *logChan;
+            gtk_tree_model_get(model, &iter, LOG_CHAN_COLUMN, &logChan, -1);
+            gtk_list_store_set(GTK_LIST_STORE(model), &iter,
+                               PLAY_CHAN_COLUMN, new_text, -1);
+            me->channelMap[string(logChan)].pubChannel = string(new_text);
+            g_free(logChan);
+        }
+        gtk_tree_path_free(path);
+        #pragma GCC diagnostic pop
+    }
+
+    static void channelEnable(GtkCellRendererToggle *renderer, char *path_str, LogPlayer *me)
+    {
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+        GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(me->tblData));
+        GtkTreePath *path = gtk_tree_path_new_from_string(path_str);
+        GtkTreeIter iter;
+
+        if (gtk_tree_model_get_iter(model, &iter, path)) {
+            char *logChan;
+            gtk_tree_model_get(model, &iter, LOG_CHAN_COLUMN, &logChan, -1);
+            me->toggleChannelPublish(string(logChan));
+            g_free(logChan);
+        }
+        gtk_tree_path_free(path);
+        #pragma GCC diagnostic pop
     }
 
     void bookmark()
     {
-        double perc;
-        {
-            unique_lock<mutex> lk(zcmLk);
-            perc = (double) (currMsgUtime - firstMsgUtime) / (double) totalTimeUs;
-        }
-        addBookmark(BookmarkType::PLAIN, perc);
-        savePreferences();
+        unique_lock<mutex> lk(zcmLk);
+        double logTimePerc = totalTimeUs == 0 ? 0 : (currMsgUtime - firstMsgUtime) / (double) totalTimeUs;
+        lk.unlock();
+        addBookmark(BookmarkType::PLAIN, logTimePerc);
     }
 
-    static void bookmarkClicked(GtkWidget *bookmark, LogPlayer *me)
+    static void bookmarkClicked(GtkButton *button, LogPlayer *me)
     {
         me->bookmark();
     }
 
-    void requestTime(uint64_t logUtime)
+    void requestTime(uint64_t utime)
     {
-        {
-            unique_lock<mutex> lk(zcmLk);
-            requestTimeUs = logUtime;
-        }
-        wakeup();
+        unique_lock<mutex> lk(zcmLk);
+        requestTimeUs = utime;
+        zcmCv.notify_all();
     }
 
-    static gboolean keyPress(GtkWidget *widget, GdkEvent *event, LogPlayer *me)
+    static gboolean onKeyPressed(GtkEventControllerKey *controller, guint keyval,
+                                guint keycode, GdkModifierType state, LogPlayer *me)
     {
-        if (event->type == GDK_KEY_PRESS) {
+        GtkWidget *focusWidget = gtk_window_get_focus(GTK_WINDOW(me->window));
+        if (focusWidget == me->txtPrefix || focusWidget == me->tblData)
+            return FALSE;
 
-            GdkEventKey *kevent = (GdkEventKey*) event;
+        if (keyval == GDK_KEY_Escape) {
+            gtk_window_set_focus(GTK_WINDOW(me->window), me->btnPlay);
+            #pragma GCC diagnostic push
+            #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+            GtkTreeSelection *selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(me->tblData));
+            gtk_tree_selection_unselect_all(selection);
+            #pragma GCC diagnostic pop
+        }
 
-            if (kevent->keyval == GDK_KEY_Escape) {
-                gtk_window_set_focus(GTK_WINDOW(me->window), me->btnPlay);
-                GtkTreeSelection *selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(me->tblData));
-                gtk_tree_selection_unselect_all(selection);
-            }
+        switch (keyval) {
+            case GDK_KEY_b:
+                if (!me->bDown) {
+                    me->bDown = true;
+                    me->bookmark();
+                }
+                break;
+            case GDK_KEY_KP_0:
+            case GDK_KEY_0:
+                if (me->bookmarks.size() <= 0) break;
+                me->requestTime(me->firstMsgUtime +
+                                me->bookmarks[0].logTimePerc * me->totalTimeUs);
+                break;
+            case GDK_KEY_KP_1:
+            case GDK_KEY_1:
+                if (me->bookmarks.size() <= 1) break;
+                me->requestTime(me->firstMsgUtime +
+                                me->bookmarks[1].logTimePerc * me->totalTimeUs);
+                break;
+            case GDK_KEY_KP_2:
+            case GDK_KEY_2:
+                if (me->bookmarks.size() <= 2) break;
+                me->requestTime(me->firstMsgUtime +
+                                me->bookmarks[2].logTimePerc * me->totalTimeUs);
+                break;
+            case GDK_KEY_KP_3:
+            case GDK_KEY_3:
+                if (me->bookmarks.size() <= 3) break;
+                me->requestTime(me->firstMsgUtime +
+                                me->bookmarks[3].logTimePerc * me->totalTimeUs);
+                break;
+            case GDK_KEY_KP_4:
+            case GDK_KEY_4:
+                if (me->bookmarks.size() <= 4) break;
+                me->requestTime(me->firstMsgUtime +
+                                me->bookmarks[4].logTimePerc * me->totalTimeUs);
+                break;
+            case GDK_KEY_KP_5:
+            case GDK_KEY_5:
+                if (me->bookmarks.size() <= 5) break;
+                me->requestTime(me->firstMsgUtime +
+                                me->bookmarks[5].logTimePerc * me->totalTimeUs);
+                break;
+            case GDK_KEY_KP_6:
+            case GDK_KEY_6:
+                if (me->bookmarks.size() <= 6) break;
+                me->requestTime(me->firstMsgUtime +
+                                me->bookmarks[6].logTimePerc * me->totalTimeUs);
+                break;
+            case GDK_KEY_KP_7:
+            case GDK_KEY_7:
+                if (me->bookmarks.size() <= 7) break;
+                me->requestTime(me->firstMsgUtime +
+                                me->bookmarks[7].logTimePerc * me->totalTimeUs);
+                break;
+            case GDK_KEY_KP_8:
+            case GDK_KEY_8:
+                if (me->bookmarks.size() <= 8) break;
+                me->requestTime(me->firstMsgUtime +
+                                me->bookmarks[8].logTimePerc * me->totalTimeUs);
+                break;
+            case GDK_KEY_KP_9:
+            case GDK_KEY_9:
+                if (me->bookmarks.size() <= 9) break;
+                me->requestTime(me->firstMsgUtime +
+                                me->bookmarks[9].logTimePerc * me->totalTimeUs);
+                break;
+        }
+        return FALSE;
+    }
 
-            GtkWidget *focusWidget = gtk_window_get_focus(GTK_WINDOW(me->window));
-            if (focusWidget == me->txtPrefix || focusWidget == me->tblData)
-                return FALSE;
-
-            switch (kevent->keyval) {
-                case GDK_KEY_b:
-                    if (!me->bDown) {
-                        me->bDown = true;
-                        me->bookmark();
-                    }
-                    break;
-                case GDK_KEY_KP_0:
-                case GDK_KEY_0:
-                    if (me->bookmarks.size() <= 0) break;
-                    me->requestTime(me->firstMsgUtime +
-                                    me->bookmarks[0].logTimePerc * me->totalTimeUs);
-                    break;
-                case GDK_KEY_KP_1:
-                case GDK_KEY_1:
-                    if (me->bookmarks.size() <= 1) break;
-                    me->requestTime(me->firstMsgUtime +
-                                    me->bookmarks[1].logTimePerc * me->totalTimeUs);
-                    break;
-                case GDK_KEY_KP_2:
-                case GDK_KEY_2:
-                    if (me->bookmarks.size() <= 2) break;
-                    me->requestTime(me->firstMsgUtime +
-                                    me->bookmarks[2].logTimePerc * me->totalTimeUs);
-                    break;
-                case GDK_KEY_KP_3:
-                case GDK_KEY_3:
-                    if (me->bookmarks.size() <= 3) break;
-                    me->requestTime(me->firstMsgUtime +
-                                    me->bookmarks[3].logTimePerc * me->totalTimeUs);
-                    break;
-                case GDK_KEY_KP_4:
-                case GDK_KEY_4:
-                    if (me->bookmarks.size() <= 4) break;
-                    me->requestTime(me->firstMsgUtime +
-                                    me->bookmarks[4].logTimePerc * me->totalTimeUs);
-                    break;
-                case GDK_KEY_KP_5:
-                case GDK_KEY_5:
-                    if (me->bookmarks.size() <= 5) break;
-                    me->requestTime(me->firstMsgUtime +
-                                    me->bookmarks[5].logTimePerc * me->totalTimeUs);
-                    break;
-                case GDK_KEY_KP_6:
-                case GDK_KEY_6:
-                    if (me->bookmarks.size() <= 6) break;
-                    me->requestTime(me->firstMsgUtime +
-                                    me->bookmarks[6].logTimePerc * me->totalTimeUs);
-                    break;
-                case GDK_KEY_KP_7:
-                case GDK_KEY_7:
-                    if (me->bookmarks.size() <= 7) break;
-                    me->requestTime(me->firstMsgUtime +
-                                    me->bookmarks[7].logTimePerc * me->totalTimeUs);
-                    break;
-                case GDK_KEY_KP_8:
-                case GDK_KEY_8:
-                    if (me->bookmarks.size() <= 8) break;
-                    me->requestTime(me->firstMsgUtime +
-                                    me->bookmarks[8].logTimePerc * me->totalTimeUs);
-                    break;
-                case GDK_KEY_KP_9:
-                case GDK_KEY_9:
-                    if (me->bookmarks.size() <= 9) break;
-                    me->requestTime(me->firstMsgUtime +
-                                    me->bookmarks[9].logTimePerc * me->totalTimeUs);
-                    break;
-            }
-        } else if (event->type == GDK_KEY_RELEASE) {
-            GdkEventKey *kevent = (GdkEventKey*) event;
-            switch (kevent->keyval) {
-                case GDK_KEY_b:
-                    me->bDown = false;
-                    break;
-            }
+    static gboolean onKeyReleased(GtkEventControllerKey *controller, guint keyval,
+                                 guint keycode, GdkModifierType state, LogPlayer *me)
+    {
+        switch (keyval) {
+            case GDK_KEY_b:
+                me->bDown = false;
+                break;
         }
         return FALSE;
     }
@@ -675,27 +683,29 @@ struct LogPlayer
             me->ignoreMacroScrubEvts--;
             return;
         }
-        gdouble pos = gtk_range_get_value(range);
+        gdouble pos = gtk_range_get_value(GTK_RANGE(range));
         me->requestTime(me->firstMsgUtime + pos * me->totalTimeUs);
+        return;
     }
 
-    static gboolean macroScrubClicked(GtkRange *range, GdkEvent *event, LogPlayer *me)
+    static void onMacroScrubPressed(GtkGestureClick *gesture, int n_press,
+                                   double x, double y, LogPlayer *me)
     {
-        if (event->type == GDK_BUTTON_PRESS) {
-            GdkEventButton *bevent = (GdkEventButton *) event;
-            if (bevent->button == GDK_RIGHT_CLICK) {
-                gtk_menu_popup_at_pointer(GTK_MENU(me->menuScrub), event);
-                return TRUE;
-            } else if (bevent->button == GDK_LEFT_CLICK) {
-                me->macroScrubIsDragging = true;
-            }
-        } else if (event->type == GDK_BUTTON_RELEASE) {
-            GdkEventButton *bevent = (GdkEventButton *) event;
-            if (bevent->button == GDK_LEFT_CLICK) {
-                me->macroScrubIsDragging = false;
-            }
+        guint button = gtk_gesture_single_get_current_button(GTK_GESTURE_SINGLE(gesture));
+        if (button == GDK_BUTTON_PRIMARY) {
+            me->macroScrubIsDragging = true;
+        } else if (button == GDK_BUTTON_SECONDARY) {
+            me->bookmark();
         }
-        return FALSE;
+    }
+
+    static void onMacroScrubReleased(GtkGestureClick *gesture, int n_press,
+                                    double x, double y, LogPlayer *me)
+    {
+        guint button = gtk_gesture_single_get_current_button(GTK_GESTURE_SINGLE(gesture));
+        if (button == GDK_BUTTON_PRIMARY) {
+            me->macroScrubIsDragging = false;
+        }
     }
 
     static void microScrub(GtkRange *range, LogPlayer *me)
@@ -710,139 +720,151 @@ struct LogPlayer
         return;
     }
 
-    static gboolean microScrubClicked(GtkWidget *range, GdkEvent *event, LogPlayer *me)
+    static void onMicroScrubPressed(GtkGestureClick *gesture, int n_press,
+                                   double x, double y, LogPlayer *me)
     {
-        if (event->type == GDK_KEY_PRESS) {
-            unique_lock<mutex> lk(me->zcmLk);
-            me->microPivotTimeUs = me->currMsgUtime;
-        } else if (event->type == GDK_BUTTON_PRESS) {
-            GdkEventButton *bevent = (GdkEventButton*) event;
-            if (bevent->button == GDK_RIGHT_CLICK) {
-                gtk_menu_popup_at_pointer(GTK_MENU(me->menuScrub), event);
-                return TRUE;
-            } else if (bevent->button == GDK_LEFT_CLICK) {
-                me->microScrubIsDragging = true;
-                {
-                    unique_lock<mutex> lk(me->zcmLk);
-                    me->microPivotTimeUs = me->currMsgUtime;
-                    me->microScrubWasPlayingOnStart = me->isPlaying;
-                    me->isPlaying = false;
-                }
+        guint button = gtk_gesture_single_get_current_button(GTK_GESTURE_SINGLE(gesture));
+        if (button == GDK_BUTTON_PRIMARY) {
+            me->microScrubIsDragging = true;
+            {
+                unique_lock<mutex> lk(me->zcmLk);
+                me->microPivotTimeUs = me->currMsgUtime;
+                me->microScrubWasPlayingOnStart = me->isPlaying;
+                me->isPlaying = false;
             }
-        } else if (event->type == GDK_BUTTON_RELEASE) {
-            GdkEventButton *bevent = (GdkEventButton *) event;
-            if (bevent->button == GDK_LEFT_CLICK) {
-                me->microScrubIsDragging = false;
-                double pos = mathMap(0, me->microScrubMin, me->microScrubMax, 0, 1);
-                me->ignoreMicroScrubEvts++;
-                gtk_range_set_value(GTK_RANGE(me->sclMicroScrub), pos);
-                {
-                    unique_lock<mutex> lk(me->zcmLk);
-                    me->isPlaying = me->microScrubWasPlayingOnStart;
-                }
-                me->wakeup();
-            }
+        } else if (button == GDK_BUTTON_SECONDARY) {
+            me->bookmark();
         }
-        return FALSE;
     }
 
-    static gboolean openLog(GtkWidget *widget, GdkEventButton *event, LogPlayer* me)
+    static void onMicroScrubReleased(GtkGestureClick *gesture, int n_press,
+                                    double x, double y, LogPlayer *me)
     {
-        gboolean ret = TRUE;
-        if (event->type == GDK_2BUTTON_PRESS) {
-            assert(me->args.filename == "");
-
-            GtkWidget *dialog = gtk_file_chooser_dialog_new("Open File",
-                                                            GTK_WINDOW(me->window),
-                                                            GTK_FILE_CHOOSER_ACTION_OPEN,
-                                                            "Cancel",
-                                                            GTK_RESPONSE_CANCEL,
-                                                            "Open",
-                                                            GTK_RESPONSE_ACCEPT,
-                                                            (void*)NULL);
-            gint res = gtk_dialog_run(GTK_DIALOG(dialog));
-
-            if (res == GTK_RESPONSE_ACCEPT) {
-                char *filename;
-                GtkFileChooser *chooser = GTK_FILE_CHOOSER(dialog);
-                filename = gtk_file_chooser_get_filename(chooser);
-
-                bool zcmEnabled;
-                {
-                    unique_lock<mutex> lk(me->zcmLk);
-                    me->args.filename = string(filename);
-                    zcmEnabled = me->initializeZcm();
-                    if (!zcmEnabled) me->args.filename = "";
-                }
-
-                if (zcmEnabled) {
-                    gtk_label_set_text(GTK_LABEL(me->lblLogName),
-                                       StringUtil::basename(filename).c_str());
-                    me->enableUI(true);
-                    me->wakeup();
-                    ret = FALSE;
-                }
-
-                g_free(filename);
+        guint button = gtk_gesture_single_get_current_button(GTK_GESTURE_SINGLE(gesture));
+        if (button == GDK_BUTTON_PRIMARY) {
+            me->microScrubIsDragging = false;
+            double pos = mathMap(0, me->microScrubMin, me->microScrubMax, 0, 1);
+            me->ignoreMicroScrubEvts++;
+            gtk_range_set_value(GTK_RANGE(me->sclMicroScrub), pos);
+            {
+                unique_lock<mutex> lk(me->zcmLk);
+                me->isPlaying = me->microScrubWasPlayingOnStart;
             }
-
-            gtk_widget_destroy(dialog);
-        }
-        return ret;
-    }
-
-    static void playPause(GtkWidget *widget, LogPlayer *me)
-    {
-        bool isPlaying;
-        {
-            unique_lock<mutex> lk(me->zcmLk);
-            me->isPlaying = !me->isPlaying;
-            isPlaying = me->isPlaying;
             me->wakeup();
         }
-        if (isPlaying) {
-            gtk_button_set_label(GTK_BUTTON(widget), "Pause");
-        } else {
-            gtk_button_set_label(GTK_BUTTON(widget), "Play");
+    }
+
+    static void fileDialogResponse(GtkDialog *dialog, int response, LogPlayer *me)
+    {
+        if (response == GTK_RESPONSE_ACCEPT) {
+            #pragma GCC diagnostic push
+            #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+            GtkFileChooser *chooser = GTK_FILE_CHOOSER(dialog);
+            GFile *file = gtk_file_chooser_get_file(chooser);
+            #pragma GCC diagnostic pop
+            char *filename = g_file_get_path(file);
+
+            me->args.filename = string(filename);
+            if (me->initializeZcm()) {
+                gtk_label_set_text(GTK_LABEL(me->lblLogName), 
+                                  StringUtil::basename(filename).c_str());
+                me->enableUI(true);
+                me->addChannels();
+                for (size_t i = 0; i < me->bookmarks.size(); ++i) {
+                    auto &b = me->bookmarks[i];
+                    gtk_scale_add_mark(GTK_SCALE(me->sclMacroScrub),
+                                       b.logTimePerc, GTK_POS_TOP,
+                                       to_string(i).c_str());
+                    b.addedToGui = true;
+                }
+                me->wakeup();
+            } else {
+                me->args.filename = "";
+            }
+
+            g_free(filename);
+            g_object_unref(file);
+        }
+        gtk_window_destroy(GTK_WINDOW(dialog));
+    }
+
+    static void onLogNameDoubleClick(GtkGestureClick *gesture, int n_press,
+                                    double x, double y, LogPlayer *me)
+    {
+        if (n_press == 2 && me->args.filename.empty()) {
+            #pragma GCC diagnostic push
+            #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+            GtkWidget *dialog = gtk_file_chooser_dialog_new("Open Log File",
+                                                            GTK_WINDOW(me->window),
+                                                            GTK_FILE_CHOOSER_ACTION_OPEN,
+                                                            "_Cancel", GTK_RESPONSE_CANCEL,
+                                                            "_Open", GTK_RESPONSE_ACCEPT,
+                                                            nullptr);
+            #pragma GCC diagnostic pop
+
+            g_signal_connect(dialog, "response", G_CALLBACK(fileDialogResponse), me);
+
+            gtk_window_present(GTK_WINDOW(dialog));
         }
     }
 
-    static void step(GtkWidget *widget, LogPlayer *me)
+    static void playPause(GtkButton *button, LogPlayer *me)
     {
-        {
-            unique_lock<mutex> lk(me->zcmLk);
-            me->stepRequest = true;
-            me->isPlaying = true;
+        unique_lock<mutex> lk(me->zcmLk);
+        me->isPlaying = !me->isPlaying;
+        bool isPlaying = me->isPlaying;
+        lk.unlock();
+        
+        if (isPlaying) {
+            gtk_button_set_label(button, "Pause");
+        } else {
+            gtk_button_set_label(button, "Play");
         }
         me->wakeup();
-        gtk_button_set_label(GTK_BUTTON(me->btnPlay), "Pause");
     }
 
-    static void slow(GtkWidget *widget, LogPlayer *me)
+    static void step(GtkButton *button, LogPlayer *me)
+    {
+        unique_lock<mutex> lk(me->zcmLk);
+        me->stepRequest = true;
+        me->isPlaying = true;
+        lk.unlock();
+        
+        gtk_button_set_label(GTK_BUTTON(me->btnPlay), "Pause");
+        me->wakeup();
+    }
+
+    static void slow(GtkButton *button, LogPlayer *me)
     {
         unique_lock<mutex> lk(me->zcmLk);
         me->speedTarget /= 2;
+        lk.unlock();
         me->updateSpeedTarget();
     }
 
-    static void fast(GtkWidget *widget, LogPlayer *me)
+    static void fast(GtkButton *button, LogPlayer *me)
     {
         unique_lock<mutex> lk(me->zcmLk);
         me->speedTarget *= 2;
+        lk.unlock();
         me->updateSpeedTarget();
     }
 
-    static gboolean windowDelete(GtkWidget *widget, GdkEvent *event, LogPlayer *me)
+    static gboolean windowCloseRequest(GtkWindow *window, LogPlayer *me)
     {
         unique_lock<mutex> lk(me->windowLk);
-        me->window = NULL;
+        me->window = nullptr;
+        done++;
+        me->wakeup();
         return FALSE;
     }
 
     static void windowDestroy(GtkWidget *widget, LogPlayer *me)
     {
         unique_lock<mutex> lk(me->windowLk);
-        me->window = NULL;
+        me->window = nullptr;
+        done++;
+        me->wakeup();
     }
 
     static void activate(GtkApplication *app, LogPlayer *me)
@@ -850,39 +872,35 @@ struct LogPlayer
         unique_lock<mutex> lk(me->windowLk);
 
         me->window = gtk_application_window_new(app);
-        g_signal_connect(me->window, "delete-event", G_CALLBACK(windowDelete), me);
+        g_signal_connect(me->window, "close-request", G_CALLBACK(windowCloseRequest), me);
         g_signal_connect(me->window, "destroy", G_CALLBACK(windowDestroy), me);
-        gtk_window_set_title(GTK_WINDOW(me->window), "Zcm Log Player");
+        gtk_window_set_title(GTK_WINDOW(me->window), "ZCM Log Player");
         gtk_window_set_default_size(GTK_WINDOW(me->window), 450, 275);
-        gtk_window_set_position(GTK_WINDOW(me->window), GTK_WIN_POS_MOUSE);
-        gtk_container_set_border_width(GTK_CONTAINER(me->window), 1);
-        gtk_widget_add_events(me->window, GDK_KEY_PRESS_MASK);
-        g_signal_connect(me->window, "key-press-event",
-                         G_CALLBACK(keyPress), me);
-        g_signal_connect(me->window, "key-release-event",
-                         G_CALLBACK(keyPress), me);
+
+        // Set up key event controller
+        me->keyController = gtk_event_controller_key_new();
+        gtk_widget_add_controller(me->window, me->keyController);
+        g_signal_connect(me->keyController, "key-pressed", G_CALLBACK(onKeyPressed), me);
+        g_signal_connect(me->keyController, "key-released", G_CALLBACK(onKeyReleased), me);
 
         GtkWidget *grid = gtk_grid_new();
-        gtk_container_add(GTK_CONTAINER(me->window), grid);
+        gtk_window_set_child(GTK_WINDOW(me->window), grid);
         gtk_grid_set_row_spacing(GTK_GRID(grid), 10);
 
-        GtkWidget *evtLogName = gtk_event_box_new();
-        gtk_event_box_set_above_child(GTK_EVENT_BOX(evtLogName), TRUE);
-        gtk_grid_attach(GTK_GRID(grid), evtLogName, 0, 0, 1, 1);
-
+        // Log name label with double-click gesture
         string logName = "Double click to load";
         if (!me->args.filename.empty())
             logName = StringUtil::basename(me->args.filename.c_str()).c_str();
         me->lblLogName = gtk_label_new(logName.c_str());
         gtk_widget_set_hexpand(me->lblLogName, TRUE);
         gtk_widget_set_halign(me->lblLogName, GTK_ALIGN_CENTER);
+        
         if (me->args.filename.empty()) {
-            g_signal_connect(G_OBJECT(evtLogName),
-                             "button_press_event",
-                             G_CALLBACK(openLog), me);
+            me->logNameClickGesture = GTK_GESTURE_CLICK(gtk_gesture_click_new());
+            gtk_widget_add_controller(me->lblLogName, GTK_EVENT_CONTROLLER(me->logNameClickGesture));
+            g_signal_connect(me->logNameClickGesture, "pressed", G_CALLBACK(onLogNameDoubleClick), me);
         }
-        gtk_container_add(GTK_CONTAINER(evtLogName), me->lblLogName);
-
+        gtk_grid_attach(GTK_GRID(grid), me->lblLogName, 0, 0, 1, 1);
 
         me->btnPlay = gtk_button_new_with_label("Play");
         g_signal_connect(me->btnPlay, "clicked", G_CALLBACK(playPause), me);
@@ -914,21 +932,19 @@ struct LogPlayer
         gtk_widget_set_halign(me->btnFaster, GTK_ALIGN_START);
         gtk_grid_attach(GTK_GRID(grid), me->btnFaster, 5, 0, 1, 1);
 
-        me->menuScrub = gtk_menu_new();
-        GtkWidget *miBookmark = gtk_menu_item_new_with_label("Bookmark");
-        gtk_widget_show(miBookmark);
-        gtk_menu_shell_append(GTK_MENU_SHELL(me->menuScrub), miBookmark);
-        g_signal_connect(miBookmark, "activate", G_CALLBACK(bookmarkClicked), me);
+        // Right-click on scrubbers now directly creates bookmark
+        me->menuScrub = nullptr;
 
         GtkAdjustment *adjMacroScrub = gtk_adjustment_new(0, 0, 1, 0.01, 0.05, 0);
         me->sclMacroScrub = gtk_scale_new(GTK_ORIENTATION_HORIZONTAL, adjMacroScrub);
         gtk_scale_set_draw_value(GTK_SCALE(me->sclMacroScrub), FALSE);
         gtk_widget_set_hexpand(me->sclMacroScrub, TRUE);
         gtk_widget_set_valign(me->sclMacroScrub, GTK_ALIGN_FILL);
-        g_signal_connect(me->sclMacroScrub, "button-press-event",
-                         G_CALLBACK(macroScrubClicked), me);
-        g_signal_connect(me->sclMacroScrub, "button-release-event",
-                         G_CALLBACK(macroScrubClicked), me);
+        
+        me->macroScrubClickGesture = GTK_GESTURE_CLICK(gtk_gesture_click_new());
+        gtk_widget_add_controller(me->sclMacroScrub, GTK_EVENT_CONTROLLER(me->macroScrubClickGesture));
+        g_signal_connect(me->macroScrubClickGesture, "pressed", G_CALLBACK(onMacroScrubPressed), me);
+        g_signal_connect(me->macroScrubClickGesture, "released", G_CALLBACK(onMacroScrubReleased), me);
         g_signal_connect(me->sclMacroScrub, "value-changed", G_CALLBACK(macroScrub), me);
         gtk_grid_attach(GTK_GRID(grid), me->sclMacroScrub, 0, 1, 6, 1);
 
@@ -938,12 +954,11 @@ struct LogPlayer
         gtk_scale_set_has_origin(GTK_SCALE(me->sclMicroScrub), FALSE);
         gtk_widget_set_hexpand(me->sclMicroScrub, TRUE);
         gtk_widget_set_valign(me->sclMicroScrub, GTK_ALIGN_FILL);
-        g_signal_connect(me->sclMicroScrub, "button-press-event",
-                         G_CALLBACK(microScrubClicked), me);
-        g_signal_connect(me->sclMicroScrub, "button-release-event",
-                         G_CALLBACK(microScrubClicked), me);
-        g_signal_connect(me->sclMicroScrub, "key-press-event",
-                         G_CALLBACK(microScrubClicked), me);
+        
+        me->microScrubClickGesture = GTK_GESTURE_CLICK(gtk_gesture_click_new());
+        gtk_widget_add_controller(me->sclMicroScrub, GTK_EVENT_CONTROLLER(me->microScrubClickGesture));
+        g_signal_connect(me->microScrubClickGesture, "pressed", G_CALLBACK(onMicroScrubPressed), me);
+        g_signal_connect(me->microScrubClickGesture, "released", G_CALLBACK(onMicroScrubReleased), me);
         g_signal_connect(me->sclMicroScrub, "value-changed", G_CALLBACK(microScrub), me);
         gtk_grid_attach(GTK_GRID(grid), me->sclMicroScrub, 0, 2, 6, 1);
 
@@ -957,6 +972,8 @@ struct LogPlayer
         gtk_widget_set_halign(me->lblCurrSpeed, GTK_ALIGN_START);
         gtk_grid_attach(GTK_GRID(grid), me->lblCurrSpeed, 2, 3, 1, 1);
 
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
         me->tblData = gtk_tree_view_new();
         gtk_widget_set_vexpand(me->tblData, TRUE);
         gtk_widget_set_valign(me->tblData, GTK_ALIGN_FILL);
@@ -974,18 +991,18 @@ struct LogPlayer
         GtkCellRenderer *logChanRenderer = gtk_cell_renderer_text_new();
         GtkTreeViewColumn *colLogChan =
             gtk_tree_view_column_new_with_attributes("Log Channel", logChanRenderer,
-                                                     "text", LOG_CHAN_COLUMN, (void*)NULL);
+                                                     "text", LOG_CHAN_COLUMN, nullptr);
         gtk_tree_view_column_set_expand(colLogChan, TRUE);
         gtk_tree_view_column_set_resizable(colLogChan, TRUE);
         gtk_tree_view_append_column(GTK_TREE_VIEW(me->tblData), colLogChan);
 
         GtkCellRenderer *playbackChanRenderer = gtk_cell_renderer_text_new();
-        g_object_set(playbackChanRenderer, "editable", TRUE, (void*)NULL);
+        g_object_set(playbackChanRenderer, "editable", TRUE, nullptr);
         g_signal_connect(playbackChanRenderer, "edited", G_CALLBACK(playbackChanEdit), me);
         GtkTreeViewColumn *colPlaybackChan =
             gtk_tree_view_column_new_with_attributes("Playback Channel",
                                                      playbackChanRenderer, "text",
-                                                     PLAY_CHAN_COLUMN, (void*)NULL);
+                                                     PLAY_CHAN_COLUMN, nullptr);
         gtk_tree_view_column_set_resizable(colPlaybackChan, TRUE);
         gtk_tree_view_column_set_expand(colPlaybackChan, TRUE);
         gtk_tree_view_append_column(GTK_TREE_VIEW(me->tblData), colPlaybackChan);
@@ -993,14 +1010,15 @@ struct LogPlayer
         GtkCellRenderer *enableRenderer = gtk_cell_renderer_toggle_new();
         GtkTreeViewColumn *colEnable =
             gtk_tree_view_column_new_with_attributes("Enable", enableRenderer,
-                                                     "active", ENABLED_COLUMN, (void*)NULL);
+                                                     "active", ENABLED_COLUMN, nullptr);
         gtk_tree_view_column_set_resizable(colEnable, TRUE);
-        gtk_tree_view_column_set_expand(colPlaybackChan, TRUE);
+        gtk_tree_view_column_set_expand(colEnable, TRUE);
         g_signal_connect(enableRenderer, "toggled", G_CALLBACK(channelEnable), me);
         gtk_tree_view_append_column(GTK_TREE_VIEW(me->tblData), colEnable);
+        #pragma GCC diagnostic pop
 
-        GtkWidget *scrolled_window = gtk_scrolled_window_new(NULL, NULL);
-        gtk_container_add(GTK_CONTAINER(scrolled_window), me->tblData);
+        GtkWidget *scrolled_window = gtk_scrolled_window_new();
+        gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(scrolled_window), me->tblData);
         gtk_grid_attach(GTK_GRID(grid), scrolled_window, 0, 4, 6, 1);
 
         me->btnToggle = gtk_button_new_with_label("Toggle Selected");
@@ -1022,6 +1040,7 @@ struct LogPlayer
 
         if (me->zcmIn && me->zcmIn->good()) {
             me->enableUI(true);
+            me->addChannels();
             for (size_t i = 0; i < me->bookmarks.size(); ++i) {
                 auto &b = me->bookmarks[i];
                 gtk_scale_add_mark(GTK_SCALE(me->sclMacroScrub),
@@ -1033,7 +1052,10 @@ struct LogPlayer
             me->enableUI(false);
         }
 
-        gtk_widget_show_all(me->window);
+        gtk_window_present(GTK_WINDOW(me->window));
+        
+        // Start GUI update timer
+        g_timeout_add(50, (GSourceFunc)zcmUpdateGui, me);
     }
 
     void quit()
@@ -1044,233 +1066,145 @@ struct LogPlayer
 
     void redraw()
     {
-        {
-            unique_lock<mutex> lk(redrawLk);
-            redrawNow = true;
-        }
+        unique_lock<mutex> lk(redrawLk);
+        redrawNow = true;
         redrawCv.notify_all();
     }
 
     void redrawThrFunc()
     {
-        timespec delay;
-        delay.tv_sec = 0;
-        delay.tv_nsec = 3e7;
         while (true) {
-            {
-                unique_lock<mutex> lk(redrawLk);
-                redrawCv.wait(lk, [&](){ return done || redrawNow; });
-                if (done) return;
-                redrawNow = false;
-            }
-            g_idle_add((GSourceFunc)zcmUpdateGui, this);
-            nanosleep(&delay, nullptr);
+            unique_lock<mutex> lk(redrawLk);
+            redrawCv.wait(lk, [&](){ return done || redrawNow; });
+            if (done) return;
+            redrawNow = false;
+            lk.unlock();
+            
+            this_thread::sleep_for(chrono::milliseconds(50));
         }
     }
 
     void playThrFunc()
     {
-        thread thr(&LogPlayer::redrawThrFunc, this);
-
-        // Wait for zcm log to become available
-        while (true) {
-            unique_lock<mutex> lk(zcmLk);
-            zcmCv.wait(lk, [&](){
-                return (zcmIn && zcmIn->good()) || done;
-            });
-            if (done) {
-                quit();
-                thr.join();
-                return;
-            }
-            if (zcmIn && zcmIn->good()) break;
+        // Wait for GUI to be ready
+        this_thread::sleep_for(chrono::milliseconds(100));
+        
+        if (!zcmIn || !zcmIn->good()) {
+            cerr << "No valid log file loaded" << endl;
+            return;
         }
 
-        zcmIn->seekToTimestamp(0);
-
-        uint64_t lastDispatchUtime = numeric_limits<uint64_t>::max();;;
-        uint64_t lastLogUtime = numeric_limits<uint64_t>::max();;
-        float lastSpeedTarget = numeric_limits<float>::max();
-        zcm::Filter currSpeed(zcm::Filter::convergenceTimeToNatFreq(0.5, 0.8), 0.8);
-
-        const zcm::LogEvent *le;
-
-        redraw();
-
-        uint64_t lastLoopUtime = numeric_limits<uint64_t>::max();
-
-        while (true) {
-
+        zcmIn->seekToTimestamp(firstMsgUtime);
+        
+        auto lastDispatchTime = chrono::steady_clock::now();
+        uint64_t lastLogUtime = firstMsgUtime;
+        
+        while (!done) {
             bool _isPlaying;
-            float _speedTarget;
-            bool wasPaused = false;
+            double _speedTarget;
             uint64_t _requestTimeUs;
-            map<string, ChannelInfo> _channelMap;
+            bool _stepRequest;
+            
             {
                 unique_lock<mutex> lk(zcmLk);
                 zcmCv.wait(lk, [&](){
-                    bool wakeup = done ||
-                                  isPlaying ||
-                                  requestTimeUs != numeric_limits<uint64_t>::max();
-                    wasPaused |= !wakeup;
-                    return wakeup;
+                    return done || isPlaying || 
+                           requestTimeUs != numeric_limits<uint64_t>::max() ||
+                           stepRequest;
                 });
+                
                 if (done) break;
-                if (!(isPlaying || requestTimeUs != numeric_limits<uint64_t>::max())) continue;
-
+                
                 _isPlaying = isPlaying;
-
                 _speedTarget = speedTarget;
-
                 _requestTimeUs = requestTimeUs;
+                _stepRequest = stepRequest;
+                
                 requestTimeUs = numeric_limits<uint64_t>::max();
-
-                _channelMap = channelMap;
-            }
-
-            bool reset = _speedTarget != lastSpeedTarget || wasPaused;
-
-            if (_requestTimeUs != numeric_limits<uint64_t>::max()) {
-                zcmIn->seekToTimestamp(_requestTimeUs);
-                reset = true;
-            }
-
-            le = zcmIn->readNextEvent();
-            if (!le) {
-                if (args.exitWhenDone) break;
-                unique_lock<mutex> lk(zcmLk);
-                isPlaying = false;
-                redraw();
-                continue;
-            }
-
-            uint64_t nowUs = TimeUtil::utime();
-            if (lastLoopUtime == numeric_limits<uint64_t>::max()) lastLoopUtime = nowUs;
-
-            if (reset) {
-                lastLogUtime = le->timestamp;
-                lastDispatchUtime = nowUs;
-                lastSpeedTarget = _speedTarget;
-                currSpeed.reset();
-            }
-
-            if (!_isPlaying) {
-                unique_lock<mutex> lk(zcmLk);
-                currMsgUtime = (uint64_t) le->timestamp;
-                redraw();
-                continue;
-            }
-
-            uint64_t localDiffUs = nowUs - lastDispatchUtime;
-
-            // Total difference of timestamps of the current and
-            // first message (after speed or play/pause changes)
-            uint64_t logDiffUs = 0;
-            if ((uint64_t)le->timestamp < lastLogUtime) {
-                cerr << "Subsequent log events have utimes that are out of order" << endl
-                     << "Consider running:" << endl
-                     << "zcm-log-repair " << args.filename
-                     << " -o " << args.filename << ".repaired" << endl;
-            } else {
-                logDiffUs = (uint64_t) le->timestamp - lastLogUtime;
-            }
-
-            // How much real time should have elapsed given the speed target
-            uint64_t logDiffSpeedUs = logDiffUs / _speedTarget;
-
-            uint64_t diffUs = logDiffSpeedUs > localDiffUs ? logDiffSpeedUs - localDiffUs : 0;
-
-            // If we're early to publish the next message, then we're
-            // achieving _speedTarget. If we're late, then how much we're
-            // late by determines how far behind we are on speed
-            double speed = logDiffSpeedUs >= localDiffUs ?
-                           _speedTarget :
-                           (float) logDiffSpeedUs / (float) localDiffUs * _speedTarget;
-
-            double obsDt = (nowUs - lastLoopUtime) / 1e6;
-            currSpeed.newObs(speed, obsDt);
-
-            // Ensure nanosleep wakes up before the range of uncertainty of
-            // the OS scheduler would impact our sleep time. Then we busy wait
-            const uint64_t busyWaitUs = args.highAccuracyMode ? 10000 : 0;
-            diffUs = diffUs > busyWaitUs ? diffUs - busyWaitUs : 0;
-
-            // Sleep until we're supposed to wake up and busy wait
-            if (diffUs != 0) {
-                // Introducing time differences to starting times rather than last loop
-                // times eliminates linear increase of delay when message are published
-                timespec delay;
-                delay.tv_sec = (long int) diffUs / 1000000;
-                delay.tv_nsec = (long int) (diffUs - (delay.tv_sec * 1000000)) * 1000;
-                nanosleep(&delay, nullptr);
-            }
-            // Busy wait the rest
-            while (logDiffSpeedUs > TimeUtil::utime() - lastDispatchUtime);
-
-            if (args.verbose)
-                printf("%.3f Channel %-20s size %d\n", le->timestamp / 1e6,
-                       le->channel.c_str(), le->datalen);
-
-            ChannelInfo c;
-
-            bool addToMainChannelMap = false;
-
-            if (!_channelMap.count(le->channel)) {
-                c.pubChannel = le->channel;
-                c.enabled = true;
-                c.addedToGui = false;
-                _channelMap[le->channel] = c;
-                addToMainChannelMap = true;
-            }
-
-            c = _channelMap[le->channel];
-
-            if (c.enabled) zcmOut->publish(c.pubChannel.c_str(), le->data, le->datalen);
-
-            {
-                unique_lock<mutex> lk(zcmLk);
-
-                if (addToMainChannelMap) channelMap[le->channel] = c;
-
-                currMsgUtime = (uint64_t) le->timestamp;
-
-                this->currSpeed = currSpeed[zcm::Filter::LOW_PASS];
-
-                if (stepRequest) {
-                    if (stepPrefix.empty()) {
-                        isPlaying = false;
-                        stepRequest = false;
-                    } else if (le->channel.rfind(stepPrefix, 0) == 0) {
-                        isPlaying = false;
-                        stepRequest = false;
-                    }
+                if (_stepRequest) {
+                    stepRequest = false;
+                    isPlaying = false;
                 }
             }
-
-            redraw();
-
-            lastLoopUtime = nowUs;
+            
+            if (_requestTimeUs != numeric_limits<uint64_t>::max()) {
+                zcmIn->seekToTimestamp(_requestTimeUs);
+                lastDispatchTime = chrono::steady_clock::now();
+                lastLogUtime = _requestTimeUs;
+            }
+            
+            const zcm::LogEvent *le = zcmIn->readNextEvent();
+            if (!le) {
+                unique_lock<mutex> lk(zcmLk);
+                isPlaying = false;
+                currMsgUtime = firstMsgUtime + totalTimeUs;
+                continue;
+            }
+            
+            {
+                unique_lock<mutex> lk(zcmLk);
+                currMsgUtime = le->timestamp;
+            }
+            
+            if (!_isPlaying && !_stepRequest) {
+                this_thread::sleep_for(chrono::milliseconds(10));
+                continue;
+            }
+            
+            // Calculate timing
+            auto now = chrono::steady_clock::now();
+            auto realElapsed = chrono::duration_cast<chrono::microseconds>(now - lastDispatchTime);
+            uint64_t logElapsed = le->timestamp - lastLogUtime;
+            uint64_t targetElapsed = logElapsed / _speedTarget;
+            
+            if ((uint64_t)realElapsed.count() < targetElapsed) {
+                auto sleepTime = chrono::microseconds(targetElapsed - realElapsed.count());
+                this_thread::sleep_for(sleepTime);
+            }
+            
+            // Publish message
+            auto itr = channelMap.find(le->channel);
+            if (itr != channelMap.end() && itr->second.enabled && zcmOut) {
+                zcmOut->publish(itr->second.pubChannel.c_str(), le->data, le->datalen);
+            }
+            
+            // Calculate actual speed
+            now = chrono::steady_clock::now();
+            realElapsed = chrono::duration_cast<chrono::microseconds>(now - lastDispatchTime);
+            if (realElapsed.count() > 0) {
+                currSpeed = (double)logElapsed / realElapsed.count() * _speedTarget;
+            }
+            
+            lastDispatchTime = now;
+            lastLogUtime = le->timestamp;
+            
+            if (_stepRequest) {
+                unique_lock<mutex> lk(zcmLk);
+                isPlaying = false;
+            }
         }
-
-        quit();
-        thr.join();
     }
 
     int run()
     {
         GtkApplication *app = gtk_application_new("org.zcm.logplayer", G_APPLICATION_NON_UNIQUE);
 
-        thread thr(&LogPlayer::playThrFunc, this);
+        thread playThr(&LogPlayer::playThrFunc, this);
 
         g_signal_connect(app, "activate", G_CALLBACK(activate), this);
-        int ret = g_application_run(G_APPLICATION(app), 0, NULL);
+        int ret = g_application_run(G_APPLICATION(app), 0, nullptr);
 
         done = 1;
         wakeup();
+        {
+            unique_lock<mutex> lk(zcmLk);
+            zcmCv.notify_all();
+        }
 
         g_object_unref(app);
 
-        thr.join();
+        playThr.join();
+        savePreferences();
 
         return ret;
     }
