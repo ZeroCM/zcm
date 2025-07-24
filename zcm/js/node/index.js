@@ -101,10 +101,18 @@ function zcm(zcmtypes, zcmurl) {
     }
     parent.nativeZcm.subscribe(
       channel,
-      raw_cb,
+      (...args) => {
+        try {
+          raw_cb(...args);
+        } catch (err) {
+          setImmediate(() => {
+            throw err;
+          }, 0);
+        }
+      },
       (...args) => {
         if (successCb) successCb(...args);
-      }
+      },
     );
   };
 
