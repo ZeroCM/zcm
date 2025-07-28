@@ -48,6 +48,7 @@ export CLASSPATH=$CLASSPATH:$BUILDEXAMPLESDIR/types/examplezcmtypes.jar
 export CLASSPATH=$CLASSPATH:$BUILDEXAMPLESDIR/types/examplezcmtypespfx.jar
 export CLASSPATH=$CLASSPATH:$BUILDEXAMPLESDIR/java/example.jar
 export ZCM_SPY_LITE_PATH=$BUILDEXAMPLESDIR/types/libexamplezcmtypes.so
+export PJ_ZCMTYPES_LIB_PATH=$ZCM_SPY_LITE_PATH
 export ZCM_DEFAULT_URL=ipc
 export JULIA_LOAD_PATH="$JULIA_LOAD_PATH:$INSTALL_BASE/share/julia:$BUILDEXAMPLESDIR/types"
 export PATH=$PATH:~/.local/bin
