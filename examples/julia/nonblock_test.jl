@@ -21,13 +21,13 @@ msg = example_t()
 
 msg.timestamp = 0;
 publish(zcm, "EXAMPLE", msg)
-handle_nonblock(zcm)
+handle(zcm, 0)
 msg.timestamp = 1;
 publish(zcm, "EXAMPLE", msg)
-handle_nonblock(zcm)
+handle(zcm, 0)
 msg.timestamp = 2;
 publish(zcm, "EXAMPLE", msg)
-handle_nonblock(zcm)
+handle(zcm, 0)
 
 unsubscribe(zcm, sub)
 
