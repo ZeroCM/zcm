@@ -176,10 +176,12 @@ void ZcmWrapper::messageHandler(const zcm_recv_buf_t* rbuf, const char* channel,
 
         jsCallback.Call({ jsChannel, jsData });
 
+        /* This is not necessary since index.js is ensuring exceptions are properly handled
         if (env.IsExceptionPending()) {
             Napi::Error err = env.GetAndClearPendingException();
             std::cerr << err.Get("stack").ToString().Utf8Value() << std::endl;
         }
+        */
 
         Napi::Uint8Array  u8a = jsData.As<Napi::Uint8Array>();
         Napi::ArrayBuffer ab  = u8a.ArrayBuffer();

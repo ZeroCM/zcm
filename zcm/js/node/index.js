@@ -101,10 +101,19 @@ function zcm(zcmtypes, zcmurl) {
     }
     parent.nativeZcm.subscribe(
       channel,
-      raw_cb,
+      (...args) => {
+        try {
+          raw_cb(...args);
+        } catch (e) {
+          const subscriptionHandleError = e instanceof Error ? e : new Error(String(e));
+          process.nextTick(() => {
+            throw subscriptionHandleError;
+          });
+        }
+      },
       (...args) => {
         if (successCb) successCb(...args);
-      }
+      },
     );
   };
 
