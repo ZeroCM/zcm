@@ -47,7 +47,12 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
     zcm_trans_t* gst = nullptr;
 
-    uint64_t timeoutLeftUs = 0;
+    uint64_t recvTimeoutUs = 0;
+    uint64_t recvMsgStartUtime = 0;
+
+    uint8_t leftoverBuffer[CAN_MAX_DLEN];
+    size_t leftoverBytes = 0;
+    size_t leftoverOffset = 0;
 
     string* findOption(const string& s)
     {
@@ -140,6 +145,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
         if (bind(soc, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
             ZCM_DEBUG("Failed to bind");
+            close(soc);
             return;
         }
 
@@ -175,8 +181,22 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     static size_t get(uint8_t* data, size_t nData, void* usr)
     {
         ZCM_TRANS_CLASSNAME* me = cast((zcm_trans_t*) usr);
+        size_t totalRead = 0;
 
-        uint64_t readStartUtime = TimeUtil::utime();
+        if (me->leftoverBytes > 0) {
+            size_t availableLeftover = me->leftoverBytes - me->leftoverOffset;
+            size_t fromLeftover = min(nData, availableLeftover);
+            memcpy(data, &me->leftoverBuffer[me->leftoverOffset], fromLeftover);
+            me->leftoverOffset += fromLeftover;
+            totalRead += fromLeftover;
+
+            if (me->leftoverOffset >= me->leftoverBytes) {
+                me->leftoverBytes = 0;
+                me->leftoverOffset = 0;
+            }
+
+            if (totalRead >= nData)  return totalRead;
+        }
 
         struct can_frame frame;
         int nbytes = read(me->soc, &frame, sizeof(struct can_frame));
@@ -184,18 +204,27 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             // Sleeping if read returned an error in case read didn't
             // expire all the remaining timeout
             if (nbytes < 0) {
-                uint64_t diff = TimeUtil::utime() - readStartUtime;
-                if (me->timeoutLeftUs <= diff) return 0;
-                usleep(me->timeoutLeftUs - diff);
+                uint64_t timeoutConsumedUs = TimeUtil::utime() - me->recvMsgStartUtime;
+                if (timeoutConsumedUs >= me->recvTimeoutUs) return totalRead;
+                usleep(me->recvTimeoutUs - timeoutConsumedUs);
             }
-            return 0;
+            return totalRead;
         }
 
-        // XXX This isn't okay. We're just throwing out data if it
-        //     doesn't fit in data on this one call to get
-        size_t ret = min(nData, (size_t) frame.can_dlc);
-        memcpy(data, frame.data, ret);
-        return ret;
+        // Handle the new frame data
+        size_t frameDataSize = (size_t) frame.can_dlc;
+        nData -= totalRead;
+        size_t fromNewFrame = min(nData, frameDataSize);
+        memcpy(&data[totalRead], frame.data, fromNewFrame);
+        totalRead += fromNewFrame;
+
+        if (fromNewFrame < frameDataSize) {
+            me->leftoverBytes = frameDataSize - fromNewFrame;
+            me->leftoverOffset = 0;
+            memcpy(me->leftoverBuffer, (uint8_t*)frame.data + fromNewFrame, me->leftoverBytes);
+        }
+
+        return totalRead;
     }
 
     static size_t sendFrame(const uint8_t* data, size_t nData, void* usr)
@@ -258,15 +287,19 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
     int recvmsg(zcm_msg_t* msg, unsigned timeoutMs)
     {
-        uint64_t startUtime = TimeUtil::utime();
-        timeoutLeftUs = timeoutMs * 1000;
+        recvMsgStartUtime = TimeUtil::utime();
+        recvTimeoutUs = timeoutMs * 1000;
 
         do {
             int ret = zcm_trans_recvmsg(this->gst, msg, 0);
             if (ret == ZCM_EOK) return ret;
 
-            unsigned timeoutS = timeoutLeftUs / 1000000;
-            unsigned timeoutUs = timeoutLeftUs - timeoutS * 1000000;
+            uint64_t timeoutConsumedUs = TimeUtil::utime() - recvMsgStartUtime;
+            if (timeoutConsumedUs > recvTimeoutUs) break;
+
+            uint64_t socketTimeout = recvTimeoutUs - timeoutConsumedUs;
+            unsigned timeoutS = socketTimeout / 1000000;
+            unsigned timeoutUs = socketTimeout - timeoutS * 1000000;
             struct timeval tm = {
                 timeoutS,  /* seconds */
                 timeoutUs, /* micros */
@@ -277,10 +310,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             }
 
             serial_update_rx(this->gst);
-
-            uint64_t diff = TimeUtil::utime() - startUtime;
-            timeoutLeftUs = timeoutLeftUs > diff ? timeoutLeftUs - diff : 0;
-        } while (timeoutLeftUs > 0);
+        } while (true);
         return ZCM_EAGAIN;
     }
 
