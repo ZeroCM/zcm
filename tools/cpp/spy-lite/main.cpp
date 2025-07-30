@@ -1,4 +1,5 @@
 #include <getopt.h>
+#include <cstring>
 
 #include "util/TypeDb.hpp"
 
@@ -397,117 +398,6 @@ struct SpyInfo
     bool is_setting_decode_prefix = false;
 };
 
-void *keyboard_thread_func(void *arg)
-{
-    SpyInfo *spy = (SpyInfo *)arg;
-
-    struct termios old = {0};
-    if (tcgetattr(0, &old) < 0)
-        perror("tcsetattr()");
-
-    struct termios newt = old;
-    newt.c_lflag &= ~ICANON;
-    newt.c_lflag &= ~ECHO;
-    newt.c_cc[VMIN] = 1;
-    newt.c_cc[VTIME] = 0;
-    if (tcsetattr(0, TCSANOW, &newt) < 0)
-        perror("tcsetattr ICANON");
-
-    char ch[3];
-    while (!quit) {
-        fd_set fds;
-        FD_ZERO(&fds);
-        FD_SET(0, &fds);
-
-        struct timeval timeout = { 0, SELECT_TIMEOUT };
-        int status = select(1, &fds, 0, 0, &timeout);
-
-        if (quit) break;
-
-        if (status != 0 && FD_ISSET(0, &fds)) {
-
-            int ret = read(0, &ch, sizeof(ch) / sizeof(char));
-            if (ret < 0) {
-                perror ("read()");
-                continue;
-            }
-            if (ret != 1) {
-                // treating all special characters as escape
-                ch[0] = ESCAPE_KEY;
-            }
-            spy->handleKeyboard(ch[0]);
-
-        } else {
-            DEBUG(4, "INFO: keyboard_thread_func select() timeout\n");
-        }
-    }
-
-    if (tcsetattr(0, TCSADRAIN, &old) < 0)
-        perror ("tcsetattr ~ICANON");
-
-    return NULL;
-}
-
-void clearscreen()
-{
-    // clear
-    printf("\033[2J");
-
-    // move cursor to (0, 0)
-    printf("\033[0;0H");
-}
-
-void printThreadFunc(SpyInfo *spy)
-{
-    static constexpr float hz = 20.0;
-    static constexpr u64 period = 1000000 / hz;
-
-    DEBUG(1, "INFO: %s: Starting\n", "print_thread");
-    while (!quit) {
-        usleep(period);
-
-        clearscreen();
-        if (spy->showBandwidth) {
-            printf("  ******************************************************************************* \n");
-            printf("  ******************************** ZCM-SPY-LITE ********************************* \n");
-            printf("  ******************************************************************************* \n");
-        } else {
-            printf("  **************************************************************************** \n");
-            printf("  ******************************* ZCM-SPY-LITE ******************************* \n");
-            printf("  **************************************************************************** \n");
-        }
-
-        spy->display();
-
-        // flush the stdout buffer (required since we use full buffering)
-        fflush(stdout);
-    }
-
-    DEBUG(1, "INFO: %s: Ending\n", "print_thread");
-}
-
-void handler_all_zcm (const zcm_recv_buf_t *rbuf,
-                      const char *channel, void *arg)
-{
-    SpyInfo *spy = (SpyInfo *)arg;
-    spy->addMessage(channel, rbuf);
-}
-
-static void sighandler(int s)
-{
-    switch(s) {
-        case SIGQUIT:
-        case SIGINT:
-        case SIGTERM:
-            DEBUG(1, "Caught signal...\n");
-            quit = true;
-            break;
-        default:
-            DEBUG(1, "WRN: unrecognized signal fired\n");
-            break;
-    }
-}
-
 struct Args
 {
     const char *zcmurl = nullptr;
@@ -580,6 +470,137 @@ struct Args
     }
 };
 
+void *keyboard_thread_func(void *arg)
+{
+    SpyInfo *spy = (SpyInfo *)arg;
+
+    struct termios old = {0};
+    if (tcgetattr(0, &old) < 0)
+        perror("tcsetattr()");
+
+    struct termios newt = old;
+    newt.c_lflag &= ~ICANON;
+    newt.c_lflag &= ~ECHO;
+    newt.c_cc[VMIN] = 1;
+    newt.c_cc[VTIME] = 0;
+    if (tcsetattr(0, TCSANOW, &newt) < 0)
+        perror("tcsetattr ICANON");
+
+    char ch[3];
+    while (!quit) {
+        fd_set fds;
+        FD_ZERO(&fds);
+        FD_SET(0, &fds);
+
+        struct timeval timeout = { 0, SELECT_TIMEOUT };
+        int status = select(1, &fds, 0, 0, &timeout);
+
+        if (quit) break;
+
+        if (status != 0 && FD_ISSET(0, &fds)) {
+
+            int ret = read(0, &ch, sizeof(ch) / sizeof(char));
+            if (ret < 0) {
+                perror ("read()");
+                continue;
+            }
+            if (ret != 1) {
+                // treating all special characters as escape
+                ch[0] = ESCAPE_KEY;
+            }
+            spy->handleKeyboard(ch[0]);
+
+        } else {
+            DEBUG(4, "INFO: keyboard_thread_func select() timeout\n");
+        }
+    }
+
+    if (tcsetattr(0, TCSADRAIN, &old) < 0)
+        perror ("tcsetattr ~ICANON");
+
+    return NULL;
+}
+
+void clearscreen()
+{
+    // clear
+    printf("\033[2J");
+
+    // move cursor to (0, 0)
+    printf("\033[0;0H");
+}
+
+static void printHeader(const char* title, bool showBandwidth)
+{
+    static const char* TITLE_PFX = "ZCM-SPY-LITE: ";
+    static int TITLE_PFX_LEN = strlen(TITLE_PFX);
+
+    int title_len = strlen(title);
+    int total_width = showBandwidth ? 79 : 76;
+    int padding = (total_width - title_len - 2 - TITLE_PFX_LEN) / 2;
+    int remaining = total_width - title_len - 2 - padding - TITLE_PFX_LEN;
+
+    // Print top border
+    printf("  ");
+    for (int i = 0; i < total_width; i++) printf("*");
+    printf(" \n");
+
+    // Print middle line with title
+    printf("  ");
+    for (int i = 0; i < padding; i++) printf("*");
+    printf(" %s%s ", TITLE_PFX, title);
+    for (int i = 0; i < remaining; i++) printf("*");
+    printf(" \n");
+
+    // Print bottom border
+    printf("  ");
+    for (int i = 0; i < total_width; i++) printf("*");
+    printf(" \n");
+}
+
+void printThreadFunc(SpyInfo *spy, Args *args)
+{
+    static constexpr float hz = 20.0;
+    static constexpr u64 period = 1000000 / hz;
+
+    DEBUG(1, "INFO: %s: Starting\n", "print_thread");
+    while (!quit) {
+        usleep(period);
+
+        clearscreen();
+        printHeader(args->zcmurl, spy->showBandwidth);
+
+        spy->display();
+
+        // flush the stdout buffer (required since we use full buffering)
+        fflush(stdout);
+    }
+
+    DEBUG(1, "INFO: %s: Ending\n", "print_thread");
+}
+
+void handler_all_zcm (const zcm_recv_buf_t *rbuf,
+                      const char *channel, void *arg)
+{
+    SpyInfo *spy = (SpyInfo *)arg;
+    spy->addMessage(channel, rbuf);
+}
+
+static void sighandler(int s)
+{
+    switch(s) {
+        case SIGQUIT:
+        case SIGINT:
+        case SIGTERM:
+            DEBUG(1, "Caught signal...\n");
+            quit = true;
+            break;
+        default:
+            DEBUG(1, "WRN: unrecognized signal fired\n");
+            break;
+    }
+}
+
 int main(int argc, char *argv[])
 {
     DEBUG_INIT();
@@ -617,6 +638,7 @@ int main(int argc, char *argv[])
     setvbuf(stdout, NULL, _IOFBF, 2048);
 
     // start zcm
+    if (!args.zcmurl)  args.zcmurl = getenv("ZCM_DEFAULT_URL");
     zcm_t *zcm = zcm_create(args.zcmurl);
     if (!zcm) {
         fprintf(stderr, "Couldn't initialize ZCM! Try providing a URL with the "
@@ -628,7 +650,7 @@ int main(int argc, char *argv[])
     }
     zcm_start(zcm);
 
-    thread printThread {printThreadFunc, &spy};
+    thread printThread {printThreadFunc, &spy, &args};
 
     // use this thread as the keyboard thread
     keyboard_thread_func(&spy);
