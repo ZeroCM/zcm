@@ -405,11 +405,12 @@ struct Args
     vector<string> channels;
     bool debug = false;
     bool showBandwidth = false;
+    float hz = 20;
 
     bool parse(int argc, char *argv[])
     {
         // set some defaults
-        const char *optstring = "hu:p:c:bd";
+        const char *optstring = "hu:p:c:bdf:";
         struct option long_opts[] = {
             { "help",            no_argument, 0, 'h' },
             { "zcm-url",   required_argument, 0, 'u' },
@@ -417,6 +418,7 @@ struct Args
             { "channel",   required_argument, 0, 'c' },
             { "bandwidth",       no_argument, 0, 'b' },
             { "debug",           no_argument, 0, 'd' },
+            { "frequency", required_argument, 0, 'f' },
             { 0, 0, 0, 0 }
         };
 
@@ -428,6 +430,7 @@ struct Args
                 case 'c': channels.push_back(optarg); break;
                 case 'b': showBandwidth = true;   break;
                 case 'd': debug         = true;   break;
+                case 'f': hz            = atof(optarg); break;
                 case 'h': default: usage(); return false;
             };
         }
@@ -466,6 +469,7 @@ struct Args
                 "  -c, --channel=CHANNEL      Channel to subscribe to. Can be specified more than once\n"
                 "  -b, --bandwidth            Calculate and show bandwidth of each channel\n"
                 "  -d, --debug                Run a dry run to ensure proper spy setup\n"
+                "  -f, --frequency            Specify the screen refresh frequency in Hz\n"
                 "\n");
     }
 };
@@ -560,8 +564,7 @@ static void printHeader(const char* title, bool showBandwidth)
 
 void printThreadFunc(SpyInfo *spy, Args *args)
 {
-    static constexpr float hz = 20.0;
-    static constexpr u64 period = 1000000 / hz;
+    static u64 period = 1000000 / args->hz;
 
     DEBUG(1, "INFO: %s: Starting\n", "print_thread");
     while (!quit) {
