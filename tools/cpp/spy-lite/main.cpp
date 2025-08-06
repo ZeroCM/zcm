@@ -436,6 +436,10 @@ struct Args
         }
 
         if (channels.empty()) channels.push_back(".*");
+        if (hz == 0) {
+            fprintf(stderr, "Please specify valid refresh frequency\n");
+            return false;
+        }
 
         return true;
     }
