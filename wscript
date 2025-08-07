@@ -35,7 +35,7 @@ def options(ctx):
     add_zcm_build_options(ctx)
 
     gr = ctx.add_option_group('Verification Options')
-    gr.add_option('--match-version', dest = 'version_match', action = 'store',
+    gr.add_option('--match-version', dest = 'version_match',
                   help = 'Ensure ZCM version matches this number')
 
 def add_zcm_configure_options(ctx):
@@ -60,11 +60,11 @@ def add_zcm_configure_options(ctx):
     add_use_option('third-party', 'Enable inclusion of 3rd party transports.')
 
     gr.add_option('--hash-member-names',  dest='hash_member_names', default='false',
-                  type='choice', choices=['true', 'false'],
-                  action='store', help='Include the zcmtype members names in the hash generation')
+                  choices=['true', 'false'],
+                  help='Include the zcmtype members names in the hash generation')
     gr.add_option('--hash-typename', dest='hash_typename', default='true',
-                  type='choice', choices=['true', 'false'],
-                  action='store', help='Include the zcmtype name in the hash generation')
+                  choices=['true', 'false'],
+                  help='Include the zcmtype name in the hash generation')
 
     add_use_option('dev',         'Enable all dev tools')
     add_use_option('build-cache', 'Enable the build cache for faster rebuilds')
@@ -73,7 +73,7 @@ def add_zcm_configure_options(ctx):
 
     gr.add_option('--track-traffic-topology',
                   dest='track_traffic_topology', default='false',
-                  type='choice', choices=['true', 'false'], action='store',
+                  choices=['true', 'false'],
                   help='Track channels published and subscribed for every zcm instance')
 
     add_trans_option('inproc', 'Enable the In-Process transport (Requires ZeroMQ)')
@@ -254,6 +254,9 @@ def attempt_use_nodejs(ctx):
 
 def attempt_use_python(ctx):
     ctx.load('python')
+    ctx.check_python_version()
+    ctx.env.PYTHONDIR = os.path.join(os.path.dirname(ctx.env.PYTHONDIR), 'dist-packages')
+    ctx.env.PYTHONARCHDIR = os.path.join(os.path.dirname(ctx.env.PYTHONARCHDIR), 'dist-packages')
     ctx.check_python_headers()
     ctx.find_program('cython', var='CYTHON', mandatory=True)
     return True

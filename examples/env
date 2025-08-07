@@ -64,7 +64,7 @@ import sys
 import os
 import sysconfig
 path_in_commlib = sysconfig.get_path('stdlib', vars={'installed_base': os.environ.get('ZCM_PYTHON')})
-print(os.path.join(path_in_commlib, 'site-packages'))
+print(os.path.join(path_in_commlib, 'dist-packages'))
     ")
 fi
 export PYTHONPATH=$ZCM_PYTHON/share/waf:$PYTHONPATH
