@@ -11,6 +11,8 @@ def build(ctx):
     if ctx.env.USING_ZMQ:
         DEPS += ['zmq']
 
+    archRes = ctx.cmd_and_log('uname -m | sed -e s/x86_64/x86_64/ -e s/aarch64/arm64/')
+
     srcExcludes = ['transport/third-party/embedded']
     if not ctx.env.USING_TRANS_IPC:
         srcExcludes += ['transport/transport_zmq_local.cpp']
@@ -25,7 +27,20 @@ def build(ctx):
     if not ctx.env.USING_TRANS_IPCSHM:
         srcExcludes += ['transport/transport_ipcshm.cpp', 'transport/lockfree/lf_*.c']
     if not ctx.env.USING_THIRD_PARTY:
-        srcExcludes.append('transport/third-party')
+        srcExcludes.append('transport/third-party/dji')
+    else:
+        ctx.env.DJI_PAYLOAD_SDK_ARCH = archRes.strip()
+        if ctx.env.DJI_PAYLOAD_SDK_ARCH != 'x86_64' and ctx.env.DJI_PAYLOAD_SDK_ARCH != 'arm64':
+            raise WafError('Invalid arch for ilxlr1')
+        arch_to_lib = {
+            'x86_64': 'x86_64-linux-gnu-gcc',
+            'arm64': 'aarch64-linux-gnu-gcc',
+        }
+        ctx.env.LIBPATH_dji_payload_sdk = [os.path.join(
+            ctx.path.abspath(), 'transport', 'third-party',
+            'dji', 'psdk_lib', 'lib', arch_to_lib[ctx.env.DJI_PAYLOAD_SDK_ARCH])]
+        ctx.env.LIB_dji_payload_sdk = ['payloadsdk']
+        DEPS += ['dji_payload_sdk']
 
     ctx.shlib(target = 'zcm',
               # Note: Had to make the include path one level up so that includes
@@ -39,6 +54,8 @@ def build(ctx):
                                           'util/*.c', 'util/*.cpp',
                                           'tools/*.c', 'tools/*.cpp',
                                           'transport/*.c', 'transport/*.cpp',
+                                          'transport/third-party/**/*.cpp',
+                                          'transport/third-party/**/*.c',
                                           'transport/udp/*.cpp',
                                           'transport/lockfree/lf_*.c'],
                                          excl=srcExcludes))
