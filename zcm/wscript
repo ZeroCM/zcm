@@ -31,7 +31,7 @@ def build(ctx):
     else:
         ctx.env.DJI_PAYLOAD_SDK_ARCH = archRes.strip()
         if ctx.env.DJI_PAYLOAD_SDK_ARCH != 'x86_64' and ctx.env.DJI_PAYLOAD_SDK_ARCH != 'arm64':
-            raise WafError('Invalid arch for ilxlr1')
+            raise WafError('Invalid arch for djimop')
         arch_to_lib = {
             'x86_64': 'x86_64-linux-gnu-gcc',
             'arm64': 'aarch64-linux-gnu-gcc',
