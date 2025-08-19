@@ -212,7 +212,7 @@ static void processScalar(const string& name, zcm_field_type_t type,
         case ZCM_FIELD_FLOAT: v->numerics.emplace_back(name, *((float*)data)); break;
         case ZCM_FIELD_DOUBLE: v->numerics.emplace_back(name, *((double*)data)); break;
         case ZCM_FIELD_BOOLEAN: v->numerics.emplace_back(name, *((bool*)data)); break;
-        case ZCM_FIELD_STRING: v->strings.emplace_back(name, string((const char*)data)); break;
+        case ZCM_FIELD_STRING: v->strings.emplace_back(name, string(*((const char**)data))); break;
         case ZCM_FIELD_USER_TYPE: assert(false && "Should not be possble");
     }
 }
