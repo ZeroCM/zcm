@@ -1,4 +1,4 @@
-prefix=@prefix@
+prefix=@PREFIX@
 exec_prefix=${prefix}
 libdir=${exec_prefix}/lib
 libdir64=${exec_prefix}/lib64
