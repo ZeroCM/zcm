@@ -402,7 +402,7 @@ def setup_environment(ctx):
         ctx.env.CXXFLAGS_default.append('-march=%s' % ctx.env.MARCH)
 
     ctx.env.INCLUDES_default  = [ctx.path.abspath()]
-    ctx.env.LIB_default       = ['rt']
+    ctx.env.LIB_default       = ['rt'] if ctx.env.USING_IPCSHM else []
     ctx.env.LINKFLAGS_default = ['-pthread']
 
     ctx.env.DEFINES_default   = ['_LARGEFILE_SOURCE', '_FILE_OFFSET_BITS=64']
