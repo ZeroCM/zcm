@@ -12,9 +12,8 @@ def copy_fun(self, src, tgt):
                 tgt = '\\\\?\\' + tgt
         shutil.copy2(src, tgt)
         os.chmod(tgt, self.chmod)
-
+        striptool = os.environ.get('STRIP_TOOL', 'strip')
         if getattr(self.generator, 'link_task', None):
                 if self.generator.link_task.outputs[0] in self.inputs:
-                        self.generator.bld.cmd_and_log('strip %s' % tgt, quiet=Context.BOTH)
+                        self.generator.bld.cmd_and_log('%s %s' % (striptool, tgt), quiet=Context.BOTH)
 Build.inst.copy_fun = copy_fun
-
