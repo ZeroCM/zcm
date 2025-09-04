@@ -6,7 +6,7 @@ import java.util.*;
 import java.nio.*;
 
 /** Zero Communications and Marshalling Java implementation **/
-public class ZCM
+public class ZCM implements AutoCloseable
 {
     public class Subscription
     {
@@ -24,10 +24,21 @@ public class ZCM
     /** Create a new ZCM object, connecting to one or more URLs. If
      * no URL is specified, ZCM_DEFAULT_URL is used.
      **/
-    public ZCM() throws IOException { this(null); }
+    public ZCM() throws IOException { this((String)null); }
     public ZCM(String url) throws IOException
     {
         zcmjni = new ZCMJNI(url);
+    }
+
+    /** Create a new ZCM object using the provided transport.
+     * The transport must be valid and properly initialized.
+     **/
+    public ZCM(ZCMTransport transport) throws IOException
+    {
+        if (transport == null) {
+            throw new IllegalArgumentException("Transport cannot be null");
+        }
+        zcmjni = new ZCMJNI(transport);
     }
 
     public void start() { zcmjni.start(); }
@@ -138,7 +149,7 @@ public class ZCM
         this.closed = true;
     }
 
-    public void finalize() { if (!this.closed) close(); }
+
 
     ////////////////////////////////////////////////////////////////
 

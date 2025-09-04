@@ -17,6 +17,14 @@ JNIEXPORT jboolean JNICALL Java_zcm_zcm_ZCMJNI_initializeNative
 
 /*
  * Class:     zcm_zcm_ZCMJNI
+ * Method:    initializeNativeFromTransport
+ * Signature: (J)Z
+ */
+JNIEXPORT jboolean JNICALL Java_zcm_zcm_ZCMJNI_initializeNativeFromTransport
+  (JNIEnv *, jobject, jlong);
+
+/*
+ * Class:     zcm_zcm_ZCMJNI
  * Method:    destroy
  * Signature: ()V
  */

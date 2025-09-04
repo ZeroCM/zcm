@@ -40,6 +40,12 @@ if [ $ret -ne 0 ]; then
     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$INSTALL_BASE/lib/
 fi
 
+echo $LD_LIBRARY_PATH | grep -q $INSTALL_BASE/lib64
+ret=$?
+if [ $ret -ne 0 ]; then
+    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$INSTALL_BASE/lib64/
+fi
+
 export ASAN_SYMBOLIZER_PATH=/usr/bin/llvm-symbolizer
 export ASAN_OPTIONS=check_initialization_order=1
 export CLASSPATH=$CLASSPATH:$INSTALL_BASE/share/java/zcm.jar
