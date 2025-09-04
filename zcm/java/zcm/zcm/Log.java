@@ -1,11 +1,10 @@
-package zcm.logging;
+package zcm.zcm;
 
 import java.awt.*;
 import java.awt.event.*;
 import java.io.*;
 import java.util.*;
 
-import zcm.util.*;
 import zcm.zcm.*;
 
 /**
@@ -73,9 +72,9 @@ public class Log
     /**
      * Flush any unwritten data to the underlying file descriptor.
      **/
-    public void flush() throws IOException
+    public boolean flush() throws IOException
     {
-        raf.flush();
+        return raf.flush();
     }
 
     /**

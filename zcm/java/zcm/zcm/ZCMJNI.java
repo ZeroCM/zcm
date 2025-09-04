@@ -9,6 +9,7 @@ class ZCMJNI
 
     private long nativePtr = 0;
     private native boolean initializeNative(String url);
+    private native boolean initializeNativeFromTransport(long transportPtr);
 
     public ZCMJNI(String url) throws IOException
     {
@@ -20,6 +21,17 @@ class ZCMJNI
         }
     }
 
+    public ZCMJNI(ZCMTransport transport) throws IOException
+    {
+        if (transport == null) {
+            throw new IllegalArgumentException("Transport cannot be null");
+        }
+        if (!initializeNativeFromTransport(transport.getNativeTransport())) {
+            throw new IOException("Failed to create ZCM from transport");
+        }
+    }
+
+    // RRR (Bendes): Do we need to delete/destroy zcmjni here too?
     public native void destroy();
 
     public native void start();

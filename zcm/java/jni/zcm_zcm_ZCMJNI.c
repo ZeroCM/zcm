@@ -75,9 +75,31 @@ JNIEXPORT jboolean JNICALL Java_zcm_zcm_ZCMJNI_initializeNative
 
     setNativePtr(env, self, I);
 
-    return I->zcm ? 1 : 0;
+    return I->zcm ? JNI_TRUE : JNI_FALSE;
 }
 
+/*
+ * Class:     zcm_zcm_ZCMJNI
+ * Method:    initializeNativeFromTransport
+ * Signature: (J)Z
+ */
+JNIEXPORT jboolean JNICALL Java_zcm_zcm_ZCMJNI_initializeNativeFromTransport
+(JNIEnv *env, jobject self, jlong transportPtr)
+{
+    Internal *I = calloc(1, sizeof(Internal));
+    int rc = (*env)->GetJavaVM(env, &I->jvm);
+    assert(rc == 0);
+
+    // Initialize ZCM from transport
+    zcm_trans_t* transport = (zcm_trans_t*)(intptr_t)transportPtr;
+    int ret = zcm_try_create_from_trans(&I->zcm, transport);
+
+    setNativePtr(env, self, I);
+
+    return ret == ZCM_EOK && I->zcm ? JNI_TRUE : JNI_FALSE;
+}
+
+// RRR (Bendes): Destroy needs to delete I, doesn't it?
 PASS_THROUGH_FUNC(destroy, destroy, void, ()V)
 PASS_THROUGH_FUNC(start, start, void, ()V)
 PASS_THROUGH_FUNC(stop, stop, void, ()V)

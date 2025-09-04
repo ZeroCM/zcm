@@ -1,4 +1,4 @@
-package zcm.util;
+package zcm.zcm;
 
 import java.io.*;
 
@@ -72,21 +72,22 @@ public class BufferedRandomAccessFile
         bufferSeek(pos);
     }
 
-    public void flush() throws IOException
+    public boolean flush() throws IOException
     {
-        flushBuffer();
+        return flushBuffer();
     }
 
     /** Writes the buffer if it contains any dirty data **/
-    void flushBuffer() throws IOException
+    boolean flushBuffer() throws IOException
     {
         if (!bufferDirty)
-            return;
+            return false;
 
         raf.seek(bufferOffset);
         raf.write(buffer, 0, bufferLength);
 
         bufferDirty = false;
+        return true;
     }
 
     /** Performs a seek and fills the buffer accordingly. **/

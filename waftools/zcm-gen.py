@@ -4,6 +4,7 @@
 import os
 import waflib
 from waflib import Task
+from waflib import Utils
 from waflib.Errors import WafError
 from waflib.TaskGen import extension
 from waflib.Configure import conf
@@ -270,7 +271,7 @@ def zcmgen(ctx, **kw):
     if 'cpp' in lang:
         ctx(target          = uselib_name + '_cpp',
             rule            = 'touch ${TGT}',
-            use             = ['zcm', uselib_name + '_genfiles'],
+            use             = ['zcm', genfiles_name],
             export_includes = inc)
 
     if not building:
@@ -290,7 +291,7 @@ def zcmgen(ctx, **kw):
     if 'c_stlib' in lang:
         ctx.stlib(name            = uselib_name + '_c_stlib',
                   target          = uselib_name,
-                  use             = ['default', 'zcm', uselib_name + '_genfiles'],
+                  use             = ['default', 'zcm', genfiles_name],
                   includes        = inc,
                   export_includes = inc,
                   source          = csrc)
@@ -298,7 +299,7 @@ def zcmgen(ctx, **kw):
     if 'c_shlib' in lang:
         ctx.shlib(name            = uselib_name + '_c_shlib',
                   target          = uselib_name,
-                  use             = ['default', 'zcm', uselib_name + '_genfiles'],
+                  use             = ['default', 'zcm', genfiles_name],
                   includes        = inc,
                   export_includes = inc,
                   source          = csrc)
@@ -306,7 +307,7 @@ def zcmgen(ctx, **kw):
     if 'java' in lang:
         ctx(name     = uselib_name + '_java',
             features = 'javac jar',
-            use      = ['zcmjar', genfiles_name, uselib_name + '_genfiles'],
+            use      = ['zcmjar', genfiles_name],
             srcdir   = ctx.path.find_or_declare('java/' + javapkg.split('.')[0]),
             outdir   = 'java/classes',  # path to output (for .class)
             basedir  = 'java/classes',  # basedir for jar
@@ -315,12 +316,12 @@ def zcmgen(ctx, **kw):
     if 'python' in lang:
         ctx(target = uselib_name + '_python',
             rule   = 'touch ${TGT}',
-            use    = ['zcm', uselib_name + '_genfiles'])
+            use    = ['zcm', genfiles_name])
 
     if 'julia' in lang:
         ctx(target = uselib_name + '_julia',
             rule   = 'touch ${TGT}',
-            use    = ['zcm', uselib_name + '_genfiles'])
+            use    = ['zcm', genfiles_name])
 
     ctx(target = uselib_name,
         rule   = 'touch ${TGT}',
@@ -344,6 +345,18 @@ class zcmgen(Task.Task):
     quiet   = False
     ext_in  = ['.zcm']
     ext_out = ['.c', '.h', '.hpp', '.java', '.py', '.jl']
+
+    def uid(self):
+        try:
+            return self.uid_
+        except AttributeError:
+            m = Utils.md5(self.__class__.__name__.encode('utf-8'))
+            up = m.update
+            up(self.generator.pkgPrefix.encode('utf-8'))
+            for x in self.inputs + self.outputs:
+                up(x.abspath().encode('utf-8'))
+            self.uid_ = m.digest()
+            return self.uid_
 
     ## This method processes the inputs and determines the outputs that will be generated
     ## when the zcm-gen program is run

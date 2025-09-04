@@ -239,6 +239,7 @@ def process_zcm_configure_options(ctx):
 
 def attempt_use_java(ctx):
     ctx.load('java')
+    ctx.env.JAVA_JVM_EXCLUDED = True
     ctx.check_jni_headers()
     return True
 
