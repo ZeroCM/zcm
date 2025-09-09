@@ -31,7 +31,7 @@ class ZCMJNI
         }
     }
 
-    // RRR (Bendes): Do we need to delete/destroy zcmjni here too?
+    // XXX (Bendes): Do we need to delete/destroy zcmjni here too?
     public native void destroy();
 
     public native void start();

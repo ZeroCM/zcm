@@ -70,7 +70,7 @@ public class ZCMGenericSerialTransport implements ZCMTransport, AutoCloseable {
      * Destroy the transport and free all resources.
      * This implements the ZCMTransport interface.
      */
-    // RRR (Bendes): I don't think this model works because I think zcm is
+    // XXX (Bendes): I don't think this model works because I think zcm is
     // supposed to own the close behavior after zcm is constructed with the
     // transport. I'm not positive though
     @Override

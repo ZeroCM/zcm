@@ -99,7 +99,7 @@ JNIEXPORT jboolean JNICALL Java_zcm_zcm_ZCMJNI_initializeNativeFromTransport
     return ret == ZCM_EOK && I->zcm ? JNI_TRUE : JNI_FALSE;
 }
 
-// RRR (Bendes): Destroy needs to delete I, doesn't it?
+// XXX (Bendes): Destroy needs to delete I, doesn't it?
 PASS_THROUGH_FUNC(destroy, destroy, void, ()V)
 PASS_THROUGH_FUNC(start, start, void, ()V)
 PASS_THROUGH_FUNC(stop, stop, void, ()V)

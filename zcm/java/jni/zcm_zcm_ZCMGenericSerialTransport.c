@@ -80,7 +80,7 @@ static size_t javaGetCallback(uint8_t* data, size_t nData, void* usr)
     }
 
     // Call Java nativeGet method
-    // RRR (Bendes): Wrap the java gets and puts in a try/catch
+    // XXX (Bendes): Wrap the java gets and puts in a try/catch
     jint bytesRead = (*env)->CallIntMethod(env, jst->javaObj, jst->getNativeGetMethodID, directBuffer, (jint)nData);
 
     // Validate return value
