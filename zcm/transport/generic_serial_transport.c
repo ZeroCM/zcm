@@ -15,6 +15,8 @@
 
 #define ASSERT(x)
 
+#define PUT_TIMEOUT_MS (100)
+
 // Framing (size = 9 + chan_len + data_len)
 //   0xCC
 //   0x00
@@ -40,6 +42,8 @@ struct zcm_trans_generic_serial_t
     size_t (*get)(uint8_t* data, size_t nData, void* usr);
     size_t (*put)(const uint8_t* data, size_t nData, void* usr);
     void* put_get_usr;
+    uint32_t timeoutPut;
+    uint32_t timeoutGet;
 
     uint64_t (*time)(void* usr);
     void* time_usr;
@@ -239,10 +243,42 @@ int serial_update_rx(zcm_trans_t *_zt)
     return ZCM_EOK;
 }
 
+static size_t get_blocking(uint8_t *data, size_t nData, void *usr)
+{
+    zcm_trans_generic_serial_t* zt = cast(usr);
+    int ret = ((size_t (*)(uint8_t* data, size_t nData, uint32_t timeoutMs, void* usr))zt->get)
+        (data, nData, zt->timeoutGet, zt->put_get_usr);
+    zt->timeoutGet = 0;
+    return ret;
+}
+
+int serial_update_rx_blocking(zcm_trans_t *_zt)
+{
+    zcm_trans_generic_serial_t* zt = cast(_zt);
+    cb_flush_in(&zt->recvBuffer, get_blocking, zt);
+    return ZCM_EOK;
+}
+
 int serial_update_tx(zcm_trans_t *_zt)
 {
     zcm_trans_generic_serial_t* zt = cast(_zt);
     cb_flush_out(&zt->sendBuffer, zt->put, zt->put_get_usr);
+    return ZCM_EOK;
+}
+
+static size_t put_blocking(const uint8_t *data, size_t nData, void *usr)
+{
+    zcm_trans_generic_serial_t* zt = cast(usr);
+    int ret = ((size_t (*)(const uint8_t* data, size_t nData, uint32_t timeoutMs, void* usr))zt->put)
+        (data, nData, zt->timeoutPut, zt->put_get_usr);
+    zt->timeoutPut = 0;
+    return ret;
+}
+
+int serial_update_tx_blocking(zcm_trans_t *_zt)
+{
+    zcm_trans_generic_serial_t* zt = cast(_zt);
+    cb_flush_out(&zt->sendBuffer, put_blocking, zt);
     return ZCM_EOK;
 }
 
@@ -266,6 +302,25 @@ static int _serial_update(zcm_trans_t *zt)
     return rxRet == ZCM_EOK ? txRet : rxRet;
 }
 
+static int _serial_sendmsg_blocking(zcm_trans_t *_zt, zcm_msg_t msg)
+{
+    zcm_trans_generic_serial_t* zt = cast(_zt);
+    int ret = serial_sendmsg(zt, msg);
+    zt->timeoutPut = PUT_TIMEOUT_MS;
+    serial_update_tx_blocking(_zt);
+    return ret;
+}
+
+static int _serial_recvmsg_blocking(zcm_trans_t *_zt, zcm_msg_t *msg, unsigned timeout)
+{
+    zcm_trans_generic_serial_t* zt = cast(_zt);
+    int ret = serial_recvmsg(zt, msg, timeout);
+    if (ret == ZCM_EOK) return ZCM_EOK;
+    zt->timeoutGet = timeout;
+    serial_update_rx_blocking(_zt);
+    return ret;
+}
+
 static zcm_trans_methods_t methods = {
     &_serial_get_mtu,
     &_serial_sendmsg,
@@ -276,9 +331,19 @@ static zcm_trans_methods_t methods = {
     &zcm_trans_generic_serial_destroy,
 };
 
+static zcm_trans_methods_t methods_blocking = {
+    &_serial_get_mtu,
+    &_serial_sendmsg_blocking,
+    &_serial_recvmsg_enable,
+    &_serial_recvmsg_blocking,
+    NULL, // drops
+    NULL, // update is part of recvmsg
+    &zcm_trans_generic_serial_destroy,
+};
+
 static zcm_trans_generic_serial_t *cast(zcm_trans_t *zt)
 {
-    assert(zt->vtbl == &methods);
+    assert(zt->vtbl == &methods || zt->vtbl == &methods_blocking);
     return (zcm_trans_generic_serial_t*)zt;
 }
 
@@ -323,6 +388,25 @@ zcm_trans_t *zcm_trans_generic_serial_create(
     zt->time_usr = time_usr;
 
     return (zcm_trans_t*) zt;
+}
+
+zcm_trans_t *zcm_trans_generic_serial_blocking_create(
+        size_t (*get)(uint8_t* data, size_t nData, uint32_t timeoutMs, void* usr),
+        size_t (*put)(const uint8_t* data, size_t nData, uint32_t timeoutMs, void* usr),
+        void* put_get_usr,
+        uint64_t (*timestamp_now)(void* usr),
+        void* time_usr,
+        size_t MTU,
+        size_t bufSize)
+{
+    zcm_trans_t *zt =
+        zcm_trans_generic_serial_create(
+                (size_t (*)(uint8_t* data, size_t nData, void* usr))get,
+                (size_t (*)(const uint8_t* data, size_t nData, void* usr))put,
+                put_get_usr, timestamp_now, time_usr, MTU, bufSize);
+    zt->trans_type = ZCM_BLOCKING;
+    zt->vtbl = &methods_blocking;
+    return zt;
 }
 
 void zcm_trans_generic_serial_destroy(zcm_trans_t* _zt)

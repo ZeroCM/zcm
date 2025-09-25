@@ -16,9 +16,10 @@ public interface SerialIO {
      *
      * @param buffer ByteBuffer to store the read data (direct buffer, zero-copy)
      * @param maxLen maximum number of bytes to read
+     * @param timeoutMs number of ms this call may block for. 0 indicates nonblocking
      * @return number of bytes actually read, or 0 if no data available
      */
-    int get(ByteBuffer buffer, int maxLen);
+    int get(ByteBuffer buffer, int maxLen, int timeoutMs);
 
     /**
      * Write data to the serial interface.
@@ -27,7 +28,8 @@ public interface SerialIO {
      *
      * @param buffer ByteBuffer containing data to write (direct buffer, zero-copy)
      * @param len number of bytes to write from the buffer
+     * @param timeoutMs number of ms this call may block for. 0 indicates nonblocking
      * @return number of bytes actually written
      */
-    int put(ByteBuffer buffer, int len);
+    int put(ByteBuffer buffer, int len, int timeoutMs);
 }

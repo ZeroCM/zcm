@@ -111,6 +111,14 @@ JNIEXPORT jint JNICALL Java_zcm_zcm_ZCMJNI_handle
 JNIEXPORT jint JNICALL Java_zcm_zcm_ZCMJNI_handleNonblock
   (JNIEnv *, jobject);
 
+/*
+ * Class:     zcm_zcm_ZCMJNI
+ * Method:    getNativeZcmPtr
+ * Signature: ()J
+ */
+JNIEXPORT jlong JNICALL Java_zcm_zcm_ZCMJNI_getNativeZcmPtr
+  (JNIEnv *, jobject);
+
 #ifdef __cplusplus
 }
 #endif

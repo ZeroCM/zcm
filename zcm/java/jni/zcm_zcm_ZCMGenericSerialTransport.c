@@ -16,6 +16,8 @@ struct JavaSerialTransport {
     jobject javaObj;  // Global reference to the Java object
     zcm_trans_t *transport;
 
+    bool weOwnTransportMemory;
+
     // Method IDs for callbacks
     jmethodID getNativeGetMethodID;
     jmethodID getNativePutMethodID;
@@ -52,7 +54,7 @@ static uint64_t getSystemTimestamp(void *usr)
 }
 
 // Get function callback - calls Java nativeGet method
-static size_t javaGetCallback(uint8_t* data, size_t nData, void* usr)
+static size_t javaGetCallback(uint8_t* data, size_t nData, uint32_t timeoutMs, void* usr)
 {
     JavaSerialTransport *jst = (JavaSerialTransport*)usr;
 
@@ -80,8 +82,9 @@ static size_t javaGetCallback(uint8_t* data, size_t nData, void* usr)
     }
 
     // Call Java nativeGet method
-    // XXX (Bendes): Wrap the java gets and puts in a try/catch
-    jint bytesRead = (*env)->CallIntMethod(env, jst->javaObj, jst->getNativeGetMethodID, directBuffer, (jint)nData);
+    jint bytesRead =
+        (*env)->CallIntMethod(env, jst->javaObj, jst->getNativeGetMethodID,
+                              directBuffer, (jint)nData, (jint)timeoutMs);
 
     // Validate return value
     if (bytesRead < 0 || bytesRead > nData) {
@@ -99,7 +102,7 @@ static size_t javaGetCallback(uint8_t* data, size_t nData, void* usr)
 }
 
 // Put function callback - calls Java nativePut method
-static size_t javaPutCallback(const uint8_t* data, size_t nData, void* usr)
+static size_t javaPutCallback(const uint8_t* data, size_t nData, uint32_t timeoutMs, void* usr)
 {
     JavaSerialTransport *jst = (JavaSerialTransport*)usr;
 
@@ -127,7 +130,9 @@ static size_t javaPutCallback(const uint8_t* data, size_t nData, void* usr)
     }
 
     // Call Java nativePut method
-    jint bytesWritten = (*env)->CallIntMethod(env, jst->javaObj, jst->getNativePutMethodID, directBuffer, (jint)nData);
+    jint bytesWritten =
+        (*env)->CallIntMethod(env, jst->javaObj, jst->getNativePutMethodID,
+                              directBuffer, (jint)nData, (jint)timeoutMs);
 
     // Check for exceptions
     if ((*env)->ExceptionCheck(env)) {
@@ -178,10 +183,12 @@ JNIEXPORT jboolean JNICALL Java_zcm_zcm_ZCMGenericSerialTransport_initializeNati
         return JNI_FALSE;
     }
 
+    jst->weOwnTransportMemory = true;
+
     // Get method IDs for the callback methods
     jclass cls = (*env)->GetObjectClass(env, self);
-    jst->getNativeGetMethodID = (*env)->GetMethodID(env, cls, "nativeGet", "(Ljava/nio/ByteBuffer;I)I");
-    jst->getNativePutMethodID = (*env)->GetMethodID(env, cls, "nativePut", "(Ljava/nio/ByteBuffer;I)I");
+    jst->getNativeGetMethodID = (*env)->GetMethodID(env, cls, "nativeGet", "(Ljava/nio/ByteBuffer;II)I");
+    jst->getNativePutMethodID = (*env)->GetMethodID(env, cls, "nativePut", "(Ljava/nio/ByteBuffer;II)I");
 
     if (jst->getNativeGetMethodID == NULL || jst->getNativePutMethodID == NULL) {
         (*env)->DeleteGlobalRef(env, jst->javaObj);
@@ -190,7 +197,7 @@ JNIEXPORT jboolean JNICALL Java_zcm_zcm_ZCMGenericSerialTransport_initializeNati
     }
 
     // Create the C transport
-    jst->transport = zcm_trans_generic_serial_create(
+    jst->transport = zcm_trans_generic_serial_blocking_create(
         javaGetCallback,        // get function
         javaPutCallback,        // put function
         jst,                   // user data for get/put
@@ -229,57 +236,6 @@ JNIEXPORT jlong JNICALL Java_zcm_zcm_ZCMGenericSerialTransport_getTransportPtr
 
 /*
  * Class:     zcm_zcm_ZCMGenericSerialTransport
- * Method:    updateRx
- * Signature: ()I
- */
-JNIEXPORT jint JNICALL Java_zcm_zcm_ZCMGenericSerialTransport_updateRx
-(JNIEnv *env, jobject self)
-{
-    JavaSerialTransport *jst = getNativePtr(env, self);
-    if (jst == NULL || jst->transport == NULL) {
-        return -1;
-    }
-    return serial_update_rx(jst->transport);
-}
-
-/*
- * Class:     zcm_zcm_ZCMGenericSerialTransport
- * Method:    updateTx
- * Signature: ()I
- */
-JNIEXPORT jint JNICALL Java_zcm_zcm_ZCMGenericSerialTransport_updateTx
-(JNIEnv *env, jobject self)
-{
-    JavaSerialTransport *jst = getNativePtr(env, self);
-    if (jst == NULL || jst->transport == NULL) {
-        return -1;
-    }
-    return serial_update_tx(jst->transport);
-}
-
-/*
- * Class:     zcm_zcm_ZCMGenericSerialTransport
- * Method:    update
- * Signature: ()I
- */
-JNIEXPORT jint JNICALL Java_zcm_zcm_ZCMGenericSerialTransport_update
-(JNIEnv *env, jobject self)
-{
-    JavaSerialTransport *jst = getNativePtr(env, self);
-    if (jst == NULL || jst->transport == NULL) {
-        return -1;
-    }
-
-    // Update both RX and TX
-    int rxRet = serial_update_rx(jst->transport);
-    int txRet = serial_update_tx(jst->transport);
-
-    // Return the first error, or success if both succeeded
-    return rxRet == ZCM_EOK ? txRet : rxRet;
-}
-
-/*
- * Class:     zcm_zcm_ZCMGenericSerialTransport
  * Method:    destroy
  * Signature: ()V
  */
@@ -291,12 +247,11 @@ JNIEXPORT void JNICALL Java_zcm_zcm_ZCMGenericSerialTransport_destroy
         return;
     }
 
-    // Destroy the C transport
     if (jst->transport != NULL) {
-        zcm_trans_generic_serial_destroy(jst->transport);
+        if (jst->weOwnTransportMemory)
+            zcm_trans_generic_serial_destroy(jst->transport);
         jst->transport = NULL;
     }
-
     // Release the global reference
     if (jst->javaObj != NULL) {
         (*env)->DeleteGlobalRef(env, jst->javaObj);
@@ -308,4 +263,19 @@ JNIEXPORT void JNICALL Java_zcm_zcm_ZCMGenericSerialTransport_destroy
 
     // Clear the native pointer in the Java object
     setNativePtr(env, self, NULL);
+}
+
+/*
+ * Class:     zcm_zcm_ZCMGenericSerialTransport
+ * Method:    releaseNativeTransportMemoryToZcm
+ * Signature: ()V
+ */
+JNIEXPORT void JNICALL Java_zcm_zcm_ZCMGenericSerialTransport_releaseNativeTransportMemoryToZcm
+(JNIEnv *env, jobject self)
+{
+    JavaSerialTransport *jst = getNativePtr(env, self);
+    if (jst == NULL) {
+        return;
+    }
+    jst->weOwnTransportMemory = false;
 }

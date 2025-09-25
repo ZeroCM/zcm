@@ -4,7 +4,7 @@ import java.io.IOException;
 class ZCMJNI
 {
     static {
-        System.loadLibrary("zcmjni");
+        ZCMNativeLoader.loadLibrary();
     }
 
     private long nativePtr = 0;
@@ -14,9 +14,9 @@ class ZCMJNI
     public ZCMJNI(String url) throws IOException
     {
         if (!initializeNative(url)) {
-            String msg = (url != null) ?
-                "Failed to create ZCM for '" + url + "'" :
-                "Failed to create ZCM using the default url";
+            String msg = (url != null)
+                ? "Failed to create ZCM for '" + url + "'"
+                : "Failed to create ZCM using the default url";
             throw new IOException(msg);
         }
     }
@@ -29,9 +29,9 @@ class ZCMJNI
         if (!initializeNativeFromTransport(transport.getNativeTransport())) {
             throw new IOException("Failed to create ZCM from transport");
         }
+        transport.releaseNativeTransportMemoryToZcm();
     }
 
-    // XXX (Bendes): Do we need to delete/destroy zcmjni here too?
     public native void destroy();
 
     public native void start();
@@ -41,4 +41,6 @@ class ZCMJNI
 
     public native Object subscribe(String channel, ZCM zcm, Object usr);
     public native int unsubscribe(Object usr);
+
+    public native long getNativeZcmPtr();
 }

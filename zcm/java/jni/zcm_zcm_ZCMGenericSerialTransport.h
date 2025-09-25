@@ -25,30 +25,6 @@ JNIEXPORT jlong JNICALL Java_zcm_zcm_ZCMGenericSerialTransport_getTransportPtr
 
 /*
  * Class:     zcm_zcm_ZCMGenericSerialTransport
- * Method:    updateRx
- * Signature: ()I
- */
-JNIEXPORT jint JNICALL Java_zcm_zcm_ZCMGenericSerialTransport_updateRx
-  (JNIEnv *, jobject);
-
-/*
- * Class:     zcm_zcm_ZCMGenericSerialTransport
- * Method:    updateTx
- * Signature: ()I
- */
-JNIEXPORT jint JNICALL Java_zcm_zcm_ZCMGenericSerialTransport_updateTx
-  (JNIEnv *, jobject);
-
-/*
- * Class:     zcm_zcm_ZCMGenericSerialTransport
- * Method:    update
- * Signature: ()I
- */
-JNIEXPORT jint JNICALL Java_zcm_zcm_ZCMGenericSerialTransport_update
-  (JNIEnv *, jobject);
-
-/*
- * Class:     zcm_zcm_ZCMGenericSerialTransport
  * Method:    destroy
  * Signature: ()V
  */

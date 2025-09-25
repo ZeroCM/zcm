@@ -70,18 +70,18 @@ public class ZCM implements AutoCloseable
      * primarily provided for testing purposes and may be removed in
      * the future.
      **/
-    public void publish(String channel, String s) throws IOException
+    public int publish(String channel, String s) throws IOException
     {
         if (this.closed) throw new IllegalStateException();
         s = s + "\0";
         byte[] b = s.getBytes();
-        publish(channel, b, 0, b.length);
+        return publish(channel, b, 0, b.length);
     }
 
     /** Publish an ZCM-defined type on a channel. If more than one URL was
      * specified, the message will be sent on each.
      **/
-    public synchronized void publish(String channel, ZCMEncodable e)
+    public synchronized int publish(String channel, ZCMEncodable e)
     {
         if (this.closed) throw new IllegalStateException();
 
@@ -90,21 +90,22 @@ public class ZCM implements AutoCloseable
 
             e.encode(encodeBuffer);
 
-            publish(channel, encodeBuffer.getBuffer(), 0, encodeBuffer.size());
+            return publish(channel, encodeBuffer.getBuffer(), 0, encodeBuffer.size());
         } catch (IOException ex) {
             System.err.println("ZCM publish fail: "+ex);
         }
+        return -1;
     }
 
     /** Publish raw data on a channel, bypassing the ZCM type
      * specification. If more than one URL was specified when the ZCM
      * object was created, the message will be sent on each.
      **/
-    public void publish(String channel, byte[] data, int offset, int length)
+    public int publish(String channel, byte[] data, int offset, int length)
         throws IOException
     {
         if (this.closed) throw new IllegalStateException();
-        zcmjni.publish(channel, data, offset, length);
+        return zcmjni.publish(channel, data, offset, length);
     }
 
     public Subscription subscribe(String channel, ZCMSubscriber sub)
@@ -149,7 +150,14 @@ public class ZCM implements AutoCloseable
         this.closed = true;
     }
 
-
+    /** Get the native zcm_t* pointer for use in JNI code.
+     * @return native zcm_t* pointer as long, or 0 if not initialized
+     */
+    public long getNativeZcmPtr()
+    {
+        if (this.closed) throw new IllegalStateException();
+        return zcmjni.getNativeZcmPtr();
+    }
 
     ////////////////////////////////////////////////////////////////
 

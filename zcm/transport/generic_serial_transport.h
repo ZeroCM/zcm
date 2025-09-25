@@ -18,6 +18,16 @@ zcm_trans_t *zcm_trans_generic_serial_create(
         void* time_usr,
         size_t MTU, size_t bufSize);
 
+// Note that put and get can be called at the same time.
+// The caller is responsible for thread safety inside those functions, if required
+zcm_trans_t *zcm_trans_generic_serial_blocking_create(
+        size_t (*get)(uint8_t* data, size_t nData, uint32_t timeoutMs, void* usr),
+        size_t (*put)(const uint8_t* data, size_t nData, uint32_t timeoutMs, void* usr),
+        void* put_get_usr,
+        uint64_t (*timestamp_now)(void* usr),
+        void* time_usr,
+        size_t MTU, size_t bufSize);
+
 // frees all resources inside of zt and frees zt itself
 void zcm_trans_generic_serial_destroy(zcm_trans_t* zt);
 

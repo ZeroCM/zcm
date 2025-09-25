@@ -184,7 +184,7 @@ def process_zcm_configure_options(ctx):
     env.USING_CXXTEST          = hasoptDev('use_cxxtest') and attempt_use_cxxtest(ctx)
     env.TRACK_TRAFFIC_TOPOLOGY = getattr(opt, 'track_traffic_topology')
 
-    ZMQ_REQUIRED = env.USING_TRANS_IPC or env.USING_TRANS_INPROC
+    ZMQ_REQUIRED = env.USING_TRANS_IPC
     if ZMQ_REQUIRED and not env.USING_ZMQ:
         raise WafError("Using ZeroMQ is required for some of the selected transports (--use-zmq)")
 
