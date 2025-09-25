@@ -288,7 +288,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     int recvmsg(zcm_msg_t* msg, unsigned timeoutMs)
     {
         recvMsgStartUtime = TimeUtil::utime();
-        recvTimeoutUs = timeoutMs * 1000;
+        recvTimeoutUs = timeoutMs * 1000ULL;
 
         do {
             int ret = zcm_trans_recvmsg(this->gst, msg, 0);

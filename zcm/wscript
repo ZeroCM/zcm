@@ -95,6 +95,7 @@ def build(ctx):
                       ['tools/IndexerPlugin.hpp',
                        'tools/TranscoderPlugin.hpp'])
 
+    ctx.install_files('${PREFIX}/include/zcm/util', 'util/debug.h')
     ctx.install_files('${PREFIX}/include/zcm/util', 'util/Filter.hpp')
     ctx.install_files('${PREFIX}/include/zcm/util', 'util/topology.hpp')
 
