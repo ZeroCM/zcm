@@ -35,10 +35,9 @@ zcm_trans_create_func *zcm_transport_find(const char *name)
 
 void zcm_transport_help(FILE *f)
 {
-    fprintf(f, "Transport Name       Type            Description\n");
-    fprintf(f, "-------------------------------------------------------------------------------------\n");
+    fprintf(f, "Transport Name       Description\n");
+    fprintf(f, "---------------------------------------------------------------------\n");
     for (size_t i = 0; i < t_index; i++) {
-        const char *type = "UNKNOWN";
-        fprintf(f, "%-20s %-15s %s\n", t_name[i], type, t_desc[i]);
+        fprintf(f, "%-20s %s\n", t_name[i], t_desc[i]);
     }
 }
