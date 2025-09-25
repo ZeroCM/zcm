@@ -10,6 +10,10 @@ import java.nio.ByteBuffer;
  */
 public class ZCMGenericSerialTransport implements ZCMTransport, AutoCloseable {
 
+    static {
+        ZCMNativeLoader.loadLibrary();
+    }
+
     private long nativePtr = 0;
     private SerialIO serialIO;
 
@@ -32,7 +36,12 @@ public class ZCMGenericSerialTransport implements ZCMTransport, AutoCloseable {
             throw new IllegalArgumentException("Buffer size must be positive");
         }
 
+        if (!ZCMNativeLoader.isLibraryLoaded()) {
+            throw new AssertionError("Library not yet loaded");
+        }
+
         this.serialIO = serialIO;
+
         if (!initializeNative(mtu, bufSize)) {
             throw new IOException("Failed to create ZCM Generic Serial Transport");
         }
@@ -70,11 +79,16 @@ public class ZCMGenericSerialTransport implements ZCMTransport, AutoCloseable {
      * Destroy the transport and free all resources.
      * This implements the ZCMTransport interface.
      */
-    // XXX (Bendes): I don't think this model works because I think zcm is
-    // supposed to own the close behavior after zcm is constructed with the
-    // transport. I'm not positive though
     @Override
     public native void destroy();
+
+    /**
+     * Signal that the internal C transport will be cleaned
+     * up by a ZCM instance.
+     * This implements the ZCMTransport interface.
+     */
+    @Override
+    public native void releaseNativeTransportMemoryToZcm();
 
     /**
      * Close the transport and free all resources.
@@ -91,11 +105,12 @@ public class ZCMGenericSerialTransport implements ZCMTransport, AutoCloseable {
      *
      * @param buffer direct ByteBuffer wrapping the native data array
      * @param maxLen maximum number of bytes to read
+     * @param timeoutMs number of ms this call may block for. 0 indicates nonblocking
      * @return number of bytes actually read
      */
-    private int nativeGet(ByteBuffer buffer, int maxLen) {
+    private int nativeGet(ByteBuffer buffer, int maxLen, int timeoutMs) {
         try {
-            return serialIO.get(buffer, maxLen);
+            return serialIO.get(buffer, maxLen, timeoutMs);
         } catch (Exception e) {
             // Don't let exceptions propagate through JNI
             System.err.println("Exception in SerialIO.get(): " + e.getMessage());
@@ -109,11 +124,12 @@ public class ZCMGenericSerialTransport implements ZCMTransport, AutoCloseable {
      *
      * @param buffer direct ByteBuffer wrapping the native data array
      * @param len number of bytes to write
+     * @param timeoutMs number of ms this call may block for. 0 indicates nonblocking
      * @return number of bytes actually written
      */
-    private int nativePut(ByteBuffer buffer, int len) {
+    private int nativePut(ByteBuffer buffer, int len, int timeoutMs) {
         try {
-            return serialIO.put(buffer, len);
+            return serialIO.put(buffer, len, timeoutMs);
         } catch (Exception e) {
             // Don't let exceptions propagate through JNI
             System.err.println("Exception in SerialIO.put(): " + e.getMessage());

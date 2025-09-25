@@ -99,8 +99,21 @@ JNIEXPORT jboolean JNICALL Java_zcm_zcm_ZCMJNI_initializeNativeFromTransport
     return ret == ZCM_EOK && I->zcm ? JNI_TRUE : JNI_FALSE;
 }
 
-// XXX (Bendes): Destroy needs to delete I, doesn't it?
-PASS_THROUGH_FUNC(destroy, destroy, void, ()V)
+/*
+ * Class:     zcm_zcm_ZCMJNI
+ * Method:    destroy
+ * Signature: ()V
+ */
+JNIEXPORT void JNICALL Java_zcm_zcm_ZCMJNI_destroy
+(JNIEnv *env, jobject self)
+{
+    Internal *I = getNativePtr(env, self);
+    if (!I) return;
+    if (I->zcm) zcm_destroy(I->zcm);
+    free(I);
+    setNativePtr(env, self, NULL);
+}
+
 PASS_THROUGH_FUNC(start, start, void, ()V)
 PASS_THROUGH_FUNC(stop, stop, void, ()V)
 
@@ -222,6 +235,21 @@ JNIEXPORT jint JNICALL Java_zcm_zcm_ZCMJNI_unsubscribe
     free(subs);
 
     return ret;
+}
+
+/*
+ * Class:     zcm_zcm_ZCMJNI
+ * Method:    getNativeZcmPtr
+ * Signature: ()J
+ */
+JNIEXPORT jlong JNICALL Java_zcm_zcm_ZCMJNI_getNativeZcmPtr
+(JNIEnv *env, jobject self)
+{
+    Internal *I = getNativePtr(env, self);
+    if (I && I->zcm) {
+        return (jlong)(intptr_t)I->zcm;
+    }
+    return 0;
 }
 
 PASS_THROUGH_FUNC(flush, flush, void, ()V)

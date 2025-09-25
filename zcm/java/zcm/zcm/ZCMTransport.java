@@ -20,4 +20,11 @@ public interface ZCMTransport {
      * After calling this method, the transport should not be used.
      */
     void destroy();
+
+    /**
+     * Signal to the transport that the native transport pointer memory
+     * will be managed by ZCM. This is invoked as soon as a ZCM is created
+     * from this transport.
+     */
+    void releaseNativeTransportMemoryToZcm();
 }
