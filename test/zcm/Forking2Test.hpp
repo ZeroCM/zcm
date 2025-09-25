@@ -16,12 +16,6 @@ static void handler(const zcm_recv_buf_t *rbuf, const char *channel, void *usr)
     numrecv++;
 }
 
-static void handle(zcm_t *zcm)
-{
-    int rc = zcm_handle(zcm);
-    TS_ASSERT_EQUALS(rc, -1)
-}
-
 class Forking2Test : public CxxTest::TestSuite
 {
   public:

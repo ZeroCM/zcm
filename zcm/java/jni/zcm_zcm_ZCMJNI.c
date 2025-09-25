@@ -224,8 +224,21 @@ JNIEXPORT jint JNICALL Java_zcm_zcm_ZCMJNI_unsubscribe
     return ret;
 }
 
-PASS_THROUGH_FUNC(flush, flush, void, ()V)
+/*
+ * Class:     zcm_zcm_ZCMJNI
+ * Method:    handle
+ * Signature: (Lzcm/zcm/ZCM;Lzcm/zcm/ZCM/Subscription;)I
+ */
+JNIEXPORT jint JNICALL Java_zcm_zcm_ZCMJNI_handle
+(JNIEnv *env, jobject self, jint timeoutJ)
+{
+    Internal *I = getNativePtr(env, self);
+    assert(I);
+
+    if (timeoutJ < 0) return ZCM_EINVALID;
+    return zcm_handle(I->zcm, timeoutJ);
+}
+
+PASS_THROUGH_FUNC(flush, flush, jint, ()I)
 PASS_THROUGH_FUNC(pause, pause, void, ()V)
 PASS_THROUGH_FUNC(resume, resume, void, ()V)
-PASS_THROUGH_FUNC(handle, handle, jint, ()I)
-PASS_THROUGH_FUNC(handleNonblock, handle_nonblock, jint, ()I)

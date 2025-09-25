@@ -39,7 +39,7 @@ static void dispatchOneMessage(zcm::ZCM& zcm, uint64_t sleepTimeUs)
     } else {
         uint64_t end = utime() + sleepTimeUs;
         while (utime() < end) {
-            if (zcm.handleNonblock() == ZCM_EOK) break;
+            if (zcm.handle(0) == ZCM_EOK) break;
         }
     }
 }

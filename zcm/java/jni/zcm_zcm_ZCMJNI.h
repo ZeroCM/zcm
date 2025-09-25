@@ -74,9 +74,9 @@ JNIEXPORT jint JNICALL Java_zcm_zcm_ZCMJNI_unsubscribe
 /*
  * Class:     zcm_zcm_ZCMJNI
  * Method:    flush
- * Signature: ()V
+ * Signature: ()I
  */
-JNIEXPORT void JNICALL Java_zcm_zcm_ZCMJNI_flush
+JNIEXPORT jint JNICALL Java_zcm_zcm_ZCMJNI_flush
   (JNIEnv *, jobject);
 
 /*
@@ -98,18 +98,10 @@ JNIEXPORT void JNICALL Java_zcm_zcm_ZCMJNI_resume
 /*
  * Class:     zcm_zcm_ZCMJNI
  * Method:    handle
- * Signature: ()I
+ * Signature: (I)I
  */
 JNIEXPORT jint JNICALL Java_zcm_zcm_ZCMJNI_handle
-  (JNIEnv *, jobject);
-
-/*
- * Class:     zcm_zcm_ZCMJNI
- * Method:    handleNonblock
- * Signature: ()I
- */
-JNIEXPORT jint JNICALL Java_zcm_zcm_ZCMJNI_handleNonblock
-  (JNIEnv *, jobject);
+  (JNIEnv *, jobject, jint);
 
 #ifdef __cplusplus
 }

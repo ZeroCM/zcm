@@ -200,19 +200,6 @@ int zcm_publish(zcm_t* zcm, const char* channel, const uint8_t* data, uint32_t l
     return ret;
 }
 
-void zcm_flush(zcm_t* zcm)
-{
-#ifndef ZCM_EMBEDDED
-    switch (zcm->type) {
-        case ZCM_BLOCKING:    zcm_blocking_flush(zcm->impl);    break;
-        case ZCM_NONBLOCKING: zcm_nonblocking_flush(zcm->impl); break;
-    }
-#else
-    ZCM_ASSERT(zcm->type == ZCM_NONBLOCKING);
-    zcm_nonblocking_flush(zcm->impl);
-#endif
-}
-
 zcm_sub_t* zcm_subscribe(zcm_t* zcm, const char* channel, zcm_msg_handler_t cb, void* usr)
 {
     zcm_sub_t* ret = NULL;
@@ -247,6 +234,59 @@ int zcm_unsubscribe(zcm_t* zcm, zcm_sub_t* sub)
 #else
     ZCM_ASSERT(zcm->type == ZCM_NONBLOCKING);
     ret = zcm_nonblocking_unsubscribe(zcm->impl, sub);
+#endif
+    return ret;
+}
+
+int zcm_handle(zcm_t* zcm, unsigned timeout)
+{
+    int ret = ZCM_EUNKNOWN;
+#ifndef ZCM_EMBEDDED
+    switch (zcm->type) {
+        case ZCM_BLOCKING:
+            ret = zcm_blocking_handle(zcm->impl, timeout);
+            break;
+        case ZCM_NONBLOCKING:
+            ret = zcm_nonblocking_handle(zcm->impl);
+            break;
+    }
+#else
+    ZCM_ASSERT(zcm->type == ZCM_NONBLOCKING);
+    ret = zcm_nonblocking_handle(zcm->impl);
+#endif
+    return ret;
+}
+
+int zcm_flush(zcm_t* zcm)
+{
+    int ret = ZCM_EUNKNOWN;
+#ifndef ZCM_EMBEDDED
+    switch (zcm->type) {
+        case ZCM_BLOCKING:    ret = zcm_blocking_flush(zcm->impl);    break;
+        case ZCM_NONBLOCKING: ret = zcm_nonblocking_flush(zcm->impl); break;
+    }
+#else
+    ZCM_ASSERT(zcm->type == ZCM_NONBLOCKING);
+    ret = zcm_nonblocking_flush(zcm->impl);
+#endif
+    return ret;
+}
+
+int zcm_set_queue_size(zcm_t* zcm, unsigned num_messages)
+{
+    int ret = ZCM_EUNKNOWN;
+#ifndef ZCM_EMBEDDED
+    switch (zcm->type) {
+        case ZCM_BLOCKING:
+            ret = zcm_blocking_set_queue_size(zcm->impl, num_messages);
+            break;
+        case ZCM_NONBLOCKING:
+            ret = zcm_nonblocking_set_queue_size(zcm->impl, num_messages);
+            break;
+    }
+#else
+    ZCM_ASSERT(zcm->type == ZCM_NONBLOCKING);
+    ret = zcm_nonblocking_set_queue_size(zcm->impl, num_messages);
 #endif
     return ret;
 }
@@ -292,22 +332,6 @@ void zcm_resume(zcm_t* zcm)
 #endif
 
 #ifndef ZCM_EMBEDDED
-int zcm_handle(zcm_t* zcm)
-{
-    ZCM_ASSERT(zcm->type == ZCM_BLOCKING);
-    return zcm_blocking_handle(zcm->impl);
-}
-#endif
-
-#ifndef ZCM_EMBEDDED
-void zcm_set_queue_size(zcm_t* zcm, uint32_t numMsgs)
-{
-    ZCM_ASSERT(zcm->type == ZCM_BLOCKING);
-    return zcm_blocking_set_queue_size(zcm->impl, numMsgs);
-}
-#endif
-
-#ifndef ZCM_EMBEDDED
 int zcm_write_topology(zcm_t* zcm, const char* name)
 {
     switch (zcm->type) {
@@ -319,36 +343,13 @@ int zcm_write_topology(zcm_t* zcm, const char* name)
 }
 #endif
 
-int zcm_handle_nonblock(zcm_t* zcm)
+int zcm_get_num_dropped_messages(zcm_t *zcm)
 {
     int ret = ZCM_EUNKNOWN;
 #ifndef ZCM_EMBEDDED
     switch (zcm->type) {
-        case ZCM_BLOCKING:
-            ret = zcm_blocking_handle_nonblock(zcm->impl);
-            break;
-        case ZCM_NONBLOCKING:
-            ret = zcm_nonblocking_handle_nonblock(zcm->impl);
-            break;
-    }
-#else
-    ZCM_ASSERT(zcm->type == ZCM_NONBLOCKING);
-    ret = zcm_nonblocking_handle_nonblock(zcm->impl);
-#endif
-    return ret;
-}
-
-int zcm_query_drops(zcm_t *zcm, uint64_t *out_drops)
-{
-    int ret = ZCM_EUNKNOWN;
-#ifndef ZCM_EMBEDDED
-    switch (zcm->type) {
-        case ZCM_BLOCKING:
-            ret = zcm_blocking_query_drops(zcm->impl, out_drops);
-            break;
-        case ZCM_NONBLOCKING:
-            ret = zcm_nonblocking_query_drops(zcm->impl, out_drops);
-            break;
+        case ZCM_BLOCKING:    return zcm_blocking_get_num_dropped_messages(zcm->impl);
+        case ZCM_NONBLOCKING: return zcm_nonblocking_get_num_dropped_messages(zcm->impl);
     }
 #else
     ZCM_ASSERT(zcm->type == ZCM_NONBLOCKING);
@@ -398,41 +399,4 @@ int zcm_try_unsubscribe(zcm_t* zcm, zcm_sub_t* sub)
 #endif
     return ret;
 }
-
-int zcm_try_flush(zcm_t* zcm)
-{
-    int ret = ZCM_EUNKNOWN;
-#ifndef ZCM_EMBEDDED
-    switch (zcm->type) {
-        case ZCM_BLOCKING:
-            ret = zcm_blocking_try_flush(zcm->impl);
-            break;
-        case ZCM_NONBLOCKING:
-            zcm_nonblocking_flush(zcm->impl);
-            ret = ZCM_EOK;
-            break;
-    }
-#else
-    ZCM_ASSERT(zcm->type == ZCM_NONBLOCKING);
-    zcm_nonblocking_flush(zcm->impl);
-    ret = ZCM_EOK;
-#endif
-    return ret;
-}
-
-#ifndef ZCM_EMBEDDED
-int zcm_try_stop(zcm_t* zcm)
-{
-    ZCM_ASSERT(zcm->type == ZCM_BLOCKING);
-    return zcm_blocking_try_stop(zcm->impl);
-}
-#endif
-
-#ifndef ZCM_EMBEDDED
-int  zcm_try_set_queue_size(zcm_t* zcm, uint32_t numMsgs)
-{
-    ZCM_ASSERT(zcm->type == ZCM_BLOCKING);
-    return zcm_blocking_try_set_queue_size(zcm->impl, numMsgs);
-}
-#endif
 /****************************************************************************/

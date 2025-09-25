@@ -92,7 +92,7 @@ int main(int argc, const char *argv[])
             nextPublish = now + PUBLISH_DT;
         }
 
-        zcmLocal.handleNonblock();
+        zcmLocal.handle(0);
     }
 
     zcmLocal.unsubscribe(sub);

@@ -41,12 +41,12 @@ class ZCM
     virtual inline void stop();
     virtual inline void pause();
     virtual inline void resume();
-    virtual inline int  handle();
-    virtual inline void setQueueSize(uint32_t sz);
+    virtual inline int  setQueueSize(unsigned sz);
+    virtual inline int  getNumDroppedMessages();
     virtual inline int  writeTopology(const std::string& name);
     #endif
-    virtual inline int  handleNonblock();
-    virtual inline void flush();
+    virtual inline int  handle(unsigned timeout);
+    virtual inline int  flush();
 
   public:
     inline int publish(const std::string& channel, const uint8_t* data, uint32_t len);

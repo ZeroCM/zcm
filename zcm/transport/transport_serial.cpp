@@ -8,20 +8,19 @@
 
 #include "util/TimeUtil.hpp"
 
-#include <unistd.h>
-#include <fcntl.h>
-#include <errno.h>
-#include <termios.h>
-#include <sys/ioctl.h>
-#include <linux/usbdevice_fs.h>
-
 #include <cassert>
 #include <cstring>
-
-#include <memory>
+#include <errno.h>
+#include <fcntl.h>
+#include <linux/usbdevice_fs.h>
 #include <mutex>
 #include <string>
+#include <sys/ioctl.h>
+#include <termios.h>
+#include <unistd.h>
 #include <unordered_map>
+#include <vector>
+
 using namespace std;
 
 // TODO: This transport layer needs to be "hardened" to handle
@@ -243,10 +242,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     int baud;
     bool hwFlowControl;
 
-    bool raw;
     string rawChan;
-    int rawSize;
-    std::unique_ptr<uint8_t[]> rawBuf;
+    std::vector<uint8_t> rawBuf;
 
     string address;
 
@@ -266,7 +263,6 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     ZCM_TRANS_CLASSNAME(zcm_url_t* url)
     {
         trans_type = ZCM_BLOCKING;
-        vtbl = &methods;
 
         // build 'options'
         auto* opts = zcm_url_opts(url);
@@ -298,7 +294,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             }
         }
 
-        raw = false;
+        bool raw = false;
         auto* rawStr = findOption("raw");
         if (rawStr) {
             if (*rawStr == "true") {
@@ -317,7 +313,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             rawChan = *rawChanStr;
         }
 
-        rawSize = 1024;
+        size_t rawSize = 1024;
         auto* rawSizeStr = findOption("raw_size");
         if (rawSizeStr) {
             rawSize = atoi(rawSizeStr->c_str());
@@ -331,9 +327,11 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         ser.open(address, baud, hwFlowControl);
 
         if (raw) {
-            rawBuf.reset(new uint8_t[rawSize]);
+            vtbl = &rawMethods;
+            rawBuf.resize(rawSize);
             gst = nullptr;
         } else {
+            vtbl = &methods;
             gst = zcm_trans_generic_serial_create(&ZCM_TRANS_CLASSNAME::get,
                                                   &ZCM_TRANS_CLASSNAME::put,
                                                   this,
@@ -375,85 +373,116 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     { return TimeUtil::utime(); }
 
     /********************** METHODS **********************/
+    size_t getMtuRaw()
+    { return MTU; }
+
     size_t getMtu()
-    { return raw ? MTU : zcm_trans_get_mtu(this->gst); }
+    { return zcm_trans_get_mtu(this->gst); }
+
+    int sendmsgRaw(zcm_msg_t msg)
+    {
+        if (!msg.len) return ZCM_EOK;
+        do {
+            int ret = ser.write(msg.buf, msg.len);
+
+            if (ret < 0) break;
+            if ((size_t)ret == msg.len) return ZCM_EOK;
+
+            msg.buf += ret;
+            msg.len -= ret;
+        } while (true);
+
+        return ZCM_EUNKNOWN;
+    }
 
     int sendmsg(zcm_msg_t msg)
     {
-        if (raw) {
-            if (put(msg.buf, msg.len, this) != 0) return ZCM_EOK;
-            return ZCM_EAGAIN;
-        } else {
-            // Note: No need to lock here ONLY because the internals of
-            //       generic serial transport sendmsg only use the sendBuffer
-            //       and touch no variables related to receiving
-            int ret = zcm_trans_sendmsg(this->gst, msg);
-            if (ret != ZCM_EOK) return ret;
-            return serial_update_tx(this->gst);
+        // Note: No need to lock here ONLY because the internals of
+        //       generic serial transport sendmsg only use the sendBuffer
+        //       and touch no variables related to receiving
+        int ret = zcm_trans_sendmsg(this->gst, msg);
+        if (ret != ZCM_EOK) return ret;
+        while (true) {
+            ret = serial_update_tx(this->gst);
+            if (ret != ZCM_EAGAIN) break;
         }
+        return ret;
     }
 
+    int recvmsgEnableRaw(const char* channel, bool enable)
+    { return ZCM_EOK; }
+
     int recvmsgEnable(const char* channel, bool enable)
-    { return raw ? ZCM_EOK : zcm_trans_recvmsg_enable(this->gst, channel, enable); }
+    { return zcm_trans_recvmsg_enable(this->gst, channel, enable); }
+
+    int recvmsgRaw(zcm_msg_t* msg, unsigned timeoutMs)
+    {
+        // used by get()
+        timeoutLeftUs = timeoutMs * 1e3;
+
+        size_t sz = get(rawBuf.data(), rawBuf.size(), this);
+        if (sz == 0 || rawChan.empty()) return ZCM_EAGAIN;
+
+        msg->utime   = timestamp_now(this);
+        msg->channel = rawChan.c_str();
+        msg->len     = sz;
+        msg->buf     = rawBuf.data();
+
+        return ZCM_EOK;
+    }
 
     int recvmsg(zcm_msg_t* msg, unsigned timeoutMs)
     {
-        timeoutLeftUs = timeoutMs * 1e3;
+        uint64_t endUtime = TimeUtil::utime() + timeoutMs * 1e3;
 
-        if (raw) {
-            size_t sz = get(rawBuf.get(), rawSize, this);
-            if (sz == 0 || rawChan.empty()) return ZCM_EAGAIN;
+        do {
 
-            msg->utime   = timestamp_now(this);
-            msg->channel = rawChan.c_str();
-            msg->len     = sz;
-            msg->buf     = rawBuf.get();
+            // Note: No need to lock here ONLY because the internals of
+            //       generic serial transport recvmsg only use the recv related
+            //       data members and touch no variables related to sending
+            int ret = zcm_trans_recvmsg(this->gst, msg, 0);
+            if (ret == ZCM_EOK) return ret;
 
-            return ZCM_EOK;
-        } else {
-            do {
-                uint64_t startUtime = TimeUtil::utime();
+            // Note: timeoutLeftUs is calculated here because serial_update_rx
+            //       needs it to be set properly so that the blocking read in
+            //       `get` knows how long it has to exit
+            uint64_t now = TimeUtil::utime();
+            timeoutLeftUs = endUtime < now ? 0 : endUtime - now;
+            serial_update_rx(this->gst);
 
-                // Note: No need to lock here ONLY because the internals of
-                //       generic serial transport recvmsg only use the recv related
-                //       data members and touch no variables related to sending
-                int ret = zcm_trans_recvmsg(this->gst, msg, 0);
-                if (ret == ZCM_EOK) return ret;
+        } while (TimeUtil::utime() < endUtime);
 
-                uint64_t diff = TimeUtil::utime() - startUtime;
-                startUtime = TimeUtil::utime();
-                // Note: timeoutLeftUs is calculated here because serial_update_rx
-                //       needs it to be set properly so that the blocking read in
-                //       `get` knows how long it has to exit
-                timeoutLeftUs = timeoutLeftUs > diff ? timeoutLeftUs - diff : 0;
-
-                serial_update_rx(this->gst);
-
-                diff = TimeUtil::utime() - startUtime;
-                timeoutLeftUs = timeoutLeftUs > diff ? timeoutLeftUs - diff : 0;
-
-            } while (timeoutLeftUs > 0);
-
-            return ZCM_EAGAIN;
-        }
+        return ZCM_EAGAIN;
     }
 
     /********************** STATICS **********************/
-    static zcm_trans_methods_t methods;
+    static zcm_trans_methods_t methods, rawMethods;
     static ZCM_TRANS_CLASSNAME* cast(zcm_trans_t* zt)
     {
-        assert(zt->vtbl == &methods);
+        assert(zt->vtbl == &rawMethods || zt->vtbl == &methods);
         return (ZCM_TRANS_CLASSNAME*)zt;
     }
+
+    static size_t _getMtuRaw(zcm_trans_t* zt)
+    { return cast(zt)->getMtuRaw(); }
 
     static size_t _getMtu(zcm_trans_t* zt)
     { return cast(zt)->getMtu(); }
 
+    static int _sendmsgRaw(zcm_trans_t* zt, zcm_msg_t msg)
+    { return cast(zt)->sendmsgRaw(msg); }
+
     static int _sendmsg(zcm_trans_t* zt, zcm_msg_t msg)
     { return cast(zt)->sendmsg(msg); }
 
+    static int _recvmsgEnableRaw(zcm_trans_t* zt, const char* channel, bool enable)
+    { return cast(zt)->recvmsgEnableRaw(channel, enable); }
+
     static int _recvmsgEnable(zcm_trans_t* zt, const char* channel, bool enable)
     { return cast(zt)->recvmsgEnable(channel, enable); }
+
+    static int _recvmsgRaw(zcm_trans_t* zt, zcm_msg_t* msg, unsigned timeout)
+    { return cast(zt)->recvmsgRaw(msg, timeout); }
 
     static int _recvmsg(zcm_trans_t* zt, zcm_msg_t* msg, unsigned timeout)
     { return cast(zt)->recvmsg(msg, timeout); }
@@ -470,6 +499,18 @@ zcm_trans_methods_t ZCM_TRANS_CLASSNAME::methods = {
     &ZCM_TRANS_CLASSNAME::_recvmsgEnable,
     &ZCM_TRANS_CLASSNAME::_recvmsg,
     NULL, // drops
+    NULL, // set_queue_size
+    NULL, // update
+    &ZCM_TRANS_CLASSNAME::_destroy,
+};
+
+zcm_trans_methods_t ZCM_TRANS_CLASSNAME::rawMethods = {
+    &ZCM_TRANS_CLASSNAME::_getMtuRaw,
+    &ZCM_TRANS_CLASSNAME::_sendmsgRaw,
+    &ZCM_TRANS_CLASSNAME::_recvmsgEnableRaw,
+    &ZCM_TRANS_CLASSNAME::_recvmsgRaw,
+    NULL, // drops
+    NULL, // set_queue_size
     NULL, // update
     &ZCM_TRANS_CLASSNAME::_destroy,
 };
@@ -478,11 +519,11 @@ static zcm_trans_t* create(zcm_url_t* url, char **opt_errmsg)
 {
     if (opt_errmsg) *opt_errmsg = NULL; // Feature unused in this transport
     auto* trans = new ZCM_TRANS_CLASSNAME(url);
-    if (trans->good())
-        return trans;
-
-    delete trans;
-    return nullptr;
+    if (!trans->good()) {
+        delete trans;
+        return nullptr;
+    }
+    return trans;
 }
 
 #ifdef USING_TRANS_SERIAL

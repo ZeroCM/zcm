@@ -268,7 +268,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     }
 
     /********************** METHODS **********************/
-    size_t get_mtu()
+    size_t getMtu()
     {
         return zcm_trans_get_mtu(this->gst);
     }
@@ -314,6 +314,17 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         return ZCM_EAGAIN;
     }
 
+    int setQueueSize(unsigned numMsgs)
+    {
+        // kernel buffers have 2x overhead on buffers for internal bookkeeping
+        int recvQueueSize = getMtu() * numMsgs * 2;
+        if (setsockopt(soc, SOL_SOCKET, SO_RCVBUF,
+                       (void *)&recvQueueSize, sizeof(recvQueueSize)) < 0) {
+            return ZCM_EUNKNOWN;
+        }
+        return ZCM_EOK;
+    }
+
     /********************** STATICS **********************/
     static zcm_trans_methods_t methods;
     static ZCM_TRANS_CLASSNAME *cast(zcm_trans_t *zt)
@@ -322,17 +333,20 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         return (ZCM_TRANS_CLASSNAME*)zt;
     }
 
-    static size_t _get_mtu(zcm_trans_t *zt)
-    { return cast(zt)->get_mtu(); }
+    static size_t _getMtu(zcm_trans_t *zt)
+    { return cast(zt)->getMtu(); }
 
     static int _sendmsg(zcm_trans_t *zt, zcm_msg_t msg)
     { return cast(zt)->sendmsg(msg); }
 
-    static int _recvmsg_enable(zcm_trans_t *zt, const char *channel, bool enable)
+    static int _recvmsgEnable(zcm_trans_t *zt, const char *channel, bool enable)
     { return cast(zt)->recvmsgEnable(channel, enable); }
 
     static int _recvmsg(zcm_trans_t *zt, zcm_msg_t *msg, unsigned timeout)
     { return cast(zt)->recvmsg(msg, timeout); }
+
+    static int _setQueueSize(zcm_trans_t *zt, unsigned numMsgs)
+    { return cast(zt)->setQueueSize(numMsgs); }
 
     static void _destroy(zcm_trans_t *zt)
     { delete cast(zt); }
@@ -342,11 +356,12 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 };
 
 zcm_trans_methods_t ZCM_TRANS_CLASSNAME::methods = {
-    &ZCM_TRANS_CLASSNAME::_get_mtu,
+    &ZCM_TRANS_CLASSNAME::_getMtu,
     &ZCM_TRANS_CLASSNAME::_sendmsg,
-    &ZCM_TRANS_CLASSNAME::_recvmsg_enable,
+    &ZCM_TRANS_CLASSNAME::_recvmsgEnable,
     &ZCM_TRANS_CLASSNAME::_recvmsg,
     NULL, // drops
+    &ZCM_TRANS_CLASSNAME::_setQueueSize,
     NULL, // update
     &ZCM_TRANS_CLASSNAME::_destroy,
 };

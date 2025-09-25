@@ -99,7 +99,7 @@ class DispatchLoopTest : public CxxTest::TestSuite
         std::thread kill {killThread};
         std::thread ctrl {controlThread, zcm};
 
-        zcm_handle(zcm);
+        zcm_handle(zcm, 0);
 
         running = false;
         ctrl.join();
