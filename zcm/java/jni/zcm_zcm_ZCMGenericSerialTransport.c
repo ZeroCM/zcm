@@ -16,7 +16,7 @@ struct JavaSerialTransport {
     jobject javaObj;  // Global reference to the Java object
     zcm_trans_t *transport;
 
-    bool weOwnTransportMemory;
+    bool nativeAccessible;
 
     // Method IDs for callbacks
     jmethodID getNativeGetMethodID;
@@ -57,6 +57,12 @@ static uint64_t getSystemTimestamp(void *usr)
 static size_t javaGetCallback(uint8_t* data, size_t nData, uint32_t timeoutMs, void* usr)
 {
     JavaSerialTransport *jst = (JavaSerialTransport*)usr;
+
+    if (jst == NULL || !jst->nativeAccessible) {
+        fprintf(stderr, "ZCMGenericSerialTransport: No longer have access to native transport\n");
+        return 0;
+    }
+
 
     JNIEnv *env = NULL;
     bool isAttached = false;
@@ -106,6 +112,10 @@ static size_t javaPutCallback(const uint8_t* data, size_t nData, uint32_t timeou
 {
     JavaSerialTransport *jst = (JavaSerialTransport*)usr;
 
+    if (jst == NULL || !jst->nativeAccessible) {
+        fprintf(stderr, "ZCMGenericSerialTransport: No longer have access to native transport\n");
+        return 0;
+    }
     JNIEnv *env = NULL;
     bool isAttached = false;
 
@@ -183,7 +193,7 @@ JNIEXPORT jboolean JNICALL Java_zcm_zcm_ZCMGenericSerialTransport_initializeNati
         return JNI_FALSE;
     }
 
-    jst->weOwnTransportMemory = true;
+    jst->nativeAccessible = true;
 
     // Get method IDs for the callback methods
     jclass cls = (*env)->GetObjectClass(env, self);
@@ -248,7 +258,7 @@ JNIEXPORT void JNICALL Java_zcm_zcm_ZCMGenericSerialTransport_destroy
     }
 
     if (jst->transport != NULL) {
-        if (jst->weOwnTransportMemory)
+        if (jst->nativeAccessible)
             zcm_trans_generic_serial_destroy(jst->transport);
         jst->transport = NULL;
     }
@@ -267,15 +277,15 @@ JNIEXPORT void JNICALL Java_zcm_zcm_ZCMGenericSerialTransport_destroy
 
 /*
  * Class:     zcm_zcm_ZCMGenericSerialTransport
- * Method:    releaseNativeTransportMemoryToZcm
+ * Method:    releaseNativeTransport
  * Signature: ()V
  */
-JNIEXPORT void JNICALL Java_zcm_zcm_ZCMGenericSerialTransport_releaseNativeTransportMemoryToZcm
+JNIEXPORT void JNICALL Java_zcm_zcm_ZCMGenericSerialTransport_releaseNativeTransport
 (JNIEnv *env, jobject self)
 {
     JavaSerialTransport *jst = getNativePtr(env, self);
     if (jst == NULL) {
         return;
     }
-    jst->weOwnTransportMemory = false;
+    jst->nativeAccessible = false;
 }

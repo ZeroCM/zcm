@@ -31,6 +31,14 @@ JNIEXPORT jlong JNICALL Java_zcm_zcm_ZCMGenericSerialTransport_getTransportPtr
 JNIEXPORT void JNICALL Java_zcm_zcm_ZCMGenericSerialTransport_destroy
   (JNIEnv *, jobject);
 
+/**
+ * Class:     zcm_zcm_ZCMGenericSerialTransport
+ * Method:    releaseNativeTransport
+ * Signature: ()V
+ */
+JNIEXPORT void JNICALL Java_zcm_zcm_ZCMGenericSerialTransport_releaseNativeTransport
+(JNIEnv *env, jobject self);
+
 #ifdef __cplusplus
 }
 #endif
