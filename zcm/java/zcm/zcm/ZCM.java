@@ -20,6 +20,7 @@ public class ZCM implements AutoCloseable
 
     ZCMDataOutputStream encodeBuffer = new ZCMDataOutputStream(new byte[1024]);
     ZCMJNI zcmjni;
+    ZCMTransport transport = null;
 
     /** Create a new ZCM object, connecting to one or more URLs. If
      * no URL is specified, ZCM_DEFAULT_URL is used.
@@ -33,8 +34,9 @@ public class ZCM implements AutoCloseable
     /** Create a new ZCM object using the provided transport.
      * The transport must be valid and properly initialized.
      **/
-    public ZCM(ZCMTransport transport) throws IOException
+    public ZCM(ZCMTransport _transport) throws IOException
     {
+        transport = _transport;
         if (transport == null) {
             throw new IllegalArgumentException("Transport cannot be null");
         }
@@ -145,7 +147,12 @@ public class ZCM implements AutoCloseable
     public void close()
     {
         if (this.closed) throw new IllegalStateException();
+        if (transport != null) {
+            transport.releaseNativeTransport();
+            zcmjni.stop();
+        }
         zcmjni.destroy();
+        if (transport != null) transport.destroy();
         this.closed = true;
     }
 
