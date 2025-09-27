@@ -25,6 +25,7 @@ class ZCM
   public:
     #ifndef ZCM_EMBEDDED
     inline ZCM();
+    inline ZCM(zcm_t* zcm);
     inline ZCM(const std::string& transport);
     #endif
     inline ZCM(zcm_trans_t* zt);

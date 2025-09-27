@@ -47,6 +47,14 @@ inline ZCM::ZCM()
 #endif
 
 #ifndef ZCM_EMBEDDED
+inline ZCM::ZCM(zcm_t* _zcm)
+{
+    zcm = _zcm;
+    _err = ZCM_EOK;
+}
+#endif
+
+#ifndef ZCM_EMBEDDED
 inline ZCM::ZCM(const std::string& transport)
 {
     zcm = zcm_create(transport.c_str());
