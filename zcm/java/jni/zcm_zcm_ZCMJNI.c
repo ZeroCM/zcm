@@ -173,13 +173,15 @@ static void handler(const zcm_recv_buf_t *rbuf, const char *channel, void *_usr)
 
     jclass cls = (*env)->GetObjectClass(env, self);
     assert(cls);
-    jmethodID receiveMessage =
+    // Call the method with recv_utime for ZCMSubscriberWithTime
+    jmethodID receiveMessageWithTime =
         (*env)->GetMethodID(env, cls, "receiveMessage",
-                            "(Ljava/lang/String;[BIILzcm/zcm/ZCM$Subscription;)V");
-    assert(receiveMessage);
+                            "(Ljava/lang/String;J[BIILzcm/zcm/ZCM$Subscription;)V");
+    assert(receiveMessageWithTime);
 
-    (*env)->CallVoidMethod(env, self, receiveMessage,
-                           channelJ, dataJ, offsetJ, lenJ, subs->javaUsr);
+    (*env)->CallVoidMethod(env, self, receiveMessageWithTime,
+                           channelJ, (jlong)rbuf->recv_utime,
+                           dataJ, offsetJ, lenJ, subs->javaUsr);
 
     // NOTE: if we attached this thread to dispatch up to java, we need to make sure
     //       that we detach before returning so the references get freed.

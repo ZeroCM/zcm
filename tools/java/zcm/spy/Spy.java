@@ -264,8 +264,9 @@ public class Spy
 
     }
 
-    class MySubscriber implements ZCMSubscriber
+    class MySubscriber extends ZCMSubscriber
     {
+        @Override
         public void messageReceived(ZCM zcm, String channel, ZCMDataInputStream dins)
         {
             Object o = null;

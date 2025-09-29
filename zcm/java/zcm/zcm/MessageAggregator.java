@@ -15,8 +15,7 @@ import java.util.*;
  * The aggregator has configurable limits.  If too many messages are aggregated
  * without having been retrieved, then older messages are discarded.
  */
-public class MessageAggregator
-    implements ZCMSubscriber
+public class MessageAggregator extends ZCMSubscriber
 {
     /**
      * A received message.
@@ -49,6 +48,7 @@ public class MessageAggregator
     /**
      * Internal method, called by ZCM when a message is received.
      */
+    @Override
     public synchronized void messageReceived(ZCM zcm, String channel,
                                              ZCMDataInputStream dins)
     {
