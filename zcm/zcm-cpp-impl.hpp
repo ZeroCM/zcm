@@ -47,6 +47,14 @@ inline ZCM::ZCM()
 #endif
 
 #ifndef ZCM_EMBEDDED
+inline ZCM::ZCM(zcm_t* _zcm)
+{
+    zcm = _zcm;
+    _err = ZCM_EOK;
+}
+#endif
+
+#ifndef ZCM_EMBEDDED
 inline ZCM::ZCM(const std::string& transport)
 {
     zcm = zcm_create(transport.c_str());
@@ -527,6 +535,21 @@ inline int ZCM::unsubscribe(Subscription* sub)
 
 inline zcm_t* ZCM::getUnderlyingZCM()
 { return zcm; }
+
+inline zcm_t* ZCM::releaseUnderlyingZCM()
+{
+    std::vector<Subscription*>::iterator end = subscriptions.end(),
+                                          it = subscriptions.begin();
+    for (; it != end; ++it) {
+        unsubscribeRaw((*it)->rawSub);
+        delete *it;
+    }
+    subscriptions.clear();
+
+    zcm_t* ret = zcm;
+    zcm = nullptr;
+    return ret;
+}
 
 inline int ZCM::publishRaw(const std::string& channel, const uint8_t* data, uint32_t len)
 { return zcm_publish(zcm, channel.c_str(), data, len); }
