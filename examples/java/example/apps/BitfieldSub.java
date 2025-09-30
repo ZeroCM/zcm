@@ -27,7 +27,7 @@ public class BitfieldSub implements ZCMSubscriber
         zcm.unsubscribe(s);
     }
 
-    public void messageReceived(ZCM zcm, String channel, ZCMDataInputStream ins)
+    public void messageReceived(ZCM zcm, String channel, long recvUtime, ZCMDataInputStream ins)
     {
         System.out.println("Received message on channel " + channel);
 
