@@ -101,6 +101,7 @@ class ZCM
     inline int unsubscribe(Subscription* sub);
 
     virtual inline zcm_t* getUnderlyingZCM();
+    virtual inline void releaseUnderlyingZCM();
 
   protected:
     /**** Methods for inheritor override ****/
