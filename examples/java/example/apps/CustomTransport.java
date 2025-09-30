@@ -6,7 +6,7 @@ import java.io.IOException;
 
 public class CustomTransport implements ZCMSubscriber
 {
-    public void messageReceived(ZCM zcm, String channel, ZCMDataInputStream ins)
+    public void messageReceived(ZCM zcm, String channel, long recvUtime, ZCMDataInputStream ins)
     {
         try {
             example_t msg = new example_t(ins);

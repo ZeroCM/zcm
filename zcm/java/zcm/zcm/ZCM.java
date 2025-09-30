@@ -129,13 +129,12 @@ public class ZCM implements AutoCloseable
      * when they receive a message. The subscribers that match the
      * channel name are synchronously notified.
      **/
-    public void receiveMessage(String channel,
+    public void receiveMessage(String channel, long recvUtime,
                                byte data[], int offset, int length,
                                Subscription subs)
     {
         if (this.closed) throw new IllegalStateException();
-        subs.javaSub.messageReceived(this,
-                                     channel,
+        subs.javaSub.messageReceived(this, channel, recvUtime,
                                      new ZCMDataInputStream(data, offset, length));
     }
 
@@ -208,7 +207,8 @@ public class ZCM implements AutoCloseable
 
         public synchronized int getNumMsgsReceived() { return numMsgsReceived; }
 
-        public void messageReceived(ZCM zcm, String channel, ZCMDataInputStream dins)
+        public void messageReceived(ZCM zcm, String channel, long utime,
+                                    ZCMDataInputStream dins)
         {
             synchronized (this) {
                 numMsgsReceived++;

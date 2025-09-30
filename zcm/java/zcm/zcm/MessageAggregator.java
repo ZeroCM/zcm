@@ -50,7 +50,7 @@ public class MessageAggregator
      * Internal method, called by ZCM when a message is received.
      */
     public synchronized void messageReceived(ZCM zcm, String channel,
-                                             ZCMDataInputStream dins)
+                                             long recvUtime, ZCMDataInputStream dins)
     {
         try {
             byte data[] = new byte[dins.available()];
