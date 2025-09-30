@@ -536,7 +536,7 @@ inline int ZCM::unsubscribe(Subscription* sub)
 inline zcm_t* ZCM::getUnderlyingZCM()
 { return zcm; }
 
-inline void ZCM::releaseUnderlyingZCM()
+inline zcm_t* ZCM::releaseUnderlyingZCM()
 {
     std::vector<Subscription*>::iterator end = subscriptions.end(),
                                           it = subscriptions.begin();
@@ -546,7 +546,9 @@ inline void ZCM::releaseUnderlyingZCM()
     }
     subscriptions.clear();
 
+    zcm_t* ret = zcm;
     zcm = nullptr;
+    return ret;
 }
 
 inline int ZCM::publishRaw(const std::string& channel, const uint8_t* data, uint32_t len)

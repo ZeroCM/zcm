@@ -104,7 +104,7 @@ class ZCM
     // Transfers ownership of zcm_t* out of this class.
     // This class will no longer function after calling this function and
     // must be reinitialized
-    virtual inline void releaseUnderlyingZCM();
+    virtual inline zcm_t* releaseUnderlyingZCM();
 
   protected:
     /**** Methods for inheritor override ****/
