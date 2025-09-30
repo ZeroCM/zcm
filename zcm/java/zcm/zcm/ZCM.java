@@ -207,7 +207,6 @@ public class ZCM implements AutoCloseable
 
         public synchronized int getNumMsgsReceived() { return numMsgsReceived; }
 
-        @Override
         public void messageReceived(ZCM zcm, String channel, long utime,
                                     ZCMDataInputStream dins)
         {

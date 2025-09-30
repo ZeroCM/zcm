@@ -15,5 +15,5 @@ public interface ZCMSubscriber
      * @param recvUtime the timestamp when the message was received (microseconds since epoch).
      * @param ins the message contents.
      */
-     public void messageReceived(ZCM zcm, String channel, long recvUtime, ZCMDataInputStream ins);
+    public void messageReceived(ZCM zcm, String channel, long recvUtime, ZCMDataInputStream ins);
 }

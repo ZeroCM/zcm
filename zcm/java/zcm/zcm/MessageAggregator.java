@@ -15,7 +15,8 @@ import java.util.*;
  * The aggregator has configurable limits.  If too many messages are aggregated
  * without having been retrieved, then older messages are discarded.
  */
-public class MessageAggregator implements ZCMSubscriber
+public class MessageAggregator
+    implements ZCMSubscriber
 {
     /**
      * A received message.
