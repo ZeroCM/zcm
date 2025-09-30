@@ -201,7 +201,7 @@ public class ZCM implements AutoCloseable
         zcm.close();
     }
 
-    static class SimpleSubscriber extends ZCMSubscriber
+    static class SimpleSubscriber implements ZCMSubscriber
     {
         public int numMsgsReceived = 0;
 
