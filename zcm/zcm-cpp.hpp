@@ -25,7 +25,7 @@ class ZCM
   public:
     #ifndef ZCM_EMBEDDED
     inline ZCM();
-    inline ZCM(zcm_t* zcm);
+    inline ZCM(zcm_t* zcm); // Transfers ownership of zcm_t* into this class
     inline ZCM(const std::string& transport);
     #endif
     inline ZCM(zcm_trans_t* zt);
@@ -101,6 +101,9 @@ class ZCM
     inline int unsubscribe(Subscription* sub);
 
     virtual inline zcm_t* getUnderlyingZCM();
+    // Transfers ownership of zcm_t* out of this class.
+    // This class will no longer function after calling this function and
+    // must be reinitialized
     virtual inline void releaseUnderlyingZCM();
 
   protected:
