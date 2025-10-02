@@ -16,8 +16,6 @@ struct JavaSerialTransport {
     jobject javaObj;  // Global reference to the Java object
     zcm_trans_t *transport;
 
-    bool nativeAccessible;
-
     // Method IDs for callbacks
     jmethodID getNativeGetMethodID;
     jmethodID getNativePutMethodID;
@@ -57,12 +55,6 @@ static uint64_t getSystemTimestamp(void *usr)
 static size_t javaGetCallback(uint8_t* data, size_t nData, uint32_t timeoutMs, void* usr)
 {
     JavaSerialTransport *jst = (JavaSerialTransport*)usr;
-
-    if (jst == NULL || !jst->nativeAccessible) {
-        fprintf(stderr, "ZCMGenericSerialTransport: No longer have access to native transport\n");
-        return 0;
-    }
-
 
     JNIEnv *env = NULL;
     bool isAttached = false;
@@ -112,10 +104,6 @@ static size_t javaPutCallback(const uint8_t* data, size_t nData, uint32_t timeou
 {
     JavaSerialTransport *jst = (JavaSerialTransport*)usr;
 
-    if (jst == NULL || !jst->nativeAccessible) {
-        fprintf(stderr, "ZCMGenericSerialTransport: No longer have access to native transport\n");
-        return 0;
-    }
     JNIEnv *env = NULL;
     bool isAttached = false;
 
@@ -193,8 +181,6 @@ JNIEXPORT jboolean JNICALL Java_zcm_zcm_ZCMGenericSerialTransport_initializeNati
         return JNI_FALSE;
     }
 
-    jst->nativeAccessible = true;
-
     // Get method IDs for the callback methods
     jclass cls = (*env)->GetObjectClass(env, self);
     jst->getNativeGetMethodID = (*env)->GetMethodID(env, cls, "nativeGet", "(Ljava/nio/ByteBuffer;II)I");
@@ -258,8 +244,7 @@ JNIEXPORT void JNICALL Java_zcm_zcm_ZCMGenericSerialTransport_destroy
     }
 
     if (jst->transport != NULL) {
-        if (jst->nativeAccessible)
-            zcm_trans_generic_serial_destroy(jst->transport);
+        zcm_trans_generic_serial_destroy(jst->transport);
         jst->transport = NULL;
     }
     // Release the global reference
@@ -287,5 +272,5 @@ JNIEXPORT void JNICALL Java_zcm_zcm_ZCMGenericSerialTransport_releaseNativeTrans
     if (jst == NULL) {
         return;
     }
-    jst->nativeAccessible = false;
+    jst->transport = NULL;
 }

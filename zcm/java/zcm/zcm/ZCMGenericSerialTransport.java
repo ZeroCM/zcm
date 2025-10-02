@@ -25,8 +25,7 @@ public class ZCMGenericSerialTransport implements ZCMTransport, AutoCloseable {
      * @param bufSize buffer size for internal circular buffers
      * @throws IOException if the transport cannot be created
      */
-    public ZCMGenericSerialTransport(SerialIO serialIO, int mtu, int bufSize)
-        throws IOException {
+    public ZCMGenericSerialTransport(SerialIO serialIO, int mtu, int bufSize) throws IOException {
         if (serialIO == null) {
             throw new IllegalArgumentException("SerialIO cannot be null");
         }
@@ -44,9 +43,7 @@ public class ZCMGenericSerialTransport implements ZCMTransport, AutoCloseable {
         this.serialIO = serialIO;
 
         if (!initializeNative(mtu, bufSize)) {
-            throw new IOException(
-                "Failed to create ZCM Generic Serial Transport"
-            );
+            throw new IOException("Failed to create ZCM Generic Serial Transport");
         }
     }
 
@@ -116,9 +113,7 @@ public class ZCMGenericSerialTransport implements ZCMTransport, AutoCloseable {
             return serialIO.get(buffer, maxLen, timeoutMs);
         } catch (Exception e) {
             // Don't let exceptions propagate through JNI
-            System.err.println(
-                "Exception in SerialIO.get(): " + e.getMessage()
-            );
+            System.err.println("Exception in SerialIO.get(): " + e.getMessage());
             return 0;
         }
     }
@@ -137,9 +132,7 @@ public class ZCMGenericSerialTransport implements ZCMTransport, AutoCloseable {
             return serialIO.put(buffer, len, timeoutMs);
         } catch (Exception e) {
             // Don't let exceptions propagate through JNI
-            System.err.println(
-                "Exception in SerialIO.put(): " + e.getMessage()
-            );
+            System.err.println("Exception in SerialIO.put(): " + e.getMessage());
             return 0;
         }
     }

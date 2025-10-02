@@ -148,8 +148,8 @@ public class ZCM implements AutoCloseable
     {
         if (this.closed) throw new IllegalStateException();
         if (transport != null) {
-            transport.releaseNativeTransport();
             zcmjni.stop();
+            transport.releaseNativeTransport();
         }
         zcmjni.destroy();
         if (transport != null) transport.destroy();
