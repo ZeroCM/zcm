@@ -83,12 +83,12 @@ public class ZCMGenericSerialTransport implements ZCMTransport, AutoCloseable {
     public native void destroy();
 
     /**
-     * Signal that the internal C transport will be cleaned
-     * up by a ZCM instance.
+     * Signal to the tranport to that it should no longer use
+     * the native C transport and cease interactions with it.
      * This implements the ZCMTransport interface.
      */
     @Override
-    public native void releaseNativeTransportMemoryToZcm();
+    public native void releaseNativeTransport();
 
     /**
      * Close the transport and free all resources.
@@ -136,6 +136,4 @@ public class ZCMGenericSerialTransport implements ZCMTransport, AutoCloseable {
             return 0;
         }
     }
-
-
 }

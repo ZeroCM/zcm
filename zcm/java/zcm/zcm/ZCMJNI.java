@@ -29,7 +29,6 @@ class ZCMJNI
         if (!initializeNativeFromTransport(transport.getNativeTransport())) {
             throw new IOException("Failed to create ZCM from transport");
         }
-        transport.releaseNativeTransportMemoryToZcm();
     }
 
     public native void destroy();

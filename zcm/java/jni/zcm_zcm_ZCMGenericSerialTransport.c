@@ -16,8 +16,6 @@ struct JavaSerialTransport {
     jobject javaObj;  // Global reference to the Java object
     zcm_trans_t *transport;
 
-    bool weOwnTransportMemory;
-
     // Method IDs for callbacks
     jmethodID getNativeGetMethodID;
     jmethodID getNativePutMethodID;
@@ -183,8 +181,6 @@ JNIEXPORT jboolean JNICALL Java_zcm_zcm_ZCMGenericSerialTransport_initializeNati
         return JNI_FALSE;
     }
 
-    jst->weOwnTransportMemory = true;
-
     // Get method IDs for the callback methods
     jclass cls = (*env)->GetObjectClass(env, self);
     jst->getNativeGetMethodID = (*env)->GetMethodID(env, cls, "nativeGet", "(Ljava/nio/ByteBuffer;II)I");
@@ -248,8 +244,7 @@ JNIEXPORT void JNICALL Java_zcm_zcm_ZCMGenericSerialTransport_destroy
     }
 
     if (jst->transport != NULL) {
-        if (jst->weOwnTransportMemory)
-            zcm_trans_generic_serial_destroy(jst->transport);
+        zcm_trans_generic_serial_destroy(jst->transport);
         jst->transport = NULL;
     }
     // Release the global reference
@@ -267,15 +262,15 @@ JNIEXPORT void JNICALL Java_zcm_zcm_ZCMGenericSerialTransport_destroy
 
 /*
  * Class:     zcm_zcm_ZCMGenericSerialTransport
- * Method:    releaseNativeTransportMemoryToZcm
+ * Method:    releaseNativeTransport
  * Signature: ()V
  */
-JNIEXPORT void JNICALL Java_zcm_zcm_ZCMGenericSerialTransport_releaseNativeTransportMemoryToZcm
+JNIEXPORT void JNICALL Java_zcm_zcm_ZCMGenericSerialTransport_releaseNativeTransport
 (JNIEnv *env, jobject self)
 {
     JavaSerialTransport *jst = getNativePtr(env, self);
     if (jst == NULL) {
         return;
     }
-    jst->weOwnTransportMemory = false;
+    jst->transport = NULL;
 }
