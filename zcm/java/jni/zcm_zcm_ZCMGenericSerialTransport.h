@@ -10,10 +10,10 @@ extern "C" {
 /*
  * Class:     zcm_zcm_ZCMGenericSerialTransport
  * Method:    initializeNative
- * Signature: (II)Z
+ * Signature: (III)Z
  */
 JNIEXPORT jboolean JNICALL Java_zcm_zcm_ZCMGenericSerialTransport_initializeNative
-  (JNIEnv *, jobject, jint, jint);
+  (JNIEnv *, jobject, jint, jint, jint);
 
 /*
  * Class:     zcm_zcm_ZCMGenericSerialTransport

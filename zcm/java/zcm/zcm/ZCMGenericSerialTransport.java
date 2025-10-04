@@ -23,9 +23,10 @@ public class ZCMGenericSerialTransport implements ZCMTransport, AutoCloseable {
      * @param serialIO the SerialIO implementation for actual hardware communication
      * @param mtu Maximum Transmission Unit - maximum message size in bytes
      * @param bufSize buffer size for internal circular buffers
+     * @param timeoutMs timeout in ms for the put/get calls
      * @throws IOException if the transport cannot be created
      */
-    public ZCMGenericSerialTransport(SerialIO serialIO, int mtu, int bufSize) throws IOException {
+    public ZCMGenericSerialTransport(SerialIO serialIO, int mtu, int bufSize, int timeoutMs) throws IOException {
         if (serialIO == null) {
             throw new IllegalArgumentException("SerialIO cannot be null");
         }
@@ -42,7 +43,7 @@ public class ZCMGenericSerialTransport implements ZCMTransport, AutoCloseable {
 
         this.serialIO = serialIO;
 
-        if (!initializeNative(mtu, bufSize)) {
+        if (!initializeNative(mtu, bufSize, timeoutMs)) {
             throw new IOException("Failed to create ZCM Generic Serial Transport");
         }
     }
@@ -52,9 +53,10 @@ public class ZCMGenericSerialTransport implements ZCMTransport, AutoCloseable {
      *
      * @param mtu Maximum Transmission Unit
      * @param bufSize buffer size for internal buffers
+     * @param timeoutMs timeout in ms for the put/get calls
      * @return true if successful, false otherwise
      */
-    private native boolean initializeNative(int mtu, int bufSize);
+    private native boolean initializeNative(int mtu, int bufSize, int timeoutMs);
 
     /**
      * Get the transport pointer for use with ZCM.

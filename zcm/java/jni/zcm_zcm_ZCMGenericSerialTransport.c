@@ -7,7 +7,7 @@
 #include <sys/time.h>
 
 #include "zcm/java/jni/zcm_zcm_ZCMGenericSerialTransport.h"
-#include "zcm/transport/generic_serial_transport.h"
+#include "zcm/transport/generic_serial_transport_threaded_update.h"
 #include "zcm/zcm.h"
 
 typedef struct JavaSerialTransport JavaSerialTransport;
@@ -156,10 +156,10 @@ static size_t javaPutCallback(const uint8_t* data, size_t nData, uint32_t timeou
 /*
  * Class:     zcm_zcm_ZCMGenericSerialTransport
  * Method:    initializeNative
- * Signature: (II)Z
+ * Signature: (III)Z
  */
 JNIEXPORT jboolean JNICALL Java_zcm_zcm_ZCMGenericSerialTransport_initializeNative
-(JNIEnv *env, jobject self, jint mtu, jint bufSize)
+(JNIEnv *env, jobject self, jint mtu, jint bufSize, jint timeoutMs)
 {
     // Allocate and initialize our structure
     JavaSerialTransport *jst = calloc(1, sizeof(JavaSerialTransport));
@@ -193,9 +193,10 @@ JNIEXPORT jboolean JNICALL Java_zcm_zcm_ZCMGenericSerialTransport_initializeNati
     }
 
     // Create the C transport
-    jst->transport = zcm_trans_generic_serial_blocking_create(
-        javaGetCallback,        // get function
-        javaPutCallback,        // put function
+    jst->transport = zcm_trans_generic_serial_threaded_update_create(
+        javaGetCallback,       // get function
+        javaPutCallback,       // put function
+        (uint32_t)timeoutMs,   // timeout
         jst,                   // user data for get/put
         getSystemTimestamp,    // timestamp function
         NULL,                  // user data for timestamp (not needed)
@@ -244,7 +245,7 @@ JNIEXPORT void JNICALL Java_zcm_zcm_ZCMGenericSerialTransport_destroy
     }
 
     if (jst->transport != NULL) {
-        zcm_trans_generic_serial_destroy(jst->transport);
+        zcm_trans_generic_serial_threaded_update_destroy(jst->transport);
         jst->transport = NULL;
     }
     // Release the global reference

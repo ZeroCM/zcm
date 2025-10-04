@@ -1,5 +1,5 @@
-#ifndef _ZCM_TRANS_NONBLOCKING_SERIAL_H
-#define _ZCM_TRANS_NONBLOCKING_SERIAL_H
+#ifndef _ZCM_TRANS_GENERIC_SERIAL_H
+#define _ZCM_TRANS_GENERIC_SERIAL_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -38,4 +38,4 @@ int serial_update_tx(zcm_trans_t *zt);
 }
 #endif
 
-#endif /* _ZCM_TRANS_NONBLOCKING_SERIAL_H */
+#endif /* _ZCM_TRANS_GENERIC_SERIAL_H */
