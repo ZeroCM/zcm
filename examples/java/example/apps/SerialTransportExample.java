@@ -44,7 +44,7 @@ public class SerialTransportExample {
 
             // Create the ZCM transport using the SerialIO
             // MTU: 16KB, Buffer size: 128KB
-            ZCMTransport transport = new ZCMGenericSerialTransport(serialIO, 1 << 14, 1 << 17);
+            ZCMTransport transport = new ZCMGenericSerialTransport(serialIO, 1 << 14, 1 << 17, 10);
             ZCM zcm = new ZCM(transport);
 
             System.out.println("Transport created successfully!");

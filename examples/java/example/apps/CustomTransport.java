@@ -24,7 +24,7 @@ public class CustomTransport implements ZCMSubscriber
         LoopbackSerialIO serialIO = new LoopbackSerialIO();
 
         // Create the ZCM transport using the SerialIO
-        ZCMTransport transport = new ZCMGenericSerialTransport(serialIO, 1 << 14, 1 << 17);
+        ZCMTransport transport = new ZCMGenericSerialTransport(serialIO, 1 << 14, 1 << 17, 10);
         ZCM zcm = new ZCM(transport);
 
         String channel = "EXAMPLE";
