@@ -100,7 +100,7 @@ static size_t javaGetCallback(uint8_t* data, size_t nData, uint32_t timeoutMs, v
 }
 
 // Put function callback - calls Java nativePut method
-static size_t javaPutCallback(const uint8_t* data, size_t nData, uint32_t timeoutMs, void* usr)
+static size_t javaPutCallback(const uint8_t* data, size_t nData, void* usr)
 {
     JavaSerialTransport *jst = (JavaSerialTransport*)usr;
 
@@ -130,7 +130,7 @@ static size_t javaPutCallback(const uint8_t* data, size_t nData, uint32_t timeou
     // Call Java nativePut method
     jint bytesWritten =
         (*env)->CallIntMethod(env, jst->javaObj, jst->getNativePutMethodID,
-                              directBuffer, (jint)nData, (jint)timeoutMs);
+                              directBuffer, (jint)nData);
 
     // Check for exceptions
     if ((*env)->ExceptionCheck(env)) {
@@ -184,7 +184,7 @@ JNIEXPORT jboolean JNICALL Java_zcm_zcm_ZCMGenericSerialTransport_initializeNati
     // Get method IDs for the callback methods
     jclass cls = (*env)->GetObjectClass(env, self);
     jst->getNativeGetMethodID = (*env)->GetMethodID(env, cls, "nativeGet", "(Ljava/nio/ByteBuffer;II)I");
-    jst->getNativePutMethodID = (*env)->GetMethodID(env, cls, "nativePut", "(Ljava/nio/ByteBuffer;II)I");
+    jst->getNativePutMethodID = (*env)->GetMethodID(env, cls, "nativePut", "(Ljava/nio/ByteBuffer;I)I");
 
     if (jst->getNativeGetMethodID == NULL || jst->getNativePutMethodID == NULL) {
         (*env)->DeleteGlobalRef(env, jst->javaObj);

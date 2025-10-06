@@ -22,7 +22,7 @@ int zcm_msg_validate(zcm_msg_t msg)
 size_t generic_get_mtu(zcm_trans_t *zt) { return GENERIC_MTU; }
 int    generic_sendmsg(zcm_trans_t *zt, zcm_msg_t msg) { return zcm_msg_validate(msg); }
 int    generic_recvmsg_enable(zcm_trans_t *zt, const char *channel, bool enable) { return ZCM_EOK; }
-int    generic_update(zcm_trans_t *zt) { TS_FAIL("update should never be called on a blocking transport"); return ZCM_EINVALID; }
+int    generic_update(zcm_trans_t *zt) { return ZCM_EOK; }
 int    generic_recvmsg(zcm_trans_t *zt, zcm_msg_t *msg, unsigned timeout) { usleep(timeout*1000); return ZCM_EAGAIN; }
 void   generic_destroy(zcm_trans_t *zt) {}
 

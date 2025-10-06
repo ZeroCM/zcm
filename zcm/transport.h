@@ -97,8 +97,11 @@
  *
  *      int update(zcm_trans_t* zt);
  *      --------------------------------------------------------------------
- *         This method is unused (in this mode) and should not be called by the user.
- *         An implementation is allowed to set this field to NULL.
+ *         This method is optional for blocking transports; however, it can be implemented
+ *         in order to allow the publish thread to tell the transport when it has called
+ *         "sendmsg" on all currently available messages. The transport is free to update
+ *         its hardware with the data from messages either during sendmsg calls or when
+ *         update is called. If set to NULL in the vtable, it will not be called.
  *
  *      void destroy(zcm_trans_t* zt)
  *      --------------------------------------------------------------------
