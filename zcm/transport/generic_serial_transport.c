@@ -42,8 +42,8 @@ struct zcm_trans_generic_serial_t
     size_t (*get)(uint8_t* data, size_t nData, void* usr);
     size_t (*put)(const uint8_t* data, size_t nData, void* usr);
     void* put_get_usr;
-    uint32_t timeoutPut;
-    uint32_t timeoutGet;
+
+    uint64_t getUtimeStop;
 
     uint64_t (*time)(void* usr);
     void* time_usr;
@@ -127,7 +127,7 @@ int serial_recvmsg_enable(zcm_trans_generic_serial_t *zt, const char *channel, b
     return ZCM_EOK;
 }
 
-int serial_recvmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t *msg, unsigned timeout)
+int serial_recvmsg(zcm_trans_generic_serial_t *zt, zcm_msg_t *msg, unsigned timeoutMs)
 {
     uint64_t utime;
     size_t incomingSize;
@@ -246,10 +246,13 @@ int serial_update_rx(zcm_trans_t *_zt)
 static size_t get_blocking(uint8_t *data, size_t nData, void *usr)
 {
     zcm_trans_generic_serial_t* zt = cast(usr);
-    int ret = ((size_t (*)(uint8_t* data, size_t nData, uint32_t timeoutMs, void* usr))zt->get)
-        (data, nData, zt->timeoutGet, zt->put_get_usr);
-    zt->timeoutGet = 0;
-    return ret;
+
+    uint64_t startUs   = zt->time(zt->time_usr);
+    // just approx / 1000 for speed
+    uint32_t timeoutMs = startUs > zt->getUtimeStop ? 0 : ((zt->getUtimeStop - startUs) >> 10);
+
+    return ((size_t (*)(uint8_t* data, size_t nData, uint32_t timeoutMs, void* usr))zt->get)
+        (data, nData, timeoutMs, zt->put_get_usr);
 }
 
 int serial_update_rx_blocking(zcm_trans_t *_zt)
@@ -266,22 +269,6 @@ int serial_update_tx(zcm_trans_t *_zt)
     return ZCM_EOK;
 }
 
-static size_t put_blocking(const uint8_t *data, size_t nData, void *usr)
-{
-    zcm_trans_generic_serial_t* zt = cast(usr);
-    int ret = ((size_t (*)(const uint8_t* data, size_t nData, uint32_t timeoutMs, void* usr))zt->put)
-        (data, nData, zt->timeoutPut, zt->put_get_usr);
-    zt->timeoutPut = 0;
-    return ret;
-}
-
-int serial_update_tx_blocking(zcm_trans_t *_zt)
-{
-    zcm_trans_generic_serial_t* zt = cast(_zt);
-    cb_flush_out(&zt->sendBuffer, put_blocking, zt);
-    return ZCM_EOK;
-}
-
 /********************** STATICS **********************/
 static size_t _serial_get_mtu(zcm_trans_t *zt)
 { return serial_get_mtu(cast(zt)); }
@@ -292,8 +279,8 @@ static int _serial_sendmsg(zcm_trans_t *zt, zcm_msg_t msg)
 static int _serial_recvmsg_enable(zcm_trans_t *zt, const char *channel, bool enable)
 { return serial_recvmsg_enable(cast(zt), channel, enable); }
 
-static int _serial_recvmsg(zcm_trans_t *zt, zcm_msg_t *msg, unsigned timeout)
-{ return serial_recvmsg(cast(zt), msg, timeout); }
+static int _serial_recvmsg(zcm_trans_t *zt, zcm_msg_t *msg, unsigned timeoutMs)
+{ return serial_recvmsg(cast(zt), msg, timeoutMs); }
 
 static int _serial_update(zcm_trans_t *zt)
 {
@@ -306,19 +293,25 @@ static int _serial_sendmsg_blocking(zcm_trans_t *_zt, zcm_msg_t msg)
 {
     zcm_trans_generic_serial_t* zt = cast(_zt);
     int ret = serial_sendmsg(zt, msg);
-    zt->timeoutPut = PUT_TIMEOUT_MS;
-    serial_update_tx_blocking(_zt);
+    if (ret == ZCM_EAGAIN) {
+        serial_update_tx(_zt);
+        ret = serial_sendmsg(zt, msg);
+    }
     return ret;
 }
 
-static int _serial_recvmsg_blocking(zcm_trans_t *_zt, zcm_msg_t *msg, unsigned timeout)
+static int _serial_recvmsg_blocking(zcm_trans_t *_zt, zcm_msg_t *msg, unsigned timeoutMs)
 {
     zcm_trans_generic_serial_t* zt = cast(_zt);
-    int ret = serial_recvmsg(zt, msg, timeout);
+    int ret = serial_recvmsg(zt, msg, timeoutMs);
     if (ret == ZCM_EOK) return ZCM_EOK;
-    zt->timeoutGet = timeout;
-    serial_update_rx_blocking(_zt);
-    return ret;
+
+    zt->getUtimeStop = zt->time(zt->time_usr) + timeoutMs * 1000;
+    do {
+        serial_update_rx_blocking(_zt);
+    } while (zt->time(zt->time_usr) < zt->getUtimeStop);
+
+    return ZCM_EAGAIN;
 }
 
 static zcm_trans_methods_t methods = {
@@ -337,7 +330,7 @@ static zcm_trans_methods_t methods_blocking = {
     &_serial_recvmsg_enable,
     &_serial_recvmsg_blocking,
     NULL, // drops
-    NULL, // update is part of recvmsg
+    &serial_update_tx, // force hardware tx update
     &zcm_trans_generic_serial_destroy,
 };
 
@@ -392,7 +385,7 @@ zcm_trans_t *zcm_trans_generic_serial_create(
 
 zcm_trans_t *zcm_trans_generic_serial_blocking_create(
         size_t (*get)(uint8_t* data, size_t nData, uint32_t timeoutMs, void* usr),
-        size_t (*put)(const uint8_t* data, size_t nData, uint32_t timeoutMs, void* usr),
+        size_t (*put)(const uint8_t* data, size_t nData, void* usr),
         void* put_get_usr,
         uint64_t (*timestamp_now)(void* usr),
         void* time_usr,

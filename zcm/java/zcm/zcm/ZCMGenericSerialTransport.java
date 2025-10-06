@@ -124,12 +124,11 @@ public class ZCMGenericSerialTransport implements ZCMTransport, AutoCloseable {
      *
      * @param buffer direct ByteBuffer wrapping the native data array
      * @param len number of bytes to write
-     * @param timeoutMs number of ms this call may block for. 0 indicates nonblocking
      * @return number of bytes actually written
      */
-    private int nativePut(ByteBuffer buffer, int len, int timeoutMs) {
+    private int nativePut(ByteBuffer buffer, int len) {
         try {
-            return serialIO.put(buffer, len, timeoutMs);
+            return serialIO.put(buffer, len);
         } catch (Exception e) {
             // Don't let exceptions propagate through JNI
             System.err.println("Exception in SerialIO.put(): " + e.getMessage());

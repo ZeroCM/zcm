@@ -37,7 +37,7 @@ public class SerialIOTest {
         writeBuffer.put(testData);
         writeBuffer.flip();
 
-        int bytesWritten = serialIO.put(writeBuffer, testData.length, 0);
+        int bytesWritten = serialIO.put(writeBuffer, testData.length);
         System.out.println("Wrote " + bytesWritten + " bytes: \"" + testMessage + "\"");
 
         // Test reading

@@ -28,8 +28,7 @@ public interface SerialIO {
      *
      * @param buffer ByteBuffer containing data to write (direct buffer, zero-copy)
      * @param len number of bytes to write from the buffer
-     * @param timeoutMs number of ms this call may block for. 0 indicates nonblocking
      * @return number of bytes actually written
      */
-    int put(ByteBuffer buffer, int len, int timeoutMs);
+    int put(ByteBuffer buffer, int len);
 }

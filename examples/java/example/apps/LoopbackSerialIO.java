@@ -89,11 +89,10 @@ public class LoopbackSerialIO implements SerialIO {
      *
      * @param buffer ByteBuffer containing data to write
      * @param len number of bytes to write from the buffer
-     * @param timeoutMs timeout in milliseconds, 0 for non-blocking
      * @return number of bytes actually written
      */
     @Override
-    public int put(ByteBuffer buffer, int len, int timeoutMs) {
+    public int put(ByteBuffer buffer, int len) {
         if (buffer == null || len <= 0) {
             return 0;
         }
@@ -104,22 +103,9 @@ public class LoopbackSerialIO implements SerialIO {
         for (int i = 0; i < bytesToWrite; i++) {
             byte b = buffer.get();
             boolean success = false;
-            
-            if (timeoutMs == 0) {
-                // Non-blocking mode
-                success = dataQueue.offer(b);
-            } else {
-                // Blocking mode with timeout
-                try {
-                    success = dataQueue.offer(b, timeoutMs, TimeUnit.MILLISECONDS);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    // Put the byte back to the buffer since it wasn't written
-                    buffer.position(buffer.position() - 1);
-                    break;
-                }
-            }
-            
+
+            success = dataQueue.offer(b);
+
             if (success) {
                 bytesWritten++;
             } else {

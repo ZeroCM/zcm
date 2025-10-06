@@ -203,7 +203,7 @@ int zcm_nonblocking_handle_nonblock(zcm_nonblocking_t* zcm)
     int ret;
     zcm_msg_t msg;
 
-    /* Perform any required traansport-level updates */
+    /* Perform any required transport-level updates */
     zcm_trans_update(zcm->zt);
 
     /* Try to receive a messages from the transport and dispatch them */

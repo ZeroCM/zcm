@@ -808,6 +808,11 @@ bool zcm_blocking_t::dispatchOneMessage(bool returnIfPaused)
 
 bool zcm_blocking_t::sendOneMessage(bool returnIfPaused)
 {
+    if (!sendQueue.hasMessage() && zt->vtbl->update) {
+        int ret = zcm_trans_update(zt);
+        (void)ret;
+    }
+
     Msg* m = sendQueue.top();
     // If the Queue was forcibly woken-up, recheck the
     // running condition, and then retry.

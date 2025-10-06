@@ -1,5 +1,5 @@
-#ifndef _ZCM_TRANS_NONBLOCKING_SERIAL_H
-#define _ZCM_TRANS_NONBLOCKING_SERIAL_H
+#ifndef _ZCM_TRANS_GENERIC_SERIAL_H
+#define _ZCM_TRANS_GENERIC_SERIAL_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -22,7 +22,7 @@ zcm_trans_t *zcm_trans_generic_serial_create(
 // The caller is responsible for thread safety inside those functions, if required
 zcm_trans_t *zcm_trans_generic_serial_blocking_create(
         size_t (*get)(uint8_t* data, size_t nData, uint32_t timeoutMs, void* usr),
-        size_t (*put)(const uint8_t* data, size_t nData, uint32_t timeoutMs, void* usr),
+        size_t (*put)(const uint8_t* data, size_t nData, void* usr),
         void* put_get_usr,
         uint64_t (*timestamp_now)(void* usr),
         void* time_usr,
@@ -38,4 +38,4 @@ int serial_update_tx(zcm_trans_t *zt);
 }
 #endif
 
-#endif /* _ZCM_TRANS_NONBLOCKING_SERIAL_H */
+#endif /* _ZCM_TRANS_GENERIC_SERIAL_H */
