@@ -21,7 +21,7 @@ class ZCMJNI
         }
     }
 
-    public ZCMJNI(ZCMTransport transport) throws IOException
+    public ZCMJNI(ZCMTransport transport) throws IOException, IllegalArgumentException
     {
         if (transport == null) {
             throw new IllegalArgumentException("Transport cannot be null");
