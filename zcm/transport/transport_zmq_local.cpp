@@ -60,6 +60,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     string subnet;
     int pubhwm = 1000, subhwm = 1000;
     uint64_t rescanPeriodUs = 250e3;
+    string baseDir;
 
     unordered_map<string, pair<void*,lockfile_t*>> pubsocks;
     // socket pair contains the socket + whether it was subscribed to explicitly or not
@@ -101,13 +102,24 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         auto* subhwmStr = findOption("subhwm");
         if (subhwmStr) subhwm = atoi(subhwmStr->c_str());
 
+        auto* baseDirStr = findOption("base_dir");
+        if (baseDirStr) {
+            baseDir = *baseDirStr;
+        } else {
+            baseDir = "/tmp";
+        }
+
         auto* rescanPeriodUsStr = findOption("rescan_period_us");
         if (rescanPeriodUsStr) rescanPeriodUs = atoi(rescanPeriodUsStr->c_str());
 
         subnet = zcm_url_address(url);
 
+        string fullPath = string(baseDir + "/" + subnet);
         // Make directory with all permissions
-        mkdir(string("/tmp/" + subnet).c_str(), S_IRWXO | S_IRWXG | S_IRWXU);
+        int ret = mkdir(fullPath.c_str(), S_IRWXO | S_IRWXG | S_IRWXU);
+        if (ret < 0 && errno != EEXIST) {
+            ZCM_DEBUG("Subnet directory creation failed! Could not create %s: %s", fullPath.c_str(), strerror(errno));
+        }
 
         ZCM_DEBUG("ZMQ Subnet Address: %s\n", subnet.c_str());
 
@@ -178,7 +190,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     {
         switch (type) {
             case IPC:
-                return "ipc:///tmp/" + subnet + "/" + IPC_NAME_PREFIX + channel;
+                return "ipc://" + baseDir + "/" + subnet + "/" + IPC_NAME_PREFIX + channel;
             case INPROC:
                 return "inproc://" + subnet + "/" + IPC_NAME_PREFIX + channel;
         }
@@ -286,7 +298,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         DIR *d;
         dirent *ent;
 
-        if (!(d=opendir(string("/tmp/" + subnet).c_str())))
+        if (!(d=opendir(string(baseDir + "/" + subnet).c_str())))
             return;
 
         while ((ent=readdir(d)) != nullptr) {
@@ -542,7 +554,7 @@ static zcm_trans_t *createInproc(zcm_url_t *url, char **opt_errmsg)
 const TransportRegister ZCM_TRANS_CLASSNAME::regIpc(
     "ipc", "Transfer data via Inter-process Communication "
            "(e.g. 'ipc' or "
-           "'ipc://<subnet>?rescan_period_us=250000')",
+           "'ipc://<subnet>?rescan_period_us=250000?base_dir=/tmp')",
     createIpc);
 #endif
 
