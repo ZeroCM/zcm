@@ -27,9 +27,7 @@ public final class ZCMNativeLoader {
                 if (!isLoaded) {
                     try {
                         System.loadLibrary("zmq");
-                    } catch (UnsatisfiedLinkError e) {
-                        System.err.println("Could not find libzmq : "+e);
-                    }
+                    } catch (UnsatisfiedLinkError e) {}
                     try {
                         System.loadLibrary("zcm");
                     } catch (UnsatisfiedLinkError e) {

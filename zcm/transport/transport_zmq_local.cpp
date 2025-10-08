@@ -118,7 +118,9 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         // Make directory with all permissions
         int ret = mkdir(fullPath.c_str(), S_IRWXO | S_IRWXG | S_IRWXU);
         if (ret < 0 && errno != EEXIST) {
-            ZCM_DEBUG("Subnet directory creation failed! Could not create %s: %s", fullPath.c_str(), strerror(errno));
+            ZCM_DEBUG("Subnet directory creation failed! Could not create %s: %s",
+                      fullPath.c_str(), strerror(errno));
+            assert(false && "ZMQ dir creation failed");
         }
 
         ZCM_DEBUG("ZMQ Subnet Address: %s\n", subnet.c_str());
@@ -554,7 +556,7 @@ static zcm_trans_t *createInproc(zcm_url_t *url, char **opt_errmsg)
 const TransportRegister ZCM_TRANS_CLASSNAME::regIpc(
     "ipc", "Transfer data via Inter-process Communication "
            "(e.g. 'ipc' or "
-           "'ipc://<subnet>?rescan_period_us=250000?base_dir=/tmp')",
+           "'ipc://<subnet>?rescan_period_us=250000&base_dir=/tmp')",
     createIpc);
 #endif
 
