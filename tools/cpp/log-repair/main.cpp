@@ -36,7 +36,7 @@ struct Args
             { "help",               no_argument, 0, 'h' },
             { "input",        required_argument, 0, 'i' },
             { "output",       required_argument, 0, 'o' },
-            { "split",        required_argument, 0, 's' },
+            { "split-us",     required_argument, 0, 's' },
             { "output-split",       no_argument, 0, 'S' },
             { "verify",             no_argument, 0, 'v' },
             { 0, 0, 0, 0 }
@@ -101,7 +101,6 @@ struct LogRepair
 {
     Args args;
     unique_ptr<zcm::LogFile> logIn;
-    unique_ptr<zcm::LogFile> logOut;
 
     // These variables are reused between functions
     const zcm::LogEvent*         event;
@@ -126,13 +125,6 @@ struct LogRepair
             return false;
         }
 
-        if (!args.verify) {
-            logOut.reset(new zcm::LogFile(args.outfile, "w"));
-            if (!logOut->good()) {
-                cerr << "Error: Failed to create output log" << endl;
-                return false;
-            }
-        }
 
         // somewhat arbitrary, but starting with a high capacity helps speed up the read-in
         timestamps.emplace_back();
@@ -204,7 +196,7 @@ struct LogRepair
     {
         cout << "Writing " << sectionTimestamps.size() << " events to " << name << endl;
 
-        logOut.reset(new zcm::LogFile(name, "w"));
+        unique_ptr<zcm::LogFile> logOut(new zcm::LogFile(name, "w"));
         if (!logOut->good()) {
             cerr << "Error: Failed to create output log" << endl;
             return 1;
@@ -235,7 +227,6 @@ struct LogRepair
         }
 
         cout << endl << "Flushing to disk" << endl;
-        logOut.reset();
 
         return 0;
     }
@@ -302,8 +293,6 @@ struct LogRepair
             cout << t.size() << ", ";
         }
         cout << "\b\b} events" << endl;
-
-        if (args.verify) return 0;
 
         auto process = [&](size_t idx, const string& name) {
             auto& t = timestamps[idx];
