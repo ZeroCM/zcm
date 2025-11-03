@@ -83,16 +83,16 @@ struct Args
              << "" << endl
              << "Options:" << endl
              << "" << endl
-             << "  -h, --help             Shows this help text and exits" << endl
-             << "  -i, --input=filename   specify input file (alteratively can be a positional argument)" << endl
-             << "  -o, --output=filename  specify output file" << endl
+             << "  -h, --help               Shows this help text and exits" << endl
+             << "  -i, --input=filename     specify input file (alteratively can be a positional argument)" << endl
+             << "  -o, --output=filename    specify output file" << endl
              << endl
-             << "  -s, --split=delta_us   split output logs if there is a timestamp jump of >= provided magnitude" << endl
-             << "                         only the largest section will be output" << endl
-             << "  -S, --output-split     also output all the other files resulting from the split" << endl
-             << "                         file names will be <output_filename>.[num]" << endl
+             << "  -s, --split-us=delta_us  split output logs if there is a timestamp jump of >= provided magnitude" << endl
+             << "                           only the largest section will be output" << endl
+             << "  -S, --output-split       also output all the other files resulting from the split" << endl
+             << "                           file names will be <output_filename>.[num]" << endl
              << endl
-             << "  -v, --verify           verify input log is monotonic in timestamp" << endl
+             << "  -v, --verify             verify input log is monotonic in timestamp" << endl
              << endl;
     }
 };
