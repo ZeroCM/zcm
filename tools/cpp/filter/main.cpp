@@ -39,7 +39,10 @@ struct Args
         FieldAccessor(const string& msgtype, const string& field, const zcm::TypeDb* types)
         {
             md = types->getByName(StringUtil::dotsToUnderscores(msgtype));
-            if (!md) return;
+            if (!md) {
+                cerr << "Failed to find type metadata for " << msgtype << endl;
+                return;
+            }
 
             auto info = md->info;
 
@@ -55,6 +58,10 @@ struct Args
                     this->field = f;
                     break;
                 }
+            }
+
+            if (fIdx < 0) {
+                cerr << "Failed to find field : " << field << endl;
             }
 
             delete[] buf;
@@ -586,16 +593,25 @@ struct Args
 
         bool setConditionAsField(const string& field, const zcm::TypeDb* types)
         {
-            if (regions.empty()) return false;
+            if (regions.empty()) {
+                cerr << "No region to use field" << endl;
+                return false;
+            }
 
             auto& back = regions.back();
 
             if (!specifyingEnd) {
                 if (!back.begin) back.begin.reset(new Condition());
-                if (!back.begin->setField(field, types)) return false;
+                if (!back.begin->setField(field, types)) {
+                    cerr << "Failed to set begin field condition" << endl;
+                    return false;
+                }
             } else {
                 if (!back.end) back.end.reset(new Condition());
-                if (!back.end->setField(field, types)) return false;
+                if (!back.end->setField(field, types)) {
+                    cerr << "Failed to set end field condition" << endl;
+                    return false;
+                }
             }
 
             return true;
