@@ -39,6 +39,7 @@ def build(ctx):
                                           'util/*.c', 'util/*.cpp',
                                           'tools/*.c', 'tools/*.cpp',
                                           'transport/*.c', 'transport/*.cpp',
+                                          'transport/cobs_serial/*.c',
                                           'transport/udp/*.cpp',
                                           'transport/lockfree/lf_*.c'],
                                          excl=srcExcludes))
@@ -50,7 +51,9 @@ def build(ctx):
                    'transport/generic_serial_transport.c',
                    'transport/generic_serial_circ_buff.h',
                    'transport/generic_serial_circ_buff.c',
-                   'transport/generic_serial_fletcher.h']
+                   'transport/generic_serial_fletcher.h',
+                   'transport/cobs_serial/generic_serial_cobs_transport.h',
+                   'transport/cobs_serial/generic_serial_cobs_transport.c']
 
     if ctx.env.USING_THIRD_PARTY:
         embedSource.append('transport/third-party/embedded/**')
@@ -105,7 +108,8 @@ def build(ctx):
     ctx.install_files('${PREFIX}/include/zcm/transport',
                       ['transport/generic_serial_transport.h',
                        'transport/generic_serial_circ_buff.h',
-                       'transport/generic_serial_fletcher.h'])
+                       'transport/generic_serial_fletcher.h',
+                       'transport/cobs_serial/generic_serial_cobs_transport.h'])
 
     ctx.install_files('${PREFIX}/share/embedded', ['zcm-embed.tar.gz'])
 
@@ -114,10 +118,10 @@ def build(ctx):
     ctx.recurse('json')
 
     if ctx.env.USING_JAVA:
-        ctx.recurse('java');
+        ctx.recurse('java')
 
     if ctx.env.USING_NODEJS:
-        ctx.recurse('js');
+        ctx.recurse('js')
 
     if ctx.env.USING_PYTHON:
         ctx.recurse('python')

@@ -1,0 +1,23 @@
+BasedOnStyle: Google
+AllowShortBlocksOnASingleLine: true
+AllowShortIfStatementsOnASingleLine: true
+ColumnLimit: 80
+DerivePointerAlignment: false
+PointerAlignment: Left
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+BreakBeforeBraces: Stroustrup
+IncludeBlocks: Regroup
+IncludeCategories:
+  - Regex:           '^"(llvm|llvm-c|clang|clang-c)/'
+    Priority:        2
+    SortPriority:    2
+    CaseSensitive:   true
+  - Regex:           '^((<|")(gtest|gmock|isl|json)/)'
+    Priority:        3
+  - Regex:           '<[[:alnum:].]+>'
+    Priority:        4
+  - Regex:           '.*'
+    Priority:        1
+    SortPriority:    0
