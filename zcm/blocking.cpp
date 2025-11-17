@@ -489,7 +489,7 @@ zcm_sub_t* zcm_blocking_t::subscribe(const string& channel,
     sub->usr = usr;
     sub->regex = isRegexChannel(channel);
     if (sub->regex) {
-        sub->regexobj = (void*) new std::regex(sub->channel);
+        sub->regexobj = (void*) new std::regex(channel);
         ZCM_ASSERT(sub->regexobj);
         subsRegex[channel].push_back(sub);
     } else {
