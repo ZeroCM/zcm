@@ -66,6 +66,13 @@ def add_zcm_configure_options(ctx):
                   choices=['true', 'false'],
                   help='Include the zcmtype name in the hash generation')
 
+    # RRR (Jakob H.): Shouldn't this default to false so that the previous default behavior
+    #                 is preserved?
+    gr.add_option('--monotonic-clock', dest='monotonic_clock', default='true',
+                  choices=['true', 'false'],
+                  help='Instead of using the system clock, use a clock source that is guaranteed '
+                       'to be monotonic for all utimes internally')
+
     add_use_option('dev',         'Enable all dev tools')
     add_use_option('build-cache', 'Enable the build cache for faster rebuilds')
     add_use_option('clang',       'Enable build using clang sanitizers')
@@ -179,6 +186,8 @@ def process_zcm_configure_options(ctx):
     env.HASH_TYPENAME      = getattr(opt, 'hash_typename')
     env.HASH_MEMBER_NAMES  = getattr(opt, 'hash_member_names')
 
+    env.MONOTONIC_CLOCK = getattr(opt, 'monotonic_clock')
+
     env.USING_CACHE            = hasoptDev('use_build_cache') and attempt_use_cache(ctx)
     env.USING_CLANG            = hasoptDev('use_clang') and attempt_use_clang(ctx)
     env.USING_CXXTEST          = hasoptDev('use_cxxtest') and attempt_use_cxxtest(ctx)
@@ -228,6 +237,7 @@ def process_zcm_configure_options(ctx):
     Logs.pprint('BLUE', '\nType Configuration:')
     print_entry("hash-typename",     env.HASH_TYPENAME == 'true')
     print_entry("hash-member-names", env.HASH_MEMBER_NAMES == 'true', True)
+    print_entry("monotonic-clock",   env.MONOTONIC_CLOCK == 'true', True)
 
     Logs.pprint('BLUE', '\nDev Configuration:')
     print_entry("Build Cache",             env.USING_CACHE)
@@ -419,6 +429,9 @@ def setup_environment(ctx):
         ctx.env.DEFINES_default.append("ENABLE_TYPENAME_HASHING")
     if ctx.env.HASH_MEMBER_NAMES == 'true':
         ctx.env.DEFINES_default.append("ENABLE_MEMBERNAME_HASHING")
+
+    if ctx.env.MONOTONIC_CLOCK == 'true':
+        ctx.env.DEFINES_default.append("MONOTONIC_CLOCK")
 
     if ctx.env.TRACK_TRAFFIC_TOPOLOGY == 'true':
         ctx.env.DEFINES_default.append("TRACK_TRAFFIC_TOPOLOGY")
