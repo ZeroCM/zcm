@@ -3,8 +3,10 @@
 
 import os
 import waflib
+import json
 from waflib import Task
 from waflib import Utils
+from waflib import Logs
 from waflib.Errors import WafError
 from waflib.TaskGen import extension
 from waflib.Configure import conf
@@ -178,6 +180,22 @@ def outFileNames(ctx, bldpath, inFile, **kw):
 
     return files
 
+def getTypeHashes(ctx, inFile):
+    zcmgen = ctx.env['ZCMGEN']
+
+    raw = ctx.cmd_and_log('zcm-gen -d %s' % (inFile),
+                          output=waflib.Context.STDOUT,
+                          quiet=waflib.Context.BOTH).strip()
+    data = json.loads(raw)
+    results = [
+        [
+            entry["structname"]["fullname"],
+            str(entry["hash"]),
+        ]
+        for entry in data.values()
+    ]
+    return results
+
 def genJuliaPkgFiles(task):
     gen = task.generator
 
@@ -265,7 +283,15 @@ def zcmgen(ctx, **kw):
              cppStdArray    = cppStdArray,
              juliapkg       = juliapkg,
              javapkg        = javapkg)
+    allTypeHashes = {}
     for s in tg.source:
+        typeHashes = getTypeHashes(ctx, s)
+        for [tName, tHash] in typeHashes:
+            if tHash in allTypeHashes:
+                Logs.warn(('WARNING: %s and %s have the same hash. ' +
+                           'You probably do not want this.')
+                          % (allTypeHashes[tHash], tName))
+            allTypeHashes[tHash] = tName
         ctx.add_manual_dependency(s, zcmgen)
 
     if 'cpp' in lang:
