@@ -66,6 +66,30 @@ be used to *summon* the transport:
 When no url is provided (i.e. `zcm_create(NULL)`), the `ZCM_DEFAULT_URL` environment variable is
 queried for a valid url.
 
+### Serial Transport Message Framing
+
+When using the `serial://` transport, ZCM uses a specific framing protocol to identify and parse
+messages in the serial byte stream. This is handled automatically by the `generic_serial_transport`
+implementation (see `zcm/transport/generic_serial_transport.h`).
+
+The frame structure is as follows:
+
+| Field | Size | Description |
+|-------|------|-------------|
+| Sync bytes | 2 bytes | `0xCC 0x00` - Start of frame marker |
+| `chan_len` | 1 byte | Length of the channel name string |
+| `data_len` | 4 bytes | Length of the message data |
+| `*chan` | `chan_len` bytes | Channel name string |
+| `*data` | `data_len` bytes | Serialized message data |
+| `sum1` | 1 byte | Checksum byte 1 |
+| `sum2` | 1 byte | Checksum byte 2 |
+
+This framing allows the receiver to:
+1. Synchronize to the start of a message by looking for `0xCC 0x00`
+2. Determine the channel name to route the message appropriately
+3. Extract the exact message payload
+4. Verify message integrity via the checksum
+
 ## Custom Transports
 
 While these built-in transports are enough for many applications, there are many situations
