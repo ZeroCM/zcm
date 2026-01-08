@@ -5,3 +5,7 @@ def build(ctx):
     ctx.program(target = 'generic-serial',
                 use = 'default zcm examplezcmtypes_cpp',
                 source = 'SerialTransportTest.cpp')
+
+    ctx.program(target = 'generic-cobs-serial',
+                use = 'default zcm examplezcmtypes_cpp',
+                source = 'SerialCobsTransportTest.cpp')

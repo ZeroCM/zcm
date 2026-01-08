@@ -1,6 +1,8 @@
 #include "generic_serial_transport.h"
 #include "util/TimeUtil.hpp"
 #include "zcm/transport.h"
+#include "zcm/transport/cobs_serial/generic_serial_cobs_transport.h"
+#include "zcm/transport/transport_serial.hpp"
 #include "zcm/transport_register.hpp"
 #include "zcm/transport_registrar.h"
 #include "zcm/util/debug.h"
@@ -26,7 +28,7 @@ using namespace std;
 // rare cases...
 
 // Define this the class name you want
-#define ZCM_TRANS_CLASSNAME TransportSerial
+#define ZCM_TRANS_CLASSNAME TransportCobsSerial
 #define MTU (1 << 14)
 #define ESCAPE_CHAR (0xcc)
 
@@ -38,207 +40,6 @@ using u8 = uint8_t;
 using u16 = uint16_t;
 using u32 = uint32_t;
 using u64 = uint64_t;
-
-struct Serial {
-    Serial() {}
-    ~Serial() { close(); }
-
-    bool open(const string& port, int baud, bool hwFlowControl);
-    bool isOpen() { return fd > 0; };
-    void close();
-
-    int write(const u8* buf, size_t sz);
-    int read(u8* buf, size_t sz, u64 timeoutUs);
-    // Returns 0 on invalid input baud otherwise returns termios constant baud
-    // value
-    static int convertBaud(int baud);
-
-    Serial(const Serial&) = delete;
-    Serial(Serial&&) = delete;
-    Serial& operator=(const Serial&) = delete;
-    Serial& operator=(Serial&&) = delete;
-
-   private:
-    string port;
-    int fd = -1;
-    lockfile_t* lf;
-};
-
-bool Serial::open(const string& port_, int baud, bool hwFlowControl)
-{
-    if (baud == 0) {
-        fprintf(stderr,
-                "Serial baud rate not specified in url. "
-                "Proceeding without setting baud\n");
-    }
-    else if (!(baud = convertBaud(baud))) {
-        fprintf(stderr,
-                "Unrecognized baudrate. Failed to open serial device.\n ");
-        return false;
-    }
-
-    lf = lockfile_trylock(port_.c_str());
-    if (!lf) {
-        ZCM_DEBUG(
-            "failed to create lock file, refusing to open serial device (%s)",
-            port_.c_str());
-        return false;
-    }
-    this->port = port_;
-
-    int flags = O_RDWR | O_NOCTTY | O_SYNC;
-    fd = ::open(port.c_str(), flags, 0);
-    if (fd < 0) {
-        ZCM_DEBUG("failed to open serial device (%s): %s", port.c_str(),
-                  strerror(errno));
-        goto fail;
-    }
-
-    // attempt to reset the USB device
-    // this call may fail: but we don't care
-    // occasionally the USB bus can get in a weird state
-    // this call will reset the USB in that situation
-    ioctl(fd, USBDEVFS_RESET, 0);
-
-    struct termios opts;
-
-    // get the termios config
-    if (tcgetattr(fd, &opts)) {
-        ZCM_DEBUG("failed to get termios options on fd: %s", strerror(errno));
-        goto fail;
-    }
-
-    if (baud != 0) {
-        cfsetispeed(&opts, baud);
-        cfsetospeed(&opts, baud);
-    }
-    cfmakeraw(&opts);
-
-    opts.c_cflag &= ~CSTOPB;
-    opts.c_cflag |= CS8;
-    opts.c_cflag &= ~PARENB;
-    if (hwFlowControl) opts.c_cflag |= CRTSCTS;
-    opts.c_cc[VTIME] = 1;
-    opts.c_cc[VMIN] = 30;
-
-    // set the new termios config
-    if (tcsetattr(fd, TCSANOW, &opts)) {
-        ZCM_DEBUG("failed to set termios options on fd: %s", strerror(errno));
-        goto fail;
-    }
-
-    tcflush(fd, TCIOFLUSH);
-
-    return true;
-
-fail:
-    // Close the port if it was opened
-    if (fd > 0) {
-        const int saved_errno = errno;
-        int result;
-        do {
-            result = ::close(fd);
-        } while (result == -1 && errno == EINTR);
-        errno = saved_errno;
-    }
-    this->fd = -1;
-
-    // Unlock the lock file
-    if (lf) {
-        lockfile_unlock(lf);
-        lf = nullptr;
-    }
-    this->port = "";
-
-    return false;
-}
-
-void Serial::close()
-{
-    if (isOpen()) {
-        ZCM_DEBUG("Closing!\n");
-        ::close(fd);
-        fd = 0;
-    }
-    if (port != "") port = "";
-    if (lf) {
-        lockfile_unlock(lf);
-        lf = nullptr;
-    }
-}
-
-int Serial::write(const u8* buf, size_t sz)
-{
-    assert(this->isOpen());
-    int ret = ::write(fd, buf, sz);
-    if (ret == -1) {
-        ZCM_DEBUG("ERR: write failed: %s", strerror(errno));
-        return -1;
-    }
-    return ret;
-}
-
-int Serial::read(u8* buf, size_t sz, u64 timeoutUs)
-{
-    assert(this->isOpen());
-    fd_set fds;
-    FD_ZERO(&fds);
-    FD_SET(fd, &fds);
-
-    struct timeval timeout;
-    timeout.tv_sec = timeoutUs / 1000000;
-    timeout.tv_usec = timeoutUs - timeout.tv_sec * 1000000;
-    int status = ::select(fd + 1, &fds, NULL, NULL, &timeout);
-
-    if (status > 0) {
-        if (FD_ISSET(fd, &fds)) {
-            int ret = ::read(fd, buf, sz);
-            if (ret == -1) {
-                ZCM_DEBUG("ERR: serial read failed: %s", strerror(errno));
-            }
-            else if (ret == 0) {
-                ZCM_DEBUG("ERR: serial device unplugged");
-                close();
-                assert(false && "ERR: serial device unplugged\n" &&
-                       "ZCM does not support reconnecting to serial devices");
-                return -3;
-            }
-            return ret;
-        }
-        else {
-            ZCM_DEBUG("ERR: serial bytes not ready");
-            return -1;
-        }
-    }
-    else {
-        ZCM_DEBUG("ERR: serial read timed out");
-        return -2;
-    }
-}
-
-int Serial::convertBaud(int baud)
-{
-    switch (baud) {
-        case 4800:
-            return B4800;
-        case 9600:
-            return B9600;
-        case 19200:
-            return B19200;
-        case 38400:
-            return B38400;
-        case 57600:
-            return B57600;
-        case 115200:
-            return B115200;
-        case 230400:
-            return B230400;
-        case 460800:
-            return B460800;
-        default:
-            return 0;
-    }
-}
 
 struct ZCM_TRANS_CLASSNAME : public zcm_trans_t {
     Serial ser;
@@ -257,7 +58,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t {
 
     zcm_trans_t* gst;
 
-    uint64_t timeoutLeftUs;
+    uint64_t timeoutLeft;
 
     string* findOption(const string& s)
     {
@@ -337,7 +138,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t {
             gst = nullptr;
         }
         else {
-            gst = zcm_trans_generic_serial_create(
+            gst = zcm_trans_generic_serial_cobs_create(
                 &ZCM_TRANS_CLASSNAME::get, &ZCM_TRANS_CLASSNAME::put, this,
                 &ZCM_TRANS_CLASSNAME::timestamp_now, nullptr, MTU, MTU * 10);
         }
@@ -346,7 +147,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t {
     ~ZCM_TRANS_CLASSNAME()
     {
         ser.close();
-        if (gst) zcm_trans_generic_serial_destroy(gst);
+        if (gst) zcm_trans_generic_serial_cobs_destroy(gst);
     }
 
     bool good() { return ser.isOpen(); }
@@ -355,10 +156,9 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t {
     {
         ZCM_TRANS_CLASSNAME* me = cast((zcm_trans_t*)usr);
         uint64_t startUtime = TimeUtil::utime();
-        int ret = me->ser.read(data, nData, me->timeoutLeftUs);
+        int ret = me->ser.read(data, nData, me->timeoutLeft);
         uint64_t diff = TimeUtil::utime() - startUtime;
-        me->timeoutLeftUs =
-            me->timeoutLeftUs > diff ? me->timeoutLeftUs - diff : 0;
+        me->timeoutLeft = me->timeoutLeft > diff ? me->timeoutLeft - diff : 0;
         return ret < 0 ? 0 : ret;
     }
 
@@ -386,7 +186,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t {
             //       and touch no variables related to receiving
             int ret = zcm_trans_sendmsg(this->gst, msg);
             if (ret != ZCM_EOK) return ret;
-            return serial_update_tx(this->gst);
+            return serial_cobs_update_tx(this->gst);
         }
     }
 
@@ -396,9 +196,10 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t {
                    : zcm_trans_recvmsg_enable(this->gst, channel, enable);
     }
 
-    int recvmsg(zcm_msg_t* msg, unsigned timeoutMs)
+    int recvmsg(zcm_msg_t* msg, int timeoutMs)
     {
-        timeoutLeftUs = timeoutMs * 1e3;
+        timeoutLeft =
+            timeoutMs > 0 ? timeoutMs * 1e3 : numeric_limits<uint64_t>::max();
 
         if (raw) {
             size_t sz = get(rawBuf.get(), rawSize, this);
@@ -419,23 +220,22 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t {
                 //       generic serial transport recvmsg only use the recv
                 //       related data members and touch no variables related to
                 //       sending
-                int ret = zcm_trans_recvmsg(this->gst, msg, 0);
+                int ret = zcm_trans_recvmsg(this->gst, msg, timeoutLeft);
                 if (ret == ZCM_EOK) return ret;
 
                 uint64_t diff = TimeUtil::utime() - startUtime;
                 startUtime = TimeUtil::utime();
-                // Note: timeoutLeftUs is calculated here because
-                // serial_update_rx
+                // Note: timeoutLeft is calculated here because serial_update_rx
                 //       needs it to be set properly so that the blocking read
                 //       in `get` knows how long it has to exit
-                timeoutLeftUs = timeoutLeftUs > diff ? timeoutLeftUs - diff : 0;
+                timeoutLeft = timeoutLeft > diff ? timeoutLeft - diff : 0;
 
-                serial_update_rx(this->gst);
+                serial_cobs_update_rx(this->gst);
 
                 diff = TimeUtil::utime() - startUtime;
-                timeoutLeftUs = timeoutLeftUs > diff ? timeoutLeftUs - diff : 0;
+                timeoutLeft = timeoutLeft > diff ? timeoutLeft - diff : 0;
 
-            } while (timeoutLeftUs > 0);
+            } while (timeoutLeft > 0);
 
             return ZCM_EAGAIN;
         }
@@ -494,9 +294,9 @@ static zcm_trans_t* create(zcm_url_t* url, char** opt_errmsg)
 #ifdef USING_TRANS_SERIAL
 // Register this transport with ZCM
 const TransportRegister ZCM_TRANS_CLASSNAME::reg(
-    "serial",
-    "Transfer data via a serial connection "
-    "(e.g. 'serial:///dev/ttyUSB0?baud=115200&hw_flow_control=true' or "
-    "'serial:///dev/pts/10?raw=true&raw_channel=RAW_SERIAL')",
+    "serial-cobs",
+    "Transfer data via a serial connection using COBS encoding "
+    "(e.g. 'serial-cobs:///dev/ttyUSB0?baud=115200&hw_flow_control=true' or "
+    "'serial-cobs:///dev/pts/10?raw=true&raw_channel=RAW_SERIAL')",
     create);
 #endif
