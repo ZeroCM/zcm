@@ -105,3 +105,24 @@ allows LCM users to gradually migrate to ZCM.
  - Any applications using GLib via LCM may have build errors
    - ZCM does *not* depend on GLib
  - ZCMType drops support for the LCMType-style enums
+
+
+## Serial Framing Format
+When using the `serial://` transport (implemented in `generic_serial_transport.c`), ZCM frames messages using a specific protocol to allow for synchronization and error checking over byte streams.
+
+A framed message has the following structure:
+
+| Byte Offset | Field | Size | Description |
+| :--- | :--- | :--- | :--- |
+| 0 | Sync Byte | 1 | Always `0xCC` |
+| 1 | Reserved | 1 | Always `0x00` |
+| 2 | Channel Length | 1 | Length (N) of the channel name string |
+| 3-6 | Data Length | 4 | Length (M) of the payload data (Big-Endian) |
+| 7 | Channel Name | N | The UTF-8 string for the channel name |
+| 7 + N | Payload | M | The serialized ZCM message data |
+| 7 + N + M | Checksum 1 | 1 | Fletcher-8 Checksum Byte 1 (across Chan + Data) |
+| 8 + N + M | Checksum 2 | 1 | Fletcher-8 Checksum Byte 2 (across Chan + Data) |
+
+### Example
+For a channel named `test` (4 bytes) and a 4-byte payload `0x01 0x02 0x03 0x04`:
+`[0xCC] [0x00] [0x04] [0x00 0x00 0x00 0x04] [t e s t] [0x01 0x02 0x03 0x04] [Sum1] [Sum2]`
