@@ -115,8 +115,9 @@ static void write_u32_be(uint8_t* p, uint32_t v)
 
 static uint32_t crc32_update_byte(uint32_t crc, uint8_t b)
 {
+    int i;
     crc ^= b;
-    for (int i = 0; i < 8; ++i) {
+    for (i = 0; i < 8; ++i) {
         uint32_t mask = (uint32_t)(-(int32_t)(crc & 1u));
         crc           = (crc >> 1) ^ (0xedb88320u & mask);
     }
@@ -125,18 +126,20 @@ static uint32_t crc32_update_byte(uint32_t crc, uint8_t b)
 
 static uint32_t crc32_compute(const uint8_t* data, size_t len)
 {
+    size_t   i;
     uint32_t crc = 0xffffffffu;
-    for (size_t i = 0; i < len; ++i) crc = crc32_update_byte(crc, data[i]);
+    for (i = 0; i < len; ++i) crc = crc32_update_byte(crc, data[i]);
     return ~crc;
 }
 
 static int send_inner_with_retry(zcm_trans_packetized_serial_t* zt, zcm_msg_t msg)
 {
+    int i;
     int ret = zcm_trans_sendmsg(zt->inner, msg);
     if (ret == ZCM_EOK) return ZCM_EOK;
     if (ret != ZCM_EAGAIN) return ret;
 
-    for (int i = 0; i < 4; ++i) {
+    for (i = 0; i < 4; ++i) {
         zcm_trans_update(zt->inner);
         ret = zcm_trans_sendmsg(zt->inner, msg);
         if (ret == ZCM_EOK) return ZCM_EOK;
@@ -190,6 +193,7 @@ static int is_packetized_channel(const char* channel)
 
 static int send_retrans_request(zcm_trans_packetized_serial_t* zt)
 {
+    size_t                 sent;
     packetized_rx_state_t* rx = &zt->rx;
     if (!rx->retrans_pending || !rx->active || rx->missing_count == 0) return ZCM_EOK;
 
@@ -198,14 +202,15 @@ static int send_retrans_request(zcm_trans_packetized_serial_t* zt)
                                  : 0;
     if (max_ids_per_req == 0) return ZCM_EINVALID;
 
-    size_t sent = 0;
+    sent = 0;
     while (sent < rx->missing_count) {
+        size_t   i;
         size_t   remaining = rx->missing_count - sent;
         size_t   count     = remaining < max_ids_per_req ? remaining : max_ids_per_req;
         size_t   body_len  = 1 + count * 2;
         uint8_t* body      = zt->pkt_buf + PACKETIZED_HEADER_BYTES;
         body[0]            = (uint8_t)count;
-        for (size_t i = 0; i < count; ++i) {
+        for (i = 0; i < count; ++i) {
             write_u16_be(&body[1 + i * 2], rx->missing_ids[sent + i]);
         }
 
@@ -221,13 +226,14 @@ static int send_retrans_request(zcm_trans_packetized_serial_t* zt)
 
 static int send_pending_retransmissions(zcm_trans_packetized_serial_t* zt)
 {
+    size_t                 i;
     packetized_tx_state_t* tx = &zt->tx;
     if (!tx->active || tx->retrans_count == 0) return ZCM_EOK;
 
     size_t   chunk = tx->packet_data_size;
     uint8_t* body  = zt->pkt_buf + PACKETIZED_HEADER_BYTES;
 
-    for (size_t i = 0; i < tx->retrans_count; ++i) {
+    for (i = 0; i < tx->retrans_count; ++i) {
         uint16_t packet_id = tx->retrans_ids[i];
         if (packet_id >= tx->total_packets) continue;
 
@@ -353,6 +359,7 @@ static int process_rx_data(zcm_trans_packetized_serial_t* zt, uint16_t session_i
 static int process_retrans_request(zcm_trans_packetized_serial_t* zt, uint16_t session_id,
                                    const uint8_t* body, size_t body_len)
 {
+    uint8_t                i;
     packetized_tx_state_t* tx = &zt->tx;
     if (!tx->active || tx->session_id != session_id) return ZCM_EOK;
     if (body_len < 1) return ZCM_EINVALID;
@@ -368,7 +375,7 @@ static int process_retrans_request(zcm_trans_packetized_serial_t* zt, uint16_t s
     tx->retrans_ids = malloc((size_t)count * sizeof(uint16_t));
     if (tx->retrans_ids == NULL) return ZCM_EMEMORY;
     tx->retrans_count = count;
-    for (uint8_t i = 0; i < count; ++i) {
+    for (i = 0; i < count; ++i) {
         tx->retrans_ids[i] = read_u16_be(&body[1 + (size_t)i * 2]);
     }
 
@@ -378,6 +385,7 @@ static int process_retrans_request(zcm_trans_packetized_serial_t* zt, uint16_t s
 static void maybe_schedule_retrans_request(zcm_trans_packetized_serial_t* zt,
                                            uint64_t                       now)
 {
+    uint16_t               i;
     packetized_rx_state_t* rx = &zt->rx;
     if (!rx->active || rx->retrans_pending) return;
     if (rx->received_count == rx->total_packets) return;
@@ -392,7 +400,7 @@ static void maybe_schedule_retrans_request(zcm_trans_packetized_serial_t* zt,
     if (rx->missing_ids == NULL) return;
 
     uint16_t idx = 0;
-    for (uint16_t i = 0; i < rx->total_packets; ++i) {
+    for (i = 0; i < rx->total_packets; ++i) {
         if (!rx->packet_received[i]) rx->missing_ids[idx++] = i;
     }
     rx->missing_count   = idx;
@@ -403,7 +411,8 @@ size_t packetized_serial_get_mtu(zcm_trans_packetized_serial_t* zt) { return zt-
 
 int packetized_serial_sendmsg(zcm_trans_packetized_serial_t* zt, zcm_msg_t msg)
 {
-    size_t chan_len = strlen(msg.channel);
+    uint16_t packet_id;
+    size_t   chan_len = strlen(msg.channel);
     if (chan_len > ZCM_CHANNEL_MAXLEN) return ZCM_EINVALID;
 
     int ret = send_pending_retransmissions(zt);
@@ -453,7 +462,7 @@ int packetized_serial_sendmsg(zcm_trans_packetized_serial_t* zt, zcm_msg_t msg)
     if (ret != ZCM_EOK) return ret;
 
     uint8_t* body = zt->pkt_buf + PACKETIZED_HEADER_BYTES;
-    for (uint16_t packet_id = 0; packet_id < total_packets; ++packet_id) {
+    for (packet_id = 0; packet_id < total_packets; ++packet_id) {
         uint32_t offset    = (uint32_t)packet_id * (uint32_t)packet_data_size;
         uint32_t remaining = total_message_size - offset;
         uint8_t  payload_len =
