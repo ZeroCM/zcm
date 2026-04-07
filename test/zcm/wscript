@@ -7,3 +7,12 @@ def build(ctx):
               source = 'multi_file.cpp',
               rpath = ctx.env.RPATH_zcm,
               install_path = None)
+
+    ctx.stlib(target = 'packetized_test_support',
+              use = 'default',
+              source = [
+                  '../../zcm/transport/packetized_serial_transport.c',
+                  '../../zcm/transport/generic_serial_transport.c',
+                  '../../zcm/transport/generic_serial_circ_buff.c',
+              ],
+              install_path = None)

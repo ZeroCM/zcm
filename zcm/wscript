@@ -19,9 +19,11 @@ def build(ctx):
     if not ctx.env.USING_TRANS_UDP:
         srcExcludes += ['transport/udp/**/*']
     if not ctx.env.USING_TRANS_SERIAL:
-        srcExcludes += ['transport/transport_serial.cpp']
+        srcExcludes += ['transport/transport_serial.cpp',
+                        'transport/packetized_transport_serial.cpp']
     if not ctx.env.USING_TRANS_CAN:
-        srcExcludes += ['transport/transport_can.cpp']
+        srcExcludes += ['transport/transport_can.cpp',
+                        'transport/packetized_transport_can.cpp']
     if not ctx.env.USING_TRANS_IPCSHM:
         srcExcludes += ['transport/transport_ipcshm.cpp', 'transport/lockfree/lf_*.c']
     if not ctx.env.USING_THIRD_PARTY:
@@ -43,11 +45,12 @@ def build(ctx):
                                           'transport/lockfree/lf_*.c'],
                                          excl=srcExcludes))
 
-
     embedSource = ['zcm.h', 'zcm_private.h', 'zcm.c', 'zcm-cpp.hpp', 'zcm-cpp-impl.hpp',
                    'zcm_coretypes.h', 'transport.h', 'nonblocking.h', 'nonblocking.c',
                    'transport/generic_serial_transport.h',
                    'transport/generic_serial_transport.c',
+                   'transport/packetized_serial_transport.h',
+                   'transport/packetized_serial_transport.c',
                    'transport/generic_serial_circ_buff.h',
                    'transport/generic_serial_circ_buff.c',
                    'transport/generic_serial_fletcher.h']
@@ -104,6 +107,7 @@ def build(ctx):
 
     ctx.install_files('${PREFIX}/include/zcm/transport',
                       ['transport/generic_serial_transport.h',
+                       'transport/packetized_serial_transport.h',
                        'transport/generic_serial_circ_buff.h',
                        'transport/generic_serial_fletcher.h'])
 
