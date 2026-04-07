@@ -206,8 +206,9 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 {
     PacketizedSerialDevice ser;
 
-    int  baud;
-    bool hwFlowControl;
+    int     baud;
+    bool    hwFlowControl;
+    uint8_t packetDataSize;
 
     bool                       raw;
     string                     rawChan;
@@ -260,6 +261,18 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             }
         }
 
+        packetDataSize   = 0;
+        auto* pktSizeStr = findOption("pkt_size");
+        if (pktSizeStr) {
+            char*         endptr;
+            unsigned long parsed = strtoul(pktSizeStr->c_str(), &endptr, 10);
+            if (*endptr != '\0' || parsed == 0 || parsed > 253) {
+                ZCM_DEBUG("expected integer argument in [1,253] for 'pkt_size'");
+                return;
+            }
+            packetDataSize = (uint8_t)parsed;
+        }
+
         raw          = false;
         auto* rawStr = findOption("raw");
         if (rawStr) {
@@ -296,7 +309,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         } else {
             gst = zcm_trans_packetized_serial_create(
                 &ZCM_TRANS_CLASSNAME::get, &ZCM_TRANS_CLASSNAME::put, this,
-                &ZCM_TRANS_CLASSNAME::timestamp_now, nullptr, MTU, MTU * 10);
+                &ZCM_TRANS_CLASSNAME::timestamp_now, nullptr, MTU, MTU * 10,
+                packetDataSize);
         }
     }
 
@@ -435,7 +449,7 @@ static zcm_trans_t* create(zcm_url_t* url, char** opt_errmsg)
 const TransportRegister ZCM_TRANS_CLASSNAME::reg(
     "serial+pkt",
     "Transfer data via a packetized serial connection "
-    "(e.g. 'serial+pkt:///dev/ttyUSB0?baud=115200&hw_flow_control=true' or "
+    "(e.g. 'serial+pkt:///dev/ttyUSB0?baud=115200&hw_flow_control=true&pkt_size=128' or "
     "'serial+pkt:///dev/pts/10?raw=true&raw_channel=RAW_SERIAL')",
     create);
 #endif

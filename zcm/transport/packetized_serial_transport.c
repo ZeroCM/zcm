@@ -66,8 +66,9 @@ struct zcm_trans_packetized_serial_t
     zcm_trans_t  trans;
     zcm_trans_t* inner;
 
-    size_t inner_mtu;
-    size_t mtu;
+    size_t  inner_mtu;
+    size_t  mtu;
+    uint8_t configured_packet_data_size;
 
     uint8_t* pkt_buf;
     size_t   pkt_buf_size;
@@ -425,8 +426,7 @@ int packetized_serial_sendmsg(zcm_trans_packetized_serial_t* zt, zcm_msg_t msg)
         return send_inner_with_retry(zt, msg);
     }
 
-    uint8_t packet_data_size = (uint8_t)(zt->inner_mtu - PACKETIZED_HEADER_BYTES -
-                                         PACKETIZED_DATA_OVERHEAD_BYTES);
+    uint8_t packet_data_size = zt->configured_packet_data_size;
     if (packet_data_size == 0 || packet_data_size > 253) return ZCM_EINVALID;
     if (msg.len > zt->mtu) return ZCM_EINVALID;
 
@@ -602,7 +602,8 @@ static zcm_trans_packetized_serial_t* cast(zcm_trans_t* zt)
 zcm_trans_t* zcm_trans_packetized_serial_create(
     size_t (*get)(uint8_t* data, size_t nData, void* usr),
     size_t (*put)(const uint8_t* data, size_t nData, void* usr), void* put_get_usr,
-    uint64_t (*timestamp_now)(void* usr), void* time_usr, size_t MTU, size_t bufSize)
+    uint64_t (*timestamp_now)(void* usr), void* time_usr, size_t MTU, size_t bufSize,
+    uint8_t packet_data_size)
 {
     zcm_trans_packetized_serial_t* zt = calloc(1, sizeof(*zt));
     if (zt == NULL) return NULL;
@@ -624,6 +625,29 @@ zcm_trans_t* zcm_trans_packetized_serial_create(
 
     zt->mtu = PACKETIZED_MAX_MTU;
     if (zt->mtu < zt->inner_mtu) zt->mtu = zt->inner_mtu;
+
+    if (packet_data_size == 0) {
+        size_t max_payload =
+            zt->inner_mtu - PACKETIZED_HEADER_BYTES - PACKETIZED_DATA_OVERHEAD_BYTES;
+        if (max_payload > 253) max_payload = 253;
+        zt->configured_packet_data_size = (uint8_t)max_payload;
+    } else {
+        zt->configured_packet_data_size = packet_data_size;
+    }
+
+    if (zt->configured_packet_data_size == 0 || zt->configured_packet_data_size > 253) {
+        zcm_trans_generic_serial_destroy(zt->inner);
+        free(zt);
+        return NULL;
+    }
+
+    if (PACKETIZED_HEADER_BYTES + PACKETIZED_DATA_OVERHEAD_BYTES +
+            zt->configured_packet_data_size >
+        zt->inner_mtu) {
+        zcm_trans_generic_serial_destroy(zt->inner);
+        free(zt);
+        return NULL;
+    }
 
     zt->pkt_buf_size = zt->inner_mtu;
     zt->pkt_buf      = malloc(zt->pkt_buf_size);

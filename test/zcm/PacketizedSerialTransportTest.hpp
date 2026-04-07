@@ -8,7 +8,8 @@ extern "C" {
 zcm_trans_t* zcm_trans_packetized_serial_create(
     size_t (*get)(uint8_t* data, size_t nData, void* usr),
     size_t (*put)(const uint8_t* data, size_t nData, void* usr), void* put_get_usr,
-    uint64_t (*timestamp_now)(void* usr), void* time_usr, size_t MTU, size_t bufSize);
+    uint64_t (*timestamp_now)(void* usr), void* time_usr, size_t MTU, size_t bufSize,
+    uint8_t packet_data_size);
 int packetized_serial_update_rx(zcm_trans_t* zt);
 int packetized_serial_update_tx(zcm_trans_t* zt);
 }
@@ -159,9 +160,9 @@ class PacketizedSerialTransportTest : public CxxTest::TestSuite
 
         uint64_t     now = 1000;
         zcm_trans_t* tx  = zcm_trans_packetized_serial_create(
-            endpoint_get, endpoint_put, &a, fake_now, &now, 64, 32768);
+             endpoint_get, endpoint_put, &a, fake_now, &now, 64, 32768, 0);
         zcm_trans_t* rx = zcm_trans_packetized_serial_create(
-            endpoint_get, endpoint_put, &b, fake_now, &now, 64, 32768);
+            endpoint_get, endpoint_put, &b, fake_now, &now, 64, 32768, 0);
         TSM_ASSERT("failed creating transports", tx && rx);
 
         vector<uint8_t> payload(512);
@@ -199,9 +200,9 @@ class PacketizedSerialTransportTest : public CxxTest::TestSuite
 
         uint64_t     now = 2000;
         zcm_trans_t* ta  = zcm_trans_packetized_serial_create(
-            endpoint_get, endpoint_put, &a, fake_now, &now, 64, 32768);
+             endpoint_get, endpoint_put, &a, fake_now, &now, 64, 32768, 0);
         zcm_trans_t* tb = zcm_trans_packetized_serial_create(
-            endpoint_get, endpoint_put, &b, fake_now, &now, 64, 32768);
+            endpoint_get, endpoint_put, &b, fake_now, &now, 64, 32768, 0);
         TSM_ASSERT("failed creating transports", ta && tb);
 
         vector<uint8_t> payload(700);

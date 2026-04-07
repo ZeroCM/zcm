@@ -39,6 +39,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     unordered_map<string, string> options;
     uint32_t                      msgId;
     uint32_t                      txId;
+    uint8_t                       packetDataSize;
     string                        address;
 
     int                 soc             = -1;
@@ -70,6 +71,18 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         auto* opts = zcm_url_opts(url);
         for (size_t i = 0; i < opts->numopts; ++i)
             options[opts->name[i]] = opts->value[i];
+
+        packetDataSize   = 0;
+        auto* pktSizeStr = findOption("pkt_size");
+        if (pktSizeStr) {
+            char*         endptr;
+            unsigned long parsed = strtoul(pktSizeStr->c_str(), &endptr, 10);
+            if (*endptr != '\0' || parsed == 0 || parsed > 253) {
+                ZCM_DEBUG("Invalid pkt_size. Expected integer in [1,253]");
+                return;
+            }
+            packetDataSize = (uint8_t)parsed;
+        }
 
         msgId          = 0;
         auto* msgIdStr = findOption("msgid");
@@ -157,7 +170,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
         gst = zcm_trans_packetized_serial_create(
             &ZCM_TRANS_CLASSNAME::get, &ZCM_TRANS_CLASSNAME::put, this,
-            &ZCM_TRANS_CLASSNAME::timestamp_now, this, MTU, MTU * 10);
+            &ZCM_TRANS_CLASSNAME::timestamp_now, this, MTU, MTU * 10, packetDataSize);
         socSettingsGood = true;
     }
 
@@ -352,6 +365,8 @@ static zcm_trans_t* create(zcm_url_t* url, char** opt_errmsg)
 const TransportRegister ZCM_TRANS_CLASSNAME::reg(
     "can+pkt",
     "Transfer data via packetized socket CAN connection on a single id "
-    "(e.g. 'can+pkt://can0?msgid=65536&rx_extended_addr=standard&tx_extended_addr=true')",
+    "(e.g. "
+    "'can+pkt://"
+    "can0?msgid=65536&rx_extended_addr=standard&tx_extended_addr=true&pkt_size=128')",
     create);
 #endif
