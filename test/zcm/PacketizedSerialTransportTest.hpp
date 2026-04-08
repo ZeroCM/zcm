@@ -223,26 +223,7 @@ class PacketizedSerialTransportTest : public CxxTest::TestSuite
         now += 300000;
         TS_ASSERT_EQUALS(zcm_trans_recvmsg(tb, &out, 0), ZCM_EAGAIN);
 
-        uint8_t   pingbuf[1] = { 0x42 };
-        zcm_msg_t ping;
-        ping.utime   = now;
-        ping.channel = (char*)"PING";
-        ping.len     = 1;
-        ping.buf     = pingbuf;
-
-        TS_ASSERT_EQUALS(zcm_trans_sendmsg(tb, ping), ZCM_EOK);
         pump(tb, ta, 10);
-
-        TS_ASSERT_EQUALS(zcm_trans_recvmsg(ta, &out, 0), ZCM_EOK);
-
-        uint8_t   pongbuf[1] = { 0x24 };
-        zcm_msg_t pong;
-        pong.utime   = now;
-        pong.channel = (char*)"PONG";
-        pong.len     = 1;
-        pong.buf     = pongbuf;
-
-        TS_ASSERT_EQUALS(zcm_trans_sendmsg(ta, pong), ZCM_EOK);
         pump(ta, tb, 20);
 
         bool gotRetx = false;

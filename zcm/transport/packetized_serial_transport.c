@@ -15,7 +15,8 @@
 #define PACKETIZED_DATA_OVERHEAD_BYTES (2)
 #define PACKETIZED_METADATA_BODY_BYTES (11)
 #define PACKETIZED_RETRANS_TIMEOUT_US (200000)
-#define PACKETIZED_MAX_MTU ((size_t)UINT32_MAX)
+#define PACKETIZED_MAX_PACKET_DATA_SIZE (253)
+#define PACKETIZED_MAX_PACKETS ((size_t)UINT16_MAX)
 
 typedef enum packetized_msg_type_t
 {
@@ -76,6 +77,7 @@ struct zcm_trans_packetized_serial_t
     uint8_t* out_buf;
     size_t   out_buf_size;
     size_t   out_len;
+    uint64_t out_utime;
     char     out_channel[ZCM_CHANNEL_MAXLEN + 1];
     int      out_pending;
 
@@ -225,6 +227,42 @@ static int send_retrans_request(zcm_trans_packetized_serial_t* zt)
     return ZCM_EOK;
 }
 
+static int queue_output(zcm_trans_packetized_serial_t* zt, const char* channel,
+                        const uint8_t* data, size_t len, uint64_t utime,
+                        int strip_packetized_prefix)
+{
+    if (zt->out_buf_size < len) {
+        uint8_t* newbuf = realloc(zt->out_buf, len == 0 ? 1 : len);
+        if (newbuf == NULL) return ZCM_EMEMORY;
+        zt->out_buf      = newbuf;
+        zt->out_buf_size = len;
+    }
+
+    if (len > 0) memcpy(zt->out_buf, data, len);
+
+    if (strip_packetized_prefix && channel[0] == '$') channel += 1;
+    strncpy(zt->out_channel, channel, ZCM_CHANNEL_MAXLEN);
+    zt->out_channel[ZCM_CHANNEL_MAXLEN] = '\0';
+    zt->out_len                         = len;
+    zt->out_utime                       = utime;
+    zt->out_pending                     = 1;
+    return ZCM_EOK;
+}
+
+static void deliver_pending(zcm_trans_packetized_serial_t* zt, zcm_msg_t* msg)
+{
+    msg->utime      = zt->out_utime;
+    msg->channel    = zt->out_channel;
+    msg->len        = zt->out_len;
+    msg->buf        = zt->out_buf;
+    zt->out_pending = 0;
+}
+
+static size_t packetized_max_mtu(uint8_t packet_data_size)
+{
+    return (size_t)packet_data_size * PACKETIZED_MAX_PACKETS;
+}
+
 static int send_pending_retransmissions(zcm_trans_packetized_serial_t* zt)
 {
     size_t                 i;
@@ -334,26 +372,11 @@ static int process_rx_data(zcm_trans_packetized_serial_t* zt, uint16_t session_i
             return ZCM_EINVALID;
         }
 
-        if (zt->out_buf_size < rx->total_message_size) {
-            uint8_t* newbuf = realloc(zt->out_buf, rx->total_message_size);
-            if (newbuf == NULL) {
-                rx_clear(rx);
-                return ZCM_EMEMORY;
-            }
-            zt->out_buf      = newbuf;
-            zt->out_buf_size = rx->total_message_size;
+        int ret = queue_output(zt, rx->channel, rx->data, rx->total_message_size, utime, 1);
+        if (ret != ZCM_EOK) {
+            rx_clear(rx);
+            return ret;
         }
-
-        if (rx->total_message_size > 0)
-            memcpy(zt->out_buf, rx->data, rx->total_message_size);
-        {
-            const char* out_channel = rx->channel;
-            if (out_channel[0] == '$') out_channel += 1;
-            strncpy(zt->out_channel, out_channel, ZCM_CHANNEL_MAXLEN);
-        }
-        zt->out_channel[ZCM_CHANNEL_MAXLEN] = '\0';
-        zt->out_len                         = rx->total_message_size;
-        zt->out_pending                     = 1;
 
         rx_clear(rx);
     }
@@ -431,13 +454,16 @@ int packetized_serial_sendmsg(zcm_trans_packetized_serial_t* zt, zcm_msg_t msg)
     }
 
     uint8_t packet_data_size = zt->configured_packet_data_size;
-    if (packet_data_size == 0 || packet_data_size > 253) return ZCM_EINVALID;
+    if (packet_data_size == 0 || packet_data_size > PACKETIZED_MAX_PACKET_DATA_SIZE)
+        return ZCM_EINVALID;
     if (msg.len > zt->mtu) return ZCM_EINVALID;
 
     uint32_t total_message_size = (uint32_t)msg.len;
-    uint16_t total_packets =
-        (uint16_t)((total_message_size + packet_data_size - 1u) / packet_data_size);
-    if (total_packets == 0) total_packets = 1;
+    size_t total_packets_sz =
+        (size_t)((total_message_size + packet_data_size - 1u) / packet_data_size);
+    if (total_packets_sz == 0) total_packets_sz = 1;
+    if (total_packets_sz > PACKETIZED_MAX_PACKETS) return ZCM_EINVALID;
+    uint16_t total_packets = (uint16_t)total_packets_sz;
 
     tx_clear(&zt->tx);
     packetized_tx_state_t* tx = &zt->tx;
@@ -489,73 +515,87 @@ int packetized_serial_recvmsg_enable(zcm_trans_packetized_serial_t* zt,
     return zcm_trans_recvmsg_enable(zt->inner, channel, enable);
 }
 
+static int process_incoming_messages(zcm_trans_packetized_serial_t* zt)
+{
+    while (!zt->out_pending) {
+        zcm_msg_t in;
+        int       ret = zcm_trans_recvmsg(zt->inner, &in, 0);
+        if (ret != ZCM_EOK) return ret;
+
+        if (!is_packetized_channel(in.channel)) {
+            return queue_output(zt, in.channel, in.buf, in.len, in.utime, 0);
+        }
+
+        if (in.len < PACKETIZED_HEADER_BYTES) continue;
+        {
+            uint8_t  type       = in.buf[0];
+            uint16_t session_id = read_u16_be(&in.buf[1]);
+            uint8_t  body_len   = in.buf[3];
+            if (in.len != PACKETIZED_HEADER_BYTES + body_len) continue;
+
+            const uint8_t* body = &in.buf[PACKETIZED_HEADER_BYTES];
+            uint64_t       now  = in.utime == 0 ? zt->time(zt->time_usr) : in.utime;
+
+            if (type == PACKETIZED_MSG_METADATA) {
+                ret = begin_rx_session(zt, in.channel, session_id, body, body_len, now);
+            } else if (type == PACKETIZED_MSG_DATA) {
+                ret = process_rx_data(zt, session_id, body, body_len, now);
+            } else if (type == PACKETIZED_MSG_RETRANS_REQ) {
+                ret = process_retrans_request(zt, session_id, body, body_len);
+            } else {
+                continue;
+            }
+
+            if (ret != ZCM_EOK && ret != ZCM_EINVALID) return ret;
+        }
+    }
+
+    return ZCM_EOK;
+}
+
 int packetized_serial_recvmsg(zcm_trans_packetized_serial_t* zt, zcm_msg_t* msg,
                               unsigned timeoutMs)
 {
     (void)timeoutMs;
 
     if (zt->out_pending) {
-        msg->utime      = zt->time(zt->time_usr);
-        msg->channel    = zt->out_channel;
-        msg->len        = zt->out_len;
-        msg->buf        = zt->out_buf;
-        zt->out_pending = 0;
+        deliver_pending(zt, msg);
         return ZCM_EOK;
     }
 
     while (1) {
-        zcm_msg_t in;
-        int       ret = zcm_trans_recvmsg(zt->inner, &in, 0);
+        int ret = process_incoming_messages(zt);
         if (ret == ZCM_EAGAIN) {
             maybe_schedule_retrans_request(zt, zt->time(zt->time_usr));
+            ret = send_retrans_request(zt);
+            if (ret != ZCM_EOK) return ret;
             return ZCM_EAGAIN;
         }
         if (ret != ZCM_EOK) return ret;
 
-        if (!is_packetized_channel(in.channel)) {
-            *msg = in;
-            return ZCM_EOK;
-        }
-
-        if (in.len < PACKETIZED_HEADER_BYTES) continue;
-        uint8_t  type       = in.buf[0];
-        uint16_t session_id = read_u16_be(&in.buf[1]);
-        uint8_t  body_len   = in.buf[3];
-        if (in.len != PACKETIZED_HEADER_BYTES + body_len) continue;
-
-        const uint8_t* body = &in.buf[PACKETIZED_HEADER_BYTES];
-        uint64_t       now  = in.utime == 0 ? zt->time(zt->time_usr) : in.utime;
-
-        if (type == PACKETIZED_MSG_METADATA) {
-            ret = begin_rx_session(zt, in.channel, session_id, body, body_len, now);
-            if (ret != ZCM_EOK && ret != ZCM_EINVALID) return ret;
-        } else if (type == PACKETIZED_MSG_DATA) {
-            ret = process_rx_data(zt, session_id, body, body_len, now);
-            if (ret != ZCM_EOK && ret != ZCM_EINVALID) return ret;
-            if (zt->out_pending) {
-                msg->utime      = now;
-                msg->channel    = zt->out_channel;
-                msg->len        = zt->out_len;
-                msg->buf        = zt->out_buf;
-                zt->out_pending = 0;
-                return ZCM_EOK;
-            }
-        } else if (type == PACKETIZED_MSG_RETRANS_REQ) {
-            ret = process_retrans_request(zt, session_id, body, body_len);
-            if (ret != ZCM_EOK && ret != ZCM_EINVALID) return ret;
-        }
+        deliver_pending(zt, msg);
+        return ZCM_EOK;
     }
 }
 
 int packetized_serial_update_rx(zcm_trans_t* _zt)
 {
     zcm_trans_packetized_serial_t* zt = cast(_zt);
-    return serial_update_rx(zt->inner);
+    int ret = serial_update_rx(zt->inner);
+    if (ret != ZCM_EOK) return ret;
+
+    ret = process_incoming_messages(zt);
+    if (ret != ZCM_EOK && ret != ZCM_EAGAIN) return ret;
+
+    maybe_schedule_retrans_request(zt, zt->time(zt->time_usr));
+    return send_retrans_request(zt);
 }
 
 int packetized_serial_update_tx(zcm_trans_t* _zt)
 {
     zcm_trans_packetized_serial_t* zt = cast(_zt);
+    int ret = send_pending_retransmissions(zt);
+    if (ret != ZCM_EOK) return ret;
     return serial_update_tx(zt->inner);
 }
 
@@ -627,19 +667,18 @@ zcm_trans_t* zcm_trans_packetized_serial_create(
         return NULL;
     }
 
-    zt->mtu = PACKETIZED_MAX_MTU;
-    if (zt->mtu < zt->inner_mtu) zt->mtu = zt->inner_mtu;
-
     if (packet_data_size == 0) {
         size_t max_payload =
             zt->inner_mtu - PACKETIZED_HEADER_BYTES - PACKETIZED_DATA_OVERHEAD_BYTES;
-        if (max_payload > 253) max_payload = 253;
+        if (max_payload > PACKETIZED_MAX_PACKET_DATA_SIZE)
+            max_payload = PACKETIZED_MAX_PACKET_DATA_SIZE;
         zt->configured_packet_data_size = (uint8_t)max_payload;
     } else {
         zt->configured_packet_data_size = packet_data_size;
     }
 
-    if (zt->configured_packet_data_size == 0 || zt->configured_packet_data_size > 253) {
+    if (zt->configured_packet_data_size == 0 ||
+        zt->configured_packet_data_size > PACKETIZED_MAX_PACKET_DATA_SIZE) {
         zcm_trans_generic_serial_destroy(zt->inner);
         free(zt);
         return NULL;
@@ -653,6 +692,8 @@ zcm_trans_t* zcm_trans_packetized_serial_create(
         return NULL;
     }
 
+    zt->mtu = packetized_max_mtu(zt->configured_packet_data_size);
+
     zt->pkt_buf_size = zt->inner_mtu;
     zt->pkt_buf      = malloc(zt->pkt_buf_size);
     if (zt->pkt_buf == NULL) {
@@ -664,6 +705,7 @@ zcm_trans_t* zcm_trans_packetized_serial_create(
     zt->out_buf        = NULL;
     zt->out_buf_size   = 0;
     zt->out_len        = 0;
+    zt->out_utime      = 0;
     zt->out_channel[0] = '\0';
     zt->out_pending    = 0;
 

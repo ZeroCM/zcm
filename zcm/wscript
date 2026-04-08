@@ -19,11 +19,9 @@ def build(ctx):
     if not ctx.env.USING_TRANS_UDP:
         srcExcludes += ['transport/udp/**/*']
     if not ctx.env.USING_TRANS_SERIAL:
-        srcExcludes += ['transport/transport_serial.cpp',
-                        'transport/packetized_transport_serial.cpp']
+        srcExcludes += ['transport/transport_serial.cpp']
     if not ctx.env.USING_TRANS_CAN:
-        srcExcludes += ['transport/transport_can.cpp',
-                        'transport/packetized_transport_can.cpp']
+        srcExcludes += ['transport/transport_can.cpp']
     if not ctx.env.USING_TRANS_IPCSHM:
         srcExcludes += ['transport/transport_ipcshm.cpp', 'transport/lockfree/lf_*.c']
     if not ctx.env.USING_THIRD_PARTY:

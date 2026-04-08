@@ -5,6 +5,7 @@
 #include "zcm/util/debug.h"
 
 #include "generic_serial_transport.h"
+#include "packetized_serial_transport.h"
 
 #include "util/TimeUtil.hpp"
 
@@ -242,6 +243,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
     int baud;
     bool hwFlowControl;
+    bool packetized;
+    uint8_t packetDataSize;
 
     bool raw;
     string rawChan;
@@ -298,6 +301,20 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             }
         }
 
+        packetized = false;
+        packetDataSize = 0;
+        auto* pktSizeStr = findOption("pkt_size");
+        if (pktSizeStr) {
+            char* endptr;
+            unsigned long parsed = strtoul(pktSizeStr->c_str(), &endptr, 10);
+            if (*endptr != '\0' || parsed == 0 || parsed > 253) {
+                ZCM_DEBUG("expected integer argument in [1,253] for 'pkt_size'");
+                return;
+            }
+            packetized = true;
+            packetDataSize = (uint8_t)parsed;
+        }
+
         raw = false;
         auto* rawStr = findOption("raw");
         if (rawStr) {
@@ -309,6 +326,10 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
                 ZCM_DEBUG("expected boolean argument for 'raw'");
                 return;
             }
+        }
+        if (raw && packetized) {
+            ZCM_DEBUG("'raw' and 'pkt_size' options are mutually exclusive");
+            return;
         }
 
         rawChan = "";
@@ -333,6 +354,14 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         if (raw) {
             rawBuf.reset(new uint8_t[rawSize]);
             gst = nullptr;
+        } else if (packetized) {
+            gst = zcm_trans_packetized_serial_create(&ZCM_TRANS_CLASSNAME::get,
+                                                     &ZCM_TRANS_CLASSNAME::put,
+                                                     this,
+                                                     &ZCM_TRANS_CLASSNAME::timestamp_now,
+                                                     nullptr,
+                                                     MTU, MTU * 10,
+                                                     packetDataSize);
         } else {
             gst = zcm_trans_generic_serial_create(&ZCM_TRANS_CLASSNAME::get,
                                                   &ZCM_TRANS_CLASSNAME::put,
@@ -346,12 +375,12 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     ~ZCM_TRANS_CLASSNAME()
     {
         ser.close();
-        if (gst) zcm_trans_generic_serial_destroy(gst);
+        if (gst) zcm_trans_destroy(gst);
     }
 
     bool good()
     {
-        return ser.isOpen();
+        return ser.isOpen() && (raw || gst != nullptr);
     }
 
     static size_t get(uint8_t* data, size_t nData, void* usr)
@@ -489,7 +518,8 @@ static zcm_trans_t* create(zcm_url_t* url, char **opt_errmsg)
 // Register this transport with ZCM
 const TransportRegister ZCM_TRANS_CLASSNAME::reg(
     "serial", "Transfer data via a serial connection "
-              "(e.g. 'serial:///dev/ttyUSB0?baud=115200&hw_flow_control=true' or "
+              "(e.g. 'serial:///dev/ttyUSB0?baud=115200&hw_flow_control=true', "
+              "'serial:///dev/ttyUSB0?baud=115200&pkt_size=128', or "
               "'serial:///dev/pts/10?raw=true&raw_channel=RAW_SERIAL')",
     create);
 #endif

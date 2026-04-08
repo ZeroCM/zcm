@@ -4,6 +4,7 @@
 #include "zcm/util/debug.h"
 
 #include "generic_serial_transport.h"
+#include "packetized_serial_transport.h"
 
 #include "util/TimeUtil.hpp"
 
@@ -38,6 +39,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     unordered_map<string, string> options;
     uint32_t msgId;
     uint32_t txId;
+    uint8_t packetDataSize;
     string address;
 
     int soc = -1;
@@ -72,6 +74,19 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             options[opts->name[i]] = opts->value[i];
 
         msgId = 0;
+        packetDataSize = 0;
+
+        auto* pktSizeStr = findOption("pkt_size");
+        if (pktSizeStr) {
+            char* endptr;
+            unsigned long parsed = strtoul(pktSizeStr->c_str(), &endptr, 10);
+            if (*endptr != '\0' || parsed == 0 || parsed > 253) {
+                ZCM_DEBUG("Invalid pkt_size. Expected integer in [1,253]");
+                return;
+            }
+            packetDataSize = (uint8_t)parsed;
+        }
+
         auto* msgIdStr = findOption("msgid");
         if (!msgIdStr) {
             ZCM_DEBUG("Msg Id unspecified");
@@ -155,18 +170,29 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             return;
         }
 
-        gst = zcm_trans_generic_serial_create(&ZCM_TRANS_CLASSNAME::get,
-                                              &ZCM_TRANS_CLASSNAME::put,
-                                              this,
-                                              &ZCM_TRANS_CLASSNAME::timestamp_now,
-                                              this,
-                                              MTU, MTU * 10);
+        if (packetDataSize != 0) {
+            gst = zcm_trans_packetized_serial_create(&ZCM_TRANS_CLASSNAME::get,
+                                                     &ZCM_TRANS_CLASSNAME::put,
+                                                     this,
+                                                     &ZCM_TRANS_CLASSNAME::timestamp_now,
+                                                     this,
+                                                     MTU, MTU * 10,
+                                                     packetDataSize);
+        } else {
+            gst = zcm_trans_generic_serial_create(&ZCM_TRANS_CLASSNAME::get,
+                                                  &ZCM_TRANS_CLASSNAME::put,
+                                                  this,
+                                                  &ZCM_TRANS_CLASSNAME::timestamp_now,
+                                                  this,
+                                                  MTU, MTU * 10);
+        }
+        if (!gst) return;
         socSettingsGood = true;
     }
 
     ~ZCM_TRANS_CLASSNAME()
     {
-        if (gst) zcm_trans_generic_serial_destroy(gst);
+        if (gst) zcm_trans_destroy(gst);
         if (soc != -1 && close(soc) < 0) {
             ZCM_DEBUG("Failed to close");
 	    }
@@ -366,5 +392,6 @@ static zcm_trans_t *create(zcm_url_t* url, char **opt_errmsg)
 #ifdef USING_TRANS_CAN
 const TransportRegister ZCM_TRANS_CLASSNAME::reg(
     "can", "Transfer data via a socket CAN connection on a single id "
-           "(e.g. 'can://can0?msgid=65536&rx_extended_addr=standard&tx_extended_addr=true')", create);
+           "(e.g. 'can://can0?msgid=65536&rx_extended_addr=standard&tx_extended_addr=true' or "
+           "'can://can0?msgid=65536&pkt_size=8')", create);
 #endif
