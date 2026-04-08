@@ -346,7 +346,11 @@ static int process_rx_data(zcm_trans_packetized_serial_t* zt, uint16_t session_i
 
         if (rx->total_message_size > 0)
             memcpy(zt->out_buf, rx->data, rx->total_message_size);
-        strncpy(zt->out_channel, rx->channel, ZCM_CHANNEL_MAXLEN);
+        {
+            const char* out_channel = rx->channel;
+            if (out_channel[0] == '$') out_channel += 1;
+            strncpy(zt->out_channel, out_channel, ZCM_CHANNEL_MAXLEN);
+        }
         zt->out_channel[ZCM_CHANNEL_MAXLEN] = '\0';
         zt->out_len                         = rx->total_message_size;
         zt->out_pending                     = 1;

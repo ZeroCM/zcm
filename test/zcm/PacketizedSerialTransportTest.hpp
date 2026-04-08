@@ -179,7 +179,7 @@ class PacketizedSerialTransportTest : public CxxTest::TestSuite
 
         zcm_msg_t out;
         TS_ASSERT_EQUALS(zcm_trans_recvmsg(rx, &out, 0), ZCM_EOK);
-        TS_ASSERT_EQUALS(string(out.channel), string("$BIG"));
+        TS_ASSERT_EQUALS(string(out.channel), string("BIG"));
         TS_ASSERT_EQUALS(out.len, payload.size());
         TS_ASSERT_SAME_DATA(out.buf, payload.data(), payload.size());
 
@@ -249,7 +249,7 @@ class PacketizedSerialTransportTest : public CxxTest::TestSuite
         for (int i = 0; i < 6; ++i) {
             int ret = zcm_trans_recvmsg(tb, &out, 0);
             if (ret != ZCM_EOK) continue;
-            if (string(out.channel) == "$RETX") {
+            if (string(out.channel) == "RETX") {
                 gotRetx = true;
                 TS_ASSERT_EQUALS(out.len, payload.size());
                 TS_ASSERT_SAME_DATA(out.buf, payload.data(), payload.size());
