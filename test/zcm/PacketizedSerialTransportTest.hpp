@@ -2,17 +2,8 @@
 #define PACKETIZED_SERIAL_TRANSPORT_TEST_HPP
 
 #include "cxxtest/TestSuite.h"
-
-extern "C" {
-#include "zcm/transport.h"
-zcm_trans_t* zcm_trans_packetized_serial_create(
-    size_t (*get)(uint8_t* data, size_t nData, void* usr),
-    size_t (*put)(const uint8_t* data, size_t nData, void* usr), void* put_get_usr,
-    uint64_t (*timestamp_now)(void* usr), void* time_usr, size_t MTU, size_t bufSize,
-    uint8_t packet_data_size);
-int packetized_serial_update_rx(zcm_trans_t* zt);
-int packetized_serial_update_tx(zcm_trans_t* zt);
-}
+#include "zcm/transport/packetized_serial_transport.h"
+#include "zcm/transport/packetized_serial_protocol.h"
 
 #include <cstdint>
 #include <cstring>
@@ -34,6 +25,11 @@ struct PacketizedLinkEndpoint
     string   dropChannel;
 };
 
+// decode_frame parses one generic_serial framing layer frame from buf[start..].
+// The outer frame format is: 0xCC 0x00 chan_len data_len(4B) *chan *data checksum(2B),
+// with 0xCC bytes in chan/data escaped as 0xCC 0xCC.
+// NOTE: This mirrors the private framing in generic_serial_transport.c. If that
+// framing changes, this function must be updated accordingly.
 static bool decode_frame(const vector<uint8_t>& buf, size_t start, size_t& frame_end,
                          string& channel, vector<uint8_t>& data)
 {
@@ -110,11 +106,14 @@ static size_t endpoint_put(const uint8_t* data, size_t nData, void* usr)
 
         bool drop = false;
         if (ep->dropEnabled && !ep->dropDone && channel == ep->dropChannel &&
-            payload.size() >= 6) {
-            uint8_t type     = payload[0];
-            uint8_t body_len = payload[3];
-            if (type == 2 && payload.size() == 4u + body_len && body_len >= 2) {
-                uint16_t packet_id = ((uint16_t)payload[4] << 8) | (uint16_t)payload[5];
+            payload.size() >= PACKETIZED_HEADER_BYTES + PACKETIZED_DATA_OVERHEAD_BYTES) {
+            uint8_t  type     = payload[0];
+            uint8_t  body_len = payload[3];
+            if (type == PACKETIZED_MSG_DATA &&
+                payload.size() == (size_t)PACKETIZED_HEADER_BYTES + body_len &&
+                body_len >= PACKETIZED_DATA_OVERHEAD_BYTES) {
+                uint16_t packet_id = packetized_read_u16_be(
+                    &payload[PACKETIZED_HEADER_BYTES]);
                 if (packet_id == ep->dropPacketId) {
                     drop         = true;
                     ep->dropDone = true;
@@ -160,9 +159,9 @@ class PacketizedSerialTransportTest : public CxxTest::TestSuite
 
         uint64_t     now = 1000;
         zcm_trans_t* tx  = zcm_trans_packetized_serial_create(
-             endpoint_get, endpoint_put, &a, fake_now, &now, 64, 32768, 0);
+             endpoint_get, endpoint_put, &a, fake_now, &now, 64, 32768, 0, 1024);
         zcm_trans_t* rx = zcm_trans_packetized_serial_create(
-            endpoint_get, endpoint_put, &b, fake_now, &now, 64, 32768, 0);
+            endpoint_get, endpoint_put, &b, fake_now, &now, 64, 32768, 0, 1024);
         TSM_ASSERT("failed creating transports", tx && rx);
 
         vector<uint8_t> payload(512);
@@ -200,9 +199,9 @@ class PacketizedSerialTransportTest : public CxxTest::TestSuite
 
         uint64_t     now = 2000;
         zcm_trans_t* ta  = zcm_trans_packetized_serial_create(
-             endpoint_get, endpoint_put, &a, fake_now, &now, 64, 32768, 0);
+             endpoint_get, endpoint_put, &a, fake_now, &now, 64, 32768, 0, 1024);
         zcm_trans_t* tb = zcm_trans_packetized_serial_create(
-            endpoint_get, endpoint_put, &b, fake_now, &now, 64, 32768, 0);
+            endpoint_get, endpoint_put, &b, fake_now, &now, 64, 32768, 0, 1024);
         TSM_ASSERT("failed creating transports", ta && tb);
 
         vector<uint8_t> payload(700);
@@ -242,6 +241,40 @@ class PacketizedSerialTransportTest : public CxxTest::TestSuite
 
         zcm_trans_destroy(ta);
         zcm_trans_destroy(tb);
+    }
+
+    void testConfiguredMaxMessageSize()
+    {
+        PacketizedLinkEndpoint a;
+        PacketizedLinkEndpoint b;
+        a.peer = &b;
+        b.peer = &a;
+
+        uint64_t     now = 3000;
+        zcm_trans_t* tx  = zcm_trans_packetized_serial_create(
+             endpoint_get, endpoint_put, &a, fake_now, &now, 64, 32768, 0, 128);
+        zcm_trans_t* rx = zcm_trans_packetized_serial_create(
+            endpoint_get, endpoint_put, &b, fake_now, &now, 64, 32768, 0, 128);
+        TSM_ASSERT("failed creating transports", tx && rx);
+
+        vector<uint8_t> smallPayload(128, 0x5a);
+        zcm_msg_t small;
+        small.utime   = now;
+        small.channel = (char*)"$SMALL";
+        small.len     = smallPayload.size();
+        small.buf     = smallPayload.data();
+        TS_ASSERT_EQUALS(zcm_trans_sendmsg(tx, small), ZCM_EOK);
+
+        vector<uint8_t> largePayload(129, 0x6b);
+        zcm_msg_t large;
+        large.utime   = now;
+        large.channel = (char*)"$LARGE";
+        large.len     = largePayload.size();
+        large.buf     = largePayload.data();
+        TS_ASSERT_EQUALS(zcm_trans_sendmsg(tx, large), ZCM_EINVALID);
+
+        zcm_trans_destroy(tx);
+        zcm_trans_destroy(rx);
     }
 };
 

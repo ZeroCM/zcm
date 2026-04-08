@@ -33,6 +33,7 @@ using namespace std;
 // Define this the class name you want
 #define ZCM_TRANS_CLASSNAME TransportSerial
 #define MTU (1<<14)
+#define PACKETIZED_MAX_MESSAGE_SIZE_DEFAULT (1024)
 #define ESCAPE_CHAR (0xcc)
 
 #define SERIAL_TIMEOUT_US 1e5 // u-seconds
@@ -243,8 +244,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
     int baud;
     bool hwFlowControl;
-    bool packetized;
     uint8_t packetDataSize;
+    size_t packetizedMaxMessageSize;
 
     bool raw;
     string rawChan;
@@ -301,18 +302,15 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             }
         }
 
-        packetized = false;
         packetDataSize = 0;
-        auto* pktSizeStr = findOption("pkt_size");
-        if (pktSizeStr) {
-            char* endptr;
-            unsigned long parsed = strtoul(pktSizeStr->c_str(), &endptr, 10);
-            if (*endptr != '\0' || parsed == 0 || parsed > 253) {
-                ZCM_DEBUG("expected integer argument in [1,253] for 'pkt_size'");
-                return;
-            }
-            packetized = true;
-            packetDataSize = (uint8_t)parsed;
+        packetizedMaxMessageSize = PACKETIZED_MAX_MESSAGE_SIZE_DEFAULT;
+        if (!parsePacketDataSize(findOption("pkt_size"), packetDataSize)) {
+            ZCM_DEBUG("expected integer argument in [1,253] for 'pkt_size'");
+            return;
+        }
+        if (!parsePacketBufSize(findOption("pkt_buf_size"), packetizedMaxMessageSize)) {
+            ZCM_DEBUG("expected positive integer argument for 'pkt_buf_size'");
+            return;
         }
 
         raw = false;
@@ -327,7 +325,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
                 return;
             }
         }
-        if (raw && packetized) {
+        if (raw && packetDataSize != 0) {
             ZCM_DEBUG("'raw' and 'pkt_size' options are mutually exclusive");
             return;
         }
@@ -354,14 +352,15 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         if (raw) {
             rawBuf.reset(new uint8_t[rawSize]);
             gst = nullptr;
-        } else if (packetized) {
+        } else if (packetDataSize != 0) {
             gst = zcm_trans_packetized_serial_create(&ZCM_TRANS_CLASSNAME::get,
                                                      &ZCM_TRANS_CLASSNAME::put,
                                                      this,
                                                      &ZCM_TRANS_CLASSNAME::timestamp_now,
                                                      nullptr,
                                                      MTU, MTU * 10,
-                                                     packetDataSize);
+                                                     packetDataSize,
+                                                     packetizedMaxMessageSize);
         } else {
             gst = zcm_trans_generic_serial_create(&ZCM_TRANS_CLASSNAME::get,
                                                   &ZCM_TRANS_CLASSNAME::put,
@@ -518,8 +517,8 @@ static zcm_trans_t* create(zcm_url_t* url, char **opt_errmsg)
 // Register this transport with ZCM
 const TransportRegister ZCM_TRANS_CLASSNAME::reg(
     "serial", "Transfer data via a serial connection "
-              "(e.g. 'serial:///dev/ttyUSB0?baud=115200&hw_flow_control=true', "
-              "'serial:///dev/ttyUSB0?baud=115200&pkt_size=128', or "
-              "'serial:///dev/pts/10?raw=true&raw_channel=RAW_SERIAL')",
+    "(e.g. 'serial:///dev/ttyUSB0?baud=115200&hw_flow_control=true', "
+    "'serial:///dev/ttyUSB0?baud=115200&pkt_size=128&pkt_buf_size=1024', or "
+    "'serial:///dev/pts/10?raw=true&raw_channel=RAW_SERIAL')",
     create);
 #endif

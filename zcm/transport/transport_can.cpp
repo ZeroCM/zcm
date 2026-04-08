@@ -31,6 +31,7 @@
 // Define this the class name you want
 #define ZCM_TRANS_CLASSNAME TransportCan
 #define MTU (1<<14)
+#define PACKETIZED_MAX_MESSAGE_SIZE_DEFAULT (1024)
 
 using namespace std;
 
@@ -40,6 +41,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     uint32_t msgId;
     uint32_t txId;
     uint8_t packetDataSize;
+    size_t packetizedMaxMessageSize;
     string address;
 
     int soc = -1;
@@ -75,16 +77,15 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
         msgId = 0;
         packetDataSize = 0;
+        packetizedMaxMessageSize = PACKETIZED_MAX_MESSAGE_SIZE_DEFAULT;
 
-        auto* pktSizeStr = findOption("pkt_size");
-        if (pktSizeStr) {
-            char* endptr;
-            unsigned long parsed = strtoul(pktSizeStr->c_str(), &endptr, 10);
-            if (*endptr != '\0' || parsed == 0 || parsed > 253) {
-                ZCM_DEBUG("Invalid pkt_size. Expected integer in [1,253]");
-                return;
-            }
-            packetDataSize = (uint8_t)parsed;
+        if (!parsePacketDataSize(findOption("pkt_size"), packetDataSize)) {
+            ZCM_DEBUG("Invalid pkt_size. Expected integer in [1,253]");
+            return;
+        }
+        if (!parsePacketBufSize(findOption("pkt_buf_size"), packetizedMaxMessageSize)) {
+            ZCM_DEBUG("Invalid pkt_buf_size. Expected positive integer");
+            return;
         }
 
         auto* msgIdStr = findOption("msgid");
@@ -177,7 +178,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
                                                      &ZCM_TRANS_CLASSNAME::timestamp_now,
                                                      this,
                                                      MTU, MTU * 10,
-                                                     packetDataSize);
+                                                     packetDataSize,
+                                                     packetizedMaxMessageSize);
         } else {
             gst = zcm_trans_generic_serial_create(&ZCM_TRANS_CLASSNAME::get,
                                                   &ZCM_TRANS_CLASSNAME::put,
@@ -392,6 +394,6 @@ static zcm_trans_t *create(zcm_url_t* url, char **opt_errmsg)
 #ifdef USING_TRANS_CAN
 const TransportRegister ZCM_TRANS_CLASSNAME::reg(
     "can", "Transfer data via a socket CAN connection on a single id "
-           "(e.g. 'can://can0?msgid=65536&rx_extended_addr=standard&tx_extended_addr=true' or "
-           "'can://can0?msgid=65536&pkt_size=8')", create);
+    "(e.g. 'can://can0?msgid=65536&rx_extended_addr=standard&tx_extended_addr=true' or "
+    "'can://can0?msgid=65536&pkt_size=8&pkt_buf_size=1024')", create);
 #endif
