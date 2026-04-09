@@ -279,6 +279,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     unordered_map<string, string> options;
 
     zcm_trans_t* gst;
+    int (*gst_update_rx)(zcm_trans_t*) = nullptr;
+    int (*gst_update_tx)(zcm_trans_t*) = nullptr;
 
     uint64_t timeoutLeftUs;
 
@@ -383,6 +385,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
                                                      MTU, MTU * 10,
                                                      packetDataSize,
                                                      packetizedMaxMessageSize);
+            gst_update_rx = packetized_serial_update_rx;
+            gst_update_tx = packetized_serial_update_tx;
         } else {
             gst = zcm_trans_generic_serial_create(&ZCM_TRANS_CLASSNAME::get,
                                                   &ZCM_TRANS_CLASSNAME::put,
@@ -390,6 +394,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
                                                   &ZCM_TRANS_CLASSNAME::timestamp_now,
                                                   nullptr,
                                                   MTU, MTU * 10);
+            gst_update_rx = serial_update_rx;
+            gst_update_tx = serial_update_tx;
         }
     }
 
@@ -439,7 +445,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             //       and touch no variables related to receiving
             int ret = zcm_trans_sendmsg(this->gst, msg);
             if (ret != ZCM_EOK) return ret;
-            return serial_update_tx(this->gst);
+            return this->gst_update_tx(this->gst);
         }
     }
 
@@ -477,7 +483,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
                 //       `get` knows how long it has to exit
                 timeoutLeftUs = timeoutLeftUs > diff ? timeoutLeftUs - diff : 0;
 
-                serial_update_rx(this->gst);
+                this->gst_update_rx(this->gst);
 
                 diff = TimeUtil::utime() - startUtime;
                 timeoutLeftUs = timeoutLeftUs > diff ? timeoutLeftUs - diff : 0;

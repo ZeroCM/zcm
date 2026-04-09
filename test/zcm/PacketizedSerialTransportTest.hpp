@@ -147,6 +147,15 @@ static void pump(zcm_trans_t* tx, zcm_trans_t* rx, int iters)
     }
 }
 
+// pump via zcm_trans_update (the vtable path used by TransportSerial/TransportCan wrappers)
+static void pumpViaUpdate(zcm_trans_t* tx, zcm_trans_t* rx, int iters)
+{
+    for (int i = 0; i < iters; ++i) {
+        TS_ASSERT_EQUALS(zcm_trans_update(tx), ZCM_EOK);
+        TS_ASSERT_EQUALS(zcm_trans_update(rx), ZCM_EOK);
+    }
+}
+
 class PacketizedSerialTransportTest : public CxxTest::TestSuite
 {
   public:
@@ -342,6 +351,46 @@ class PacketizedSerialTransportTest : public CxxTest::TestSuite
         zcm_msg_t out;
         TS_ASSERT_EQUALS(zcm_trans_recvmsg(rx, &out, 0), ZCM_EOK);
         TS_ASSERT_EQUALS(string(out.channel), string("ASYM_REV"));
+        TS_ASSERT_EQUALS(out.len, payload.size());
+        TS_ASSERT_SAME_DATA(out.buf, payload.data(), payload.size());
+
+        zcm_trans_destroy(tx);
+        zcm_trans_destroy(rx);
+    }
+
+    // Drive the transport via zcm_trans_update (the vtable update path) rather than the
+    // explicit packetized_serial_update_rx/tx functions. This mirrors how the
+    // TransportSerial and TransportCan wrappers operate and would have caught the
+    // assertion failure caused by calling serial_update_rx/tx on a packetized transport.
+    void testRoundTripViaVtableUpdate()
+    {
+        PacketizedLinkEndpoint a;
+        PacketizedLinkEndpoint b;
+        a.peer = &b;
+        b.peer = &a;
+
+        uint64_t     now = 6000;
+        zcm_trans_t* tx  = zcm_trans_packetized_serial_create(
+             endpoint_get, endpoint_put, &a, fake_now, &now, 64, 32768, 8, 1024);
+        zcm_trans_t* rx = zcm_trans_packetized_serial_create(
+            endpoint_get, endpoint_put, &b, fake_now, &now, 64, 32768, 8, 1024);
+        TSM_ASSERT("failed creating transports", tx && rx);
+
+        vector<uint8_t> payload(256);
+        for (size_t i = 0; i < payload.size(); ++i) payload[i] = (uint8_t)(i ^ 0xab);
+
+        zcm_msg_t msg;
+        msg.utime   = now;
+        msg.channel = (char*)"$VTABLE";
+        msg.len     = payload.size();
+        msg.buf     = payload.data();
+
+        TS_ASSERT_EQUALS(zcm_trans_sendmsg(tx, msg), ZCM_EOK);
+        pumpViaUpdate(tx, rx, 40);
+
+        zcm_msg_t out;
+        TS_ASSERT_EQUALS(zcm_trans_recvmsg(rx, &out, 0), ZCM_EOK);
+        TS_ASSERT_EQUALS(string(out.channel), string("VTABLE"));
         TS_ASSERT_EQUALS(out.len, payload.size());
         TS_ASSERT_SAME_DATA(out.buf, payload.data(), payload.size());
 

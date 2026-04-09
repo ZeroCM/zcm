@@ -72,6 +72,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 	struct ifreq ifr;
 
     zcm_trans_t* gst = nullptr;
+    int (*gst_update_rx)(zcm_trans_t*) = nullptr;
+    int (*gst_update_tx)(zcm_trans_t*) = nullptr;
 
     uint64_t recvTimeoutUs = 0;
     uint64_t recvMsgStartUtime = 0;
@@ -202,6 +204,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
                                                      MTU, MTU * 10,
                                                      packetDataSize,
                                                      packetizedMaxMessageSize);
+            gst_update_rx = packetized_serial_update_rx;
+            gst_update_tx = packetized_serial_update_tx;
         } else {
             gst = zcm_trans_generic_serial_create(&ZCM_TRANS_CLASSNAME::get,
                                                   &ZCM_TRANS_CLASSNAME::put,
@@ -209,6 +213,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
                                                   &ZCM_TRANS_CLASSNAME::timestamp_now,
                                                   this,
                                                   MTU, MTU * 10);
+            gst_update_rx = serial_update_rx;
+            gst_update_tx = serial_update_tx;
         }
         if (!gst) return;
         socSettingsGood = true;
@@ -327,7 +333,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     {
         int ret = zcm_trans_sendmsg(this->gst, msg);
         if (ret != ZCM_EOK) return ret;
-        return serial_update_tx(this->gst);
+        return this->gst_update_tx(this->gst);
     }
 
     int recvmsgEnable(const char* channel, bool enable)
@@ -359,7 +365,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
                 return ZCM_EUNKNOWN;
             }
 
-            serial_update_rx(this->gst);
+            this->gst_update_rx(this->gst);
         } while (true);
         return ZCM_EAGAIN;
     }
