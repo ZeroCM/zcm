@@ -276,6 +276,78 @@ class PacketizedSerialTransportTest : public CxxTest::TestSuite
         zcm_trans_destroy(tx);
         zcm_trans_destroy(rx);
     }
+
+    void testAsymmetricPacketSizesRoundTrip()
+    {
+        PacketizedLinkEndpoint a;
+        PacketizedLinkEndpoint b;
+        a.peer = &b;
+        b.peer = &a;
+
+        uint64_t     now = 4000;
+        zcm_trans_t* tx  = zcm_trans_packetized_serial_create(
+             endpoint_get, endpoint_put, &a, fake_now, &now, 64, 32768, 8, 1024);
+        zcm_trans_t* rx = zcm_trans_packetized_serial_create(
+            endpoint_get, endpoint_put, &b, fake_now, &now, 64, 32768, 32, 1024);
+        TSM_ASSERT("failed creating transports", tx && rx);
+
+        vector<uint8_t> payload(512);
+        for (size_t i = 0; i < payload.size(); ++i) payload[i] = (uint8_t)(i ^ 0x33);
+
+        zcm_msg_t msg;
+        msg.utime   = now;
+        msg.channel = (char*)"$ASYM";
+        msg.len     = payload.size();
+        msg.buf     = payload.data();
+
+        TS_ASSERT_EQUALS(zcm_trans_sendmsg(tx, msg), ZCM_EOK);
+        pump(tx, rx, 40);
+
+        zcm_msg_t out;
+        TS_ASSERT_EQUALS(zcm_trans_recvmsg(rx, &out, 0), ZCM_EOK);
+        TS_ASSERT_EQUALS(string(out.channel), string("ASYM"));
+        TS_ASSERT_EQUALS(out.len, payload.size());
+        TS_ASSERT_SAME_DATA(out.buf, payload.data(), payload.size());
+
+        zcm_trans_destroy(tx);
+        zcm_trans_destroy(rx);
+    }
+
+    void testAsymmetricPacketSizesReverseRoundTrip()
+    {
+        PacketizedLinkEndpoint a;
+        PacketizedLinkEndpoint b;
+        a.peer = &b;
+        b.peer = &a;
+
+        uint64_t     now = 5000;
+        zcm_trans_t* tx  = zcm_trans_packetized_serial_create(
+             endpoint_get, endpoint_put, &a, fake_now, &now, 64, 32768, 32, 1024);
+        zcm_trans_t* rx = zcm_trans_packetized_serial_create(
+            endpoint_get, endpoint_put, &b, fake_now, &now, 64, 32768, 8, 1024);
+        TSM_ASSERT("failed creating transports", tx && rx);
+
+        vector<uint8_t> payload(512);
+        for (size_t i = 0; i < payload.size(); ++i) payload[i] = (uint8_t)(i ^ 0x77);
+
+        zcm_msg_t msg;
+        msg.utime   = now;
+        msg.channel = (char*)"$ASYM_REV";
+        msg.len     = payload.size();
+        msg.buf     = payload.data();
+
+        TS_ASSERT_EQUALS(zcm_trans_sendmsg(tx, msg), ZCM_EOK);
+        pump(tx, rx, 40);
+
+        zcm_msg_t out;
+        TS_ASSERT_EQUALS(zcm_trans_recvmsg(rx, &out, 0), ZCM_EOK);
+        TS_ASSERT_EQUALS(string(out.channel), string("ASYM_REV"));
+        TS_ASSERT_EQUALS(out.len, payload.size());
+        TS_ASSERT_SAME_DATA(out.buf, payload.data(), payload.size());
+
+        zcm_trans_destroy(tx);
+        zcm_trans_destroy(rx);
+    }
 };
 
 #endif

@@ -31,9 +31,31 @@
 // Define this the class name you want
 #define ZCM_TRANS_CLASSNAME TransportCan
 #define MTU (1<<14)
-#define PACKETIZED_MAX_MESSAGE_SIZE_DEFAULT (1024)
 
 using namespace std;
+
+static bool parsePacketDataSize(const string* opt, uint8_t& out)
+{
+    if (!opt) {
+        out = 0;
+        return true;
+    }
+    char* endptr;
+    unsigned long parsed = strtoul(opt->c_str(), &endptr, 10);
+    if (*endptr != '\0' || parsed == 0 || parsed > 253) return false;
+    out = (uint8_t)parsed;
+    return true;
+}
+
+static bool parsePacketBufSize(const string* opt, size_t& out)
+{
+    if (!opt) return true;
+    char* endptr;
+    unsigned long parsed = strtoul(opt->c_str(), &endptr, 10);
+    if (*endptr != '\0' || parsed == 0) return false;
+    out = (size_t)parsed;
+    return true;
+}
 
 struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 {
@@ -77,7 +99,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
         msgId = 0;
         packetDataSize = 0;
-        packetizedMaxMessageSize = PACKETIZED_MAX_MESSAGE_SIZE_DEFAULT;
+        packetizedMaxMessageSize = PACKETIZED_DEFAULT_MAX_MESSAGE_SIZE;
 
         if (!parsePacketDataSize(findOption("pkt_size"), packetDataSize)) {
             ZCM_DEBUG("Invalid pkt_size. Expected integer in [1,253]");

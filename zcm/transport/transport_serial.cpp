@@ -33,7 +33,6 @@ using namespace std;
 // Define this the class name you want
 #define ZCM_TRANS_CLASSNAME TransportSerial
 #define MTU (1<<14)
-#define PACKETIZED_MAX_MESSAGE_SIZE_DEFAULT (1024)
 #define ESCAPE_CHAR (0xcc)
 
 #define SERIAL_TIMEOUT_US 1e5 // u-seconds
@@ -44,6 +43,29 @@ using u8  = uint8_t;
 using u16 = uint16_t;
 using u32 = uint32_t;
 using u64 = uint64_t;
+
+static bool parsePacketDataSize(const string* opt, uint8_t& out)
+{
+    if (!opt) {
+        out = 0;
+        return true;
+    }
+    char* endptr;
+    unsigned long parsed = strtoul(opt->c_str(), &endptr, 10);
+    if (*endptr != '\0' || parsed == 0 || parsed > 253) return false;
+    out = (uint8_t)parsed;
+    return true;
+}
+
+static bool parsePacketBufSize(const string* opt, size_t& out)
+{
+    if (!opt) return true;
+    char* endptr;
+    unsigned long parsed = strtoul(opt->c_str(), &endptr, 10);
+    if (*endptr != '\0' || parsed == 0) return false;
+    out = (size_t)parsed;
+    return true;
+}
 
 struct Serial
 {
@@ -303,7 +325,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         }
 
         packetDataSize = 0;
-        packetizedMaxMessageSize = PACKETIZED_MAX_MESSAGE_SIZE_DEFAULT;
+        packetizedMaxMessageSize = PACKETIZED_DEFAULT_MAX_MESSAGE_SIZE;
         if (!parsePacketDataSize(findOption("pkt_size"), packetDataSize)) {
             ZCM_DEBUG("expected integer argument in [1,253] for 'pkt_size'");
             return;

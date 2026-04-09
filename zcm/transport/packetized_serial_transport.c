@@ -121,19 +121,19 @@ static void rx_clear(packetized_rx_state_t* rx)
 {
     /* Resets all session state to idle. Allocated buffers (data, packet_received,
      * missing_ids) are kept intact and reused for the next session. */
-    rx->active           = 0;
-    rx->channel[0]       = '\0';
-    rx->session_id       = 0;
-    rx->total_packets    = 0;
-    rx->packet_data_size = 0;
+    if (rx->packet_received && rx->total_packets > 0)
+        memset(rx->packet_received, 0, rx->total_packets);
+    rx->active             = 0;
+    rx->channel[0]         = '\0';
+    rx->session_id         = 0;
+    rx->total_packets      = 0;
+    rx->packet_data_size   = 0;
     rx->total_message_size = 0;
     rx->expected_crc       = 0;
     rx->last_update_utime  = 0;
     rx->received_count     = 0;
     rx->retrans_pending    = 0;
     rx->missing_count      = 0;
-    if (rx->packet_received && rx->packet_capacity > 0)
-        memset(rx->packet_received, 0, rx->packet_capacity);
 }
 
 static void tx_clear(packetized_tx_state_t* tx)
@@ -220,12 +220,6 @@ static size_t packetized_max_mtu(uint8_t packet_data_size)
     return (size_t)packet_data_size * PACKETIZED_MAX_PACKETS;
 }
 
-static size_t packet_capacity_for(size_t max_message_size, uint8_t packet_data_size)
-{
-    size_t packet_count = packetized_message_packet_count(max_message_size, packet_data_size);
-    return packet_count == 0 ? 1 : packet_count;
-}
-
 static int send_pending_retransmissions(zcm_trans_packetized_serial_t* zt)
 {
     size_t                 i;
@@ -267,7 +261,7 @@ static int begin_rx_session(zcm_trans_packetized_serial_t* zt, const char* chann
     uint32_t expected_crc       = packetized_read_u32_be(&body[7]);
 
     if (total_packets == 0 || packet_data_size == 0) return ZCM_EINVALID;
-    if (packet_data_size > 253) return ZCM_EINVALID;
+    if (packet_data_size > PACKETIZED_MAX_PACKET_DATA_SIZE) return ZCM_EINVALID;
     if (total_message_size > zt->max_message_size || total_message_size > zt->mtu)
         return ZCM_EINVALID;
 
@@ -373,8 +367,6 @@ static void maybe_schedule_retrans_request(zcm_trans_packetized_serial_t* zt,
 
     uint16_t missing_count = (uint16_t)(rx->total_packets - rx->received_count);
     if (missing_count == 0) return;
-
-    if ((size_t)missing_count > rx->packet_capacity) return;
 
     uint16_t idx = 0;
     for (i = 0; i < rx->total_packets; ++i) {
@@ -662,8 +654,7 @@ zcm_trans_t* zcm_trans_packetized_serial_create(
     zt->out_channel[0] = '\0';
     zt->out_pending    = 0;
 
-    zt->rx.packet_capacity = packet_capacity_for(zt->max_message_size,
-                                                 zt->configured_packet_data_size);
+    zt->rx.packet_capacity = zt->max_message_size;
     zt->rx.data = malloc(zt->max_message_size == 0 ? 1 : zt->max_message_size);
     zt->rx.packet_received = calloc(zt->rx.packet_capacity, sizeof(uint8_t));
     zt->rx.missing_ids = malloc(zt->rx.packet_capacity * sizeof(uint16_t));
