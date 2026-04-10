@@ -19,7 +19,7 @@ struct packetized_rx_state_t
     uint16_t total_packets;
     uint8_t  packet_data_size;
     uint32_t total_message_size;
-    uint32_t expected_crc;
+    uint16_t expected_checksum;
     uint64_t last_update_utime;
 
     uint8_t* data;
@@ -103,7 +103,7 @@ static int send_packet(zcm_trans_packetized_serial_t* zt, const char* channel,
         return ZCM_EINVALID;
 
     zt->pkt_buf[0] = type;
-    packetized_write_u16_be(&zt->pkt_buf[1], session_id);
+    zcm_write_u16_be(&zt->pkt_buf[1], session_id);
     zt->pkt_buf[3] = body_len;
     if (body_len > 0 && body != &zt->pkt_buf[PACKETIZED_HEADER_BYTES]) {
         memcpy(&zt->pkt_buf[PACKETIZED_HEADER_BYTES], body, body_len);
@@ -129,7 +129,7 @@ static void rx_clear(packetized_rx_state_t* rx)
     rx->total_packets      = 0;
     rx->packet_data_size   = 0;
     rx->total_message_size = 0;
-    rx->expected_crc       = 0;
+    rx->expected_checksum  = 0;
     rx->last_update_utime  = 0;
     rx->received_count     = 0;
     rx->retrans_pending    = 0;
@@ -174,7 +174,7 @@ static int send_retrans_request(zcm_trans_packetized_serial_t* zt)
         uint8_t* body      = zt->pkt_buf + PACKETIZED_HEADER_BYTES;
         body[0]            = (uint8_t)count;
         for (i = 0; i < count; ++i) {
-            packetized_write_u16_be(&body[1 + i * 2], rx->missing_ids[sent + i]);
+            zcm_write_u16_be(&body[1 + i * 2], rx->missing_ids[sent + i]);
         }
 
         int ret = send_packet(zt, rx->channel, rx->session_id, PACKETIZED_MSG_RETRANS_REQ,
@@ -237,7 +237,7 @@ static int send_pending_retransmissions(zcm_trans_packetized_serial_t* zt)
         uint32_t remaining   = tx->total_message_size - offset;
         uint8_t  payload_len = (uint8_t)(remaining < chunk ? remaining : chunk);
 
-        packetized_write_u16_be(&body[0], packet_id);
+        zcm_write_u16_be(&body[0], packet_id);
         if (payload_len > 0) memcpy(&body[2], tx->data + offset, payload_len);
 
         int ret = send_packet(zt, tx->channel, tx->session_id, PACKETIZED_MSG_DATA, body,
@@ -255,10 +255,10 @@ static int begin_rx_session(zcm_trans_packetized_serial_t* zt, const char* chann
 {
     if (body_len != PACKETIZED_METADATA_BODY_BYTES) return ZCM_EINVALID;
 
-    uint16_t total_packets      = packetized_read_u16_be(&body[0]);
+    uint16_t total_packets      = zcm_read_u16_be(&body[0]);
     uint8_t  packet_data_size   = body[2];
-    uint32_t total_message_size = packetized_read_u32_be(&body[3]);
-    uint32_t expected_crc       = packetized_read_u32_be(&body[7]);
+    uint32_t total_message_size = zcm_read_u32_be(&body[3]);
+    uint16_t expected_checksum  = zcm_read_u16_be(&body[7]);
 
     if (total_packets == 0 || packet_data_size == 0) return ZCM_EINVALID;
     if (packet_data_size > PACKETIZED_MAX_PACKET_DATA_SIZE) return ZCM_EINVALID;
@@ -280,7 +280,7 @@ static int begin_rx_session(zcm_trans_packetized_serial_t* zt, const char* chann
     rx->total_packets               = total_packets;
     rx->packet_data_size            = packet_data_size;
     rx->total_message_size          = total_message_size;
-    rx->expected_crc                = expected_crc;
+    rx->expected_checksum           = expected_checksum;
     rx->last_update_utime           = utime;
     return ZCM_EOK;
 }
@@ -292,7 +292,7 @@ static int process_rx_data(zcm_trans_packetized_serial_t* zt, uint16_t session_i
     if (!rx->active || rx->session_id != session_id) return ZCM_EOK;
     if (body_len < PACKETIZED_DATA_OVERHEAD_BYTES) return ZCM_EINVALID;
 
-    uint16_t packet_id   = packetized_read_u16_be(&body[0]);
+    uint16_t packet_id   = zcm_read_u16_be(&body[0]);
     uint8_t  payload_len = (uint8_t)(body_len - PACKETIZED_DATA_OVERHEAD_BYTES);
 
     if (packet_id >= rx->total_packets) return ZCM_EINVALID;
@@ -314,8 +314,8 @@ static int process_rx_data(zcm_trans_packetized_serial_t* zt, uint16_t session_i
     rx->last_update_utime = utime;
 
     if (rx->received_count == rx->total_packets) {
-        uint32_t crc = packetized_crc32_compute(rx->data, rx->total_message_size);
-        if (crc != rx->expected_crc) {
+        uint16_t checksum = fletcher16(rx->data, rx->total_message_size);
+        if (checksum != rx->expected_checksum) {
             rx_clear(rx);
             return ZCM_EINVALID;
         }
@@ -349,7 +349,7 @@ static int process_retrans_request(zcm_trans_packetized_serial_t* zt, uint16_t s
     if ((size_t)count > tx->packet_capacity) return ZCM_EINVALID;
     tx->retrans_count = count;
     for (i = 0; i < count; ++i) {
-        tx->retrans_ids[i] = packetized_read_u16_be(&body[1 + (size_t)i * 2]);
+        tx->retrans_ids[i] = zcm_read_u16_be(&body[1 + (size_t)i * 2]);
     }
 
     return ZCM_EOK;
@@ -419,10 +419,10 @@ static int packetized_serial_sendmsg(zcm_trans_packetized_serial_t* zt, zcm_msg_
     tx->channel[ZCM_CHANNEL_MAXLEN] = '\0';
 
     uint8_t* meta = zt->pkt_buf + PACKETIZED_HEADER_BYTES;
-    packetized_write_u16_be(&meta[0], total_packets);
+    zcm_write_u16_be(&meta[0], total_packets);
     meta[2] = packet_data_size;
-    packetized_write_u32_be(&meta[3], total_message_size);
-    packetized_write_u32_be(&meta[7], packetized_crc32_compute(msg.buf, msg.len));
+    zcm_write_u32_be(&meta[3], total_message_size);
+    zcm_write_u16_be(&meta[7], fletcher16(msg.buf, msg.len));
     ret = send_packet(zt, tx->channel, tx->session_id, PACKETIZED_MSG_METADATA, meta,
                       PACKETIZED_METADATA_BODY_BYTES);
     if (ret != ZCM_EOK) return ret;
@@ -434,7 +434,7 @@ static int packetized_serial_sendmsg(zcm_trans_packetized_serial_t* zt, zcm_msg_
         uint8_t  payload_len =
             (uint8_t)(remaining < packet_data_size ? remaining : packet_data_size);
 
-        packetized_write_u16_be(&body[0], packet_id);
+        zcm_write_u16_be(&body[0], packet_id);
         if (payload_len > 0) memcpy(&body[2], tx->data + offset, payload_len);
 
         ret = send_packet(zt, tx->channel, tx->session_id, PACKETIZED_MSG_DATA, body,
@@ -465,7 +465,7 @@ static int process_incoming_messages(zcm_trans_packetized_serial_t* zt)
         if (in.len < PACKETIZED_HEADER_BYTES) continue;
         {
             uint8_t  type       = in.buf[0];
-            uint16_t session_id = packetized_read_u16_be(&in.buf[1]);
+            uint16_t session_id = zcm_read_u16_be(&in.buf[1]);
             uint8_t  body_len   = in.buf[3];
             if (in.len != PACKETIZED_HEADER_BYTES + body_len) continue;
 

@@ -19,4 +19,12 @@ static inline uint16_t fletcherUpdate(uint8_t b, uint16_t prevSum)
     return (sumHigh << 8) | sumLow;
 }
 
+static inline uint16_t fletcher16(const uint8_t* data, size_t len)
+{
+    size_t   i;
+    uint16_t sum = 0xffff;
+    for (i = 0; i < len; ++i) sum = fletcherUpdate(data[i], sum);
+    return sum;
+}
+
 #endif /* _ZCM_TRANS_NONBLOCKING_FLETCHER_H */

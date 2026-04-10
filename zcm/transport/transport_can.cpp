@@ -63,7 +63,6 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     uint32_t msgId;
     uint32_t txId;
     uint8_t packetDataSize;
-    size_t packetizedMaxMessageSize;
     string address;
 
     int soc = -1;
@@ -101,14 +100,9 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
         msgId = 0;
         packetDataSize = 0;
-        packetizedMaxMessageSize = PACKETIZED_DEFAULT_MAX_MESSAGE_SIZE;
 
         if (!parsePacketDataSize(findOption("pkt_size"), packetDataSize)) {
             ZCM_DEBUG("Invalid pkt_size. Expected integer in [1,253]");
-            return;
-        }
-        if (!parsePacketBufSize(findOption("pkt_buf_size"), packetizedMaxMessageSize)) {
-            ZCM_DEBUG("Invalid pkt_buf_size. Expected positive integer");
             return;
         }
 
@@ -203,7 +197,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
                                                      this,
                                                      MTU, MTU * 10,
                                                      packetDataSize,
-                                                     packetizedMaxMessageSize);
+                                                     PACKETIZED_DEFAULT_MAX_MESSAGE_SIZE);
             gst_update_rx = packetized_serial_update_rx;
             gst_update_tx = packetized_serial_update_tx;
         } else {

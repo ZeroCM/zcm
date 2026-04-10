@@ -112,7 +112,7 @@ static size_t endpoint_put(const uint8_t* data, size_t nData, void* usr)
             if (type == PACKETIZED_MSG_DATA &&
                 payload.size() == (size_t)PACKETIZED_HEADER_BYTES + body_len &&
                 body_len >= PACKETIZED_DATA_OVERHEAD_BYTES) {
-                uint16_t packet_id = packetized_read_u16_be(
+                uint16_t packet_id = zcm_read_u16_be(
                     &payload[PACKETIZED_HEADER_BYTES]);
                 if (packet_id == ep->dropPacketId) {
                     drop         = true;

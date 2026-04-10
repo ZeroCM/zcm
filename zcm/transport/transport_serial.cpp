@@ -267,7 +267,6 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     int baud;
     bool hwFlowControl;
     uint8_t packetDataSize;
-    size_t packetizedMaxMessageSize;
 
     bool raw;
     string rawChan;
@@ -327,13 +326,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         }
 
         packetDataSize = 0;
-        packetizedMaxMessageSize = PACKETIZED_DEFAULT_MAX_MESSAGE_SIZE;
         if (!parsePacketDataSize(findOption("pkt_size"), packetDataSize)) {
             ZCM_DEBUG("expected integer argument in [1,253] for 'pkt_size'");
-            return;
-        }
-        if (!parsePacketBufSize(findOption("pkt_buf_size"), packetizedMaxMessageSize)) {
-            ZCM_DEBUG("expected positive integer argument for 'pkt_buf_size'");
             return;
         }
 
@@ -384,7 +378,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
                                                      nullptr,
                                                      MTU, MTU * 10,
                                                      packetDataSize,
-                                                     packetizedMaxMessageSize);
+                                                     PACKETIZED_DEFAULT_MAX_MESSAGE_SIZE);
             gst_update_rx = packetized_serial_update_rx;
             gst_update_tx = packetized_serial_update_tx;
         } else {
