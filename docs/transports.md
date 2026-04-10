@@ -53,8 +53,8 @@ be used to *summon* the transport:
   </tr>
   <tr>
     <td>        CAN                                                     </td>
-    <td><code>  can://&lt;interface&gt;?msgid=&lt;id&gt;[&amp;pkt_size=&lt;n&gt;&amp;pkt_buf_size=&lt;n&gt;] </code></td>
-    <td><code>  zcm_create("can://can0?msgid=65536"), zcm_create("can://can0?msgid=65536&amp;pkt_size=32&amp;pkt_buf_size=1024") </code></td>
+    <td><code>  can://&lt;interface&gt;?msgid=&lt;id&gt;[&amp;pkt_size=&lt;n&gt;] </code></td>
+    <td><code>  zcm_create("can://can0?msgid=65536"), zcm_create("can://can0?msgid=65536&amp;pkt_size=32") </code></td>
   </tr>
   <tr>
     <td>        Inter-process via Shared Memory (IPCSHM)                </td>

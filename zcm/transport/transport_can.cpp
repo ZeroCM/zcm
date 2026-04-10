@@ -47,16 +47,6 @@ static bool parsePacketDataSize(const string* opt, uint8_t& out)
     return true;
 }
 
-static bool parsePacketBufSize(const string* opt, size_t& out)
-{
-    if (!opt) return true;
-    char* endptr;
-    unsigned long parsed = strtoul(opt->c_str(), &endptr, 10);
-    if (*endptr != '\0' || parsed == 0) return false;
-    out = (size_t)parsed;
-    return true;
-}
-
 struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 {
     unordered_map<string, string> options;
@@ -417,5 +407,5 @@ static zcm_trans_t *create(zcm_url_t* url, char **opt_errmsg)
 const TransportRegister ZCM_TRANS_CLASSNAME::reg(
     "can", "Transfer data via a socket CAN connection on a single id "
     "(e.g. 'can://can0?msgid=65536&rx_extended_addr=standard&tx_extended_addr=true' or "
-    "'can://can0?msgid=65536&pkt_size=8&pkt_buf_size=1024')", create);
+    "'can://can0?msgid=65536&pkt_size=8')", create);
 #endif
