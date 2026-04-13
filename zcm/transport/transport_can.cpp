@@ -376,6 +376,13 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         return ZCM_EAGAIN;
     }
 
+    int update()
+    {
+        int rxRet = this->gst_update_rx(this->gst);
+        int txRet = this->gst_update_tx(this->gst);
+        return rxRet == ZCM_EOK ? txRet : rxRet;
+    }
+
     /********************** STATICS **********************/
     static zcm_trans_methods_t methods;
     static ZCM_TRANS_CLASSNAME *cast(zcm_trans_t *zt)
@@ -396,6 +403,9 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     static int _recvmsg(zcm_trans_t *zt, zcm_msg_t *msg, unsigned timeout)
     { return cast(zt)->recvmsg(msg, timeout); }
 
+    static int _update(zcm_trans_t *zt)
+    { return cast(zt)->update(); }
+
     static void _destroy(zcm_trans_t *zt)
     { delete cast(zt); }
 
@@ -409,7 +419,7 @@ zcm_trans_methods_t ZCM_TRANS_CLASSNAME::methods = {
     &ZCM_TRANS_CLASSNAME::_recvmsg_enable,
     &ZCM_TRANS_CLASSNAME::_recvmsg,
     NULL, // drops
-    NULL, // update
+    &ZCM_TRANS_CLASSNAME::_update,
     &ZCM_TRANS_CLASSNAME::_destroy,
 };
 
