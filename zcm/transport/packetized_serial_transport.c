@@ -63,6 +63,7 @@ struct zcm_trans_packetized_serial_t
     size_t   pkt_buf_size;
 
     uint8_t* out_buf;
+    size_t   out_buf_size;
     size_t   out_len;
     uint64_t out_utime;
     char     out_channel[ZCM_CHANNEL_MAXLEN + 1];
@@ -191,7 +192,7 @@ static int queue_output(zcm_trans_packetized_serial_t* zt, const char* channel,
                         const uint8_t* data, size_t len, uint64_t utime,
                         int strip_packetized_prefix)
 {
-    if (zt->max_message_size < len) {
+    if (zt->out_buf_size < len) {
         return ZCM_EINVALID;
     }
 
@@ -642,7 +643,8 @@ zcm_trans_t* zcm_trans_packetized_serial_create(
         return NULL;
     }
 
-    zt->out_buf = malloc(zt->max_message_size == 0 ? 1 : zt->max_message_size);
+    zt->out_buf_size = zt->inner_mtu > zt->max_message_size ? zt->inner_mtu : zt->max_message_size;
+    zt->out_buf = malloc(zt->out_buf_size == 0 ? 1 : zt->out_buf_size);
     if (zt->out_buf == NULL) {
         free(zt->pkt_buf);
         zcm_trans_generic_serial_destroy(zt->inner);

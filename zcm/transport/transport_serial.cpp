@@ -67,6 +67,12 @@ static bool parsePacketBufSize(const string* opt, size_t& out)
     return true;
 }
 
+static size_t parsePacketizedMaxMessageSize(const string* opt)
+{
+    size_t out = PACKETIZED_DEFAULT_MAX_MESSAGE_SIZE;
+    return parsePacketBufSize(opt, out) ? out : 0;
+}
+
 struct Serial
 {
     Serial(){}
@@ -267,6 +273,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     int baud;
     bool hwFlowControl;
     uint8_t packetDataSize;
+    size_t packetizedMaxMessageSize;
 
     bool raw;
     string rawChan;
@@ -330,6 +337,11 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             ZCM_DEBUG("expected integer argument in [1,253] for 'pkt_size'");
             return;
         }
+        packetizedMaxMessageSize = parsePacketizedMaxMessageSize(findOption("pkt_buf_size"));
+        if (packetizedMaxMessageSize == 0) {
+            ZCM_DEBUG("expected positive integer argument for 'pkt_buf_size'");
+            return;
+        }
 
         raw = false;
         auto* rawStr = findOption("raw");
@@ -374,11 +386,11 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             gst = zcm_trans_packetized_serial_create(&ZCM_TRANS_CLASSNAME::get,
                                                      &ZCM_TRANS_CLASSNAME::put,
                                                      this,
-                                                     &ZCM_TRANS_CLASSNAME::timestamp_now,
-                                                     nullptr,
-                                                     MTU, MTU * 10,
-                                                     packetDataSize,
-                                                     PACKETIZED_DEFAULT_MAX_MESSAGE_SIZE);
+                                                      &ZCM_TRANS_CLASSNAME::timestamp_now,
+                                                      nullptr,
+                                                      MTU, MTU * 10,
+                                                      packetDataSize,
+                                                      packetizedMaxMessageSize);
             gst_update_rx = packetized_serial_update_rx;
             gst_update_tx = packetized_serial_update_tx;
         } else {
