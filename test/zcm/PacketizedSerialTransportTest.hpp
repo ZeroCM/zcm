@@ -421,6 +421,84 @@ class PacketizedSerialTransportTest : public CxxTest::TestSuite
         zcm_trans_destroy(rx);
     }
 
+    // Passing max_message_size=0 enables dynamic mode. Buffers start at
+    // PACKETIZED_DEFAULT_MAX_MESSAGE_SIZE (1024) and grow to fit any message.
+    void testDynamicResizingRoundTrip()
+    {
+        PacketizedLinkEndpoint a;
+        PacketizedLinkEndpoint b;
+        a.peer = &b;
+        b.peer = &a;
+
+        uint64_t     now = 7000;
+        zcm_trans_t* tx  = zcm_trans_packetized_serial_create(
+             endpoint_get, endpoint_put, &a, fake_now, &now, 64, 32768, 0, 0);
+        zcm_trans_t* rx = zcm_trans_packetized_serial_create(
+            endpoint_get, endpoint_put, &b, fake_now, &now, 64, 32768, 0, 0);
+        TSM_ASSERT("failed creating transports", tx && rx);
+
+        // 2048 bytes exceeds PACKETIZED_DEFAULT_MAX_MESSAGE_SIZE (1024)
+        vector<uint8_t> payload(2048);
+        for (size_t i = 0; i < payload.size(); ++i) payload[i] = (uint8_t)(i ^ 0xd5);
+
+        zcm_msg_t msg;
+        msg.utime   = now;
+        msg.channel = (char*)"$DYN";
+        msg.len     = payload.size();
+        msg.buf     = payload.data();
+
+        TS_ASSERT_EQUALS(zcm_trans_sendmsg(tx, msg), ZCM_EOK);
+        pump(tx, rx, 40);
+
+        zcm_msg_t out;
+        TS_ASSERT_EQUALS(zcm_trans_recvmsg(rx, &out, 0), ZCM_EOK);
+        TS_ASSERT_EQUALS(string(out.channel), string("DYN"));
+        TS_ASSERT_EQUALS(out.len, payload.size());
+        TS_ASSERT_SAME_DATA(out.buf, payload.data(), payload.size());
+
+        zcm_trans_destroy(tx);
+        zcm_trans_destroy(rx);
+    }
+
+    void testDynamicResizingMultipleGrowths()
+    {
+        PacketizedLinkEndpoint a;
+        PacketizedLinkEndpoint b;
+        a.peer = &b;
+        b.peer = &a;
+
+        uint64_t     now = 7100;
+        zcm_trans_t* tx  = zcm_trans_packetized_serial_create(
+             endpoint_get, endpoint_put, &a, fake_now, &now, 64, 32768, 0, 0);
+        zcm_trans_t* rx = zcm_trans_packetized_serial_create(
+            endpoint_get, endpoint_put, &b, fake_now, &now, 64, 32768, 0, 0);
+        TSM_ASSERT("failed creating transports", tx && rx);
+
+        static const size_t sizes[] = { 512, 2048, 8192 };
+        for (size_t si = 0; si < 3; ++si) {
+            vector<uint8_t> payload(sizes[si]);
+            for (size_t i = 0; i < payload.size(); ++i) payload[i] = (uint8_t)(i ^ (uint8_t)si);
+
+            zcm_msg_t msg;
+            msg.utime   = now;
+            msg.channel = (char*)"$GROW";
+            msg.len     = payload.size();
+            msg.buf     = payload.data();
+
+            TS_ASSERT_EQUALS(zcm_trans_sendmsg(tx, msg), ZCM_EOK);
+            pump(tx, rx, 200);
+
+            zcm_msg_t out;
+            TS_ASSERT_EQUALS(zcm_trans_recvmsg(rx, &out, 0), ZCM_EOK);
+            TS_ASSERT_EQUALS(string(out.channel), string("GROW"));
+            TS_ASSERT_EQUALS(out.len, payload.size());
+            TS_ASSERT_SAME_DATA(out.buf, payload.data(), payload.size());
+        }
+
+        zcm_trans_destroy(tx);
+        zcm_trans_destroy(rx);
+    }
+
     // Drive the transport via zcm_trans_update (the vtable update path) rather than the
     // explicit packetized_serial_update_rx/tx functions. This mirrors how the
     // TransportSerial and TransportCan wrappers operate and would have caught the
