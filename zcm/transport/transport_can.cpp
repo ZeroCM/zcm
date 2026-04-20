@@ -47,21 +47,6 @@ static bool parsePacketDataSize(const string* opt, uint8_t& out)
     return true;
 }
 
-static bool parsePacketBufSize(const string* opt, size_t& out)
-{
-    if (!opt) return true;
-    char* endptr;
-    unsigned long parsed = strtoul(opt->c_str(), &endptr, 10);
-    if (*endptr != '\0' || parsed == 0) return false;
-    out = (size_t)parsed;
-    return true;
-}
-
-static size_t parsePacketizedMaxMessageSize(const string* opt)
-{
-    size_t out = PACKETIZED_DEFAULT_MAX_MESSAGE_SIZE;
-    return parsePacketBufSize(opt, out) ? out : 0;
-}
 
 struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 {
@@ -69,7 +54,6 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     uint32_t msgId;
     uint32_t txId;
     uint8_t packetDataSize;
-    size_t packetizedMaxMessageSize;
     string address;
 
     int soc = -1;
@@ -107,12 +91,6 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
         msgId = 0;
         packetDataSize = 0;
-        packetizedMaxMessageSize = parsePacketizedMaxMessageSize(findOption("pkt_buf_size"));
-        if (packetizedMaxMessageSize == 0) {
-            ZCM_DEBUG("Invalid pkt_buf_size. Expected positive integer");
-            return;
-        }
-
         if (!parsePacketDataSize(findOption("pkt_size"), packetDataSize)) {
             ZCM_DEBUG("Invalid pkt_size. Expected integer in [1,253]");
             return;
@@ -209,7 +187,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
                                                       this,
                                                       MTU, MTU * 10,
                                                       packetDataSize,
-                                                      packetizedMaxMessageSize);
+                                                      0);
             gst_update_rx = packetized_serial_update_rx;
             gst_update_tx = packetized_serial_update_tx;
         } else {
@@ -439,5 +417,5 @@ static zcm_trans_t *create(zcm_url_t* url, char **opt_errmsg)
 const TransportRegister ZCM_TRANS_CLASSNAME::reg(
     "can", "Transfer data via a socket CAN connection on a single id "
     "(e.g. 'can://can0?msgid=65536&rx_extended_addr=standard&tx_extended_addr=true' or "
-    "'can://can0?msgid=65536&pkt_size=8&pkt_buf_size=1024')", create);
+    "'can://can0?msgid=65536&pkt_size=8')", create);
 #endif

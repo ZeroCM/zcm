@@ -48,8 +48,8 @@ be used to *summon* the transport:
   </tr>
   <tr>
     <td>        Serial                                                  </td>
-    <td><code>  serial://&lt;path-to-device&gt;?baud=&lt;baud&gt;[&amp;pkt_size=&lt;n&gt;&amp;pkt_buf_size=&lt;n&gt;] </code></td>
-    <td><code>  zcm_create("serial:///dev/ttyUSB0?baud=115200"), zcm_create("serial:///dev/ttyUSB0?baud=115200&amp;pkt_size=128&amp;pkt_buf_size=1024") </code></td>
+    <td><code>  serial://&lt;path-to-device&gt;?baud=&lt;baud&gt;[&amp;pkt_size=&lt;n&gt;] </code></td>
+    <td><code>  zcm_create("serial:///dev/ttyUSB0?baud=115200"), zcm_create("serial:///dev/ttyUSB0?baud=115200&amp;pkt_size=128") </code></td>
   </tr>
   <tr>
     <td>        CAN                                                     </td>

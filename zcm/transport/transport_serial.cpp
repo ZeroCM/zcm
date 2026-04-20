@@ -57,21 +57,6 @@ static bool parsePacketDataSize(const string* opt, uint8_t& out)
     return true;
 }
 
-static bool parsePacketBufSize(const string* opt, size_t& out)
-{
-    if (!opt) return true;
-    char* endptr;
-    unsigned long parsed = strtoul(opt->c_str(), &endptr, 10);
-    if (*endptr != '\0' || parsed == 0) return false;
-    out = (size_t)parsed;
-    return true;
-}
-
-static size_t parsePacketizedMaxMessageSize(const string* opt)
-{
-    size_t out = PACKETIZED_DEFAULT_MAX_MESSAGE_SIZE;
-    return parsePacketBufSize(opt, out) ? out : 0;
-}
 
 struct Serial
 {
@@ -273,8 +258,6 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     int baud;
     bool hwFlowControl;
     uint8_t packetDataSize;
-    size_t packetizedMaxMessageSize;
-
     bool raw;
     string rawChan;
     int rawSize;
@@ -337,12 +320,6 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             ZCM_DEBUG("expected integer argument in [1,253] for 'pkt_size'");
             return;
         }
-        packetizedMaxMessageSize = parsePacketizedMaxMessageSize(findOption("pkt_buf_size"));
-        if (packetizedMaxMessageSize == 0) {
-            ZCM_DEBUG("expected positive integer argument for 'pkt_buf_size'");
-            return;
-        }
-
         raw = false;
         auto* rawStr = findOption("raw");
         if (rawStr) {
@@ -390,7 +367,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
                                                       nullptr,
                                                       MTU, MTU * 10,
                                                       packetDataSize,
-                                                      packetizedMaxMessageSize);
+                                                      0);
             gst_update_rx = packetized_serial_update_rx;
             gst_update_tx = packetized_serial_update_tx;
         } else {
@@ -564,7 +541,7 @@ static zcm_trans_t* create(zcm_url_t* url, char **opt_errmsg)
 const TransportRegister ZCM_TRANS_CLASSNAME::reg(
     "serial", "Transfer data via a serial connection "
     "(e.g. 'serial:///dev/ttyUSB0?baud=115200&hw_flow_control=true', "
-    "'serial:///dev/ttyUSB0?baud=115200&pkt_size=128&pkt_buf_size=1024', or "
+    "'serial:///dev/ttyUSB0?baud=115200&pkt_size=128', or "
     "'serial:///dev/pts/10?raw=true&raw_channel=RAW_SERIAL')",
     create);
 #endif

@@ -57,6 +57,7 @@ struct zcm_trans_packetized_serial_t
     size_t  inner_mtu;
     size_t  mtu;
     size_t  max_message_size;
+    int     dynamic;
     uint8_t configured_packet_data_size;
 
     uint8_t* pkt_buf;
@@ -78,6 +79,36 @@ struct zcm_trans_packetized_serial_t
 };
 
 static zcm_trans_packetized_serial_t* cast(zcm_trans_t* zt);
+
+static int grow_buffers(zcm_trans_packetized_serial_t* zt, size_t new_size)
+{
+    uint8_t*  rd  = realloc(zt->rx.data,            new_size);
+    uint8_t*  rpr = realloc(zt->rx.packet_received, new_size * sizeof(uint8_t));
+    uint16_t* rmi = realloc(zt->rx.missing_ids,     new_size * sizeof(uint16_t));
+    uint8_t*  td  = realloc(zt->tx.data,            new_size);
+    uint16_t* tri = realloc(zt->tx.retrans_ids,     new_size * sizeof(uint16_t));
+
+    if (rd)  zt->rx.data            = rd;
+    if (rpr) zt->rx.packet_received = rpr;
+    if (rmi) zt->rx.missing_ids     = rmi;
+    if (td)  zt->tx.data            = td;
+    if (tri) zt->tx.retrans_ids     = tri;
+
+    if (!rd || !rpr || !rmi || !td || !tri) return ZCM_EAGAIN;
+
+    size_t new_out = zt->inner_mtu > new_size ? zt->inner_mtu : new_size;
+    if (new_out > zt->out_buf_size) {
+        uint8_t* ob = realloc(zt->out_buf, new_out);
+        if (!ob) return ZCM_EAGAIN;
+        zt->out_buf      = ob;
+        zt->out_buf_size = new_out;
+    }
+
+    zt->rx.packet_capacity = new_size;
+    zt->tx.packet_capacity = new_size;
+    zt->max_message_size   = new_size;
+    return ZCM_EOK;
+}
 
 static int send_inner_with_retry(zcm_trans_packetized_serial_t* zt, zcm_msg_t msg)
 {
@@ -263,8 +294,11 @@ static int begin_rx_session(zcm_trans_packetized_serial_t* zt, const char* chann
 
     if (total_packets == 0 || packet_data_size == 0) return ZCM_EINVALID;
     if (packet_data_size > PACKETIZED_MAX_PACKET_DATA_SIZE) return ZCM_EINVALID;
-    if (total_message_size > zt->max_message_size || total_message_size > zt->mtu)
-        return ZCM_EINVALID;
+    if (total_message_size > zt->mtu) return ZCM_EINVALID;
+    if (total_message_size > zt->max_message_size) {
+        if (!zt->dynamic) return ZCM_EINVALID;
+        if (grow_buffers(zt, total_message_size) != ZCM_EOK) return ZCM_EAGAIN;
+    }
 
     size_t expected_packets = packetized_message_packet_count(total_message_size,
                                                               packet_data_size);
@@ -272,7 +306,10 @@ static int begin_rx_session(zcm_trans_packetized_serial_t* zt, const char* chann
 
     rx_clear(&zt->rx);
     packetized_rx_state_t* rx = &zt->rx;
-    if ((size_t)total_packets > rx->packet_capacity) return ZCM_EINVALID;
+    if ((size_t)total_packets > rx->packet_capacity) {
+        if (!zt->dynamic) return ZCM_EINVALID;
+        if (grow_buffers(zt, total_message_size) != ZCM_EOK) return ZCM_EAGAIN;
+    }
 
     strncpy(rx->channel, channel, ZCM_CHANNEL_MAXLEN);
     rx->channel[ZCM_CHANNEL_MAXLEN] = '\0';
@@ -398,7 +435,11 @@ static int packetized_serial_sendmsg(zcm_trans_packetized_serial_t* zt, zcm_msg_
     uint8_t packet_data_size = zt->configured_packet_data_size;
     if (packet_data_size == 0 || packet_data_size > PACKETIZED_MAX_PACKET_DATA_SIZE)
         return ZCM_EINVALID;
-    if (msg.len > zt->mtu || msg.len > zt->max_message_size) return ZCM_EINVALID;
+    if (msg.len > zt->mtu) return ZCM_EINVALID;
+    if (msg.len > zt->max_message_size) {
+        if (!zt->dynamic) return ZCM_EINVALID;
+        if (grow_buffers(zt, msg.len) != ZCM_EOK) return ZCM_EAGAIN;
+    }
 
     uint32_t total_message_size = (uint32_t)msg.len;
     size_t total_packets_sz = packetized_message_packet_count(total_message_size,
@@ -604,6 +645,7 @@ zcm_trans_t* zcm_trans_packetized_serial_create(
         return NULL;
     }
 
+    zt->dynamic = (max_message_size == 0);
     if (max_message_size == 0) max_message_size = PACKETIZED_DEFAULT_MAX_MESSAGE_SIZE;
     zt->max_message_size = max_message_size;
 
@@ -633,7 +675,8 @@ zcm_trans_t* zcm_trans_packetized_serial_create(
     }
 
     zt->mtu = packetized_max_mtu(zt->configured_packet_data_size);
-    if (zt->mtu > zt->max_message_size) zt->mtu = zt->max_message_size;
+    if (!zt->dynamic && zt->mtu > zt->max_message_size)
+        zt->mtu = zt->max_message_size;
 
     zt->pkt_buf_size = zt->inner_mtu;
     zt->pkt_buf      = malloc(zt->pkt_buf_size);
