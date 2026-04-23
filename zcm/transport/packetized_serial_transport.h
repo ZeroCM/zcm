@@ -22,6 +22,8 @@ extern "C" {
  * serial transport unchanged and are not packetized.
  */
 
+#define ZCM_TRANS_PACKETIZED_SERIAL_GROW_DYNAMICALLY 0
+
 zcm_trans_t* zcm_trans_packetized_serial_create(
     size_t (*get)(uint8_t* data, size_t nData, void* usr),
     size_t (*put)(const uint8_t* data, size_t nData, void* usr), void* put_get_usr,

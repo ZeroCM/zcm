@@ -187,7 +187,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
                                                       this,
                                                       MTU, MTU * 10,
                                                       packetDataSize,
-                                                      0);
+                                                      ZCM_TRANS_PACKETIZED_SERIAL_GROW_DYNAMICALLY);
             gst_update_rx = packetized_serial_update_rx;
             gst_update_tx = packetized_serial_update_tx;
         } else {

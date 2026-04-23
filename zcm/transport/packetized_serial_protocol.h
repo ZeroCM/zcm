@@ -5,7 +5,6 @@
 #include <stdint.h>
 
 #include "generic_serial_fletcher.h"
-#include "zcm/util/byteorder.h"
 
 #define PACKETIZED_HEADER_BYTES (4)
 #define PACKETIZED_DATA_OVERHEAD_BYTES (2)

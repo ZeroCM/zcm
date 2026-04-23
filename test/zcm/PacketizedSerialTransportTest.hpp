@@ -4,6 +4,7 @@
 #include "cxxtest/TestSuite.h"
 #include "zcm/transport/packetized_serial_transport.h"
 #include "zcm/transport/packetized_serial_protocol.h"
+#include "zcm/zcm_coretypes.h"
 
 #include <cstdint>
 #include <cstring>
@@ -112,9 +113,9 @@ static size_t endpoint_put(const uint8_t* data, size_t nData, void* usr)
             if (type == PACKETIZED_MSG_DATA &&
                 payload.size() == (size_t)PACKETIZED_HEADER_BYTES + body_len &&
                 body_len >= PACKETIZED_DATA_OVERHEAD_BYTES) {
-                uint16_t packet_id = zcm_read_u16_be(
-                    &payload[PACKETIZED_HEADER_BYTES]);
-                if (packet_id == ep->dropPacketId) {
+                uint16_t packet_id = 0;
+                __int16_t_decode_array(payload.data(), PACKETIZED_HEADER_BYTES, 2, (int16_t*)(&packet_id), 1);
+                    if (packet_id == ep->dropPacketId) {
                     drop         = true;
                     ep->dropDone = true;
                 }
