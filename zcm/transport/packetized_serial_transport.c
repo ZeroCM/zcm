@@ -439,8 +439,8 @@ static int packetized_serial_sendmsg(zcm_trans_packetized_serial_t* zt, zcm_msg_
         return send_inner_with_retry(zt, msg);
     }
 
-    uint8_t packet_data_size = zt->configured_packet_data_size;
-    if (packet_data_size == 0 || packet_data_size > PACKETIZED_MAX_PACKET_DATA_SIZE)
+    uint8_t tx_packet_data_size = zt->configured_packet_data_size;
+    if (tx_packet_data_size == 0 || tx_packet_data_size > PACKETIZED_MAX_PACKET_DATA_SIZE)
         return ZCM_EINVALID;
     if (msg.len > zt->mtu) return ZCM_EINVALID;
     if (msg.len > zt->max_message_size) {
@@ -450,7 +450,7 @@ static int packetized_serial_sendmsg(zcm_trans_packetized_serial_t* zt, zcm_msg_
 
     uint32_t total_message_size = (uint32_t)msg.len;
     size_t total_packets_sz = packetized_message_packet_count(total_message_size,
-                                                              packet_data_size);
+                                                              tx_packet_data_size);
     if (total_packets_sz == 0) total_packets_sz = 1;
     if (total_packets_sz > PACKETIZED_MAX_PACKETS) return ZCM_EINVALID;
     uint16_t total_packets = (uint16_t)total_packets_sz;
@@ -461,7 +461,7 @@ static int packetized_serial_sendmsg(zcm_trans_packetized_serial_t* zt, zcm_msg_
 
     tx->active             = 1;
     tx->session_id         = ++zt->next_session_id;
-    tx->packet_data_size   = packet_data_size;
+    tx->packet_data_size   = tx_packet_data_size;
     tx->total_packets      = total_packets;
     tx->total_message_size = total_message_size;
     strncpy(tx->channel, msg.channel, ZCM_CHANNEL_MAXLEN);
@@ -470,7 +470,7 @@ static int packetized_serial_sendmsg(zcm_trans_packetized_serial_t* zt, zcm_msg_
     uint8_t* meta = zt->pkt_buf + PACKETIZED_HEADER_BYTES;
     uint16_t fletcherCsum = fletcher16(msg.buf, msg.len, 0xFFFF);
     __int16_t_encode_array(meta, 0, 2, (int16_t*)(&total_packets), 1);
-    meta[2] = packet_data_size;
+    meta[2] = tx_packet_data_size;
     __int32_t_encode_array(meta, 3, 4, (int32_t*)(&total_message_size), 1);
     __int16_t_encode_array(meta, 7, 2, (int16_t*)(&fletcherCsum), 1);
     ret = send_packet(zt, tx->channel, tx->session_id, PACKETIZED_MSG_METADATA, meta,
@@ -479,10 +479,10 @@ static int packetized_serial_sendmsg(zcm_trans_packetized_serial_t* zt, zcm_msg_
 
     uint8_t* body = zt->pkt_buf + PACKETIZED_HEADER_BYTES;
     for (packet_id = 0; packet_id < total_packets; ++packet_id) {
-        uint32_t offset    = (uint32_t)packet_id * (uint32_t)packet_data_size;
+        uint32_t offset    = (uint32_t)packet_id * (uint32_t)tx_packet_data_size;
         uint32_t remaining = total_message_size - offset;
         uint8_t  payload_len =
-            (uint8_t)(remaining < packet_data_size ? remaining : packet_data_size);
+            (uint8_t)(remaining < tx_packet_data_size ? remaining : tx_packet_data_size);
 
         __int16_t_encode_array(body, 0, 2, (int16_t*)(&packet_id), 1);
         if (payload_len > 0) memcpy(&body[2], tx->data + offset, payload_len);
@@ -513,28 +513,28 @@ static int process_incoming_messages(zcm_trans_packetized_serial_t* zt)
         }
 
         if (in.len < PACKETIZED_HEADER_BYTES) continue;
-        {
-            uint8_t  type       = in.buf[0];
-            uint16_t session_id = 0;
-            __int16_t_decode_array(in.buf, 1, 2, (int16_t*)(&session_id), 1);
-            uint8_t  body_len   = in.buf[3];
-            if (in.len != PACKETIZED_HEADER_BYTES + body_len) continue;
 
-            const uint8_t* body = &in.buf[PACKETIZED_HEADER_BYTES];
-            uint64_t       now  = in.utime == 0 ? zt->time(zt->time_usr) : in.utime;
+        uint8_t  type       = in.buf[0];
+        uint16_t session_id = 0;
+        __int16_t_decode_array(in.buf, 1, 2, (int16_t*)(&session_id), 1);
+        uint8_t  body_len   = in.buf[3];
+        if (in.len != PACKETIZED_HEADER_BYTES + body_len) continue;
 
-            if (type == PACKETIZED_MSG_METADATA) {
-                ret = begin_rx_session(zt, in.channel, session_id, body, body_len, now);
-            } else if (type == PACKETIZED_MSG_DATA) {
-                ret = process_rx_data(zt, session_id, body, body_len, now);
-            } else if (type == PACKETIZED_MSG_RETRANS_REQ) {
-                ret = process_retrans_request(zt, session_id, body, body_len);
-            } else {
-                continue;
-            }
+        const uint8_t* body = &in.buf[PACKETIZED_HEADER_BYTES];
+        uint64_t       now  = in.utime == 0 ? zt->time(zt->time_usr) : in.utime;
 
-            if (ret != ZCM_EOK && ret != ZCM_EINVALID) return ret;
+        if (type == PACKETIZED_MSG_METADATA) {
+            ret = begin_rx_session(zt, in.channel, session_id, body, body_len, now);
+        } else if (type == PACKETIZED_MSG_DATA) {
+            ret = process_rx_data(zt, session_id, body, body_len, now);
+        } else if (type == PACKETIZED_MSG_RETRANS_REQ) {
+            ret = process_retrans_request(zt, session_id, body, body_len);
+        } else {
+            continue;
         }
+
+        // RRR: should we break? could end up blocking for a while otherwise
+        if (ret != ZCM_EOK && ret != ZCM_EINVALID) return ret;
     }
 
     return ZCM_EOK;
@@ -630,12 +630,11 @@ static zcm_trans_packetized_serial_t* cast(zcm_trans_t* zt)
     return (zcm_trans_packetized_serial_t*)zt;
 }
 
-// RRR: rename tx_packet_data_size
 zcm_trans_t* zcm_trans_packetized_serial_create(
     size_t (*get)(uint8_t* data, size_t nData, void* usr),
     size_t (*put)(const uint8_t* data, size_t nData, void* usr), void* put_get_usr,
     uint64_t (*timestamp_now)(void* usr), void* time_usr, size_t MTU, size_t bufSize,
-    uint8_t packet_data_size, size_t max_message_size)
+    uint8_t tx_packet_data_size, size_t max_message_size)
 {
     zcm_trans_packetized_serial_t* zt = calloc(1, sizeof(*zt));
     if (zt == NULL) return NULL;
@@ -656,17 +655,16 @@ zcm_trans_t* zcm_trans_packetized_serial_create(
     }
 
     zt->dynamic = (max_message_size == 0);
-    if (max_message_size == 0) max_message_size = PACKETIZED_DEFAULT_MAX_MESSAGE_SIZE;
-    zt->max_message_size = max_message_size;
+    zt->max_message_size = zt->dynamic ? PACKETIZED_DEFAULT_MAX_MESSAGE_SIZE : max_message_size;
 
-    if (packet_data_size == 0) {
+    if (tx_packet_data_size == 0) {
         size_t max_payload =
             zt->inner_mtu - PACKETIZED_HEADER_BYTES - PACKETIZED_DATA_OVERHEAD_BYTES;
         if (max_payload > PACKETIZED_MAX_PACKET_DATA_SIZE)
             max_payload = PACKETIZED_MAX_PACKET_DATA_SIZE;
         zt->configured_packet_data_size = (uint8_t)max_payload;
     } else {
-        zt->configured_packet_data_size = packet_data_size;
+        zt->configured_packet_data_size = tx_packet_data_size;
     }
 
     if (zt->configured_packet_data_size == 0 ||

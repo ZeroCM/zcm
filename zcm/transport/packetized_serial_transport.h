@@ -28,7 +28,7 @@ zcm_trans_t* zcm_trans_packetized_serial_create(
     size_t (*get)(uint8_t* data, size_t nData, void* usr),
     size_t (*put)(const uint8_t* data, size_t nData, void* usr), void* put_get_usr,
     uint64_t (*timestamp_now)(void* usr), void* time_usr, size_t MTU, size_t bufSize,
-    uint8_t packet_data_size, size_t max_message_size);
+    uint8_t tx_packet_data_size, size_t max_message_size);
 
 void zcm_trans_packetized_serial_destroy(zcm_trans_t* zt);
 
