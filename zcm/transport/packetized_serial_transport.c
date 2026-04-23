@@ -352,7 +352,7 @@ static int process_rx_data(zcm_trans_packetized_serial_t* zt, uint16_t session_i
     rx->last_update_utime = utime;
 
     if (rx->received_count == rx->total_packets) {
-        uint16_t checksum = fletcher16(rx->data, rx->total_message_size);
+        uint16_t checksum = fletcher16(rx->data, rx->total_message_size, 0xFFFF);
         if (checksum != rx->expected_checksum) {
             rx_clear(rx);
             return ZCM_EINVALID;
@@ -464,7 +464,7 @@ static int packetized_serial_sendmsg(zcm_trans_packetized_serial_t* zt, zcm_msg_
     zcm_write_u16_be(&meta[0], total_packets);
     meta[2] = packet_data_size;
     zcm_write_u32_be(&meta[3], total_message_size);
-    zcm_write_u16_be(&meta[7], fletcher16(msg.buf, msg.len));
+    zcm_write_u16_be(&meta[7], fletcher16(msg.buf, msg.len, 0xFFFF));
     ret = send_packet(zt, tx->channel, tx->session_id, PACKETIZED_MSG_METADATA, meta,
                       PACKETIZED_METADATA_BODY_BYTES);
     if (ret != ZCM_EOK) return ret;
