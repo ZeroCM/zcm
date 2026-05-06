@@ -38,7 +38,7 @@ echo "**********************************"
 $ROOTDIR/build/$BLD/test/runner
 echo "Success"
 
-if [ -n "$1" ]; then
+if [ -n "${1:-}" ]; then
     echo "Skipping non c/c++ lanugage tests in sanitizer mode"
     exit 0
 fi

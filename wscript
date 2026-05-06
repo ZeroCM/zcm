@@ -482,7 +482,7 @@ def build(ctx):
         if ctx.env.USING_CXXTEST:
             ctx.cxxtest(use = ['zcm', 'zcm_tools_util',
                                'testzcmtypes', 'testzcmtypes_cpp', 'testzcmtypes_c_stlib',
-                               'multifile_lib'])
+                               'multifile_lib', 'packetized_test_support'])
     else:
         ctx.recurse('scripts')
         ctx.recurse('zcm')
