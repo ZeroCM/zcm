@@ -11,6 +11,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define PACKETIZED_CHANNEL_PREFIX '$'
+#define PACKETIZED_SEND_RETRY_COUNT (4)
+
 typedef struct packetized_rx_state_t packetized_rx_state_t;
 struct packetized_rx_state_t
 {
@@ -118,7 +121,7 @@ static int send_inner_with_retry(zcm_trans_packetized_serial_t* zt, zcm_msg_t ms
     if (ret == ZCM_EOK) return ZCM_EOK;
     if (ret != ZCM_EAGAIN) return ret;
 
-    for (i = 0; i < 4; ++i) {
+    for (i = 0; i < PACKETIZED_SEND_RETRY_COUNT; ++i) {
         zcm_trans_update(zt->inner);
         ret = zcm_trans_sendmsg(zt->inner, msg);
         if (ret == ZCM_EOK) return ZCM_EOK;
@@ -135,9 +138,10 @@ static int send_packet(zcm_trans_packetized_serial_t* zt, const char* channel,
     if (PACKETIZED_HEADER_BYTES + (size_t)body_len > zt->pkt_buf_size)
         return ZCM_EINVALID;
 
-    zt->pkt_buf[0] = type;
-    __int16_t_encode_array(zt->pkt_buf, 1, 2, (int16_t*)(&session_id), 1);
-    zt->pkt_buf[3] = body_len;
+    zt->pkt_buf[PACKETIZED_HEADER_TYPE_OFFSET] = type;
+    __int16_t_encode_array(zt->pkt_buf, PACKETIZED_HEADER_SESSION_ID_OFFSET,
+                           PACKETIZED_HEADER_SESSION_ID_BYTES, (int16_t*)(&session_id), 1);
+    zt->pkt_buf[PACKETIZED_HEADER_BODY_LEN_OFFSET] = body_len;
     if (body_len > 0 && body != &zt->pkt_buf[PACKETIZED_HEADER_BYTES]) {
         memcpy(&zt->pkt_buf[PACKETIZED_HEADER_BYTES], body, body_len);
     }
@@ -184,7 +188,7 @@ static void tx_clear(packetized_tx_state_t* tx)
 
 static int is_packetized_channel(const char* channel)
 {
-    return channel && channel[0] == '$';
+    return channel && channel[0] == PACKETIZED_CHANNEL_PREFIX;
 }
 
 static int send_retrans_request(zcm_trans_packetized_serial_t* zt)
@@ -193,9 +197,14 @@ static int send_retrans_request(zcm_trans_packetized_serial_t* zt)
     packetized_rx_state_t* rx = &zt->rx;
     if (!rx->retrans_pending || !rx->active || rx->missing_count == 0) return ZCM_EOK;
 
-    size_t max_ids_per_req = (zt->inner_mtu > PACKETIZED_HEADER_BYTES + 1)
-                                 ? (zt->inner_mtu - PACKETIZED_HEADER_BYTES - 1) / 2
+    size_t max_ids_per_req = (zt->inner_mtu > PACKETIZED_HEADER_BYTES +
+                                                  PACKETIZED_RETRANS_IDS_OFFSET)
+                                 ? (zt->inner_mtu - PACKETIZED_HEADER_BYTES -
+                                    PACKETIZED_RETRANS_IDS_OFFSET) /
+                                       PACKETIZED_RETRANS_ID_BYTES
                                  : 0;
+    if (max_ids_per_req > PACKETIZED_RETRANS_MAX_IDS)
+        max_ids_per_req = PACKETIZED_RETRANS_MAX_IDS;
     if (max_ids_per_req == 0) return ZCM_EINVALID;
 
     sent = 0;
@@ -203,11 +212,14 @@ static int send_retrans_request(zcm_trans_packetized_serial_t* zt)
         size_t   i;
         size_t   remaining = rx->missing_count - sent;
         size_t   count     = remaining < max_ids_per_req ? remaining : max_ids_per_req;
-        size_t   body_len  = 1 + count * 2;
+        size_t   body_len  = PACKETIZED_RETRANS_BODY_BYTES(count);
         uint8_t* body      = zt->pkt_buf + PACKETIZED_HEADER_BYTES;
-        body[0]            = (uint8_t)count;
+        body[PACKETIZED_RETRANS_COUNT_OFFSET] = (uint8_t)count;
         for (i = 0; i < count; ++i) {
-            __int16_t_encode_array(body, 1 + i * 2, 2, (int16_t*)(&rx->missing_ids[sent + i]), 1);
+            __int16_t_encode_array(body, PACKETIZED_RETRANS_IDS_OFFSET +
+                                             i * PACKETIZED_RETRANS_ID_BYTES,
+                                   PACKETIZED_RETRANS_ID_BYTES,
+                                   (int16_t*)(&rx->missing_ids[sent + i]), 1);
         }
 
         int ret = send_packet(zt, rx->channel, rx->session_id, PACKETIZED_MSG_RETRANS_REQ,
@@ -230,7 +242,7 @@ static int queue_output(zcm_trans_packetized_serial_t* zt, const char* channel,
 
     if (len > 0) memcpy(zt->out_buf, data, len);
 
-    if (strip_packetized_prefix && channel[0] == '$') channel += 1;
+    if (strip_packetized_prefix && channel[0] == PACKETIZED_CHANNEL_PREFIX) channel += 1;
     strncpy(zt->out_channel, channel, ZCM_CHANNEL_MAXLEN);
     zt->out_channel[ZCM_CHANNEL_MAXLEN] = '\0';
     zt->out_len                         = len;
@@ -270,8 +282,10 @@ static int send_pending_retransmissions(zcm_trans_packetized_serial_t* zt)
         uint32_t remaining   = tx->total_message_size - offset;
         uint8_t  payload_len = (uint8_t)(remaining < chunk ? remaining : chunk);
 
-        __int16_t_encode_array(body, 0, 2, (int16_t*)(&packet_id), 1);
-        if (payload_len > 0) memcpy(&body[2], tx->data + offset, payload_len);
+        __int16_t_encode_array(body, PACKETIZED_DATA_PACKET_ID_OFFSET,
+                               PACKETIZED_DATA_PACKET_ID_BYTES, (int16_t*)(&packet_id), 1);
+        if (payload_len > 0)
+            memcpy(&body[PACKETIZED_DATA_PAYLOAD_OFFSET], tx->data + offset, payload_len);
 
         int ret = send_packet(zt, tx->channel, tx->session_id, PACKETIZED_MSG_DATA, body,
                               (uint8_t)(PACKETIZED_DATA_OVERHEAD_BYTES + payload_len));
@@ -289,12 +303,21 @@ static int begin_rx_session(zcm_trans_packetized_serial_t* zt, const char* chann
     if (body_len != PACKETIZED_METADATA_BODY_BYTES) return ZCM_EINVALID;
 
     uint16_t total_packets      = 0;
-    uint8_t  packet_data_size   = body[2];
+    uint8_t  packet_data_size   = body[PACKETIZED_METADATA_PACKET_DATA_SIZE_OFFSET];
     uint32_t total_message_size = 0;
     uint16_t expected_checksum  = 0;
-    if (__int16_t_decode_array(body, 0, 2, (int16_t*)(&total_packets), 1) < 0) return ZCM_EINVALID;
-    if (__int32_t_decode_array(body, 3, 4, (int32_t*)(&total_message_size), 1) < 0) return ZCM_EINVALID;
-    if (__int16_t_decode_array(body, 7, 2, (int16_t*)(&expected_checksum), 1) < 0) return ZCM_EINVALID;
+    if (__int16_t_decode_array(body, PACKETIZED_METADATA_TOTAL_PACKETS_OFFSET,
+                               PACKETIZED_METADATA_TOTAL_PACKETS_BYTES,
+                               (int16_t*)(&total_packets), 1) < 0)
+        return ZCM_EINVALID;
+    if (__int32_t_decode_array(body, PACKETIZED_METADATA_TOTAL_MESSAGE_SIZE_OFFSET,
+                               PACKETIZED_METADATA_TOTAL_MESSAGE_SIZE_BYTES,
+                               (int32_t*)(&total_message_size), 1) < 0)
+        return ZCM_EINVALID;
+    if (__int16_t_decode_array(body, PACKETIZED_METADATA_CHECKSUM_OFFSET,
+                               PACKETIZED_METADATA_CHECKSUM_BYTES,
+                               (int16_t*)(&expected_checksum), 1) < 0)
+        return ZCM_EINVALID;
 
     if (total_packets == 0 || packet_data_size == 0) return ZCM_EINVALID;
     if (packet_data_size > PACKETIZED_MAX_PACKET_DATA_SIZE) return ZCM_EINVALID;
@@ -335,7 +358,8 @@ static int process_rx_data(zcm_trans_packetized_serial_t* zt, uint16_t session_i
     if (body_len < PACKETIZED_DATA_OVERHEAD_BYTES) return ZCM_EINVALID;
 
     uint16_t packet_id = 0;
-    __int16_t_decode_array(body, 0, 2, (int16_t*)(&packet_id), 1);
+    __int16_t_decode_array(body, PACKETIZED_DATA_PACKET_ID_OFFSET,
+                           PACKETIZED_DATA_PACKET_ID_BYTES, (int16_t*)(&packet_id), 1);
     uint8_t  payload_len = (uint8_t)(body_len - PACKETIZED_DATA_OVERHEAD_BYTES);
 
     if (packet_id >= rx->total_packets) return ZCM_EINVALID;
@@ -349,7 +373,8 @@ static int process_rx_data(zcm_trans_packetized_serial_t* zt, uint16_t session_i
     if (payload_len != expected_len) return ZCM_EINVALID;
 
     if (!rx->packet_received[packet_id]) {
-        if (payload_len > 0) memcpy(rx->data + offset, &body[2], payload_len);
+        if (payload_len > 0)
+            memcpy(rx->data + offset, &body[PACKETIZED_DATA_PAYLOAD_OFFSET], payload_len);
         rx->packet_received[packet_id] = 1;
         ++rx->received_count;
     }
@@ -357,7 +382,8 @@ static int process_rx_data(zcm_trans_packetized_serial_t* zt, uint16_t session_i
     rx->last_update_utime = utime;
 
     if (rx->received_count == rx->total_packets) {
-        uint16_t checksum = fletcher16(rx->data, rx->total_message_size, 0xFFFF);
+        uint16_t checksum =
+            fletcher16(rx->data, rx->total_message_size, PACKETIZED_FLETCHER16_INIT);
         if (checksum != rx->expected_checksum) {
             rx_clear(rx);
             return ZCM_EINVALID;
@@ -381,10 +407,10 @@ static int process_retrans_request(zcm_trans_packetized_serial_t* zt, uint16_t s
     uint8_t                i;
     packetized_tx_state_t* tx = &zt->tx;
     if (!tx->active || tx->session_id != session_id) return ZCM_EOK;
-    if (body_len < 1) return ZCM_EINVALID;
+    if (body_len < PACKETIZED_RETRANS_IDS_OFFSET) return ZCM_EINVALID;
 
-    uint8_t count = body[0];
-    if ((size_t)(1 + (size_t)count * 2) != body_len) return ZCM_EINVALID;
+    uint8_t count = body[PACKETIZED_RETRANS_COUNT_OFFSET];
+    if (PACKETIZED_RETRANS_BODY_BYTES(count) != body_len) return ZCM_EINVALID;
 
     tx->retrans_count = 0;
     if (count == 0) return ZCM_EOK;
@@ -393,7 +419,9 @@ static int process_retrans_request(zcm_trans_packetized_serial_t* zt, uint16_t s
     tx->retrans_count = count;
     for (i = 0; i < count; ++i) {
         uint16_t packet_id = 0;
-        __int16_t_decode_array(body, 1 + (size_t)i * 2, 2, (int16_t *)(&packet_id), 1);
+        __int16_t_decode_array(body, PACKETIZED_RETRANS_IDS_OFFSET +
+                                         (size_t)i * PACKETIZED_RETRANS_ID_BYTES,
+                               PACKETIZED_RETRANS_ID_BYTES, (int16_t*)(&packet_id), 1);
         tx->retrans_ids[i] = packet_id;
     }
 
@@ -468,11 +496,16 @@ static int packetized_serial_sendmsg(zcm_trans_packetized_serial_t* zt, zcm_msg_
     tx->channel[ZCM_CHANNEL_MAXLEN] = '\0';
 
     uint8_t* meta = zt->pkt_buf + PACKETIZED_HEADER_BYTES;
-    uint16_t fletcherCsum = fletcher16(msg.buf, msg.len, 0xFFFF);
-    __int16_t_encode_array(meta, 0, 2, (int16_t*)(&total_packets), 1);
-    meta[2] = tx_packet_data_size;
-    __int32_t_encode_array(meta, 3, 4, (int32_t*)(&total_message_size), 1);
-    __int16_t_encode_array(meta, 7, 2, (int16_t*)(&fletcherCsum), 1);
+    uint16_t fletcherCsum = fletcher16(msg.buf, msg.len, PACKETIZED_FLETCHER16_INIT);
+    __int16_t_encode_array(meta, PACKETIZED_METADATA_TOTAL_PACKETS_OFFSET,
+                           PACKETIZED_METADATA_TOTAL_PACKETS_BYTES,
+                           (int16_t*)(&total_packets), 1);
+    meta[PACKETIZED_METADATA_PACKET_DATA_SIZE_OFFSET] = tx_packet_data_size;
+    __int32_t_encode_array(meta, PACKETIZED_METADATA_TOTAL_MESSAGE_SIZE_OFFSET,
+                           PACKETIZED_METADATA_TOTAL_MESSAGE_SIZE_BYTES,
+                           (int32_t*)(&total_message_size), 1);
+    __int16_t_encode_array(meta, PACKETIZED_METADATA_CHECKSUM_OFFSET,
+                           PACKETIZED_METADATA_CHECKSUM_BYTES, (int16_t*)(&fletcherCsum), 1);
     ret = send_packet(zt, tx->channel, tx->session_id, PACKETIZED_MSG_METADATA, meta,
                       PACKETIZED_METADATA_BODY_BYTES);
     if (ret != ZCM_EOK) return ret;
@@ -484,8 +517,10 @@ static int packetized_serial_sendmsg(zcm_trans_packetized_serial_t* zt, zcm_msg_
         uint8_t  payload_len =
             (uint8_t)(remaining < tx_packet_data_size ? remaining : tx_packet_data_size);
 
-        __int16_t_encode_array(body, 0, 2, (int16_t*)(&packet_id), 1);
-        if (payload_len > 0) memcpy(&body[2], tx->data + offset, payload_len);
+        __int16_t_encode_array(body, PACKETIZED_DATA_PACKET_ID_OFFSET,
+                               PACKETIZED_DATA_PACKET_ID_BYTES, (int16_t*)(&packet_id), 1);
+        if (payload_len > 0)
+            memcpy(&body[PACKETIZED_DATA_PAYLOAD_OFFSET], tx->data + offset, payload_len);
 
         ret = send_packet(zt, tx->channel, tx->session_id, PACKETIZED_MSG_DATA, body,
                           (uint8_t)(PACKETIZED_DATA_OVERHEAD_BYTES + payload_len));
@@ -514,10 +549,11 @@ static int process_incoming_messages(zcm_trans_packetized_serial_t* zt)
 
         if (in.len < PACKETIZED_HEADER_BYTES) continue;
 
-        uint8_t  type       = in.buf[0];
+        uint8_t  type       = in.buf[PACKETIZED_HEADER_TYPE_OFFSET];
         uint16_t session_id = 0;
-        __int16_t_decode_array(in.buf, 1, 2, (int16_t*)(&session_id), 1);
-        uint8_t  body_len   = in.buf[3];
+        __int16_t_decode_array(in.buf, PACKETIZED_HEADER_SESSION_ID_OFFSET,
+                               PACKETIZED_HEADER_SESSION_ID_BYTES, (int16_t*)(&session_id), 1);
+        uint8_t  body_len   = in.buf[PACKETIZED_HEADER_BODY_LEN_OFFSET];
         if (in.len != PACKETIZED_HEADER_BYTES + body_len) continue;
 
         const uint8_t* body = &in.buf[PACKETIZED_HEADER_BYTES];
@@ -533,7 +569,6 @@ static int process_incoming_messages(zcm_trans_packetized_serial_t* zt)
             continue;
         }
 
-        // RRR: should we break? could end up blocking for a while otherwise
         if (ret != ZCM_EOK && ret != ZCM_EINVALID) return ret;
     }
 
@@ -647,14 +682,15 @@ zcm_trans_t* zcm_trans_packetized_serial_create(
     }
 
     zt->inner_mtu = zcm_trans_get_mtu(zt->inner);
-    if (zt->inner_mtu < PACKETIZED_HEADER_BYTES + PACKETIZED_DATA_OVERHEAD_BYTES + 1 ||
+    if (zt->inner_mtu < PACKETIZED_HEADER_BYTES + PACKETIZED_DATA_OVERHEAD_BYTES +
+                            PACKETIZED_MIN_DATA_PAYLOAD_BYTES ||
         zt->inner_mtu < PACKETIZED_HEADER_BYTES + PACKETIZED_METADATA_BODY_BYTES) {
         zcm_trans_generic_serial_destroy(zt->inner);
         free(zt);
         return NULL;
     }
 
-    zt->dynamic = (max_message_size == 0);
+    zt->dynamic = (max_message_size == ZCM_TRANS_PACKETIZED_SERIAL_GROW_DYNAMICALLY);
     zt->max_message_size = zt->dynamic ? PACKETIZED_DEFAULT_MAX_MESSAGE_SIZE : max_message_size;
 
     if (tx_packet_data_size == 0) {
