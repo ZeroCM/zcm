@@ -66,6 +66,23 @@ be used to *summon* the transport:
 When no url is provided (i.e. `zcm_create(NULL)`), the `ZCM_DEFAULT_URL` environment variable is
 queried for a valid url.
 
+## Serial Transport Notes
+
+The `serial://` transport supports multiple modes:
+
+- Generic serial framing (default): [Generic Serial Transport](generic_serial_transport.md)
+- Packetized mode (set `pkt_size`): [Packetized Serial Transport](packetized_serial_transport.md)
+- Raw mode (set `raw=true`): passes bytes through without ZCM framing
+
+Common `serial://` options:
+
+- `baud=<int>` — baud rate (if omitted, baud setup is skipped)
+- `hw_flow_control=true|false` — enable/disable hardware flow control
+- `pkt_size=<int>` — enable packetized mode; packet payload size in bytes (must be in `[1,253]`)
+- `raw=true|false` — enable raw passthrough (mutually exclusive with `pkt_size`)
+- `raw_channel=<string>` — optional channel name used by the raw wrapper
+- `raw_size=<int>` — raw buffer size (default 1024)
+
 ## Custom Transports
 
 While these built-in transports are enough for many applications, there are many situations
