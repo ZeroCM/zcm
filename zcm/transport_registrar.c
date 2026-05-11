@@ -35,9 +35,44 @@ zcm_trans_create_func *zcm_transport_find(const char *name)
 
 void zcm_transport_help(FILE *f)
 {
+    const int name_width = 20;
+    const int desc_width = 120 - name_width - 1;
+
     fprintf(f, "Transport Name       Description\n");
     fprintf(f, "---------------------------------------------------------------------\n");
     for (size_t i = 0; i < t_index; i++) {
-        fprintf(f, "%-20s %s\n", t_name[i], t_desc[i]);
+        const char *desc = t_desc[i];
+        size_t len = strlen(desc);
+        size_t pos = 0;
+        bool first_line = true;
+
+        do {
+            if (first_line) {
+                fprintf(f, "%-*s ", name_width, t_name[i]);
+                first_line = false;
+            } else {
+                fprintf(f, "%*s", name_width + 1, "");
+            }
+
+            // Check if remaining description will fit
+            size_t remaining = len - pos;
+            if (remaining <= (size_t)desc_width) {
+                fprintf(f, "%s\n", desc + pos);
+                break;
+            }
+
+            // Look for natural boundary to break on
+            size_t brk = (size_t)desc_width;
+            while (brk > 0 && desc[pos + brk] != ' ')
+                brk--;
+            if (brk == 0)
+                brk = (size_t)desc_width;
+
+            fprintf(f, "%.*s\n", (int)brk, desc + pos);
+            pos += brk;
+            while (pos < len && desc[pos] == ' ')
+                pos++;
+        } while (pos < len);
+        fprintf(f, "\n");
     }
 }

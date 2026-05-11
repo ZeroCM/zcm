@@ -4,6 +4,7 @@
 #include "zcm/util/debug.h"
 
 #include "generic_serial_transport.h"
+#include "packetized_serial_transport.h"
 
 #include "util/TimeUtil.hpp"
 
@@ -33,11 +34,26 @@
 
 using namespace std;
 
+static bool parsePacketDataSize(const string* opt, uint8_t& out)
+{
+    if (!opt) {
+        out = 0;
+        return true;
+    }
+    char* endptr;
+    unsigned long parsed = strtoul(opt->c_str(), &endptr, 10);
+    if (*endptr != '\0' || parsed == 0 || parsed > 253) return false;
+    out = (uint8_t)parsed;
+    return true;
+}
+
+
 struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 {
     unordered_map<string, string> options;
     uint32_t msgId;
     uint32_t txId;
+    uint8_t packetDataSize;
     string address;
 
     int soc = -1;
@@ -46,6 +62,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 	struct ifreq ifr;
 
     zcm_trans_t* gst = nullptr;
+    int (*gst_update_rx)(zcm_trans_t*) = nullptr;
+    int (*gst_update_tx)(zcm_trans_t*) = nullptr;
 
     uint64_t recvTimeoutUs = 0;
     uint64_t recvMsgStartUtime = 0;
@@ -72,6 +90,12 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             options[opts->name[i]] = opts->value[i];
 
         msgId = 0;
+        packetDataSize = 0;
+        if (!parsePacketDataSize(findOption("pkt_size"), packetDataSize)) {
+            ZCM_DEBUG("Invalid pkt_size. Expected integer in [1,253]");
+            return;
+        }
+
         auto* msgIdStr = findOption("msgid");
         if (!msgIdStr) {
             ZCM_DEBUG("Msg Id unspecified");
@@ -155,18 +179,34 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             return;
         }
 
-        gst = zcm_trans_generic_serial_create(&ZCM_TRANS_CLASSNAME::get,
-                                              &ZCM_TRANS_CLASSNAME::put,
-                                              this,
-                                              &ZCM_TRANS_CLASSNAME::timestamp_now,
-                                              this,
-                                              MTU, MTU * 10);
+        if (packetDataSize != 0) {
+            gst = zcm_trans_packetized_serial_create(&ZCM_TRANS_CLASSNAME::get,
+                                                     &ZCM_TRANS_CLASSNAME::put,
+                                                     this,
+                                                      &ZCM_TRANS_CLASSNAME::timestamp_now,
+                                                      this,
+                                                      MTU, MTU * 10,
+                                                      packetDataSize,
+                                                      ZCM_TRANS_PACKETIZED_SERIAL_GROW_DYNAMICALLY);
+            gst_update_rx = packetized_serial_update_rx;
+            gst_update_tx = packetized_serial_update_tx;
+        } else {
+            gst = zcm_trans_generic_serial_create(&ZCM_TRANS_CLASSNAME::get,
+                                                  &ZCM_TRANS_CLASSNAME::put,
+                                                  this,
+                                                  &ZCM_TRANS_CLASSNAME::timestamp_now,
+                                                  this,
+                                                  MTU, MTU * 10);
+            gst_update_rx = serial_update_rx;
+            gst_update_tx = serial_update_tx;
+        }
+        if (!gst) return;
         socSettingsGood = true;
     }
 
     ~ZCM_TRANS_CLASSNAME()
     {
-        if (gst) zcm_trans_generic_serial_destroy(gst);
+        if (gst) zcm_trans_destroy(gst);
         if (soc != -1 && close(soc) < 0) {
             ZCM_DEBUG("Failed to close");
 	    }
@@ -277,7 +317,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     {
         int ret = zcm_trans_sendmsg(this->gst, msg);
         if (ret != ZCM_EOK) return ret;
-        return serial_update_tx(this->gst);
+        return this->gst_update_tx(this->gst);
     }
 
     int recvmsgEnable(const char* channel, bool enable)
@@ -309,7 +349,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
                 return ZCM_EUNKNOWN;
             }
 
-            serial_update_rx(this->gst);
+            this->gst_update_rx(this->gst);
         } while (true);
         return ZCM_EAGAIN;
     }
@@ -366,5 +406,6 @@ static zcm_trans_t *create(zcm_url_t* url, char **opt_errmsg)
 #ifdef USING_TRANS_CAN
 const TransportRegister ZCM_TRANS_CLASSNAME::reg(
     "can", "Transfer data via a socket CAN connection on a single id "
-           "(e.g. 'can://can0?msgid=65536&rx_extended_addr=standard&tx_extended_addr=true')", create);
+    "(e.g. 'can://can0?msgid=65536&rx_extended_addr=standard&tx_extended_addr=true' or "
+    "'can://can0?msgid=65536&pkt_size=8')", create);
 #endif

@@ -5,6 +5,7 @@
 #include "zcm/util/debug.h"
 
 #include "generic_serial_transport.h"
+#include "packetized_serial_transport.h"
 
 #include "util/TimeUtil.hpp"
 
@@ -42,6 +43,20 @@ using u8  = uint8_t;
 using u16 = uint16_t;
 using u32 = uint32_t;
 using u64 = uint64_t;
+
+static bool parsePacketDataSize(const string* opt, uint8_t& out)
+{
+    if (!opt) {
+        out = 0;
+        return true;
+    }
+    char* endptr;
+    unsigned long parsed = strtoul(opt->c_str(), &endptr, 10);
+    if (*endptr != '\0' || parsed == 0 || parsed > 253) return false;
+    out = (uint8_t)parsed;
+    return true;
+}
+
 
 struct Serial
 {
@@ -242,7 +257,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 
     int baud;
     bool hwFlowControl;
-
+    uint8_t packetDataSize;
     bool raw;
     string rawChan;
     int rawSize;
@@ -253,6 +268,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     unordered_map<string, string> options;
 
     zcm_trans_t* gst;
+    int (*gst_update_rx)(zcm_trans_t*) = nullptr;
+    int (*gst_update_tx)(zcm_trans_t*) = nullptr;
 
     uint64_t timeoutLeftUs;
 
@@ -298,6 +315,11 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             }
         }
 
+        packetDataSize = 0;
+        if (!parsePacketDataSize(findOption("pkt_size"), packetDataSize)) {
+            ZCM_DEBUG("expected integer argument in [1,253] for 'pkt_size'");
+            return;
+        }
         raw = false;
         auto* rawStr = findOption("raw");
         if (rawStr) {
@@ -309,6 +331,10 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
                 ZCM_DEBUG("expected boolean argument for 'raw'");
                 return;
             }
+        }
+        if (raw && packetDataSize != 0) {
+            ZCM_DEBUG("'raw' and 'pkt_size' options are mutually exclusive");
+            return;
         }
 
         rawChan = "";
@@ -333,6 +359,17 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
         if (raw) {
             rawBuf.reset(new uint8_t[rawSize]);
             gst = nullptr;
+        } else if (packetDataSize != 0) {
+            gst = zcm_trans_packetized_serial_create(&ZCM_TRANS_CLASSNAME::get,
+                                                     &ZCM_TRANS_CLASSNAME::put,
+                                                     this,
+                                                      &ZCM_TRANS_CLASSNAME::timestamp_now,
+                                                      nullptr,
+                                                      MTU, MTU * 10,
+                                                      packetDataSize,
+                                                      ZCM_TRANS_PACKETIZED_SERIAL_GROW_DYNAMICALLY);
+            gst_update_rx = packetized_serial_update_rx;
+            gst_update_tx = packetized_serial_update_tx;
         } else {
             gst = zcm_trans_generic_serial_create(&ZCM_TRANS_CLASSNAME::get,
                                                   &ZCM_TRANS_CLASSNAME::put,
@@ -340,18 +377,20 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
                                                   &ZCM_TRANS_CLASSNAME::timestamp_now,
                                                   nullptr,
                                                   MTU, MTU * 10);
+            gst_update_rx = serial_update_rx;
+            gst_update_tx = serial_update_tx;
         }
     }
 
     ~ZCM_TRANS_CLASSNAME()
     {
         ser.close();
-        if (gst) zcm_trans_generic_serial_destroy(gst);
+        if (gst) zcm_trans_destroy(gst);
     }
 
     bool good()
     {
-        return ser.isOpen();
+        return ser.isOpen() && (raw || gst != nullptr);
     }
 
     static size_t get(uint8_t* data, size_t nData, void* usr)
@@ -389,7 +428,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
             //       and touch no variables related to receiving
             int ret = zcm_trans_sendmsg(this->gst, msg);
             if (ret != ZCM_EOK) return ret;
-            return serial_update_tx(this->gst);
+            return this->gst_update_tx(this->gst);
         }
     }
 
@@ -427,7 +466,7 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
                 //       `get` knows how long it has to exit
                 timeoutLeftUs = timeoutLeftUs > diff ? timeoutLeftUs - diff : 0;
 
-                serial_update_rx(this->gst);
+                this->gst_update_rx(this->gst);
 
                 diff = TimeUtil::utime() - startUtime;
                 timeoutLeftUs = timeoutLeftUs > diff ? timeoutLeftUs - diff : 0;
@@ -489,7 +528,8 @@ static zcm_trans_t* create(zcm_url_t* url, char **opt_errmsg)
 // Register this transport with ZCM
 const TransportRegister ZCM_TRANS_CLASSNAME::reg(
     "serial", "Transfer data via a serial connection "
-              "(e.g. 'serial:///dev/ttyUSB0?baud=115200&hw_flow_control=true' or "
-              "'serial:///dev/pts/10?raw=true&raw_channel=RAW_SERIAL')",
+    "(e.g. 'serial:///dev/ttyUSB0?baud=115200&hw_flow_control=true', "
+    "'serial:///dev/ttyUSB0?baud=115200&pkt_size=128', or "
+    "'serial:///dev/pts/10?raw=true&raw_channel=RAW_SERIAL')",
     create);
 #endif
