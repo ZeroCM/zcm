@@ -66,9 +66,7 @@ def add_zcm_configure_options(ctx):
                   choices=['true', 'false'],
                   help='Include the zcmtype name in the hash generation')
 
-    # RRR (Jakob H.): Shouldn't this default to false so that the previous default behavior
-    #                 is preserved?
-    gr.add_option('--monotonic-clock', dest='monotonic_clock', default='true',
+    gr.add_option('--monotonic-clock', dest='monotonic_clock', default='false',
                   choices=['true', 'false'],
                   help='Instead of using the system clock, use a clock source that is guaranteed '
                        'to be monotonic for all utimes internally')
