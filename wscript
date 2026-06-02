@@ -409,7 +409,7 @@ def setup_environment(ctx):
     ctx.env.LIB_default       = ['rt'] if ctx.env.USING_IPCSHM else []
     ctx.env.LINKFLAGS_default = ['-pthread']
 
-    ctx.env.DEFINES_default   = ['_LARGEFILE_SOURCE', '_FILE_OFFSET_BITS=64']
+    ctx.env.DEFINES_default   = ['_LARGEFILE_SOURCE', '_LARGEFILE64_SOURCE', '_FILE_OFFSET_BITS=64']
     for k in ctx.env.keys():
         if k.startswith('USING_'):
             if getattr(ctx.env, k):
