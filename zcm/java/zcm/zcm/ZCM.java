@@ -12,9 +12,14 @@ public class ZCM implements AutoCloseable
     {
         Object nativeSub;
         ZCMSubscriber javaSub;
+        boolean unsubscribed;
     }
 
-    boolean closed = false;
+    private final Object lifecycleLock = new Object();
+    private final Set<Subscription> subscriptions = new HashSet<Subscription>();
+    private boolean closing = false;
+    private boolean closed = false;
+    private int inFlightCallbacks = 0;
 
     static ZCM singleton;
 
@@ -43,8 +48,21 @@ public class ZCM implements AutoCloseable
         zcmjni = new ZCMJNI(transport);
     }
 
-    public void start() { zcmjni.start(); }
-    public void stop()  { zcmjni.stop(); }
+    public void start()
+    {
+        synchronized (lifecycleLock) {
+            ensureOpen();
+            zcmjni.start();
+        }
+    }
+
+    public void stop()
+    {
+        synchronized (lifecycleLock) {
+            ensureOpen();
+            zcmjni.stop();
+        }
+    }
 
     /** Retrieve a default instance of ZCM using either the environment
      * variable ZCM_DEFAULT_URL or the default. If an exception
@@ -74,7 +92,7 @@ public class ZCM implements AutoCloseable
      **/
     public int publish(String channel, String s) throws IOException
     {
-        if (this.closed) throw new IllegalStateException();
+        ensureOpen();
         s = s + "\0";
         byte[] b = s.getBytes();
         return publish(channel, b, 0, b.length);
@@ -85,7 +103,7 @@ public class ZCM implements AutoCloseable
      **/
     public synchronized int publish(String channel, ZCMEncodable e)
     {
-        if (this.closed) throw new IllegalStateException();
+        ensureOpen();
 
         try {
             encodeBuffer.reset();
@@ -106,25 +124,29 @@ public class ZCM implements AutoCloseable
     public int publish(String channel, byte[] data, int offset, int length)
         throws IOException
     {
-        if (this.closed) throw new IllegalStateException();
-        return zcmjni.publish(channel, data, offset, length);
+        synchronized (lifecycleLock) {
+            ensureOpen();
+            return zcmjni.publish(channel, data, offset, length);
+        }
     }
 
     public Subscription subscribe(String channel, ZCMSubscriber sub)
     {
-        if (this.closed) throw new IllegalStateException();
-
-        Subscription subs = new Subscription();
-        subs.javaSub = sub;
-
-        subs.nativeSub = zcmjni.subscribe(channel, this, subs);
-
-        return subs;
+        synchronized (lifecycleLock) {
+            ensureOpen();
+            Subscription subs = new Subscription();
+            subs.javaSub = sub;
+            subs.nativeSub = zcmjni.subscribe(channel, this, subs);
+            subscriptions.add(subs);
+            return subs;
+        }
     }
 
     public int unsubscribe(Subscription subs) {
-        if (this.closed) throw new IllegalStateException();
-        return zcmjni.unsubscribe(subs.nativeSub);
+        synchronized (lifecycleLock) {
+            ensureOpen();
+            return unsubscribeLocked(subs);
+        }
     }
 
     /** Not for use by end users. Provider back ends call this method
@@ -135,9 +157,19 @@ public class ZCM implements AutoCloseable
                                byte data[], int offset, int length,
                                Subscription subs)
     {
-        if (this.closed) throw new IllegalStateException();
-        subs.javaSub.messageReceived(this, channel, recvUtime,
-                                     new ZCMDataInputStream(data, offset, length));
+        synchronized (lifecycleLock) {
+            if (closing || closed || subs.unsubscribed || !subscriptions.contains(subs)) return;
+            inFlightCallbacks++;
+        }
+        try {
+            subs.javaSub.messageReceived(this, channel, recvUtime,
+                                         new ZCMDataInputStream(data, offset, length));
+        } finally {
+            synchronized (lifecycleLock) {
+                inFlightCallbacks--;
+                if (inFlightCallbacks == 0) lifecycleLock.notifyAll();
+            }
+        }
     }
 
     /** Call this function to release all resources used by the ZCM instance.  After calling this
@@ -146,14 +178,32 @@ public class ZCM implements AutoCloseable
      */
     public void close()
     {
-        if (this.closed) throw new IllegalStateException();
-        if (transport != null) {
-            zcmjni.stop();
-            transport.releaseNativeTransport();
+        Subscription[] subscriptionsToClose;
+        synchronized (lifecycleLock) {
+            if (closing || closed) throw new IllegalStateException();
+            closing = true;
+            subscriptionsToClose = subscriptions.toArray(new Subscription[subscriptions.size()]);
         }
-        zcmjni.destroy();
-        if (transport != null) transport.destroy();
-        this.closed = true;
+        try {
+            // stop() joins ZCM dispatch before JNI references are released.
+            zcmjni.stop();
+            waitForCallbacksToFinish();
+            synchronized (lifecycleLock) {
+                for (Subscription subscription : subscriptionsToClose) {
+                    unsubscribeLocked(subscription);
+                }
+            }
+            if (transport != null) transport.releaseNativeTransport();
+            zcmjni.destroy();
+            if (transport != null) transport.destroy();
+        } finally {
+            synchronized (lifecycleLock) {
+                subscriptions.clear();
+                closed = true;
+                closing = false;
+                lifecycleLock.notifyAll();
+            }
+        }
     }
 
     /** Get the native zcm_t* pointer for use in JNI code.
@@ -161,8 +211,45 @@ public class ZCM implements AutoCloseable
      */
     public long getNativeZcmPtr()
     {
-        if (this.closed) throw new IllegalStateException();
-        return zcmjni.getNativeZcmPtr();
+        synchronized (lifecycleLock) {
+            ensureOpen();
+            return zcmjni.getNativeZcmPtr();
+        }
+    }
+
+    private void ensureOpen()
+    {
+        synchronized (lifecycleLock) {
+            if (closing || closed) throw new IllegalStateException();
+        }
+    }
+
+    private int unsubscribeLocked(Subscription subscription)
+    {
+        if (subscription == null || subscription.unsubscribed || !subscriptions.contains(subscription)) {
+            throw new IllegalArgumentException("Subscription does not belong to this ZCM instance");
+        }
+        int result = zcmjni.unsubscribe(subscription.nativeSub);
+        if (result == 0) {
+            subscription.unsubscribed = true;
+            subscriptions.remove(subscription);
+        }
+        return result;
+    }
+
+    private void waitForCallbacksToFinish()
+    {
+        boolean interrupted = false;
+        synchronized (lifecycleLock) {
+            while (inFlightCallbacks != 0) {
+                try {
+                    lifecycleLock.wait();
+                } catch (InterruptedException exception) {
+                    interrupted = true;
+                }
+            }
+        }
+        if (interrupted) Thread.currentThread().interrupt();
     }
 
     ////////////////////////////////////////////////////////////////

@@ -20,18 +20,20 @@ JNIEXPORT RET JNICALL Java_zcm_zcm_ZCMJNI_ ## NAME \
 }
 
 typedef struct Internal Internal;
+typedef struct Subscription Subscription;
 struct Internal
 {
     JavaVM *jvm;
     zcm_t *zcm;
+    Subscription *subscriptions;
 };
 
-typedef struct Subscription Subscription;
 struct Subscription {
     Internal* I;
     jobject self;
     zcm_sub_t* zcmsub;
     jobject javaUsr;
+    Subscription *next;
 };
 
 // J is the type signature for long
@@ -110,6 +112,14 @@ JNIEXPORT void JNICALL Java_zcm_zcm_ZCMJNI_destroy
     Internal *I = getNativePtr(env, self);
     if (!I) return;
     if (I->zcm) zcm_destroy(I->zcm);
+    Subscription *subscription = I->subscriptions;
+    while (subscription != NULL) {
+        Subscription *next = subscription->next;
+        (*env)->DeleteGlobalRef(env, subscription->javaUsr);
+        (*env)->DeleteGlobalRef(env, subscription->self);
+        free(subscription);
+        subscription = next;
+    }
     free(I);
     setNativePtr(env, self, NULL);
 }
@@ -205,6 +215,8 @@ JNIEXPORT jobject JNICALL Java_zcm_zcm_ZCMJNI_subscribe
     subs->self = (*env)->NewGlobalRef(env, zcmObjJ);
     subs->I = I;
     subs->javaUsr = (*env)->NewGlobalRef(env, usr);
+    subs->next = I->subscriptions;
+    I->subscriptions = subs;
 
     const char *channel = (*env)->GetStringUTFChars(env, channelJ, 0);
 
@@ -228,12 +240,19 @@ JNIEXPORT jint JNICALL Java_zcm_zcm_ZCMJNI_unsubscribe
     assert(I);
 
     Subscription* subs = (Subscription*) (*env)->GetDirectBufferAddress(env, _subs);
-    (*env)->DeleteGlobalRef(env, subs->javaUsr);
-    (*env)->DeleteGlobalRef(env, subs->self);
-
     int ret = zcm_unsubscribe(I->zcm, subs->zcmsub);
-
-    free(subs);
+    if (ret == ZCM_EOK) {
+        Subscription **current = &I->subscriptions;
+        while (*current != NULL && *current != subs) {
+            current = &(*current)->next;
+        }
+        if (*current == subs) {
+            *current = subs->next;
+        }
+        (*env)->DeleteGlobalRef(env, subs->javaUsr);
+        (*env)->DeleteGlobalRef(env, subs->self);
+        free(subs);
+    }
 
     return ret;
 }
