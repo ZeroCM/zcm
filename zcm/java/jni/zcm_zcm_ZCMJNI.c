@@ -228,11 +228,13 @@ JNIEXPORT jint JNICALL Java_zcm_zcm_ZCMJNI_unsubscribe
     assert(I);
 
     Subscription* subs = (Subscription*) (*env)->GetDirectBufferAddress(env, _subs);
-    (*env)->DeleteGlobalRef(env, subs->javaUsr);
-    (*env)->DeleteGlobalRef(env, subs->self);
-
+    // zcm_unsubscribe waits for an in-flight handler to return. Keep the Java
+    // objects alive until that synchronization has completed: handler() reads
+    // both references while dispatching the callback.
     int ret = zcm_unsubscribe(I->zcm, subs->zcmsub);
 
+    (*env)->DeleteGlobalRef(env, subs->javaUsr);
+    (*env)->DeleteGlobalRef(env, subs->self);
     free(subs);
 
     return ret;
