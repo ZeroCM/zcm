@@ -42,7 +42,7 @@ public final class ZCMDataOutputStream implements DataOutput
 
     void ensureSpace(int needed)
     {
-        if (pos_byte+needed >= buf.length) {
+        if (pos_byte+needed > buf.length) {
             // compute new power-of-two capacity
             int newlen = buf.length;
             while (newlen < pos_byte+needed)
@@ -173,7 +173,7 @@ public final class ZCMDataOutputStream implements DataOutput
 
     public void writeBits(long value, int numbits)
     {
-        ensureSpace((int)Math.ceil((numbits + pos_bit) / 8));
+        ensureSpace((numbits + pos_bit + 7) / 8);
 
         int bits_left = numbits;
         while (bits_left > 0) {
