@@ -33,6 +33,17 @@ Have you tried running your program with `ZCM_DEBUG=1` in front of it? This enab
 
 
 
+### How does ZCM know where one serial message ends and which ZCM type should decode it?
+
+Use the `serial://` transport instead of writing raw concatenated message bytes to the device. The default serial transport wraps each ZCM message in a frame that contains the channel name, payload length, and checksum. On receive, ZCM scans the byte stream for the frame marker, validates the checksum, and then delivers the reconstructed `(channel, payload)` message to subscribers.
+
+The channel is the discriminator that lets your application decide which generated message type to decode. Subscribe to the channels you expect and decode each delivered payload with the matching generated type. If you have many message types on the same radio or UART link, publish them on distinct channels such as `GPS`, `COMPASS`, and `IMU`; receivers subscribe to those channels and ZCM routes the framed messages accordingly.
+
+For noisy byte-stream links, the serial framing can re-synchronize after corrupt bytes because each frame has a marker and checksum. For messages larger than the serial MTU, enable packetized serial mode with `pkt_size`, for example `serial:///dev/ttyUSB0?baud=115200&pkt_size=128`.
+
+See also [Transport Layer](transports.md), [Generic Serial Transport](generic_serial_transport.md), and [Packetized Serial Transport](packetized_serial_transport.md).
+
+
 ### Why does my program freeze when I try to subscribe / unsubscribe from within a callback?
 
 Calling the subscribe / unsubscribe functions modifies the same internal data structures as
@@ -51,4 +62,3 @@ that subscription is referenced elsewhere in your code. The easiest way to get
 around this problem is by calling unsubscribe on all your subscriptions on process.exit
 
     process.on('exit', function() { z.unsubscribe(sub); });
-
