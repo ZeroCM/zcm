@@ -372,15 +372,20 @@ class zcmgen(Task.Task):
     ext_in  = ['.zcm']
     ext_out = ['.c', '.h', '.hpp', '.java', '.py', '.jl']
 
+    # Task.uid() plus the package prefix: two task generators over the same sources can differ
+    # only in the prefix and still produce identically named outputs (nodejs emits zcmtypes.js
+    # either way). Node paths are taken relative to the source tree so that the uid, and any
+    # build cache keyed on it, is the same in every checkout of the project.
     def uid(self):
         try:
             return self.uid_
         except AttributeError:
+            src = self.generator.bld.srcnode
             m = Utils.md5(self.__class__.__name__.encode('utf-8'))
             up = m.update
             up(self.generator.pkgPrefix.encode('utf-8'))
             for x in self.inputs + self.outputs:
-                up(x.abspath().encode('utf-8'))
+                up(x.path_from(src).encode('utf-8'))
             self.uid_ = m.digest()
             return self.uid_
 
