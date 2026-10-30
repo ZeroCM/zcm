@@ -5,11 +5,10 @@ USER root
 ENV ZCM_HOME /zcm
 WORKDIR $ZCM_HOME
 
-RUN apt-get update && apt-get install -y sudo apt-utils
-
 COPY ./scripts/install-deps.sh ./scripts/install-deps.sh
-
-RUN bash -c './scripts/install-deps.sh -s'
+RUN bash -c 'apt-get update && \
+             apt-get install -y sudo apt-utils && \
+             ./scripts/install-deps.sh -s'
 
 RUN update-alternatives --install /usr/bin/python python /usr/bin/python3 1 && \
     update-alternatives --install /usr/bin/pip pip /usr/bin/pip3 1
