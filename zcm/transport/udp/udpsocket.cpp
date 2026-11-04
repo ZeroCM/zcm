@@ -117,7 +117,9 @@ bool UDPSocket::setTTL(u8 ttl, bool multicast)
             return false;
         }
     } else {
-        if (setsockopt(fd, IPPROTO_IP, IP_TTL, &ttl, sizeof(ttl)) < 0) {
+        // IP_TTL takes an int (macOS rejects a single byte)
+        int ttlInt = ttl;
+        if (setsockopt(fd, IPPROTO_IP, IP_TTL, &ttlInt, sizeof(ttlInt)) < 0) {
             perror("setsockopt(IPPROTO_IP, IP_TTL)");
             return false;
         }
@@ -221,8 +223,8 @@ bool UDPSocket::waitUntilData(unsigned timeoutMs)
     unsigned timeoutS = timeoutMs / 1000;
     unsigned timeoutUs = (timeoutMs - timeoutS * 1000) * 1000;
     struct timeval tm = {
-        timeoutS,  /* seconds */
-        timeoutUs, /* micros */
+        (time_t)timeoutS,       /* seconds */
+        (suseconds_t)timeoutUs, /* micros */
     };
 
     int status = select(fd + 1, &fds, 0, 0, &tm);
