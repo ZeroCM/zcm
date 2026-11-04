@@ -182,6 +182,26 @@ bool UDPSocket::enablePacketTimestamp()
     return true;
 }
 
+bool UDPSocket::enableKernelDropCounter()
+{
+    /* Ask the kernel to attach its count of dropped packets to every
+     * received packet. Only Linux supports this; failure is not fatal. */
+#if defined(SO_RXQ_OVFL) && defined(MSG_EXT_HDR)
+    int opt = 1;
+    if (setsockopt(fd, SOL_SOCKET, SO_RXQ_OVFL, &opt, sizeof(opt)) == 0)
+        kernelDropsEnabled = true;
+    else
+        ZCM_DEBUG("Unable to enable SO_RXQ_OVFL: %s", strerror(errno));
+#endif
+    return true;
+}
+
+bool UDPSocket::getKernelDrops(u64& out) const
+{
+    out = kernelDrops;
+    return kernelDropsEnabled;
+}
+
 bool UDPSocket::enableMulticastLoopback()
 {
     // NOTE: For support on SUN Operating Systems, send_lo_opt should be 'u8'
@@ -279,6 +299,18 @@ int UDPSocket::recvPacket(Packet *pkt)
             break;
         }
         cmsg = CMSG_NXTHDR(&msg, cmsg);
+    }
+#endif
+
+#if defined(SO_RXQ_OVFL) && defined(MSG_EXT_HDR)
+    if (kernelDropsEnabled && ret >= 0) {
+        for (struct cmsghdr *c = CMSG_FIRSTHDR(&msg); c; c = CMSG_NXTHDR(&msg, c)) {
+            if (c->cmsg_level == SOL_SOCKET && c->cmsg_type == SO_RXQ_OVFL) {
+                // Cumulative count for the socket, so just keep the latest
+                memcpy(&kernelDrops, CMSG_DATA(c), sizeof(kernelDrops));
+                break;
+            }
+        }
     }
 #endif
 
@@ -408,6 +440,7 @@ UDPSocket UDPSocket::createRecvSocket(struct in_addr addr, u16 port, bool multic
         if (!sock.setReusePort())            { sock.close(); return sock; }
     }
     if (!sock.enablePacketTimestamp())       { sock.close(); return sock; }
+    if (!sock.enableKernelDropCounter())     { sock.close(); return sock; }
     if (!sock.bindPort(port))                { sock.close(); return sock; }
     if (multicast) {
         if (!sock.joinMulticastGroup(addr))  { sock.close(); return sock; }

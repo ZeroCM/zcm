@@ -3,3 +3,4 @@
 
 def build(ctx):
     ctx.recurse('ipcshm')
+    ctx.recurse('udp')

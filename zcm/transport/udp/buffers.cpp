@@ -99,6 +99,7 @@ FragBuf *MessagePool::addFragBuf(u32 data_size)
             }
         }
         if (eldest) {
+            if (onEvict) onEvict(eldest);
             _removeFragBuf((size_t)idx);
             // XXX Need to free the removed FragBuf*
         }
