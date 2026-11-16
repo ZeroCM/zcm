@@ -229,6 +229,22 @@ struct PyEmitStruct : public Emitter
 
         bool inBitMode = false;
         size_t bitfieldNum = 0;
+        auto exitBitMode = [&]() {
+            if (!structFmt.empty()) {
+                flushReadStructFmt(structFmt, structMembers);
+            } else {
+                // Array decoding rewinds a partial byte so another bitfield can share it.
+                // Consume that byte when leaving the bitfield group.
+                emit(2, "if (offset_bit != 0):");
+                emit(3, "buf.seek(1, os.SEEK_CUR)");
+            }
+            inBitMode = false;
+            emit(0, "");
+            emit(2, "# End of bitfield %u", bitfieldNum);
+            emit(0, "");
+            ++bitfieldNum;
+        };
+
         for (auto& zm : zs.members) {
 
             string fmt = getStructFormat(zm);
@@ -245,17 +261,7 @@ struct PyEmitStruct : public Emitter
                 emit(2, "offset_bit = 0;");
                 emit(0, "");
             } else if (inBitMode && zm.type.numbits == 0) {
-                if (!structFmt.empty()) {
-                    flushReadStructFmt(structFmt, structMembers);
-                } else {
-                    emit(2, "if (offset_bit != 0):");
-                    emit(3, "buf.seek(1, os.SEEK_CUR)");
-                }
-                inBitMode = false;
-                emit(0, "");
-                emit(2, "# End of bitfield %u", bitfieldNum);
-                emit(0, "");
-                ++bitfieldNum;
+                exitBitMode();
             }
 
             if (zm.dimensions.size() == 0) {
@@ -352,16 +358,10 @@ struct PyEmitStruct : public Emitter
                 }
             }
         }
-        // Array decoding rewinds a partial byte so the next bitfield can share it.
-        // At the end of a record, consume that byte before returning to the caller.
-        if (inBitMode && structFmt.empty()) {
-            emit(2, "if (offset_bit != 0):");
-            emit(3, "buf.seek(1, os.SEEK_CUR)");
-        }
-        flushReadStructFmt(structFmt, structMembers);
         if (inBitMode) {
-            emit(2, "# End of bitfield %u", bitfieldNum);
-            emit(0, "");
+            exitBitMode();
+        } else {
+            flushReadStructFmt(structFmt, structMembers);
         }
         emit(2, "return self");
 
