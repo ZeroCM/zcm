@@ -49,6 +49,7 @@ echo "**********************************"
 echo "Running python tests"
 echo "**********************************"
 $PYTHON $THISDIR/python/bitfield-test.py
+$PYTHON $THISDIR/python/bitfield-arrays-test.py
 $PYTHON $THISDIR/python/example-test.py
 echo "Success"
 

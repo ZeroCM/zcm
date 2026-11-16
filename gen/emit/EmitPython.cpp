@@ -142,7 +142,8 @@ struct PyEmitStruct : public Emitter
             emit(indent, "numbits = %s%s * %u + offset_bit", fixedLen ? "" : "self.", len, zm.type.numbits);
             emit(indent, "bitbuf = buf.read(math.ceil(numbits / 8))");
             emit(indent, "formatstr = %s%s * \"%s\"", fixedLen ? "" : "self.", len, getStructFormat(zm).c_str());
-            emit(indent, "%s[*bitstruct.unpack_from('>' + formatstr + '>', bitbuf, offset_bit)]%s",
+            emit(indent, "%s([*bitstruct.unpack_from('>' + formatstr + '>', bitbuf, offset_bit)] "
+                         "if formatstr else [])%s",
                  accessor, suffix);
         } else if (tn == "byte") {
             emit(indent, "%sbuf.read(%s%s)%s",
@@ -351,6 +352,12 @@ struct PyEmitStruct : public Emitter
                 }
             }
         }
+        // Array decoding rewinds a partial byte so the next bitfield can share it.
+        // At the end of a record, consume that byte before returning to the caller.
+        if (inBitMode && structFmt.empty()) {
+            emit(2, "if (offset_bit != 0):");
+            emit(3, "buf.seek(1, os.SEEK_CUR)");
+        }
         flushReadStructFmt(structFmt, structMembers);
         if (inBitMode) {
             emit(2, "# End of bitfield %u", bitfieldNum);
@@ -425,7 +432,7 @@ struct PyEmitStruct : public Emitter
             string f = getStructFormat(zm);
             f[0] = 'u'; // Encoding is all unsigned
             emit(indent, "numbits = %s%s * %u", fixedLen ? "" : "self.", len, zm.type.numbits);
-            emit(indent, "mask = (1 << numbits) - 1");
+            emit(indent, "mask = (1 << %u) - 1", zm.type.numbits);
             emit(indent, "numbits += offset_bit");
             emit(indent, "bitbuf = bytearray(math.ceil(numbits / 8))");
             emit(indent, "if (offset_bit != 0):");
@@ -433,7 +440,8 @@ struct PyEmitStruct : public Emitter
             emit(indent + 1, "bitbuf[0] = buf.read(1)[0]");
             emit(indent + 1, "buf.seek(-1, os.SEEK_CUR)");
             emit(indent, "formatstr = %s%s * \"%s\"", fixedLen ? "" : "self.", len, f.c_str());
-            emit(indent, "bitstruct.pack_into('>' + formatstr + '>', "
+            emit(indent, "if formatstr:");
+            emit(indent + 1, "bitstruct.pack_into('>' + formatstr + '>', "
                          "bitbuf, offset_bit, *(f & mask for f in %s[:%s%s]))",
                          accessor, fixedLen ? "" : "self.", len);
             emit(indent, "buf.write(bitbuf)");

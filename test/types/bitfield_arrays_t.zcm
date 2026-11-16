@@ -1,0 +1,26 @@
+struct bitfield_arrays_t
+{
+    int8_t count;
+    byte:3 aligned[count];
+    int8_t separator;
+    int8_t:-5 aligned_signed[count];
+    int8_t separator2;
+
+    byte:3 prefix;
+    byte:4 unsigned_values[count];
+    int8_t:-3 signed_values[count];
+    int8_t:-3 matrix[2][count];
+    byte:5 suffix;
+    byte:2 neighbors[2];
+    byte:1 tail[count];
+    int16_t marker;
+
+    byte:3 end_prefix;
+    byte:2 end_values[count];
+}
+
+struct bitfield_array_records_t
+{
+    bitfield_arrays_t records[2];
+    int16_t marker;
+}
