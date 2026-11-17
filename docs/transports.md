@@ -66,6 +66,32 @@ be used to *summon* the transport:
 When no url is provided (i.e. `zcm_create(NULL)`), the `ZCM_DEFAULT_URL` environment variable is
 queried for a valid url.
 
+## Dropped Message Counts
+
+`zcm_query_drops(zcm, &drops)` returns the number of messages the transport knows it lost since it
+was created. The count only ever increases, so you can sample it periodically and look at the
+difference. Transports that can't tell return `ZCM_EUNIMPL`.
+
+Currently supported by `ipcshm` and by the UDP transports (`udpm` and `udp`). For UDP, every packet
+carries a per-sender sequence number, so the receiver counts a message as dropped when:
+
+- none of its packets arrived (a gap in that sender's sequence numbers), or
+- it was fragmented and could not be reassembled (missing or invalid fragments).
+
+A few things to keep in mind for UDP:
+
+- Loss is detected when the next message from the same sender arrives, so messages lost at the
+  very end of a stream (or before the first message received) are not counted.
+- A message that arrives after a newer one from the same sender (network reordering) has
+  already been counted as dropped and stays counted.
+- Each publishing ZCM instance is a separate sender; its sequence numbers are tracked
+  independently, and a sender that restarts is detected and not reported as loss.
+
+When debug output is on (`ZCM_DEBUG=1`), the UDP transport also prints a loss summary every few
+seconds while drops are increasing. On Linux, that summary includes the number of packets the
+kernel discarded because the socket receive buffer was full (`SO_RXQ_OVFL`), which usually means
+the receive buffer should be enlarged (see `scripts/set-multicast-buffers.sh`).
+
 ## Serial Transport Notes
 
 The `serial://` transport supports multiple modes:

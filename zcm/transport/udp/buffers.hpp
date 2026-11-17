@@ -1,4 +1,5 @@
 #pragma once
+#include <functional>
 
 #include "udp.hpp"
 #include "mempool.hpp"
@@ -168,6 +169,10 @@ struct MessagePool
 
     void transferBufffer(Message *to, FragBuf *from);
     void moveBuffer(Buffer& to, Buffer& from);
+
+    // Called with each incomplete fragment buffer that addFragBuf() evicts
+    // to stay under its size limits
+    std::function<void(const FragBuf*)> onEvict;
 
   private:
     void _freeMessageBuffer(Message *b);

@@ -42,6 +42,7 @@ class UDPSocket
     bool setReuseAddr();
     bool setReusePort();
     bool enablePacketTimestamp();
+    bool enableKernelDropCounter();
     bool enableMulticastLoopback();
     bool setDestination(const string& ip, u16 port);
 
@@ -51,6 +52,11 @@ class UDPSocket
     // Returns true when there is a packet available for receiving
     bool waitUntilData(unsigned timeout);
     int recvPacket(Packet *pkt);
+
+    // Number of packets the kernel dropped on this socket because its receive
+    // buffer was full. Returns false if the platform can't report it (only
+    // Linux, via SO_RXQ_OVFL, can).
+    bool getKernelDrops(u64& out) const;
 
     ssize_t sendBuffers(const UDPAddress& dest, const char *a, size_t alen);
     ssize_t sendBuffers(const UDPAddress& dest, const char *a, size_t alen,
@@ -67,6 +73,8 @@ class UDPSocket
   private:
     SOCKET fd = -1;
     bool warnedAboutSmallBuffer = false;
+    bool kernelDropsEnabled = false;
+    u32 kernelDrops = 0;
 
   private:
     // Disallow copies
@@ -75,6 +83,14 @@ class UDPSocket
 
   public:
     // Allow moves
-    UDPSocket(UDPSocket&& other) { std::swap(this->fd, other.fd); }
-    UDPSocket& operator=(UDPSocket&& other) { std::swap(this->fd, other.fd); return *this; }
+    UDPSocket(UDPSocket&& other) { swapWith(other); }
+    UDPSocket& operator=(UDPSocket&& other) { swapWith(other); return *this; }
+
+  private:
+    void swapWith(UDPSocket& other)
+    {
+        std::swap(this->fd, other.fd);
+        std::swap(this->kernelDropsEnabled, other.kernelDropsEnabled);
+        std::swap(this->kernelDrops, other.kernelDrops);
+    }
 };

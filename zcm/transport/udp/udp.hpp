@@ -10,6 +10,7 @@
 #include <cerrno>
 #include <ctime>
 #include <cassert>
+#include <cinttypes>
 
 // TODO: get rid of these
 #include <thread>

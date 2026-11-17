@@ -2,6 +2,7 @@
 #include "buffers.hpp"
 #include "udpsocket.hpp"
 #include "mempool.hpp"
+#include "losstracker.hpp"
 
 #include "zcm/transport.h"
 #include "zcm/transport_registrar.h"
@@ -67,10 +68,14 @@ struct UDP
     MessagePool pool {MAX_FRAG_BUF_TOTAL_SIZE, MAX_NUM_FRAG_BUFS};
 
     /* other variables */
-    u32          udp_rx = 0;            // packets received and processed
-    u32          udp_discarded_bad = 0; // packets discarded because they were bad somehow
-    double       udp_low_watermark = 1.0; // least buffer available
+    u64          udp_rx = 0;            // messages received and delivered
+    u64          udp_discarded_bad = 0; // packets discarded because they were bad somehow
     i32          udp_last_report_secs = 0;
+    u64          udp_last_report_drops = 0;
+    u64          udp_last_report_kernel_drops = 0;
+
+    // Messages lost between senders and us, reported through query_drops()
+    LossTracker  loss;
 
     u32          msg_seqno = 0; // rolling counter of how many messages transmitted
 
@@ -84,6 +89,7 @@ struct UDP
 
     int sendmsg(zcm_msg_t msg);
     int recvmsg(zcm_msg_t *msg, unsigned timeoutMs);
+    int queryDrops(uint64_t *out_drops);
 
   private:
     // These returns non-null when a full message has been received
@@ -101,14 +107,31 @@ Message *UDP::recvShort(Packet *pkt, u32 sz)
 {
     MsgHeaderShort *hdr = pkt->asHeaderShort();
 
+    struct sockaddr_in *from = (struct sockaddr_in*)&pkt->from;
+    u32 msg_seqno = hdr->getMsgSeqno();
+    loss.observe(from, msg_seqno);
+
+    // A sender transmits one message at a time, so a newer message means any
+    // partially received fragmented message from it can no longer complete.
+    // (recvFragment already gives up on it when the next fragmented message
+    // starts; without this a run of short messages would keep it around.)
+    FragBuf *fbuf = pool.lookupFragBuf(from);
+    if (fbuf && (u32)(msg_seqno - fbuf->msg_seqno) - 1 < 0x7fffffffu) {
+        ZCM_DEBUG("Dropping message (missing %d fragments)", fbuf->fragments_remaining);
+        loss.markDropped(from, fbuf->msg_seqno);
+        pool.removeFragBuf(fbuf);
+    }
+
     size_t clen = hdr->getChannelLen();
     if (clen > ZCM_CHANNEL_MAXLEN) {
         ZCM_DEBUG("bad channel name length");
         udp_discarded_bad++;
+        loss.markDropped(from, msg_seqno);
         return NULL;
     }
 
     udp_rx++;
+    loss.markDelivered(from, msg_seqno);
 
     Message *msg = pool.allocMessageEmpty();
     msg->utime = pkt->utime;
@@ -125,8 +148,10 @@ Message *UDP::recvFragment(Packet *pkt, u32 sz)
 {
     MsgHeaderLong *hdr = pkt->asHeaderLong();
 
+    struct sockaddr_in *from = (struct sockaddr_in*)&pkt->from;
+
     // any existing fragment buffer for this message source?
-    FragBuf *fbuf = pool.lookupFragBuf((struct sockaddr_in*)&pkt->from);
+    FragBuf *fbuf = pool.lookupFragBuf(from);
 
     u32 msg_seqno = hdr->getMsgSeqno();
     u32 data_size = hdr->getMsgSize();
@@ -136,16 +161,21 @@ Message *UDP::recvFragment(Packet *pkt, u32 sz)
     u32 frag_size = hdr->getFragmentSize(sz);
     char *data_start = hdr->getDataPtr();
 
+    loss.observe(from, msg_seqno);
+
     // discard any stale fragments from previous messages
     if (fbuf && ((fbuf->msg_seqno != msg_seqno) ||
                  (fbuf->buf.size != data_size + fbuf->channellen+1))) {
-        pool.removeFragBuf(fbuf);
         ZCM_DEBUG("Dropping message (missing %d fragments)", fbuf->fragments_remaining);
+        loss.markDropped(from, fbuf->msg_seqno);
+        pool.removeFragBuf(fbuf);
         fbuf = NULL;
     }
 
     if (data_size > MTU) {
         ZCM_DEBUG("rejecting huge message (%d bytes)", data_size);
+        udp_discarded_bad++;
+        loss.markDropped(from, msg_seqno);
         return NULL;
     }
 
@@ -156,6 +186,7 @@ Message *UDP::recvFragment(Packet *pkt, u32 sz)
         if (channel_sz > ZCM_CHANNEL_MAXLEN) {
             ZCM_DEBUG("bad channel name length");
             udp_discarded_bad++;
+            loss.markDropped(from, msg_seqno);
             return NULL;
         }
 
@@ -164,19 +195,25 @@ Message *UDP::recvFragment(Packet *pkt, u32 sz)
         fbuf->msg_seqno = msg_seqno;
         fbuf->fragments_remaining = fragments_in_msg;
         fbuf->channellen = channel_sz;
-        fbuf->from = *(struct sockaddr_in*)&pkt->from;
+        fbuf->from = *from;
         memcpy(fbuf->buf.data, data_start, frag_size);
 
         --fbuf->fragments_remaining;
         return NULL;
     }
 
-    if (!fbuf) return NULL;
+    if (!fbuf) {
+        // A fragment of a message whose first fragment we never saw (or
+        // that was already discarded): it can't be reassembled.
+        loss.markDropped(from, msg_seqno);
+        return NULL;
+    }
     recvfd.checkAndWarnAboutSmallBuffer(data_size, kernel_rbuf_sz);
 
     if (fbuf->channellen+1 + fragment_offset + frag_size > fbuf->buf.size) {
         ZCM_DEBUG("dropping invalid fragment (off: %d, %d / %zu)",
                 fragment_offset, frag_size, fbuf->buf.size);
+        loss.markDropped(from, msg_seqno);
         pool.removeFragBuf(fbuf);
         return NULL;
     }
@@ -197,6 +234,9 @@ Message *UDP::recvFragment(Packet *pkt, u32 sz)
     msg->datalen = fbuf->buf.size - (fbuf->channellen + 1);
     pool.moveBuffer(msg->buf, fbuf->buf);
 
+    udp_rx++;
+    loss.markDelivered(from, msg_seqno);
+
     // don't need the fragment buffer anymore
     pool.removeFragBuf(fbuf);
 
@@ -205,33 +245,32 @@ Message *UDP::recvFragment(Packet *pkt, u32 sz)
 
 void UDP::checkForMessageLoss()
 {
-    // ISSUE-101 TODO: add this back
-    // TODO warn about message loss somewhere else.
-    // u32 ring_capacity = ringbuf->get_capacity();
-    // u32 ring_used = ringbuf->get_used();
+    // Periodically summarize loss when debugging is enabled (ZCM_DEBUG=1)
+#ifdef ZCM_DEBUG_ENV_ENABLE
+    if (!ZCM_DEBUG_ENABLED) return;
+#else
+    return;
+#endif
 
-    // double buf_avail = ((double)(ring_capacity - ring_used)) / ring_capacity;
-    // if (buf_avail < udp_low_watermark)
-    //     udp_low_watermark = buf_avail;
+    i32 tm = utimeInSeconds();
+    if (tm - udp_last_report_secs < 2) return;
 
-    // i32 tm = utimeInSeconds();
-    // int elapsedsecs = tm - udp_last_report_secs;
-    // if (elapsedsecs > 2) {
-    //    if (udp_discarded_bad > 0 || udp_low_watermark < 0.5) {
-    //        fprintf(stderr,
-    //                "%d ZCM loss %4.1f%% : %5d err, "
-    //                "buf avail %4.1f%%\n",
-    //                (int) tm,
-    //                udp_discarded_bad * 100.0 / (udp_rx + udp_discarded_bad),
-    //                udp_discarded_bad,
-    //                100.0 * udp_low_watermark);
-
-    //        udp_rx = 0;
-    //        udp_discarded_bad = 0;
-    //        udp_last_report_secs = tm;
-    //        udp_low_watermark = HUGE;
-    //    }
-    // }
+    u64 drops = loss.getDrops();
+    u64 kdrops = 0;
+    bool haveKernelDrops = recvfd.getKernelDrops(kdrops);
+    if (drops != udp_last_report_drops || kdrops != udp_last_report_kernel_drops) {
+        char kernelMsg[96] = "";
+        if (haveKernelDrops)
+            snprintf(kernelMsg, sizeof(kernelMsg),
+                     ", %" PRIu64 " packets dropped by the kernel socket buffer", kdrops);
+        ZCM_DEBUG("UDP loss: %" PRIu64 " messages dropped (+%" PRIu64 "), "
+                  "%" PRIu64 " messages received, %" PRIu64 " bad packets%s",
+                  drops, drops - udp_last_report_drops,
+                  udp_rx, udp_discarded_bad, kernelMsg);
+        udp_last_report_drops = drops;
+        udp_last_report_kernel_drops = kdrops;
+    }
+    udp_last_report_secs = tm;
 }
 
 // read continuously until a complete message arrives
@@ -371,6 +410,13 @@ int UDP::sendmsg(zcm_msg_t msg)
     return 0;
 }
 
+int UDP::queryDrops(uint64_t *out_drops)
+{
+    if (!out_drops) return ZCM_EINVALID;
+    *out_drops = loss.getDrops();
+    return ZCM_EOK;
+}
+
 int UDP::recvmsg(zcm_msg_t *msg, unsigned timeoutMs)
 {
     if (m) pool.freeMessage(m);
@@ -397,7 +443,13 @@ UDP::UDP(const string& ip, u16 sub_port, u16 pub_port,
          size_t recv_buf_size, u8 ttl, bool multicast)
     : params(ip, sub_port, pub_port, recv_buf_size, ttl, multicast),
       destAddr(ip, pub_port)
-{}
+{
+    pool.onEvict = [this](const FragBuf *fbuf) {
+        ZCM_DEBUG("Evicting incomplete message (missing %d fragments)",
+                  fbuf->fragments_remaining);
+        loss.markDropped(&fbuf->from, fbuf->msg_seqno);
+    };
+}
 
 bool UDP::init()
 {
@@ -473,6 +525,9 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     static int _recvmsg(zcm_trans_t *zt, zcm_msg_t *msg, unsigned timeout)
     { return cast(zt)->udp.recvmsg(msg, timeout); }
 
+    static int _queryDrops(zcm_trans_t *zt, uint64_t *out_drops)
+    { return cast(zt)->udp.queryDrops(out_drops); }
+
     static void _destroy(zcm_trans_t *zt)
     { delete cast(zt); }
 
@@ -485,7 +540,7 @@ zcm_trans_methods_t ZCM_TRANS_CLASSNAME::methods = {
     &ZCM_TRANS_CLASSNAME::_sendmsg,
     &ZCM_TRANS_CLASSNAME::_recvmsgEnable,
     &ZCM_TRANS_CLASSNAME::_recvmsg,
-    NULL, // drops
+    &ZCM_TRANS_CLASSNAME::_queryDrops,
     NULL, // update
     &ZCM_TRANS_CLASSNAME::_destroy,
 };

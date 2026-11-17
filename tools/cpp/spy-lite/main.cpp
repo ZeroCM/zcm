@@ -142,6 +142,11 @@ struct SpyInfo
 
         printf("\n");
 
+        // Messages the transport knows it lost (only some transports can tell)
+        uint64_t drops;
+        if (zcm && zcm_query_drops(zcm, &drops) == ZCM_EOK)
+            printf("   Transport drops: %" PRIu64 "\n\n", drops);
+
         if (!prefix_filter.empty() || is_setting_prefix) {
             printf("   Prefix: %s", prefix_filter.c_str());
             if (is_selecting || !is_setting_prefix) printf("\n");
@@ -381,6 +386,8 @@ struct SpyInfo
     mutex mut;
 
     bool showBandwidth;
+
+    zcm_t *zcm = nullptr;
 
     DisplayMode mode = DisplayMode::Overview;
     DisplayMode prev_mode = mode;
@@ -652,6 +659,7 @@ int main(int argc, char *argv[])
                         "-u opt or setting the ZCM_DEFAULT_URL envvar\n");
         return 1;
     }
+    spy.zcm = zcm;
     for (auto channel : args.channels) {
         zcm_subscribe(zcm, channel.c_str(), handler_all_zcm, &spy);
     }
